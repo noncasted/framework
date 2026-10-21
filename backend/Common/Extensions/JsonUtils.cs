@@ -8,6 +8,7 @@ public static class JsonUtils
     {
         Formatting = Formatting.Indented,
         TypeNameHandling = TypeNameHandling.All,
+        SerializationBinder = new MovedTypesBinder(),
     };
 
     private static readonly JsonSerializerSettings _options = Settings;

@@ -34,7 +34,7 @@ public static class JsonStateSettings
             ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor,
             TypeNameAssemblyFormatHandling = TypeNameAssemblyFormatHandling.Simple,
             Formatting = Formatting.None,
-            SerializationBinder = null,
+            SerializationBinder = new MovedTypesBinder(),
         };
     }
 }
