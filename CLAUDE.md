@@ -15,7 +15,7 @@ shared/                 protocol and types used by both the Unity client and the
 client/
   core/                 DI container (+ ContainerGenerator), reactive, lifetimes, scopes, catalogues, editor tools
   flow/                 base of game loop, loaders and mocks (concrete mocks and the startup scene stay in the project)
-  modules/              optional modules: publish, catalogues, network, browser, audio, inputs, backend, ui, ...
+  modules/              optional modules: publish, network, browser, audio, cameras, inputs, backend, ui, ...
   platforms/            platform implementations of modules/publish: web, website, itch, telegram, steam
   packages/             forks of third-party packages (Unity, UniTask, MemoryPack, unity-mcp), see FORK.md in each
 backend/
@@ -78,12 +78,16 @@ tools/scripts/          scripts shared by the projects
 - **ContainerGenerator.** Sources in `client/core/Source~`, the dll in `client/core/Analyzers` (`RoslynAnalyzer`
   label, every platform off). After a change: build it (it copies itself into `Analyzers`) and run
   `ContainerGenerator.Verify`.
+- **Updater.** The global scope calls `AddUpdater(prefab)` (core); delays without coroutines:
+  `updater.RunDelay(lifetime, time)`, ends earlier with the lifetime.
 - **Flow.** The project's startup derives from `StartupEntry`, its mocks from `MockEntry` (`MockSwitcher` runs the mock
   of a scene opened directly); `GameLoopScopeLoader` keeps one game loop scope at a time.
 - **Modules.** Assemblies `Internal.<Module>`, namespaces `Global.<Module>` (the global scope of the game registers
   them). Each has an `Add*` extension of `IScopeBuilder`; prefabs and options come as arguments (the project owns
   the assets and its generated `GlobalPrefabs` / `GlobalAssets`), so the project's global `Construct` calls them:
   - `backend` (`AddBackend`): HTTP get / post / media.
+  - `cameras` (`AddCamera(GlobalCamera prefab)`): camera of the global scope, `ICurrentCamera` (the camera of the
+    scene set by the game), `ICameraUtils`.
   - `audio` (`AddAudio(player, listener)`): pooled sounds with limits, crossfaded music on two sources. The scope
     must have an `IAudioVolume` (the settings of the game implement it). Button sounds are wired by the game.
   - `inputs` (`AddInput(InputOptions, EventSystem prefab)`): input scheme, gamepad by meaning, back / pause.
@@ -98,7 +102,8 @@ tools/scripts/          scripts shared by the projects
   - `network` (`Internal.Network`, namespace `Internal`): see Network client below.
 - **Platforms.** `itch` (`AddItchSaves`: saves in PlayerPrefs), `web` (`AddWebLoadingScreen`, `AddWebSafeArea`,
   `WebShell.UseMobileCheck`; needs `window.loadingScreen` and, for the shell, `TemplateData/web-shell.js` in the
-  WebGL template; register only under `#if UNITY_WEBGL && !UNITY_EDITOR`). Steam and Telegram come with the
+  WebGL template; register only under `#if UNITY_WEBGL && !UNITY_EDITOR`; editor: `Internal.WebGlBuild.Build`,
+  the batchmode build with the active build profile). Steam and Telegram come with the
   migration of peace-data-reborn.
 - **Sessions.** Shared types in `shared/Session` (auth, entities, objects, players, services, latency, entity ids:
   `SharedEntityIds`, range 0 issued by the backend). Backend `backend/Session`: `AddSessionServices(data, options)`

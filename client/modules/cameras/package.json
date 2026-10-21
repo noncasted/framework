@@ -1,0 +1,10 @@
+{
+  "name": "com.noncasted.framework.cameras",
+  "displayName": "Framework Cameras",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "Camera of the global scope and the current camera of the game (namespace Global.Cameras).",
+  "dependencies": {
+    "com.noncasted.framework.core": "0.1.0"
+  }
+}

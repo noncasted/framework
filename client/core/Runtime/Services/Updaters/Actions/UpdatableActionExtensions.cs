@@ -35,6 +35,15 @@ namespace Internal
             return action.Process();
         }
 
+        // Waits the time of the updater: ends earlier with the lifetime, the caller checks it.
+        public static UniTask RunDelay(this IUpdater updater, IReadOnlyLifetime lifetime, float time)
+        {
+            var passed = 0f;
+
+            var action = new UpdatableAction(lifetime, updater, delta => passed += delta, () => passed < time);
+            return action.Process();
+        }
+
         public static UniTask RunUpdateAction(
             this IUpdater updater,
             IReadOnlyLifetime lifetime,
