@@ -45,8 +45,8 @@ public class SessionTickets : ISessionTicketIssuer, ISessionTicketVerifier
         _time = time;
     }
 
-    // A reservation lives 30 s (SessionAdmission.JoinTimeout): the ticket outlives it, so its expiry never
-    // refuses an entry the reservation would allow.
+    // A reservation lives as long as the join timeout of its session (30 s): the ticket outlives it, so its expiry
+    // never refuses an entry the reservation would allow.
     public static readonly TimeSpan Lifetime = TimeSpan.FromSeconds(60);
 
     private const string Version = "v1";
