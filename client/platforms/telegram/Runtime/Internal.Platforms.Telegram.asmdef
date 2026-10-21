@@ -1,0 +1,19 @@
+{
+    "name": "Internal.Platforms.Telegram",
+    "rootNamespace": "",
+    "references": [
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:f039cb8c565843dba6da5b3c1ccde7d6",
+        "GUID:d32d853f569e4775b516e10c277ed383",
+        "GUID:a09dbb40ba9b469fa7136d1066c8672c"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

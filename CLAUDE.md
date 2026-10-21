@@ -83,6 +83,9 @@ tools/scripts/          scripts shared by the projects
   `updater.RunDelay(lifetime, time)`, ends earlier with the lifetime.
 - **Flow.** The project's startup derives from `StartupEntry`, its mocks from `MockEntry` (`MockSwitcher` runs the mock
   of a scene opened directly); `GameLoopScopeLoader` keeps one game loop scope at a time.
+- **`[Inject]` methods** of a type that may be registered from another assembly are `public`: the generator does
+  not see an `internal` method of a foreign assembly and silently does not call it (no diagnostic). Check with
+  `-p:EmitCompilerGeneratedFiles=true` and a grep for `.Construct(` in `*ConstructContainer.g.cs`.
 - **Modules.** Assemblies `Internal.<Module>`, namespaces `Global.<Module>` (the global scope of the game registers
   them). Each has an `Add*` extension of `IScopeBuilder`; prefabs and options come as arguments (the project owns
   the assets and its generated `GlobalPrefabs` / `GlobalAssets`), so the project's global `Construct` calls them:
@@ -93,9 +96,11 @@ tools/scripts/          scripts shared by the projects
     must have an `IAudioVolume` (the settings of the game implement it). Button sounds are wired by the game.
   - `inputs` (`AddInput(InputOptions, EventSystem prefab)`): input scheme, gamepad by meaning, back / pause.
     Controls of a game (aim, sticks, touch layout) are options of the game.
-  - `ui` (`AddUI`, `AddLoadingScreen(prefab)`, `AddScreenSafeArea`): UI state machine and input constraints, design
-    elements and layouts (+ editors), gamepad navigation (the event system prefab needs a `StandaloneInputModule`),
-    safe area, loading screen. Depends on `inputs`.
+  - `ui` (`AddUI`, `AddLoadingScreen(prefab)`, `AddScreenSafeArea`, `AddClientOutdatedNotice(style)`): UI state
+    machine and input constraints, design elements and layouts (+ editors), gamepad navigation (the event system
+    prefab needs a `StandaloneInputModule`), safe area, loading screen, the notice of an outdated client
+    (`IClientOutdatedNotice` of the core, shown by the network on close code 4001; built from code, the game gives
+    the font, texts and colors in `ClientOutdatedNoticeStyle`). Depends on `inputs`.
   - `publish`: platform abstractions (`ISaves`, `IPlatformAuth`, back button, inventory, invites). The project
     composes its publisher from the platforms; registrations under a runtime `if` around another installer are all
     built by the generator, so a platform choice is made with `#if` or inside one installer.
@@ -104,8 +109,9 @@ tools/scripts/          scripts shared by the projects
 - **Platforms.** `itch` (`AddItchSaves`: saves in PlayerPrefs), `web` (`AddWebLoadingScreen`, `AddWebSafeArea`,
   `WebShell.UseMobileCheck`; needs `window.loadingScreen` and, for the shell, `TemplateData/web-shell.js` in the
   WebGL template; register only under `#if UNITY_WEBGL && !UNITY_EDITOR`; editor: `Internal.WebGlBuild.Build`,
-  the batchmode build with the active build profile). Steam and Telegram come with the
-  migration of peace-data-reborn.
+  the batchmode build with the active build profile), `steam` (`AddSteam(SteamOptions)`: app id, Web API identity
+  of the backend auth ticket, the connect key of invites; `#if UNITY_STANDALONE`, needs Steamworks.NET), `telegram`
+  (`AddTelegramAPI(PlatformOptions)`: the bridge to `window.telegramShell` of the Telegram WebGL template, a debug one in the editor; auth and back button are alternatives the game picks).
 - **Sessions.** Shared types in `shared/Session` (auth, entities, objects, players, services, latency, entity ids:
   `SharedEntityIds`, range 0 issued by the backend). Backend `backend/Session`: `AddSessionServices(data, options)`
   builds the container of one session; the game adds its network services (`IService`), commands and logic and

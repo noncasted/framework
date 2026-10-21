@@ -28,7 +28,7 @@ namespace Global.UI
         private Direction2 _direction;
 
         [Inject]
-        internal void Construct(IUpdater updater)
+        public void Construct(IUpdater updater)
         {
             _updater = updater;
         }

@@ -44,7 +44,7 @@ namespace Global.Audio
         private readonly Dictionary<AudioLine, float> _values = new();
 
         [Inject]
-        internal void Construct(IAudioVolume volume, IUpdater updater)
+        public void Construct(IAudioVolume volume, IUpdater updater)
         {
             _volume = volume;
             _updater = updater;

@@ -37,6 +37,18 @@ namespace Global.UI
             return builder;
         }
 
+        // The notice of an outdated client (IClientOutdatedNotice of the network): needs a loading screen in the scope.
+        public static IScopeBuilder AddClientOutdatedNotice(this IScopeBuilder builder, ClientOutdatedNoticeStyle style)
+        {
+            builder.RegisterInstance(style);
+
+            builder.Register<ClientOutdatedNotice>()
+                   .WithScopeLifetime()
+                   .As<IClientOutdatedNotice>();
+
+            return builder;
+        }
+
         // Screen.safeArea: the editor (Device Simulator) and native builds.
         public static IScopeBuilder AddScreenSafeArea(this IScopeBuilder builder)
         {

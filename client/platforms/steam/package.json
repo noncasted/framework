@@ -1,0 +1,11 @@
+{
+  "name": "com.noncasted.framework.platform.steam",
+  "displayName": "Framework Platform Steam",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "Steam: the Steam API of the process, the Web API ticket of the user, the inventory and the invites into a lobby (namespace Global.Publisher.Steam). Needs com.rlabrecque.steamworks.net in the manifest of the project.",
+  "dependencies": {
+    "com.noncasted.framework.core": "0.1.0",
+    "com.noncasted.framework.publish": "0.1.0"
+  }
+}
