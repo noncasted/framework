@@ -11,7 +11,7 @@ namespace Internal
     [NoAutoStaticsCleanup]
     public static class AudioCatalogGenerator
     {
-        public static string GroupsFolder => FrameworkSettings.Content("Runtime/Catalogues/Audio/Groups");
+        public static string GroupsFolder => FrameworkSettings.Content("Runtime/Catalogues/Audio");
 
         private const string GroupPrefix = "Audio_";
         private const string LogTag = "AudioCatalogGenerator";

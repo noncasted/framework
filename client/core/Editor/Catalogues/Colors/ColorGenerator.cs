@@ -9,7 +9,7 @@ namespace Internal
 {
     public static class ColorGenerator
     {
-        public static string GeneratedFolder => FrameworkSettings.Content("Runtime/Catalogues/Colors/Generated");
+        public static string GeneratedFolder => FrameworkSettings.Content("Runtime/Catalogues/Colors");
 
         private const string GeneratedFileName = "Colors.cs";
         private const string LogTag = "ColorGenerator";

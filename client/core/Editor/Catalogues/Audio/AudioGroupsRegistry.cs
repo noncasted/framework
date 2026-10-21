@@ -8,7 +8,7 @@ namespace Internal
     public sealed class AudioGroupsRegistry : CatalogGroupsRegistry
     {
         private AudioGroupsRegistry()
-            : base("AudioGroupsRegistry", FrameworkSettings.Content("Editor/Catalogues/Audio/AudioGroups.json"))
+            : base("AudioGroupsRegistry", FrameworkSettings.Content("Runtime/Catalogues/Audio/AudioGroups.json"))
         {
         }
 

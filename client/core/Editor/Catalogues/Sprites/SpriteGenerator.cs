@@ -10,7 +10,7 @@ namespace Internal
     [NoAutoStaticsCleanup]
     public static class SpriteGenerator
     {
-        public static string GroupsFolder => FrameworkSettings.Content("Runtime/Catalogues/Sprites/Groups");
+        public static string GroupsFolder => FrameworkSettings.Content("Runtime/Catalogues/Sprites");
 
         private const string GroupPrefix = "Sprites_";
 

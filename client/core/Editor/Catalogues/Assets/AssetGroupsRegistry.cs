@@ -11,7 +11,7 @@ namespace Internal
     public sealed class AssetGroupsRegistry : CatalogGroupsRegistry
     {
         private AssetGroupsRegistry()
-            : base("AssetGroupsRegistry", FrameworkSettings.Content("Editor/Catalogues/Assets/AssetGroups.json"))
+            : base("AssetGroupsRegistry", FrameworkSettings.Content("Runtime/Catalogues/Assets/AssetGroups.json"))
         {
         }
 

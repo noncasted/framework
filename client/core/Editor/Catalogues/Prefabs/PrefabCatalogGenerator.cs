@@ -11,7 +11,7 @@ namespace Internal
     [NoAutoStaticsCleanup]
     public static class PrefabCatalogGenerator
     {
-        public static string GroupsFolder => FrameworkSettings.Content("Runtime/Catalogues/Prefabs/Groups");
+        public static string GroupsFolder => FrameworkSettings.Content("Runtime/Catalogues/Prefabs");
 
         // Assets of non-Addressables groups: Resources.Load finds them by their path inside Resources.
         private const string ResourcesSubfolder = "PrefabGroups";

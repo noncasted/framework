@@ -8,7 +8,7 @@ namespace Internal
 {
     public static class PrefabsCatalogClassGenerator
     {
-        public static string InternalGeneratedFolder => FrameworkSettings.Content("Runtime/Catalogues/Prefabs/Generated");
+        public static string InternalGeneratedFolder => FrameworkSettings.Content("Runtime/Catalogues/Prefabs");
 
         // Catalog classes share the Generated folder with other generators, so our own files
         // are recognized by the name suffix.

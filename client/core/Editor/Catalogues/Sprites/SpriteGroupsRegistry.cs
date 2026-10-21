@@ -18,7 +18,7 @@ namespace Internal
         };
 
         private SpriteGroupsRegistry()
-            : base("SpriteGroupsRegistry", FrameworkSettings.Content("Editor/Catalogues/Sprites/SpriteGroups.json"))
+            : base("SpriteGroupsRegistry", FrameworkSettings.Content("Runtime/Catalogues/Sprites/SpriteGroups.json"))
         {
         }
 

@@ -11,7 +11,7 @@ namespace Internal
     [NoAutoStaticsCleanup]
     public static class AssetCatalogGenerator
     {
-        public static string GroupsFolder => FrameworkSettings.Content("Runtime/Catalogues/Assets/Groups");
+        public static string GroupsFolder => FrameworkSettings.Content("Runtime/Catalogues/Assets");
 
         // Assets of non-Addressables groups: Resources.Load finds them by their path inside Resources.
         private const string ResourcesSubfolder = "AssetGroups";

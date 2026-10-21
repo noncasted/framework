@@ -6,7 +6,7 @@ namespace Internal
 {
     public static class AudioCatalogClassGenerator
     {
-        public static string GeneratedFolder => FrameworkSettings.Content("Runtime/Catalogues/Audio/Generated");
+        public static string GeneratedFolder => FrameworkSettings.Content("Runtime/Catalogues/Audio");
 
         // Clips are UnityEngine types, so the classes of all groups live in Internal rather than in module assemblies.
         private const string OwnedSuffix = "Audio.cs";

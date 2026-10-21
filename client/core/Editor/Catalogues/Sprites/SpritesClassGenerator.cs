@@ -7,7 +7,7 @@ namespace Internal
 {
     public static class SpritesClassGenerator
     {
-        public static string GeneratedFolder => FrameworkSettings.Content("Runtime/Catalogues/Sprites/Generated");
+        public static string GeneratedFolder => FrameworkSettings.Content("Runtime/Catalogues/Sprites");
 
         private const string LogTag = "SpritesClassGenerator";
 

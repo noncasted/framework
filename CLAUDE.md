@@ -68,7 +68,8 @@ tools/scripts/          scripts shared by the projects
 - **Client core.** Assemblies `Internal`, `Internal.Editor`, `Internal.Tests` (namespace `Internal`, asmdef GUIDs of
   the projects kept). The project owns the content assembly (`FrameworkSettings.ContentAssembly`, by default
   `Internal.Content` in `Assets/Common/Internal`): generated catalogues (`InternalAssets`, `Sprites`, audio, colors,
-  `Scenes`), catalogue groups and their json lists, the `OptionsContainer` asset, the container asset map
+  `Scenes`), catalogue groups and their json lists (one folder per kind, `Runtime/Catalogues/<Kind>`: the json list,
+  the group assets and the generated classes together), the `OptionsContainer` asset, the container asset map
   (`ContainerGraph.AssetMap.cs`), the startup preload and the root scope (`InternalScopeExtensions.Construct`, loaded
   with `RootScopeExtensions.LoadRoot`). Every project asmdef that references `Internal` references the content
   assembly too. Keys of the game's local storage live in the game (`LocalStorageKeys.Get(name)`).

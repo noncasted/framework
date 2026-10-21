@@ -11,7 +11,7 @@ namespace Internal
     public sealed class PrefabGroupsRegistry : CatalogGroupsRegistry
     {
         private PrefabGroupsRegistry()
-            : base("PrefabGroupsRegistry", FrameworkSettings.Content("Editor/Catalogues/Prefabs/PrefabGroups.json"))
+            : base("PrefabGroupsRegistry", FrameworkSettings.Content("Runtime/Catalogues/Prefabs/PrefabGroups.json"))
         {
         }
 
