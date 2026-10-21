@@ -1,0 +1,11 @@
+{
+  "name": "com.noncasted.framework.platform.web",
+  "displayName": "Framework Platform Web",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "WebGL build over its template: loading screen of index.html, safe area and mobile check of web-shell.js (namespace Global.Web).",
+  "dependencies": {
+    "com.noncasted.framework.core": "0.1.0",
+    "com.noncasted.framework.ui": "0.1.0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "com.noncasted.framework.backend",
+  "displayName": "Framework Backend",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "HTTP requests to the backend: get, post, media (namespace Global.Backend).",
+  "dependencies": {
+    "com.noncasted.framework.core": "0.1.0"
+  }
+}

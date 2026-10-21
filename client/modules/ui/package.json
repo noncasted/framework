@@ -1,0 +1,11 @@
+{
+  "name": "com.noncasted.framework.ui",
+  "displayName": "Framework UI",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "UI state machine and input constraints, design elements and layouts, gamepad navigation, safe area, loading screen (namespace Global.UI).",
+  "dependencies": {
+    "com.noncasted.framework.core": "0.1.0",
+    "com.noncasted.framework.inputs": "0.1.0"
+  }
+}

@@ -1,0 +1,25 @@
+using Internal;
+
+namespace Global.Backend
+{
+    public static class BackendExtensions
+    {
+        // HTTP requests to the backend (BackendOptions of the root scope).
+        public static IScopeBuilder AddBackend(this IScopeBuilder builder)
+        {
+            builder.Register<BackendGet>()
+                   .As<IBackendGet>();
+
+            builder.Register<BackendMedia>()
+                   .As<IBackendMedia>();
+
+            builder.Register<BackendPost>()
+                   .As<IBackendPost>();
+
+            builder.Register<BackendClient>()
+                   .As<IBackendClient>();
+
+            return builder;
+        }
+    }
+}

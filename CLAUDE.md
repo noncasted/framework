@@ -75,7 +75,25 @@ tools/scripts/          scripts shared by the projects
   `ContainerGenerator.Verify`.
 - **Flow.** The project's startup derives from `StartupEntry`, its mocks from `MockEntry` (`MockSwitcher` runs the mock
   of a scene opened directly); `GameLoopScopeLoader` keeps one game loop scope at a time.
-- **Modules.** `browser` (`Internal.Browser`): fullscreen, leave confirmation, reload and clipboard of a web page.
+- **Modules.** Assemblies `Internal.<Module>`, namespaces `Global.<Module>` (the global scope of the game registers
+  them). Each has an `Add*` extension of `IScopeBuilder`; prefabs and options come as arguments (the project owns
+  the assets and its generated `GlobalPrefabs` / `GlobalAssets`), so the project's global `Construct` calls them:
+  - `backend` (`AddBackend`): HTTP get / post / media.
+  - `audio` (`AddAudio(player, listener)`): pooled sounds with limits, crossfaded music on two sources. The scope
+    must have an `IAudioVolume` (the settings of the game implement it). Button sounds are wired by the game.
+  - `inputs` (`AddInput(InputOptions, EventSystem prefab)`): input scheme, gamepad by meaning, back / pause.
+    Controls of a game (aim, sticks, touch layout) are options of the game.
+  - `ui` (`AddUI`, `AddLoadingScreen(prefab)`, `AddScreenSafeArea`): UI state machine and input constraints, design
+    elements and layouts (+ editors), gamepad navigation (the event system prefab needs a `StandaloneInputModule`),
+    safe area, loading screen. Depends on `inputs`.
+  - `publish`: platform abstractions (`ISaves`, `IPlatformAuth`, back button, inventory, invites). The project
+    composes its publisher from the platforms; registrations under a runtime `if` around another installer are all
+    built by the generator, so a platform choice is made with `#if` or inside one installer.
+  - `browser` (`Internal.Browser`): fullscreen, leave confirmation, reload and clipboard of a web page.
+- **Platforms.** `itch` (`AddItchSaves`: saves in PlayerPrefs), `web` (`AddWebLoadingScreen`, `AddWebSafeArea`,
+  `WebShell.UseMobileCheck`; needs `window.loadingScreen` and, for the shell, `TemplateData/web-shell.js` in the
+  WebGL template; register only under `#if UNITY_WEBGL && !UNITY_EDITOR`). Steam and Telegram come with the
+  migration of peace-data-reborn.
 - **Package versions.** `Directory.Packages.props` here; the project's `Directory.Packages.props` imports it.
 
 ## Tests

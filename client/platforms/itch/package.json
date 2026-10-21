@@ -1,0 +1,11 @@
+{
+  "name": "com.noncasted.framework.platform.itch",
+  "displayName": "Framework Platform Itch",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "itch.io and the own website: saves in PlayerPrefs (namespace Global.Publisher.Itch).",
+  "dependencies": {
+    "com.noncasted.framework.core": "0.1.0",
+    "com.noncasted.framework.publish": "0.1.0"
+  }
+}

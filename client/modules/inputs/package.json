@@ -1,0 +1,10 @@
+{
+  "name": "com.noncasted.framework.inputs",
+  "displayName": "Framework Inputs",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "Input schemes (keyboard and mouse, gamepad, touch), the gamepad by meaning, back / pause input (namespace Global.Inputs).",
+  "dependencies": {
+    "com.noncasted.framework.core": "0.1.0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "com.noncasted.framework.publish",
+  "displayName": "Framework Publish",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "Abstractions of the platform the game is published on: saves, auth, back button, inventory, invites (namespace Global.Publisher).",
+  "dependencies": {
+    "com.noncasted.framework.core": "0.1.0"
+  }
+}

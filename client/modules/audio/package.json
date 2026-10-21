@@ -1,0 +1,10 @@
+{
+  "name": "com.noncasted.framework.audio",
+  "displayName": "Framework Audio",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "Audio player of the global scope: pooled sounds with limits, crossfaded music, volumes from the game (namespace Global.Audio).",
+  "dependencies": {
+    "com.noncasted.framework.core": "0.1.0"
+  }
+}
