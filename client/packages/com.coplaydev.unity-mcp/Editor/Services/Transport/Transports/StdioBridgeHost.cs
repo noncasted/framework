@@ -743,7 +743,11 @@ namespace MCPForUnity.Editor.Services.Transport.Transports
                                 msg.IndexOf("Connection closed before reading expected bytes", StringComparison.OrdinalIgnoreCase) >= 0
                                 || msg.IndexOf("Read timed out", StringComparison.OrdinalIgnoreCase) >= 0
                                 || ex is IOException
-                                || ex is ObjectDisposedException;
+                                || ex is ObjectDisposedException
+                                // Local patch: the bridge stops (domain reload, quit) by cancelling the token. On the
+                                // CoreCLR editor the pending socket read honours it and throws this instead of the
+                                // IOException / ObjectDisposedException Mono gave: a normal shutdown, not an error.
+                                || (ex is OperationCanceledException && token.IsCancellationRequested);
                             if (isBenign)
                             {
                                 if (IsDebugEnabled()) McpLog.Info($"Client handler: {msg}", always: false);

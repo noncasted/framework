@@ -790,7 +790,10 @@ namespace MCPForUnity.Editor.Tools
                 treeArray.SetValue(syntaxTree, 0);
 
                 // Create compilation
-                var compilation = _createCompilation.Invoke(null, new object[] { "MCPDynamic", treeArray, refs, _compilationOptions });
+                // Local patch: the CoreCLR editor refuses to load a second assembly with the same name
+                // ("Assembly with same name is already loaded"), so every compile gets its own name.
+                var assemblyName = $"MCPDynamic_{Guid.NewGuid():N}";
+                var compilation = _createCompilation.Invoke(null, new object[] { assemblyName, treeArray, refs, _compilationOptions });
 
                 // Emit to memory
                 using (var ms = new MemoryStream())
