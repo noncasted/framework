@@ -20,6 +20,7 @@ client/
   packages/             forks of third-party packages (Unity, UniTask, MemoryPack, unity-mcp), see FORK.md in each
 backend/
   Common/ Infrastructure/ Cluster/ Console/
+  Session/              real-time game sessions (assembly Framework.Session, namespace Game.Session)
 tools/scripts/          scripts shared by the projects
 ```
 
@@ -49,7 +50,11 @@ tools/scripts/          scripts shared by the projects
   (`[MemoryPackUnionFormatter(typeof(INetworkContext))] partial class NetworkContextUnion`) with the framework tags
   (`NetworkContextTags`, 0-249) and its own (1000+), and registers it on start (backend: `NetworkProtocol.Register()`
   in the service defaults, Unity: on load). Members of type `INetworkContext` are `[MemoryPackAllowSerialize]`.
-  The protocol hash belongs to the project (`ClientProtocolCheck.IsCurrent(context, hash)`).
+  The protocol hash belongs to the project (`ClientProtocolCheck.IsCurrent(context, hash)`). A project with real-time
+  sessions lists the session tags too (`NetworkContextTags.Session*`, `Entity*`, `Object*`, `Player*`, `Service*`,
+  `Latency*`) and declares the unions over the payload interfaces of `shared/Session` the same way
+  (`[MemoryPackUnionFormatter(typeof(IEntityPayload))] partial class EntityPayloadUnion`, also `IEventPayload`,
+  `IStatePayload` when used), registered together with `NetworkContextUnion`.
 - **Persisted type names.** States are stored with `$type`; `MovedTypesBinder` finds a type moved to another
   assembly by its full name, so keep namespaces when moving persisted types between the framework and a project.
 - **Cluster.** Service roles are strings: the project declares its `ServiceTag`s and the required set
@@ -90,10 +95,26 @@ tools/scripts/          scripts shared by the projects
     composes its publisher from the platforms; registrations under a runtime `if` around another installer are all
     built by the generator, so a platform choice is made with `#if` or inside one installer.
   - `browser` (`Internal.Browser`): fullscreen, leave confirmation, reload and clipboard of a web page.
+  - `network` (`Internal.Network`, namespace `Internal`): see Network client below.
 - **Platforms.** `itch` (`AddItchSaves`: saves in PlayerPrefs), `web` (`AddWebLoadingScreen`, `AddWebSafeArea`,
   `WebShell.UseMobileCheck`; needs `window.loadingScreen` and, for the shell, `TemplateData/web-shell.js` in the
   WebGL template; register only under `#if UNITY_WEBGL && !UNITY_EDITOR`). Steam and Telegram come with the
   migration of peace-data-reborn.
+- **Sessions.** Shared types in `shared/Session` (auth, entities, objects, players, services, latency, entity ids:
+  `SharedEntityIds`, range 0 issued by the backend). Backend `backend/Session`: `AddSessionServices(data, options)`
+  builds the container of one session; the game adds its network services (`IService`), commands and logic and
+  registers an `ILoggerFactory`. `SessionCreateOptions`: type, expected users (bots included), places (`MaxUsers`,
+  bots take none), `JoinTimeout`, `ReconnectWindow` (zero - a lost connection is a leave; otherwise the seat waits
+  and the others get `RemoteAway`). `IUser.Id` is the id of the user in this session (sent to the clients),
+  `IUser.BackendId` the meta id (never sent). Bots: `IUserFactory.CreateBot`. Entities built by the backend:
+  `IEntityFactory.Create(seat)`. Users and seats are created in the execution queue of the session only. Hosting
+  (factory, gateway, search, lobbies) stays in the game.
+- **Network client.** Module `network` (`Internal.Network`, namespace `Internal`): the root scope calls
+  `AddNetwork(NetworkOptions, ProtocolHash.Value)` (the options asset belongs to the project), connections come
+  with `AddNetworkConnection` / `AddSessionServices`. Entities of the local user with a backend id come to
+  `ListenRemote`, the ones its client created before a reconnect to `ListenRestored`. Also the offline local server
+  (`offline://` urls, `ILocalServers`), latency monitor and watchdog (the backend answers `Ping`), and
+  `RemoteStateMachine`.
 - **Package versions.** `Directory.Packages.props` here; the project's `Directory.Packages.props` imports it.
 
 ## Tests

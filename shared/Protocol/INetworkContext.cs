@@ -29,6 +29,36 @@
         public const ushort EmptyResponse = 0;
         public const ushort ErrorResponse = 1;
 
+        // Session (Session/*): a project with real-time sessions lists all of them in its union.
+        public const ushort SessionAuthRequest = 10;
+        public const ushort SessionAuthResponse = 11;
+
+        public const ushort EntityCreateRequest = 20;
+        public const ushort EntityCreateResponse = 21;
+        public const ushort EntityCreatedOverview = 22;
+        public const ushort EntityDestroy = 23;
+        public const ushort EntityDestroyUpdate = 24;
+
+        public const ushort ObjectSetProperty = 30;
+        public const ushort ObjectPropertyUpdate = 31;
+        public const ushort ObjectEvent = 32;
+        public const ushort ObjectSetProperties = 33;
+
+        public const ushort PlayerLocalUpdate = 40;
+        public const ushort PlayerRemoteUpdate = 41;
+        public const ushort PlayerRemoteDisconnect = 42;
+        public const ushort PlayerRemoteAway = 43;
+        public const ushort PlayerLeave = 44;
+
+        public const ushort ServiceGetRequest = 50;
+        public const ushort ServiceGetResponse = 51;
+        public const ushort ServiceOverview = 52;
+
+        public const ushort LatencyPing = 60;
+        public const ushort LatencyPong = 61;
+        public const ushort LatencyPeerProbe = 62;
+        public const ushort LatencyPeerEcho = 63;
+
         public const ushort GameFirst = 1000;
     }
 }

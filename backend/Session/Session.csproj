@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!-- Real-time game sessions: users and their seats, entities, services, properties, commands over a WebSocket.
+         Hosting (the session factory, the gateway, the search) stays in the game. -->
+    <PropertyGroup>
+        <AssemblyName>Framework.Session</AssemblyName>
+        <RootNamespace>Game.Session</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\shared\framework.shared.csproj"/>
+        <ProjectReference Include="..\Common\Common.csproj"/>
+    </ItemGroup>
+
+</Project>
