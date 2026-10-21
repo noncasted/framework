@@ -1,6 +1,8 @@
 <HomeSection Title="Infrastructure">
-    @* Cards of the project (benchmarks, its own infrastructure pages) come first. *@
-    @ChildContent
+    @foreach (var card in ProjectCards)
+    {
+        <HomeNavCard Icon="@card.Icon" Title="@card.Title" Description="@card.Description" Target="@card.Target" />
+    }
 
     <HomeNavCard
         Icon="server"
@@ -52,5 +54,6 @@
 </HomeSection>
 
 @code {
-    [Parameter] public RenderFragment? ChildContent { get; set; }
+    // Cards of the project (AddConsoleInfrastructureCard) come first.
+    [Inject] public IEnumerable<ConsoleInfrastructureCard> ProjectCards { get; set; } = null!;
 }
