@@ -1,0 +1,7 @@
+<Solution>
+    <Project Path="shared/framework.shared.csproj" />
+    <Folder Name="/backend/">
+        <Project Path="backend/Common/Common.csproj" />
+        <Project Path="backend/Infrastructure/Infrastructure.csproj" />
+    </Folder>
+</Solution>

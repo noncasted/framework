@@ -1,0 +1,10 @@
+{
+  "name": "com.noncasted.framework.shared",
+  "displayName": "Framework Shared",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "Wire protocol types shared by the Unity client and the backend (namespace Shared).",
+  "dependencies": {
+    "com.cysharp.memorypack": "1.21.4"
+  }
+}
