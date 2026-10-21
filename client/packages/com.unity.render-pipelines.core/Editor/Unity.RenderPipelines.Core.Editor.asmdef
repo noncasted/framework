@@ -33,11 +33,6 @@
             "define": "HAS_TEST_FRAMEWORK"
         },
         {
-            "name": "com.unity.modules.physics",
-            "expression": "1.0.0",
-            "define": "ENABLE_PHYSICS_MODULE"
-        },
-        {
             "name": "com.unity.modules.uielements",
             "expression": "1.0.0",
             "define": "ENABLE_UIELEMENTS_MODULE"
