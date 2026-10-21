@@ -1,8 +1,4 @@
-﻿using MemoryPack.Formatters;
-using System.Collections;
-using System.Globalization;
-using System.Text;
-using System.Numerics;
+using MemoryPack.Formatters;
 
 namespace MemoryPack;
 
@@ -67,30 +63,6 @@ public static partial class MemoryPackFormatterProvider
         Register(new UnmanagedFormatter<Guid>());
         Register(new UnmanagedArrayFormatter<Guid>());
         Register(new NullableFormatter<Guid>());
-        Register(new UnmanagedFormatter<Complex>());
-        Register(new UnmanagedArrayFormatter<Complex>());
-        Register(new NullableFormatter<Complex>());
-        Register(new UnmanagedFormatter<Plane>());
-        Register(new UnmanagedArrayFormatter<Plane>());
-        Register(new NullableFormatter<Plane>());
-        Register(new UnmanagedFormatter<Quaternion>());
-        Register(new UnmanagedArrayFormatter<Quaternion>());
-        Register(new NullableFormatter<Quaternion>());
-        Register(new UnmanagedFormatter<Matrix3x2>());
-        Register(new UnmanagedArrayFormatter<Matrix3x2>());
-        Register(new NullableFormatter<Matrix3x2>());
-        Register(new UnmanagedFormatter<Matrix4x4>());
-        Register(new UnmanagedArrayFormatter<Matrix4x4>());
-        Register(new NullableFormatter<Matrix4x4>());
-        Register(new UnmanagedFormatter<Vector2>());
-        Register(new UnmanagedArrayFormatter<Vector2>());
-        Register(new NullableFormatter<Vector2>());
-        Register(new UnmanagedFormatter<Vector3>());
-        Register(new UnmanagedArrayFormatter<Vector3>());
-        Register(new NullableFormatter<Vector3>());
-        Register(new UnmanagedFormatter<Vector4>());
-        Register(new UnmanagedArrayFormatter<Vector4>());
-        Register(new NullableFormatter<Vector4>());
 #if NET7_0_OR_GREATER
         Register(new UnmanagedFormatter<Rune>());
         Register(new UnmanagedArrayFormatter<Rune>());
@@ -113,21 +85,5 @@ public static partial class MemoryPackFormatterProvider
 #endif
         Register(new StringFormatter());
         Register(new ArrayFormatter<String>());
-        Register(new VersionFormatter());
-        Register(new ArrayFormatter<Version>());
-        Register(new UriFormatter());
-        Register(new ArrayFormatter<Uri>());
-        Register(new TimeZoneInfoFormatter());
-        Register(new ArrayFormatter<TimeZoneInfo>());
-        Register(new BigIntegerFormatter());
-        Register(new ArrayFormatter<BigInteger>());
-        Register(new BitArrayFormatter());
-        Register(new ArrayFormatter<BitArray>());
-        Register(new StringBuilderFormatter());
-        Register(new ArrayFormatter<StringBuilder>());
-        Register(new TypeFormatter());
-        Register(new ArrayFormatter<Type>());
-        Register(new CultureInfoFormatter());
-        Register(new ArrayFormatter<CultureInfo>());
     }
 }

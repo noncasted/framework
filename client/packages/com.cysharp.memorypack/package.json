@@ -1,0 +1,7 @@
+{
+  "name": "com.cysharp.memorypack",
+  "displayName": "MemoryPack (trimmed)",
+  "version": "1.21.4",
+  "unity": "7000.0",
+  "description": "MemoryPack.Core 1.21.4 without formatters the protocol does not use, plus the MemoryPack source generator. See FORK.md."
+}

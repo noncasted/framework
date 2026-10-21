@@ -1,4 +1,4 @@
-﻿using MemoryPack.Formatters;
+using MemoryPack.Formatters;
 using MemoryPack.Internal;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -25,10 +25,9 @@ public static partial class MemoryPackFormatterProvider
     static readonly ConcurrentDictionary<Type, Type> genericCollectionFormatterFactory = new ConcurrentDictionary<Type, Type>();
 
     // generics known types
-    static readonly Dictionary<Type, Type> KnownGenericTypeFormatters = new Dictionary<Type, Type>(3)
+    static readonly Dictionary<Type, Type> KnownGenericTypeFormatters = new Dictionary<Type, Type>(2)
     {
         { typeof(KeyValuePair<,>), typeof(KeyValuePairFormatter<,>) },
-        { typeof(Lazy<>), typeof(LazyFormatter<>) },
         { typeof(Nullable<>), typeof(NullableFormatter<>) },
     };
 
@@ -260,21 +259,7 @@ public static partial class MemoryPackFormatterProvider
             }
             else
             {
-                var rank = type.GetArrayRank();
-                switch (rank)
-                {
-                    case 2:
-                        formatterType = typeof(TwoDimensionalArrayFormatter<>).MakeGenericType(type.GetElementType()!);
-                        goto CREATE;
-                    case 3:
-                        formatterType = typeof(ThreeDimensionalArrayFormatter<>).MakeGenericType(type.GetElementType()!);
-                        goto CREATE;
-                    case 4:
-                        formatterType = typeof(FourDimensionalArrayFormatter<>).MakeGenericType(type.GetElementType()!);
-                        goto CREATE;
-                    default:
-                        return null; // not supported
-                }
+                return null; // multi-dimensional arrays are not supported in this build
             }
         }
 
@@ -284,9 +269,6 @@ public static partial class MemoryPackFormatterProvider
             goto CREATE;
         }
 
-        formatterType = TryCreateGenericFormatterType(type, TupleFormatterTypes.TupleFormatters);
-        if (formatterType != null) goto CREATE;
-
         formatterType = TryCreateGenericFormatterType(type, KnownGenericTypeFormatters);
         if (formatterType != null) goto CREATE;
 
@@ -295,16 +277,6 @@ public static partial class MemoryPackFormatterProvider
 
         formatterType = TryCreateGenericFormatterType(type, CollectionFormatters);
         if (formatterType != null) goto CREATE;
-
-#if !UNITY_2021_2_OR_NEWER
-        formatterType = TryCreateGenericFormatterType(type, ImmutableCollectionFormatters);
-        if (formatterType != null) goto CREATE;
-#endif
-
-#if NET8_0_OR_GREATER
-        formatterType = TryCreateGenericFormatterType(type, FrozenCollectionFormatters);
-        if (formatterType != null) goto CREATE;
-#endif
 
         formatterType = TryCreateGenericFormatterType(type, InterfaceCollectionFormatters);
         if (formatterType != null) goto CREATE;
