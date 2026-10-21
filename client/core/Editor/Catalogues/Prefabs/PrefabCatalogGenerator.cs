@@ -15,7 +15,7 @@ namespace Internal
 
         // Assets of non-Addressables groups: Resources.Load finds them by their path inside Resources.
         private const string ResourcesSubfolder = "PrefabGroups";
-        private const string ResourcesFolder = GroupsFolder + "/Resources/" + ResourcesSubfolder;
+        private static string ResourcesFolder => GroupsFolder + "/Resources/" + ResourcesSubfolder;
 
         private const string GroupPrefix = "Prefabs_";
 

@@ -13,11 +13,11 @@ Every project consumes this repository as a git submodule at `<project>/tools/fr
 ```
 shared/                 protocol and types used by both the Unity client and the backend
 client/
-  core/                 DI container (+ ContainerGenerator), reactive, lifetimes, scopes, common tools
+  core/                 DI container (+ ContainerGenerator), reactive, lifetimes, scopes, catalogues, editor tools
   flow/                 base of game loop, loaders and mocks (concrete mocks and the startup scene stay in the project)
   modules/              optional modules: publish, catalogues, network, browser, audio, inputs, backend, ui, ...
   platforms/            platform implementations of modules/publish: web, website, itch, telegram, steam
-  packages/             forks of third-party packages (Unity, MemoryPack, unity-mcp), see FORK.md in each
+  packages/             forks of third-party packages (Unity, UniTask, MemoryPack, unity-mcp), see FORK.md in each
 backend/
   Common/ Infrastructure/ Cluster/ Console/
 tools/scripts/          scripts shared by the projects
@@ -60,6 +60,22 @@ tools/scripts/          scripts shared by the projects
   assemblies to the router), sets role icons (`ServiceRoleIcons`), registers game flags (`AddConsoleGameFlag`) and
   extra infrastructure cards (`AddConsoleInfrastructureCard`), and adds `tools/framework/backend/Console` to the
   Tailwind content paths.
+- **Client core.** Assemblies `Internal`, `Internal.Editor`, `Internal.Tests` (namespace `Internal`, asmdef GUIDs of
+  the projects kept). The project owns the content assembly (`FrameworkSettings.ContentAssembly`, by default
+  `Internal.Content` in `Assets/Common/Internal`): generated catalogues (`InternalAssets`, `Sprites`, audio, colors,
+  `Scenes`), catalogue groups and their json lists, the `OptionsContainer` asset, the container asset map
+  (`ContainerGraph.AssetMap.cs`), the startup preload and the root scope (`InternalScopeExtensions.Construct`, loaded
+  with `RootScopeExtensions.LoadRoot`). Every project asmdef that references `Internal` references the content
+  assembly too. Keys of the game's local storage live in the game (`LocalStorageKeys.Get(name)`).
+- **Project layout for the editor tools.** `ProjectSettings/Framework.json` (`FrameworkSettings`): content folder and
+  assembly, module roots, scene folders, art and audio folders, favorite scenes, phases of the shared addressable
+  groups, player assemblies to strip. Editor assets of the framework are loaded from `FrameworkSettings.Package(...)`.
+- **ContainerGenerator.** Sources in `client/core/Source~`, the dll in `client/core/Analyzers` (`RoslynAnalyzer`
+  label, every platform off). After a change: build it (it copies itself into `Analyzers`) and run
+  `ContainerGenerator.Verify`.
+- **Flow.** The project's startup derives from `StartupEntry`, its mocks from `MockEntry` (`MockSwitcher` runs the mock
+  of a scene opened directly); `GameLoopScopeLoader` keeps one game loop scope at a time.
+- **Modules.** `browser` (`Internal.Browser`): fullscreen, leave confirmation, reload and clipboard of a web page.
 - **Package versions.** `Directory.Packages.props` here; the project's `Directory.Packages.props` imports it.
 
 ## Tests

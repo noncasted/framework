@@ -1,0 +1,8 @@
+{
+  "name": "com.noncasted.framework.browser",
+  "displayName": "Framework Browser",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "The browser page around a web build: fullscreen, leave confirmation, reload, clipboard (namespace Internal).",
+  "dependencies": {}
+}
