@@ -43,6 +43,31 @@ tools/scripts/          scripts shared by the projects
 8. **A change here affects every project.** After a change, build at least the project you are working in; mention in
    the commit message when a change is breaking (`BREAKING:`).
 
+## Extension points
+
+- **Protocol.** `INetworkContext` is a plain interface; the project declares the union
+  (`[MemoryPackUnionFormatter(typeof(INetworkContext))] partial class NetworkContextUnion`) with the framework tags
+  (`NetworkContextTags`, 0-249) and its own (1000+), and registers it on start (backend: `NetworkProtocol.Register()`
+  in the service defaults, Unity: on load). Members of type `INetworkContext` are `[MemoryPackAllowSerialize]`.
+  The protocol hash belongs to the project (`ClientProtocolCheck.IsCurrent(context, hash)`).
+- **Persisted type names.** States are stored with `$type`; `MovedTypesBinder` finds a type moved to another
+  assembly by its full name, so keep namespaces when moving persisted types between the framework and a project.
+- **Cluster.** Service roles are strings: the project declares its `ServiceTag`s and the required set
+  (`ConfigureRequiredServices`); a game server calls `PublishGameServerUrl`. Game configs: `AddAddressableState` +
+  an `ICoordinatorSetupCompleted` with `ConfigsInitializer.Init`. Game switches: `IClusterFeatures.SetGameFlag` /
+  `IsGameFlagEnabled`.
+- **Console.** A Razor class library: the project keeps its home page and game pages in its own assembly (add both
+  assemblies to the router), sets role icons (`ServiceRoleIcons`), registers game flags (`AddConsoleGameFlag`) and
+  extra infrastructure cards (`AddConsoleInfrastructureCard`), and adds `tools/framework/backend/Console` to the
+  Tailwind content paths.
+- **Package versions.** `Directory.Packages.props` here; the project's `Directory.Packages.props` imports it.
+
+## Tests
+
+`dotnet build framework.slnx`, then `.build/bin/Tests/Debug/net10.0/Framework.Tests` (xunit v3, Microsoft Testing
+Platform: run the executable, `dotnet test` refuses on the .NET 10 SDK). The projects keep their own tests of the
+framework code until they move here.
+
 ## Working from a project
 
 The submodule is a normal git repository: commit and push inside `tools/framework`, then commit the new submodule
