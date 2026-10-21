@@ -66,10 +66,8 @@ namespace UnityEditor.AddressableAssets.Build.DataBuilders
             if (!addDefines)
                 return;
 
-            if (builderInput.DevelopmentBuild)
-            {
-                 ScriptOptions |= ScriptCompilationOptions.DevelopmentBuild;
-            }
+            // Local patch: ScriptCompilationOptions.DevelopmentBuild is not set - the flag is obsolete as an error on the
+            // 7000.0.0a9 editor and has no effect on script compilation.
             if (builderInput.ExtraScriptingDefines != null)
             {
                 m_ExtraScriptingDefines = StripEditorScriptingDefines(builderInput.ExtraScriptingDefines);
