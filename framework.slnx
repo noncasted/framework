@@ -1,7 +1,9 @@
 <Solution>
     <Project Path="shared/framework.shared.csproj" />
     <Folder Name="/backend/">
+        <Project Path="backend/Cluster/Cluster.csproj" />
         <Project Path="backend/Common/Common.csproj" />
+        <Project Path="backend/Console/Console.csproj" />
         <Project Path="backend/Infrastructure/Infrastructure.csproj" />
         <Project Path="backend/Tests/Tests.csproj" />
     </Folder>
