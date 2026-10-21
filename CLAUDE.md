@@ -18,6 +18,10 @@ client/
   modules/              optional modules: publish, network, browser, audio, cameras, inputs, backend, ui, ...
   platforms/            platform implementations of modules/publish: web, website, itch, telegram, steam
   packages/             forks of third-party packages (Unity, UniTask, MemoryPack, unity-mcp), see FORK.md in each
+  project/              Unity project with every package above (file:), to browse the code in Rider and compile the
+                        framework without a game; Library and the generated sln/csproj stay local. Solution:
+                        Unity -batchmode -projectPath client/project -executeMethod
+                        Packages.Rider.Editor.RiderScriptEditor.SyncSolution -quit
 backend/
   Common/ Infrastructure/ Cluster/ Console/
   Session/              real-time game sessions (assembly Framework.Session, namespace Game.Session)

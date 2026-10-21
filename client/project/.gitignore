@@ -1,0 +1,9 @@
+# Unity project for browsing and compiling the framework packages; generated data stays local.
+/[Ll]ibrary/
+/[Tt]emp/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Oo]bj/
+*.csproj
+*.sln
+*.slnx
