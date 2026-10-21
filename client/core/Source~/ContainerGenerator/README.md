@@ -47,7 +47,7 @@ through `InternalsVisibleTo`.
    assemblies read them to resolve installers and parent scopes from other assemblies.
 4. **Entity assets** (`Entity/`). Prefab views and their bindings come from
    `[assembly: Internal.ContainerGraphAsset(...)]` in
-   `<content folder>/Runtime/Tools/Container/Generated/ContainerGraph.AssetMap.cs` of the project (`FrameworkSettings`), written by the editor
+   `<content folder>/Runtime/Tools/Container/ContainerGraph.AssetMap.cs` of the project (`FrameworkSettings`), written by the editor
    `ContainerGraphPostprocessor` (also scene services of `SceneServicesFactory`).
 5. **Resolve** (`Scope/EdgeResolver`, `Scope/ScopePlan`). Binds every constructor / `[Inject]` parameter to a
    registration, a parent export (typed hole), a collection, or a builder parameter; reports CINGR diagnostics.

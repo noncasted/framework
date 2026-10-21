@@ -8,7 +8,7 @@ namespace Internal
         // The name must not end with Assets.cs: AssetsCatalogClassGenerator treats such files in Generated
         // folders as its own and deletes them as stale.
         public static string OutputPath =>
-            FrameworkSettings.Content("Runtime/Tools/Container/Generated/ContainerGraph.AssetMap.cs");
+            FrameworkSettings.Content("Runtime/Tools/Container/ContainerGraph.AssetMap.cs");
 
         public static void Write(IReadOnlyList<ContainerGraphAsset> assets)
         {
