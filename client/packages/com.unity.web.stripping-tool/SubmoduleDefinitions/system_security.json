@@ -1,0 +1,64 @@
+{
+    "submodules": [
+        {
+            "name": "System.Security",
+            "description": "Provides access to the common language security system (https://learn.microsoft.com/en-us/dotnet/api/system.security).",
+            "version": "1.0.0",
+            "functions": [],
+            "submodules": [
+                "System.Security Core",
+                "System.Security Generics"
+            ]
+        },
+        {
+            "name": "System.Security Core",
+            "description": "Provides the core types and functionality of the System.Security namespace, including cryptographic services, security exceptions, and permission classes (https://learn.microsoft.com/en-us/dotnet/api/system.security).",
+            "version": "1.0.0",
+            "functions": [],
+            "csharpMethodFilters": {
+                "include": [
+                    {
+                        "methods": [
+                            "* System.Security.*"
+                        ],
+                        "assemblies": [
+                            "System",
+                            "mscorlib"
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "name": "System.Security Generics",
+            "description": "Provides support for generic types and methods parameterized with System.Security types, excluding standard generic collections (https://learn.microsoft.com/en-us/dotnet/api/system.security).",
+            "version": "1.0.0",
+            "functions": [],
+            "csharpMethodFilters": {
+                "include": [
+                    {
+                         "methods": [
+                            "* *<*System.Security.*>::*",
+                            "* *::*<*System.Security.*>*"
+                        ],
+                        "assemblies": [
+                            "System",
+                            "mscorlib"
+                        ]
+                    }
+                ],
+                "exclude": [
+                    {
+                         "methods": [
+                            "* System.Collections.Generic.*<*System.Security.*>*"
+                        ],
+                        "assemblies": [
+                            "System",
+                            "mscorlib"
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}
