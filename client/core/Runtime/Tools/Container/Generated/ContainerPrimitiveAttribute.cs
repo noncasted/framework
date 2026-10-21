@@ -4,7 +4,7 @@ namespace Internal
 {
     // Marks a registration primitive of the builder API. The container generator recognizes these methods by the
     // attribute, not by their name or class, so a primitive may be renamed or moved freely. The numeric values are
-    // read by the generator (client/Tools~/ContainerGenerator, PrimitiveKind) and must stay in sync with it.
+    // read by the generator (Source~/ContainerGenerator of this package, PrimitiveKind) and must stay in sync with it.
     public enum ContainerPrimitive
     {
         Register = 1,

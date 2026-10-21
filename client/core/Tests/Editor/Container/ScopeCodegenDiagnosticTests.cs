@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using NUnit.Framework;
-using UnityEngine;
 
 namespace Internal.Tests
 {
@@ -51,9 +50,9 @@ namespace Internal.Tests
 
         private static string GraphDescriptorsPath()
         {
-            var path = Path.GetFullPath(Path.Combine(
-                Application.dataPath,
-                "../Tools~/ContainerGenerator/Graph/GraphDescriptors.cs"));
+            var package = UnityEditor.PackageManager.PackageInfo.FindForAssetPath("Packages/com.noncasted.framework.core");
+            Assert.IsNotNull(package, "Package com.noncasted.framework.core not found");
+            var path = Path.Combine(package.resolvedPath, "Source~/ContainerGenerator/Graph/GraphDescriptors.cs");
             Assert.IsTrue(File.Exists(path), "GraphDescriptors.cs not found at " + path);
             return path;
         }

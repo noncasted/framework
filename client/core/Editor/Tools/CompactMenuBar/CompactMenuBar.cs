@@ -14,7 +14,7 @@ namespace Internal
 {
     /// <summary>
     /// On Linux the editor main menu is a native GtkMenuBar: a separate row above the main toolbar.
-    /// The native plugin next to this file (source in Tools~/GtkMenuBarHider) hides it, and a toolbar
+    /// The native plugin next to this file (source in Source~/GtkMenuBarHider of this package) hides it, and a toolbar
     /// element shows the same menus in place of the Unity logo. Enabled by default, toggled per user
     /// in Tools/Compact Menu Bar. Other platforms are not touched.
     /// </summary>

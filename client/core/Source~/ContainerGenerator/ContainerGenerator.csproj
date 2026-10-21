@@ -22,7 +22,8 @@
   <ItemGroup>
     <InternalsVisibleTo Include="ContainerGenerator.Verify" />
   </ItemGroup>
-  <Target Name="CopyToAnalyzers" AfterTargets="Build">
+  <!-- Only a Release build replaces the committed analyzer: building the solution (Debug) leaves it alone. -->
+  <Target Name="CopyToAnalyzers" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
     <PropertyGroup>
       <UnityPluginsDir>$(MSBuildProjectDirectory)/../../Analyzers</UnityPluginsDir>
     </PropertyGroup>
