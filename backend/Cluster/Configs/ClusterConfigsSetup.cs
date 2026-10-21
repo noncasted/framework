@@ -36,44 +36,47 @@ public class ClusterConfigsSetup : ICoordinatorSetupCompleted
 
     public async Task OnCoordinatorSetupCompleted(IReadOnlyLifetime lifetime)
     {
-        await InitConfig("config.sideEffects", _sideEffects);
-        await InitConfig("config.durableQueue", _durableQueue);
-        await InitConfig("config.taskBalancer", _taskBalancer);
-        await InitConfig("config.runtimePipe", _runtimePipe);
-        await InitConfig("config.runtimeChannel", _runtimeChannel);
-        await InitConfig("config.transaction", _transactionConfig);
+        await ConfigsInitializer.Init("config.sideEffects", _sideEffects, _logger);
+        await ConfigsInitializer.Init("config.durableQueue", _durableQueue, _logger);
+        await ConfigsInitializer.Init("config.taskBalancer", _taskBalancer, _logger);
+        await ConfigsInitializer.Init("config.runtimePipe", _runtimePipe, _logger);
+        await ConfigsInitializer.Init("config.runtimeChannel", _runtimeChannel, _logger);
+        await ConfigsInitializer.Init("config.transaction", _transactionConfig, _logger);
+    }
+}
 
-        return;
+// First value of a config state, set once by the coordinator: <jsonPath>.json next to the service binaries when the
+// file is there, the default value otherwise. A state that already has a value is left as it is.
+public static class ConfigsInitializer
+{
+    public static Task Init<T>(string jsonPath, IAddressableState<T> storage, ILogger logger) where T : class, new()
+    {
+        return Init(jsonPath, storage, new T(), logger);
+    }
 
-        Task InitConfig<T>(string jsonPath, IAddressableState<T> storage) where T : class, new()
+    public static async Task Init<T>(string jsonPath, IAddressableState<T> storage, T defaultValue, ILogger logger)
+        where T : class, new()
+    {
+        try
         {
-            return InitConfigWithDefault(jsonPath, storage, new T());
+            if (storage.IsInitialized == true)
+                return;
+
+            var configPath = Path.Combine(AppContext.BaseDirectory, $"{jsonPath}.json");
+
+            if (File.Exists(configPath) == false)
+            {
+                await storage.SetValue(defaultValue);
+                return;
+            }
+
+            var json = await File.ReadAllTextAsync(configPath);
+            var value = JsonUtils.Deserialize<T>(json).ThrowIfNull();
+            await storage.SetValue(value);
         }
-
-        async Task InitConfigWithDefault<T>(string jsonPath, IAddressableState<T> storage, T defaultValue)
-            where T : class, new()
+        catch (Exception e)
         {
-            try
-            {
-                if (storage.IsInitialized == true)
-                    return;
-
-                var configPath = Path.Combine(AppContext.BaseDirectory, $"{jsonPath}.json");
-
-                if (File.Exists(configPath) == false)
-                {
-                    await storage.SetValue(defaultValue);
-                    return;
-                }
-
-                var json = await File.ReadAllTextAsync(configPath);
-                var value = JsonUtils.Deserialize<T>(json).ThrowIfNull();
-                await storage.SetValue(value);
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, "[ClusterConfigsSetup] Failed to load config {JsonPath}", jsonPath);
-            }
+            logger.LogError(e, "[ConfigsInitializer] Failed to load config {JsonPath}", jsonPath);
         }
     }
 }
