@@ -1,0 +1,13 @@
+{
+  "name": "com.noncasted.framework.core",
+  "displayName": "Framework Core",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "Client core: DI container (+ ContainerGenerator), reactive, lifetimes, scopes, catalogues, profiling, editor tools (namespace Internal).",
+  "dependencies": {
+    "com.noncasted.framework.shared": "0.1.0",
+    "com.cysharp.unitask": "2.5.11",
+    "com.unity.addressables": "4.1.1",
+    "com.unity.nuget.newtonsoft-json": "3.2.2"
+  }
+}

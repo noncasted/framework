@@ -1,0 +1,10 @@
+{
+  "name": "com.noncasted.framework.flow",
+  "displayName": "Framework Flow",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "Base of the game flow: entries of the startup and of scene mocks, the loader of game loop scopes (namespace Internal). Concrete mocks, loaders and the startup scene stay in the project.",
+  "dependencies": {
+    "com.noncasted.framework.core": "0.1.0"
+  }
+}

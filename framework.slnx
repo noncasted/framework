@@ -1,5 +1,9 @@
 <Solution>
     <Project Path="shared/framework.shared.csproj" />
+    <Folder Name="/client/">
+        <Project Path="client/core/Source~/ContainerGenerator/ContainerGenerator.csproj" />
+        <Project Path="client/core/Source~/ContainerGenerator.Verify/ContainerGenerator.Verify.csproj" />
+    </Folder>
     <Folder Name="/backend/">
         <Project Path="backend/Cluster/Cluster.csproj" />
         <Project Path="backend/Common/Common.csproj" />
