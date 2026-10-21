@@ -13,20 +13,20 @@ namespace Shared
     [MemoryPackable]
     public partial class OneWayMessageFromServer : IMessageFromServer
     {
-        public INetworkContext Context { get; set; }
+        [MemoryPackAllowSerialize] public INetworkContext Context { get; set; }
     }
 
     [MemoryPackable]
     public partial class ResponseMessageFromServer : IMessageFromServer
     {
-        public INetworkContext Context { get; set; }
+        [MemoryPackAllowSerialize] public INetworkContext Context { get; set; }
         public int RequestId { get; set; }
     }
 
     [MemoryPackable]
     public partial class RequestMessageFromServer : IMessageFromServer
     {
-        public INetworkContext Context { get; set; }
+        [MemoryPackAllowSerialize] public INetworkContext Context { get; set; }
         public int RequestId { get; set; }
     }
 
@@ -41,20 +41,20 @@ namespace Shared
     [MemoryPackable]
     public partial class OneWayMessageFromClient : IMessageFromClient
     {
-        public INetworkContext Context { get; set; }
+        [MemoryPackAllowSerialize] public INetworkContext Context { get; set; }
     }
 
     [MemoryPackable]
     public partial class RequestMessageFromClient : IMessageFromClient
     {
-        public INetworkContext Context { get; set; }
+        [MemoryPackAllowSerialize] public INetworkContext Context { get; set; }
         public int RequestId { get; set; }
     }
 
     [MemoryPackable]
     public partial class ResponseMessageFromClient : IMessageFromClient
     {
-        public INetworkContext Context { get; set; }
+        [MemoryPackAllowSerialize] public INetworkContext Context { get; set; }
         public int RequestId { get; set; }
     }
 }

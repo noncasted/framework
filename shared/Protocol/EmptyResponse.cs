@@ -36,9 +36,4 @@ namespace Shared
             return EmptyResponse.Ok;
         }
     }
-
-    [MemoryPackUnion(0, typeof(EmptyResponse))]
-    public partial interface INetworkContext
-    {
-    }
 }

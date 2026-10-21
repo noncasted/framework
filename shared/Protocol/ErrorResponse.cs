@@ -62,9 +62,4 @@ namespace Shared
         public ErrorCode Code { get; }
         public string RequestName { get; }
     }
-
-    [MemoryPackUnion(1, typeof(ErrorResponse))]
-    public partial interface INetworkContext
-    {
-    }
 }
