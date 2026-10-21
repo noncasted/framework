@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.dll binary
+*.so binary
+*.png binary
+*.asset -text merge=unityyamlmerge
+*.prefab -text merge=unityyamlmerge
+*.unity -text merge=unityyamlmerge
