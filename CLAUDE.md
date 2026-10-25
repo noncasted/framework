@@ -15,7 +15,7 @@ shared/                 protocol and types used by both the Unity client and the
 client/
   core/                 DI container (+ ContainerGenerator), reactive, lifetimes, scopes, catalogues, editor tools
   flow/                 base of game loop, loaders and mocks (concrete mocks and the startup scene stay in the project)
-  modules/              optional modules: publish, network, browser, audio, cameras, inputs, backend, ui, ...
+  modules/              optional modules: publish, network, browser, audio, animations, cameras, inputs, backend, ui, ...
   platforms/            platform implementations of modules/publish: web, website, itch, telegram, steam
   packages/             forks of third-party packages (Unity, UniTask, MemoryPack, unity-mcp), see FORK.md in each
   project/              Unity project for browsing and compiling the framework without a game: Assets/ links the
@@ -94,6 +94,9 @@ tools/scripts/          scripts shared by the projects
 - **Modules.** Assemblies `Internal.<Module>`, namespaces `Global.<Module>` (the global scope of the game registers
   them). Each has an `Add*` extension of `IScopeBuilder`; prefabs and options come as arguments (the project owns
   the assets and its generated `GlobalPrefabs` / `GlobalAssets`), so the project's global `Construct` calls them:
+  - `animations` (`Internal.Animations`, namespace `Internal`, no `Add*`): sprite animations of entities on the
+    updater (`ForwardSpriteAnimation`, `RotatableSpriteAnimation`, `RegisterSpriteForwardAnimation`), the
+    `SpriteAnimationRenderer` component. `ISpriteAnimationData` stays in core (the sprite catalogue returns it).
   - `backend` (`AddBackend`): HTTP get / post / media.
   - `cameras` (`AddCamera(GlobalCamera prefab)`): camera of the global scope, `ICurrentCamera` (the camera of the
     scene set by the game), `ICameraUtils`.

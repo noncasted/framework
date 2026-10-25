@@ -1,0 +1,10 @@
+{
+  "name": "com.noncasted.framework.animations",
+  "displayName": "Framework Animations",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "Sprite animations on the updater: forward and five-direction rotatable clips, the sprite renderer component (namespace Internal).",
+  "dependencies": {
+    "com.noncasted.framework.core": "0.1.0"
+  }
+}
