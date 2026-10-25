@@ -17,6 +17,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\shared\framework.shared.csproj"/>
+        <ProjectReference Include="..\..\common\framework.common.csproj"/>
     </ItemGroup>
 
 </Project>

@@ -145,7 +145,8 @@ namespace Internal.Tests
             return ((System.Collections.ICollection)method.Invoke(container, null)).Count;
         }
 
-        [MenuItem("Tools/Container/Run Benchmark")]
+        // FrameworkMenu.Container + "Run Benchmark", GroupPriority: the tests do not reference the editor assembly.
+        [MenuItem("Tools/Framework/Container/Run Benchmark", priority = 2020)]
         private static void RunFromMenu()
         {
             try

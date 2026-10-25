@@ -1,4 +1,4 @@
-using Common.Reactive;
+using Internal;
 using FluentAssertions;
 using Game.Session;
 using Shared;
@@ -48,7 +48,7 @@ public class SessionObjectsTests
     [Fact]
     public void ServiceId_IsStableHashWithSignBit()
     {
-        Service.GetId("Chat").Should().Be(StableHash.Get("Chat") | int.MinValue);
+        Service.GetId("Chat").Should().Be(Shared.StableHash.Get("Chat") | int.MinValue);
         new Service("Chat").Id.Should().Be(Service.GetId("Chat"));
     }
 

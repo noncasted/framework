@@ -1,6 +1,6 @@
 using System.Net.WebSockets;
 using Common.Extensions;
-using Common.Reactive;
+using Internal;
 using Microsoft.Extensions.Logging;
 
 namespace Common.Network;

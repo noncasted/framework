@@ -1,0 +1,11 @@
+{
+  "name": "com.noncasted.framework.localization",
+  "displayName": "Framework Localization",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "Texts of the game in several languages: the table (Localization.json), text keys declared in code, the current language (Localizer), labels that follow a language change (namespace Global.Localization).",
+  "dependencies": {
+    "com.noncasted.framework.core": "0.1.0",
+    "com.noncasted.framework.common": "0.1.0"
+  }
+}

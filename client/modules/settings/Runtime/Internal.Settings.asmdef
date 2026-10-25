@@ -1,0 +1,21 @@
+{
+    "name": "Internal.Settings",
+    "rootNamespace": "",
+    "references": [
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:f039cb8c565843dba6da5b3c1ccde7d6",
+        "GUID:3ea5c3f1172040daa713d5ad71728b78",
+        "GUID:68d98432afb4465994b08d3574bc916e",
+        "GUID:d32d853f569e4775b516e10c277ed383",
+        "GUID:6d0f926ab5a1409b83c91333d26edf80"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

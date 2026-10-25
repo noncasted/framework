@@ -1,21 +1,28 @@
 # Framework
 
-Shared base of the game projects (mines-leader, peace-data-reborn, storytale-workshop, ...): client core, modules,
-platforms, forked Unity packages, shared protocol and backend infrastructure.
+Shared base of the game projects (mines-leader, peace-data-reborn, pixel-swarm, ...): common reactive primitives,
+client core, modules, platforms, forked Unity packages, shared protocol and backend infrastructure.
 
 Every project consumes this repository as a git submodule at `<project>/tools/framework`:
 - Unity: `client/Packages/manifest.json` -> `"file:../../tools/framework/client/..."`
 - backend: `ProjectReference` -> `../tools/framework/backend/...` (relative to the csproj)
-- shared: `ProjectReference` / UPM `file:` -> `tools/framework/shared`
+- shared, common: `ProjectReference` / UPM `file:` -> `tools/framework/shared`, `tools/framework/common`
 
 ## Layout
 
 ```
-shared/                 protocol and types used by both the Unity client and the backend
+common/                 reactive primitives of both sides: lifetimes, event sources, lifetimed values and viewable
+                        properties, viewable lists and dictionaries, ModifiableList (assembly Framework.Common, namespace
+                        Internal, C# 9 and netstandard2.1, no Unity); Tests~/ holds its xunit tests
+shared/                 protocol and types used by both the Unity client and the backend: Protocol/ (messages,
+                        union tags), Session/ (the real-time session), Lobbies/ and Matchmaking/ (lobby rooms and the
+                        session requests of the meta)
 client/
-  core/                 DI container (+ ContainerGenerator), reactive, lifetimes, scopes, catalogues, editor tools
+  core/                 DI container (+ ContainerGenerator), scopes, catalogues, the Unity side of the reactive
+                        primitives (GameObjectLifetime, UniTask waits, Lifetime Graph), editor tools
   flow/                 base of game loop, loaders and mocks (concrete mocks and the startup scene stay in the project)
-  modules/              optional modules: publish, network, browser, audio, animations, cameras, inputs, backend, ui, ...
+  modules/              optional modules: publish, network, browser, audio, animations, cameras, inputs, backend, ui,
+                        localization, settings, lobbies, ...
   platforms/            platform implementations of modules/publish: web, website, itch, telegram, steam
   packages/             forks of third-party packages (Unity, UniTask, MemoryPack, unity-mcp), see FORK.md in each
   project/              Unity project for browsing and compiling the framework without a game: Assets/ links the
@@ -26,6 +33,9 @@ client/
 backend/
   Common/ Infrastructure/ Cluster/ Console/
   Session/              real-time game sessions (assembly Framework.Session, namespace Game.Session)
+  Hosting/              the sessions of a game server and the requests of the meta to it: sessions collection, lobby
+                        sessions and codes, lobby service, session requester (assembly Framework.Hosting, namespaces
+                        Game.Hosting and Game.Lobbies)
 tools/scripts/          scripts shared by the projects
 ```
 
@@ -51,6 +61,14 @@ tools/scripts/          scripts shared by the projects
 
 ## Extension points
 
+- **Common.** `Framework.Common` is referenced directly by everything that uses a lifetime: every asmdef that
+  references `Internal` (asmdef references are not transitive) and every backend csproj (no transitive project
+  references). The waits are platform extensions: `ReactiveUniTaskExtensions` in the core (UniTask),
+  `ReactiveTaskExtensions` in backend `Common` (Task). A listener of a lifetime or a handler of an event source that
+  throws does not stop the others: the exceptions go to `ReactiveExceptions.Handler` after the pass (the client
+  installs `Debug.LogException` in `ReactiveLogging`; the backend has no handler and gets the rethrow). The editor
+  feeds the Lifetime Graph through `LifetimeTracker` (compiled only under `UNITY_EDITOR`). The sources must stay
+  C# 9 and netstandard2.1: Unity compiles them as they are, and the dotnet build is pinned to the same.
 - **Protocol.** `INetworkContext` is a plain interface; the project declares the union
   (`[MemoryPackUnionFormatter(typeof(INetworkContext))] partial class NetworkContextUnion`) with the framework tags
   (`NetworkContextTags`, 0-249) and its own (1000+), and registers it on start (backend: `NetworkProtocol.Register()`
@@ -71,7 +89,8 @@ tools/scripts/          scripts shared by the projects
   extra infrastructure cards (`AddConsoleInfrastructureCard`), and adds `tools/framework/backend/Console` to the
   Tailwind content paths.
 - **Client core.** Assemblies `Internal`, `Internal.Editor`, `Internal.Tests` (namespace `Internal`, asmdef GUIDs of
-  the projects kept). The project owns the content assembly (`FrameworkSettings.ContentAssembly`, by default
+  the projects kept; `Internal` is `GUID:f039cb8c565843dba6da5b3c1ccde7d6`, `Framework.Common`
+  `GUID:3ea5c3f1172040daa713d5ad71728b78`, `Framework.Shared` `GUID:73681998e594465db2ed389d82d877b6`). The project owns the content assembly (`FrameworkSettings.ContentAssembly`, by default
   `Internal.Content` in `Assets/Common/Internal`): generated catalogues (`InternalAssets`, `Sprites`, audio, colors,
   `Scenes`), catalogue groups and their json lists (one folder per kind, `Runtime/Catalogues/<Kind>`: the json list,
   the group assets and the generated classes together), the `OptionsContainer` asset, the container asset map
@@ -114,6 +133,20 @@ tools/scripts/          scripts shared by the projects
     built by the generator, so a platform choice is made with `#if` or inside one installer.
   - `browser` (`Internal.Browser`): fullscreen, leave confirmation, reload and clipboard of a web page.
   - `network` (`Internal.Network`, namespace `Internal`): see Network client below.
+  - `localization` (`AddLocalization(LocalizationOptions)`): texts in several languages from the table asset of the
+    game (`Localization.json`, a column per `Language`), `TextKey` declared in code, `LocalizedText` with format
+    arguments, the static `Localizer` (current language, `FromSystem`, `Next`), `LocalizedLabel` keeps a TMP text in
+    the current language. Depends on TextMeshPro.
+  - `settings` (`AddSettings(SettingsOptions)`, `AddSettings<TSettings, TSave, TService>(SettingsOptions<TSave>)`):
+    the settings of the player in the saves (`ISaves`): the volumes as the `IAudioVolume` of `audio`, the language of
+    `localization`, the defaults from the options asset of the game; a game with settings of its own derives
+    `SettingsSave`, `Settings<TSave>` (`OnPush`) and `SettingsOptions<TSave>` and injects its own interface over
+    `ISettings<TSave>`. Depends on `audio`, `publish`, `localization`.
+  - `lobbies` (`Internal.Lobbies`, namespace `Global.Lobbies`; `AddMatchmaking`, `AddLobbyNetworkService`):
+    `IMatchmaking` (search, solo, lobby create / join / match join, tickets) over the meta socket the game registers
+    as `IMetaSocket`; `LobbyNetworkService`, the client of the lobby service of a lobby session (a derived one adds the
+    properties of the game in `CollectProperties`); `OfflineLobbyService` for the offline local server (the game
+    gives `IOfflineLobbyMatches`); `SessionData`, `LobbyJoinResult`, `SessionSearchResult`. Depends on `network`.
 - **Platforms.** `itch` (`AddItchSaves`: saves in PlayerPrefs), `web` (`AddWebLoadingScreen`, `AddWebSafeArea`,
   `WebShell.UseMobileCheck`; needs `window.loadingScreen` and, for the shell, `TemplateData/web-shell.js` in the
   WebGL template; register only under `#if UNITY_WEBGL && !UNITY_EDITOR`; editor: `Internal.WebGlBuild.Build`,
@@ -127,8 +160,24 @@ tools/scripts/          scripts shared by the projects
   bots take none), `JoinTimeout`, `ReconnectWindow` (zero - a lost connection is a leave; otherwise the seat waits
   and the others get `RemoteAway`). `IUser.Id` is the id of the user in this session (sent to the clients),
   `IUser.BackendId` the meta id (never sent). Bots: `IUserFactory.CreateBot`. Entities built by the backend:
-  `IEntityFactory.Create(seat)`. Users and seats are created in the execution queue of the session only. Hosting
-  (factory, gateway, search, lobbies) stays in the game.
+  `IEntityFactory.Create(seat)`. Users and seats are created in the execution queue of the session only. The factory
+  of the sessions, the gateway and the search stay in the game.
+- **Hosting.** `backend/Hosting`. A game server calls `AddSessionHosting(LobbyOptions)`: the sessions collection
+  (`ISessionsCollection`, feeds `LiveSessionsData`), the lobby sessions (`ILobbySessions`: create, join by a code,
+  the lobby of the late players of a running match), the leases of the lobby codes (`ILobbyCodeLeases`,
+  `ILobbyListings`) and the handlers of the meta requests (`SessionEndpoints`, `SessionPayloads` over the message
+  pipes). The game registers what builds its sessions: `ILobbyFactory` (a lobby session from `LobbyCreation`),
+  `ILobbyMatches` (the match a lobby starts, the admission of a late player), `IKnownUsersMatches` (a solo match),
+  `ISessionSearch` (the public match of the search) and `ILobbyEntryPolicy` (when a running match lets a late player
+  in; `LobbyEntryPolicy.Always` when always). The container of a lobby session adds `AddLobbyService(LobbySessionInfo)`
+  (or `AddLobbyService<T>` with a derived service: own properties from `SharedLobbyService.GamePropertyFirst`, the
+  admission of the late players in `OnLatePlayersStarted` / `Admit` / `ClearGame` / `MarkRunOver`), the container of
+  a match started by a lobby `AddMatchListingService(MatchListingInfo)`. The meta calls `AddSessionRequester`:
+  `ISessionRequester` (search, solo, lobby create / join / match join, tickets) and `IOpenLobbiesWatcher`; the
+  commands of the meta socket that call them stay in the game. The lobby codes live in the registry grain of the
+  deploy (`backend/Cluster/Lobbies`, `ILobbyCodes`). The protocol: `SharedSessionRequests` (`Search`, `CreateSolo`,
+  `Result`, `TicketRequest`) and `SharedLobbies` (`CreateLobby`, `JoinLobby`, `JoinMatch`, `Subscribe`, `List`),
+  tags `NetworkContextTags.Session*` / `Lobb*` (150-155, 180-184), listed by the project in its union.
 - **Network client.** Module `network` (`Internal.Network`, namespace `Internal`): the root scope calls
   `AddNetwork(NetworkOptions, ProtocolHash.Value)` (the options asset belongs to the project), connections come
   with `AddNetworkConnection` / `AddSessionServices`. Entities of the local user with a backend id come to
@@ -139,9 +188,11 @@ tools/scripts/          scripts shared by the projects
 
 ## Tests
 
-`dotnet build framework.slnx`, then `.build/bin/Tests/Debug/net10.0/Framework.Tests` (xunit v3, Microsoft Testing
-Platform: run the executable, `dotnet test` refuses on the .NET 10 SDK). The projects keep their own tests of the
-framework code until they move here.
+`dotnet build framework.slnx`, then `.build/bin/Tests/Debug/net10.0/Framework.Tests` (backend) and
+`.build/bin/Framework.Common.Tests/Debug/net10.0/Framework.Common.Tests` (common): xunit v3 on the Microsoft Testing
+Platform, run the executable, `dotnet test` refuses on the .NET 10 SDK. Unity tests (`Internal.Tests`,
+`Internal.Network.Tests`) run in the editor of a project. The projects keep their own tests of the framework code
+until they move here.
 
 ## Working from a project
 

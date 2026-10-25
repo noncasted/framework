@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
@@ -54,6 +54,25 @@ namespace Internal
             Action<T> action)
         {
             source.ToViewableDelegate(lifetime).Advise(lifetime, action);
+        }
+
+        public static void Listen<T>(this UnityEvent<T> source, IReadOnlyLifetime lifetime, UnityAction<T> listener)
+        {
+            source.AddListener(listener);
+
+            lifetime.Listen(() => source.RemoveListener(listener));
+        }
+
+        public static void Listen<T>(this UnityEvent<T> source, IReadOnlyLifetime lifetime, UnityAction listener)
+        {
+            source.AddListener(Listener);
+
+            lifetime.Listen(() => source.RemoveListener(Listener));
+
+            void Listener(T value)
+            {
+                listener.Invoke();
+            }
         }
     }
 }

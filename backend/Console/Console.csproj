@@ -16,6 +16,7 @@
         <ProjectReference Include="..\Common\Common.csproj"/>
         <ProjectReference Include="..\Cluster\Cluster.csproj"/>
         <ProjectReference Include="..\..\shared\framework.shared.csproj"/>
+        <ProjectReference Include="..\..\common\framework.common.csproj"/>
     </ItemGroup>
 
 </Project>

@@ -1,7 +1,7 @@
 using Cluster.Deploy;
 using Cluster.Discovery;
 using Common.Extensions;
-using Common.Reactive;
+using Internal;
 using Infrastructure;
 using Infrastructure.Execution;
 using Infrastructure.Startup;

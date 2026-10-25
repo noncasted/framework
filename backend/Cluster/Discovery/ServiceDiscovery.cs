@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using Cluster.Deploy;
 using Common.Extensions;
-using Common.Reactive;
+using Internal;
 using Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

@@ -6,7 +6,7 @@ namespace Internal
     public static class HierarchyBindingsMenu
     {
         private const string HierarchyPath = "GameObject/Create Object Bindings";
-        private const string ToolsPath = "Tools/Object Bindings/Create For Selection";
+        private const string ToolsPath = FrameworkMenu.Root + "Create Object Bindings";
 
         // The validator must be parameterless, otherwise Unity does not register the item at all.
         // We work from Selection, not MenuCommand: this way the item is invoked once,
@@ -23,7 +23,7 @@ namespace Internal
             return Selection.activeGameObject != null;
         }
 
-        [MenuItem(ToolsPath, false, 30)]
+        [MenuItem(ToolsPath, false, FrameworkMenu.Priority)]
         private static void OpenFromTools()
         {
             Open();

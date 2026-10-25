@@ -31,7 +31,7 @@ namespace Internal
             Runner.RunDelayed();
         }
 
-        [MenuItem("Tools/GenerateSprites")]
+        [MenuItem(FrameworkMenu.Codegen + "Sprites", priority = FrameworkMenu.TrailingPriority)]
         public static void Generate()
         {
             Runner.Run();

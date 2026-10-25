@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
-using Common.Reactive;
+using Internal;
 using Infrastructure.State;
 using Microsoft.Extensions.Logging;
 

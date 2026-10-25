@@ -15,7 +15,7 @@ namespace Internal
     {
         private const string DefaultOutput = "build";
 
-        [MenuItem("Tools/Build/WebGL")]
+        [MenuItem(FrameworkMenu.Build + "WebGL", priority = FrameworkMenu.GroupPriority)]
         public static void Build()
         {
             var output = GetArgument("-buildOutput") ?? DefaultOutput;

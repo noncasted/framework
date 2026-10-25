@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using Common.Extensions;
-using Common.Reactive;
+using Internal;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 

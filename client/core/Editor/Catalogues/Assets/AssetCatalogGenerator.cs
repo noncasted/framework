@@ -28,7 +28,7 @@ namespace Internal
             Runner.RunDelayed();
         }
 
-        [MenuItem("Tools/GenerateAssetsCatalog")]
+        [MenuItem(FrameworkMenu.Codegen + "Assets Catalog", priority = FrameworkMenu.TrailingPriority)]
         public static void Generate()
         {
             Runner.Run();

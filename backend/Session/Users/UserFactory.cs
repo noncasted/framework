@@ -1,6 +1,6 @@
 using System.Net.WebSockets;
 using Common.Network;
-using Common.Reactive;
+using Internal;
 using Microsoft.Extensions.Logging;
 
 namespace Game.Session;

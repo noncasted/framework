@@ -13,12 +13,29 @@
         <PackageReference Include="xunit.runner.visualstudio"/>
         <PackageReference Include="FluentAssertions"/>
         <PackageReference Include="Newtonsoft.Json"/>
+        <PackageReference Include="NSubstitute"/>
+        <PackageReference Include="Testcontainers.PostgreSql"/>
+        <PackageReference Include="Microsoft.Orleans.Sdk"/>
+        <PackageReference Include="Microsoft.Orleans.TestingHost"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App"/>
+    </ItemGroup>
+
+    <!-- The integration tests share one Postgres container and static test state: one collection at a time. -->
+    <ItemGroup>
+        <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\..\shared\framework.shared.csproj"/>
+        <ProjectReference Include="..\..\common\framework.common.csproj"/>
         <ProjectReference Include="..\Common\Common.csproj"/>
+        <ProjectReference Include="..\Infrastructure\Infrastructure.csproj"/>
+        <ProjectReference Include="..\Cluster\Cluster.csproj"/>
         <ProjectReference Include="..\Session\Session.csproj"/>
+        <ProjectReference Include="..\Hosting\Hosting.csproj"/>
     </ItemGroup>
 
 </Project>

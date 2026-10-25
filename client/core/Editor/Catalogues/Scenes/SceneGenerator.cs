@@ -21,7 +21,7 @@ namespace Internal
             Generate();
         }
 
-        [MenuItem("Tools/GenerateScenes")]
+        [MenuItem(FrameworkMenu.Codegen + "Scenes", priority = FrameworkMenu.TrailingPriority)]
         public static void Generate()
         {
             var folders = new List<string>();

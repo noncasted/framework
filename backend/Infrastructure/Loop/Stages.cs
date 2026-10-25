@@ -1,5 +1,5 @@
 ﻿using Common.Extensions;
-using Common.Reactive;
+using Internal;
 using Microsoft.Extensions.Hosting;
 
 namespace Infrastructure;

@@ -1,7 +1,7 @@
 using Cluster.Coordination;
 using Cluster.Discovery;
 using Cluster.Monitoring;
-using Common.Reactive;
+using Internal;
 using Infrastructure;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;

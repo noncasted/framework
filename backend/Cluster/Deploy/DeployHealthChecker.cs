@@ -1,6 +1,6 @@
 using Cluster.Discovery;
 using Cluster.State;
-using Common.Reactive;
+using Internal;
 using Infrastructure;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;

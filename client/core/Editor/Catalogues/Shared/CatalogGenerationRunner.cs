@@ -67,7 +67,7 @@ namespace Internal
             }
         }
 
-        // Synchronous run for Tools/Foundation/Regenerate All: no debounce and no postponing, a failure reaches the
+        // Synchronous run for Tools/Framework/Codegen/Regenerate All: no debounce and no postponing, a failure reaches the
         // caller. The caller checks Play mode and compilation before the first step.
         public void RunNow()
         {

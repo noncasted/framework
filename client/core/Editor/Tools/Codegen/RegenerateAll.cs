@@ -20,7 +20,7 @@ namespace Internal
     {
         private const string LogTag = "RegenerateAll";
 
-        [MenuItem("Tools/Foundation/Regenerate All", priority = 0)]
+        [MenuItem(FrameworkMenu.Codegen + "Regenerate All", priority = FrameworkMenu.GroupPriority)]
         public static void Run()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode)

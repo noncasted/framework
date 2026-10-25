@@ -29,7 +29,7 @@ namespace Internal
             Runner.RunDelayed();
         }
 
-        [MenuItem("Tools/GeneratePrefabsCatalog")]
+        [MenuItem(FrameworkMenu.Codegen + "Prefabs Catalog", priority = FrameworkMenu.TrailingPriority)]
         public static void Generate()
         {
             Runner.Run();

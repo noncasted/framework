@@ -38,7 +38,7 @@ namespace Internal
     public static class LifetimeTracking
     {
         private const string EnabledPrefsKey = "Internal.LifetimeGraph.TrackingEnabled";
-        private const string ToggleMenuPath = "Tools/Lifetime Graph/Track Lifetimes";
+        private const string ToggleMenuPath = FrameworkMenu.LifetimeGraph + "Track Lifetimes";
 
         private static readonly Dictionary<int, LifetimeRecord> _alive = new();
         private static float _playStartedAt;
@@ -71,7 +71,7 @@ namespace Internal
             }
         }
 
-        [MenuItem(ToggleMenuPath, priority = 1)]
+        [MenuItem(ToggleMenuPath, priority = FrameworkMenu.GroupPriority + 1)]
         private static void ToggleTracking()
         {
             IsTrackingEnabled = IsTrackingEnabled == false;

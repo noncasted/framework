@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.WebSockets;
 using Common.Network;
-using Common.Reactive;
+using Internal;
 using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;

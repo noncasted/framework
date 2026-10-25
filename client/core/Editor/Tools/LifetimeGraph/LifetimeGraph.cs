@@ -46,7 +46,7 @@ namespace Internal
 
         public string Status { get; private set; } = "No lifetimes";
 
-        [MenuItem("Tools/Lifetime Graph/Open", priority = 0)]
+        [MenuItem(FrameworkMenu.LifetimeGraph + "Open", priority = FrameworkMenu.GroupPriority)]
         public static void Open()
         {
             var graph = EnsureGraph();

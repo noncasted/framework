@@ -1,6 +1,7 @@
 name: CI
 
-# Builds the framework (shared, backend, ContainerGenerator), runs the framework tests and the generator harness.
+# Builds the framework (common, shared, backend, ContainerGenerator), runs the framework and common tests and the
+# generator harness.
 # Unity packages are compiled and tested inside the projects.
 
 on:
@@ -37,6 +38,9 @@ jobs:
       # Microsoft Testing Platform: on the .NET 10 SDK `dotnet test` refuses, the test executable is run directly.
       - name: Framework tests
         run: .build/bin/Tests/Debug/net10.0/Framework.Tests
+
+      - name: Common tests
+        run: .build/bin/Framework.Common.Tests/Debug/net10.0/Framework.Common.Tests
 
       - name: Verify ContainerGenerator
         run: dotnet run --project 'client/core/Source~/ContainerGenerator.Verify/ContainerGenerator.Verify.csproj' -c Release

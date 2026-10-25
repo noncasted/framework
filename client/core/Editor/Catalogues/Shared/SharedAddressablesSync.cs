@@ -30,7 +30,7 @@ namespace Internal
 
         private static readonly CatalogGenerationRunner Runner = new(LogTag, Sync);
 
-        [MenuItem("Tools/SyncSharedAddressables")]
+        [MenuItem(FrameworkMenu.Codegen + "Sync Shared Addressables", priority = FrameworkMenu.TrailingPriority)]
         public static void Generate()
         {
             Runner.Run();

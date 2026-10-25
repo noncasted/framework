@@ -42,7 +42,7 @@ namespace Internal
             Runner.RunDelayed();
         }
 
-        [MenuItem("Tools/GenerateAudioCatalog")]
+        [MenuItem(FrameworkMenu.Codegen + "Audio Catalog", priority = FrameworkMenu.TrailingPriority)]
         public static void Generate()
         {
             Runner.Run();

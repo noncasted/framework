@@ -1,0 +1,221 @@
+using Cluster.Discovery;
+using Cluster.State;
+using Common;
+using Common.Extensions;
+using Infrastructure;
+using Infrastructure.Execution;
+using Infrastructure.Startup;
+using Infrastructure.State;
+using Internal;
+using JasperFx;
+using Marten;
+using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
+using Orleans.TestingHost;
+using Xunit;
+using TaskScheduler = Infrastructure.Execution.TaskScheduler;
+
+namespace Framework.Tests.Fixtures;
+
+/// <summary>
+/// Base fixture for Orleans integration tests: an in-process TestCluster over a real PostgreSQL database, with the
+/// framework services a silo registers (states, transactions, side effects, messaging, task scheduling) and the test
+/// grains of this assembly.
+/// </summary>
+public class OrleansTestClusterFixture : IAsyncLifetime
+{
+    private InProcessTestCluster _cluster = null!;
+    private Lifetime? _messagingLifetime;
+
+    public InProcessTestCluster Cluster => _cluster;
+    public IGrainFactory GrainFactory => _cluster.Client;
+    public DatabaseFixture Database { get; } = new();
+
+    protected virtual int SiloCount => 1;
+
+    /// <summary>
+    /// Override to register additional silo-level services.
+    /// </summary>
+    protected virtual void ConfigureSiloServices(IServiceCollection services)
+    {
+    }
+
+    /// <summary>
+    /// Override to configure ISiloBuilder (e.g. grain extensions).
+    /// </summary>
+    protected virtual void ConfigureSilo(ISiloBuilder siloBuilder)
+    {
+    }
+
+    public virtual async ValueTask InitializeAsync()
+    {
+        await Database.InitializeAsync();
+
+        var builder = new InProcessTestClusterBuilder((short)SiloCount);
+
+        var dataSource = Database.DataSource;
+
+        builder.ConfigureSilo((options, siloBuilder) => {
+            siloBuilder.AddMemoryGrainStorage("Default");
+
+            siloBuilder.AddGrainExtension<IGrainTransactionHandler, GrainTransactionHandler>();
+
+            siloBuilder.ConfigureServices(services => {
+                // Database source
+                var dbSource = Substitute.For<IDbSource>();
+                dbSource.Value.Returns(dataSource);
+                services.AddSingleton(dbSource);
+
+                // Marten document store for event sourcing tests: the hosts' settings over the test registry.
+                var registry = TestStates.CreateRegistry();
+
+                var martenStore = DocumentStore.For(options => {
+                    options.Connection(dataSource);
+                    options.AutoCreateSchemaObjects = AutoCreate.All;
+                    TestStates.ConfigureMarten(options, registry);
+                });
+                services.AddSingleton<IDocumentStore>(martenStore);
+
+                // State registry: the framework states and the test grain states
+                services.AddSingleton<IGrainStatesRegistry>(registry);
+
+                // Core Orleans utilities
+                services.AddSingleton<IStateSerializer, StateSerializer>();
+                services.AddSingleton<IStateMigrations, StateMigrations>();
+                services.AddSingleton<DirectStorage>();
+                services.AddSingleton<IStateStorage, StateStorage>();
+                services.AddSingleton<IEventStorage, EventStorage>();
+                services.AddSingleton<ITransactions, Transactions>();
+                services.AddSingleton<IOrleans, OrleansUtils>();
+                services.AddSingleton<ISideEffectsStorage, SideEffectsStorage>();
+
+                // State factory for grain [State] attribute injection
+                services.AddSingleton<IStateFactory, StateFactory>();
+                services.AddSingleton<IAttributeToFactoryMapper<StateAttribute>, StateAttributeMapper>();
+
+                // Event state factory for grain [EventState] attribute injection
+                services.AddSingleton<IEventStateFactory, EventStateFactory>();
+                services.AddSingleton<IAttributeToFactoryMapper<EventStateAttribute>, EventStateAttributeMapper>();
+
+                // Migration steps (V0→V1 chain targeting MigrationTestState_1)
+                services.AddSingleton<IStateMigrationStep, Grains.MigrationTestStep_V0>();
+                services.AddSingleton<IStateMigrationStep, Grains.MigrationTestStep_V1>();
+
+                // Migration steps (V0→V1→V2 chain targeting MigrationTestState_2)
+                services.AddSingleton<IStateMigrationStep, Grains.MigrationV2TestStep_V0>();
+                services.AddSingleton<IStateMigrationStep, Grains.MigrationV2TestStep_V1>();
+                services.AddSingleton<IStateMigrationStep, Grains.MigrationTestStep_V2>();
+
+                // StateCollection utilities for tests
+                services.AddSingleton(typeof(StateCollectionUtils<,>));
+
+                // Messaging
+                services.AddSingleton<IMessaging, Infrastructure.Messaging>();
+                services.AddSingleton<IDurableQueueClient, DurableQueueClient>();
+                services.AddSingleton<IRuntimePipeClient, RuntimePipeClient>();
+                services.AddSingleton<IRuntimeChannelClient, RuntimeChannelClient>();
+
+                // Service environment
+                services.AddSingleton<IServiceEnvironment>(new ServiceEnvironment
+                {
+                    IsDevelopment = true,
+                    Tag = TestRoles.Silo
+                });
+
+                // Service loop — mock as started
+                var loopObserver = Substitute.For<IServiceLoopObserver>();
+                loopObserver.IsOrleansStarted.Returns(new ViewableProperty<bool>(true));
+                services.AddSingleton(loopObserver);
+
+                // Cluster participant context — mock as initialized
+                var participantContext = Substitute.For<IClusterParticipantContext>();
+                participantContext.IsInitialized.Returns(new ViewableProperty<bool>(true));
+                services.AddSingleton(participantContext);
+
+                // Cluster flags — all enabled
+                var clusterFlags = Substitute.For<IClusterFlags>();
+                clusterFlags.SideEffectsEnabled.Returns(true);
+                services.AddSingleton(clusterFlags);
+
+                // Configs — the values the hosts of the projects run with, through TestAddressableState
+                RegisterTestConfigs(services);
+
+                // Task scheduling
+                services.AddSingleton<ITaskScheduler, TaskScheduler>();
+                services.AddSingleton<ITaskQueue, TaskQueue>();
+                services.AddSingleton<ITaskBalancer, TaskBalancer>();
+
+                // Custom silo services from derived fixtures
+                ConfigureSiloServices(services);
+            });
+
+            ConfigureSilo(siloBuilder);
+        });
+
+        _cluster = builder.Build();
+        await _cluster.DeployAsync();
+
+        // Start messaging (resubscribe loops) — in production this is done by ServiceLoop
+        var messaging = _cluster.Silos[0].ServiceProvider.GetRequiredService<IMessaging>();
+        var testLifetime = new Lifetime();
+        await messaging.Start(testLifetime);
+        _messagingLifetime = testLifetime;
+    }
+
+    private static void RegisterTestConfigs(IServiceCollection services)
+    {
+        // The worker scans fast enough for the tests to drain within their waits.
+        RegisterConfig<ISideEffectsConfig, SideEffectsOptions>(services, o => {
+            o.ScanDelay = 50;
+            o.EmptyScanDelay = 500;
+        });
+
+        RegisterConfig<ITransactionConfig, TransactionOptions>(services, o => {
+            o.LockWaitSeconds = 2f;
+            o.StuckGraceSeconds = 5f;
+        });
+
+        RegisterConfig<IDurableQueueConfig, DurableQueueOptions>(services);
+        RegisterConfig<ITaskBalancerConfig, TaskBalancerOptions>(services);
+        RegisterConfig<IRuntimePipeConfig, RuntimePipeOptions>(services);
+        RegisterConfig<IRuntimeChannelConfig, RuntimeChannelOptions>(services);
+
+        // Cluster features
+        var features = new TestAddressableState<ClusterFeaturesState>();
+        var clusterFeatures = Substitute.For<IClusterFeatures>();
+        clusterFeatures.Value.Returns(features.Value);
+        clusterFeatures.IsInitialized.Returns(true);
+        clusterFeatures.SideEffectsEnabled.Returns(true);
+        services.AddSingleton(clusterFeatures);
+    }
+
+    private static void RegisterConfig<TInterface, TOptions>(
+        IServiceCollection services,
+        Action<TOptions>? configure = null)
+        where TInterface : class, IAddressableState<TOptions>
+        where TOptions : class, new()
+    {
+        var value = new TOptions();
+        configure?.Invoke(value);
+
+        var state = new TestAddressableState<TOptions>(value);
+        var mock = Substitute.For<TInterface>();
+        mock.Value.Returns(state.Value);
+        mock.IsInitialized.Returns(true);
+        services.AddSingleton(mock);
+    }
+
+    public virtual async ValueTask DisposeAsync()
+    {
+        _messagingLifetime?.Terminate();
+        await _cluster.StopAllSilosAsync();
+        await Database.DisposeAsync();
+    }
+}
+
+/// <summary>
+/// xUnit collection for Orleans integration tests.
+/// Tests in this collection share a single TestCluster.
+/// </summary>
+[CollectionDefinition(nameof(OrleansIntegrationCollection))]
+public class OrleansIntegrationCollection : ICollectionFixture<OrleansTestClusterFixture>;

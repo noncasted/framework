@@ -34,7 +34,7 @@ namespace Internal
 
         public OptionsContainer Options => _options;
 
-        [MenuItem("Tools/Project Tools %g")]
+        [MenuItem(FrameworkMenu.Root + "Project Tools %g", priority = FrameworkMenu.Priority)]
         public static void ToggleWindow()
         {
             var existing = Resources.FindObjectsOfTypeAll<ProjectToolsWindow>();

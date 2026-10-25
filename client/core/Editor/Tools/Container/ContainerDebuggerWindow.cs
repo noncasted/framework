@@ -47,7 +47,7 @@ namespace Internal
         private VisualElement _buildBody;
         private Label _historyHint;
 
-        [MenuItem("Tools/Container Debugger")]
+        [MenuItem(FrameworkMenu.Container + "Debugger", priority = FrameworkMenu.GroupPriority)]
         public static void Open()
         {
             var window = GetWindow<ContainerDebuggerWindow>();

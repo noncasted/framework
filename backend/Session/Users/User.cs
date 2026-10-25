@@ -1,5 +1,5 @@
 using Common.Network;
-using Common.Reactive;
+using Internal;
 using Shared;
 
 namespace Game.Session;

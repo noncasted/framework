@@ -1,5 +1,5 @@
 ﻿using System.Net.WebSockets;
-using Common.Reactive;
+using Internal;
 using MemoryPack;
 using Microsoft.Extensions.Logging;
 using Shared;

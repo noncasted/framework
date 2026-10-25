@@ -14,7 +14,8 @@ namespace Internal
         private const string GeneratedFileName = "Colors.cs";
         private const string LogTag = "ColorGenerator";
 
-        [MenuItem("Tools/GenerateColors")]
+        // The path is repeated by ColorCatalog.Refresh (runtime assembly).
+        [MenuItem(FrameworkMenu.Codegen + "Colors", priority = FrameworkMenu.TrailingPriority)]
         public static void Generate()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode)
@@ -32,7 +33,7 @@ namespace Internal
             GenerateNow();
         }
 
-        // Synchronous run for Tools/Foundation/Regenerate All, which checks Play mode and compilation itself.
+        // Synchronous run for Tools/Framework/Codegen/Regenerate All, which checks Play mode and compilation itself.
         public static void GenerateNow()
         {
             var guids = AssetDatabase.FindAssets("t:ColorCatalog");

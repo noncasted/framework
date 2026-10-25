@@ -41,7 +41,7 @@ namespace Internal
 
         public string Status { get; private set; } = EmptyEditModeStatus;
 
-        [MenuItem("Tools/Container Graph")]
+        [MenuItem(FrameworkMenu.Container + "Graph", priority = FrameworkMenu.GroupPriority)]
         public static void Open()
         {
             try

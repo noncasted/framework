@@ -17,7 +17,7 @@ namespace Internal
             Runner.RunDelayed();
         }
 
-        [MenuItem("Tools/GenerateContainerGraphAssets")]
+        [MenuItem(FrameworkMenu.Codegen + "Container Asset Map", priority = FrameworkMenu.TrailingPriority)]
         public static void Generate()
         {
             Runner.Run();

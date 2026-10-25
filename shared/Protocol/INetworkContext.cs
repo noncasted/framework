@@ -20,7 +20,7 @@
 
     // Tag ranges of the INetworkContext union, shared by the framework and every project:
     // - 0-249 framework (one byte on the wire): 0 EmptyResponse, 1 ErrorResponse, 10-19 session auth, 20-29 entity,
-    //   30-39 object, 40-49 player, 50-59 service, 60-69 latency, 100-149 backend meta, 150-179 matchmaking,
+    //   30-39 object, 40-49 player, 50-59 service, 60-69 latency, 100-149 backend meta, 150-179 session requests,
     //   180-199 lobbies;
     // - 1000+ game.
     // A removed type leaves a hole: tags are never reused. A duplicated tag fails the MemoryPack generator.
@@ -58,6 +58,21 @@
         public const ushort LatencyPong = 61;
         public const ushort LatencyPeerProbe = 62;
         public const ushort LatencyPeerEcho = 63;
+
+        // Session requests (Matchmaking/SharedSessionRequests) and lobbies (Lobbies/SharedLobbies): a project with the
+        // lobbies module lists all of them.
+        public const ushort SessionSearch = 150;
+        public const ushort SessionResult = 151;
+        public const ushort LobbyCreate = 152;
+        public const ushort LobbyJoin = 153;
+        public const ushort SessionTicketRequest = 154;
+        public const ushort SessionTicketResponse = 155;
+
+        public const ushort LobbiesSubscribe = 180;
+        public const ushort LobbiesUnsubscribe = 181;
+        public const ushort LobbiesList = 182;
+        public const ushort LobbyJoinMatch = 183;
+        public const ushort SessionCreateSolo = 184;
 
         public const ushort GameFirst = 1000;
     }

@@ -16,7 +16,7 @@ namespace Internal
     /// On Linux the editor main menu is a native GtkMenuBar: a separate row above the main toolbar.
     /// The native plugin next to this file (source in Source~/GtkMenuBarHider of this package) hides it, and a toolbar
     /// element shows the same menus in place of the Unity logo. Enabled by default, toggled per user
-    /// in Tools/Compact Menu Bar. Other platforms are not touched.
+    /// in Tools/Framework/Compact Menu Bar. Other platforms are not touched.
     /// </summary>
     // Statics are reflection handles of editor types, valid across code reloads.
     [InitializeOnLoad]
@@ -24,7 +24,7 @@ namespace Internal
     public static class CompactMenuBar
     {
         private const string ElementPath = "Editor Controls/Menu Bar";
-        private const string ToggleMenu = "Tools/Compact Menu Bar";
+        private const string ToggleMenu = FrameworkMenu.Root + "Compact Menu Bar";
         private const string EnabledPrefsKey = "Internal.CompactMenuBar.Enabled";
         private const string ProductCaption = "ToolbarProductCaption";
         private const string ContextMenu = "CONTEXT";
@@ -59,7 +59,7 @@ namespace Internal
         [DllImport("gtk-menubar-hider", EntryPoint = "menubar_hider_set_hidden")]
         private static extern int SetNativeMenuHidden(int hidden);
 
-        [MenuItem(ToggleMenu)]
+        [MenuItem(ToggleMenu, priority = FrameworkMenu.TrailingPriority)]
         private static void Toggle()
         {
             EditorPrefs.SetBool(EnabledPrefsKey, IsEnabled == false);

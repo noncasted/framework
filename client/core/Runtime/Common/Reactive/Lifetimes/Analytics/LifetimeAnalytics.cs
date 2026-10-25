@@ -49,13 +49,19 @@ namespace Internal
     }
 
     /// <summary>
-    /// Editor-only feed of lifetime creation/termination for the Lifetime Graph.
-    /// Lifetimes can be created on any thread, so events go through a concurrent queue
-    /// that the editor drains on the main thread.
+    /// Editor-only feed of lifetime creation/termination for the Lifetime Graph, installed into
+    /// <see cref="LifetimeTracker"/> of Framework.Common on load. Lifetimes can be created on any thread,
+    /// so events go through a concurrent queue that the editor drains on the main thread.
     /// </summary>
     [NoAutoStaticsCleanup]
     public static class LifetimeAnalytics
     {
+        [UnityEditor.InitializeOnLoadMethod]
+        private static void Install()
+        {
+            LifetimeTracker.Current = new Tracker();
+        }
+
         private const int MaxStackLines = 12;
 
         // Frames of these types create a lifetime on behalf of the caller: the label is taken from the first frame after them.
@@ -91,7 +97,7 @@ namespace Internal
             }
         }
 
-        internal static int OnCreated(IReadOnlyLifetime parent, IReadOnlyLifetime secondParent)
+        private static int OnCreated(IReadOnlyLifetime parent, IReadOnlyLifetime secondParent)
         {
             if (IsEnabled == false)
                 return 0;
@@ -112,7 +118,7 @@ namespace Internal
             return id;
         }
 
-        internal static void OnTerminated(int id)
+        private static void OnTerminated(int id)
         {
             // A lifetime created before tracking was enabled is not present in the graph.
             if (id == 0)
@@ -123,7 +129,7 @@ namespace Internal
 
         private static int IdOf(IReadOnlyLifetime lifetime)
         {
-            return lifetime is Lifetime tracked ? tracked.AnalyticsId : 0;
+            return lifetime is Lifetime tracked ? tracked.TrackingId : 0;
         }
 
         private static (string owner, string stack) CaptureCreator()
@@ -237,6 +243,19 @@ namespace Internal
             var name = type.Name;
             var tick = name.IndexOf('`');
             return tick >= 0 ? name.Substring(0, tick) : name;
+        }
+
+        private sealed class Tracker : ILifetimeTracker
+        {
+            public int OnCreated(IReadOnlyLifetime parent, IReadOnlyLifetime secondParent)
+            {
+                return LifetimeAnalytics.OnCreated(parent, secondParent);
+            }
+
+            public void OnTerminated(int id)
+            {
+                LifetimeAnalytics.OnTerminated(id);
+            }
         }
     }
 }

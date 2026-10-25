@@ -32,7 +32,8 @@ namespace Internal
         [Button("Refresh")]
         private void Refresh()
         {
-            EditorApplication.ExecuteMenuItem("Tools/GenerateColors");
+            // FrameworkMenu.Codegen + "Colors" (ColorGenerator.Generate): the runtime assembly has no editor constants.
+            EditorApplication.ExecuteMenuItem("Tools/Framework/Codegen/Colors");
         }
 #endif
     }

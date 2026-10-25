@@ -1,5 +1,5 @@
 using Common.Network;
-using Common.Reactive;
+using Internal;
 using Game.Session;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -14,7 +14,9 @@ namespace Framework.Tests.Session;
 // IConnection.Run, so a user leaves the session the way it does after a real disconnect (Session.HandleUser).
 public class TestSession
 {
-    public TestSession(SessionCreateOptions options)
+    // configure: what the host of a session of a game adds to its container (the services of the session, the
+    // registrations of the lobbies module); it runs after AddSessionServices and before the queue override.
+    public TestSession(SessionCreateOptions options, Action<IServiceCollection>? configure = null)
     {
         Options = options;
         Time = (ManualTimeProvider)options.Time;
@@ -29,6 +31,7 @@ public class TestSession
         var services = new ServiceCollection();
         services.AddSingleton<ILoggerFactory>(NullLoggerFactory.Instance);
         services.AddSessionServices(data, options);
+        configure?.Invoke(services);
 
         // The last registration wins: the queue is pumped by the test.
         services.AddSingleton<IExecutionQueue>(Queue);

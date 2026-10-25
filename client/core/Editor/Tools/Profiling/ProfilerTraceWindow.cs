@@ -47,7 +47,7 @@ namespace Internal
         private VisualElement _axis;
         private ScrollView _rows;
 
-        [MenuItem("Tools/Startup Profiler")]
+        [MenuItem(FrameworkMenu.Root + "Startup Profiler", priority = FrameworkMenu.GroupPriority)]
         public static void Open()
         {
             var window = GetWindow<ProfilerTraceWindow>();
