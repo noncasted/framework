@@ -22,6 +22,7 @@ namespace ContainerGenerator.Verify {
             Run("generator driver Internal→Global→Menu", TestGeneratorDriverParentChain);
             Run("generator driver missing parent is CINGR007", TestGeneratorDriverMissingParent);
             Run("generator driver with source project references (IDE)", TestGeneratorDriverSourceReferences);
+            Run("generator driver installer of calls only from another assembly", TestGeneratorDriverCallsOnlyInstaller);
             Run("CINGR004 cycle path", TestCycle);
             Run("[Inject] picks method by attribute, not name", TestInjectAttribute);
             Run("IReadOnlyList FullyQualifiedFormat", TestCollectionTypeKey);
@@ -256,6 +257,40 @@ namespace ContainerGenerator.Verify {
             RequireNoId(menuRun.Diagnostics, "CINGR007");
             RequireGeneratedContains(menuRun.Output, "MenuScopeExtensionsConstructContainer");
             RequireGeneratedContains(menuRun.Output, "global::Global.Setup.Clock");
+        }
+
+        // A module installer that only calls other installers of its assembly (AddUI = AddUIStateMachine +
+        // AddUINavigation), reached through an installer of the parent scope in a third assembly. The child scope gets
+        // the registrations of the callees; an assembly that references the parent but not the module reports nothing.
+        private static void TestGeneratorDriverCallsOnlyInstaller() {
+            var internalRun = RunGenerator(Compile(DriverInternalSource, "Internal"), "Internal");
+            var uiRun = RunGenerator(
+                Compile(CallsOnlyModuleSource, "Module.UI", extra: new[] { internalRun.Reference }, includeStubs: false),
+                "Module.UI");
+            RequireNoId(uiRun.Diagnostics, "CINGR002");
+
+            var globalRun = RunGenerator(
+                Compile(CallsOnlyGlobalSource, "Global", extra: new[] { internalRun.Reference, uiRun.Reference }, includeStubs: false),
+                "Global");
+            RequireNoId(globalRun.Diagnostics, "CINGR002");
+            RequireNoId(globalRun.Diagnostics, "CINGR003");
+
+            var playRun = RunGenerator(
+                Compile(
+                    CallsOnlyPlaySource,
+                    "Play",
+                    // The parent first: its manifest brings the call of AddUI before the module brings the body.
+                    extra: new[] { internalRun.Reference, globalRun.Reference, uiRun.Reference },
+                    includeStubs: false),
+                "Play");
+            RequireNoId(playRun.Diagnostics, "CINGR002");
+            RequireNoId(playRun.Diagnostics, "CINGR003");
+            RequireGeneratedContains(playRun.Output, "PlayScopeExtensionsConstructContainer");
+
+            var testsRun = RunGenerator(
+                Compile(CallsOnlyTestsSource, "Play.Tests", extra: new[] { internalRun.Reference, globalRun.Reference }, includeStubs: false),
+                "Play.Tests");
+            RequireNoId(testsRun.Diagnostics, "CINGR002");
         }
 
         private static void TestGeneratorDriverMissingParent() {
@@ -1806,6 +1841,80 @@ namespace Internal {
         public void Register(IScopeBuilder builder) {
             builder.RegisterInstance(new BackendOptions());
         }
+    }
+}
+";
+
+        private const string CallsOnlyModuleSource = @"
+using Internal;
+
+namespace Module.UI {
+    public interface IUIStateMachine {}
+    public class UIStateMachine : IUIStateMachine {}
+    public interface IUINavigation {}
+    public class UINavigation : IUINavigation {}
+    public static class UIExtensions {
+        public static IScopeBuilder AddUI(this IScopeBuilder builder) {
+            builder.AddUIStateMachine();
+            builder.AddUINavigation();
+            return builder;
+        }
+
+        public static IScopeBuilder AddUIStateMachine(this IScopeBuilder builder) {
+            builder.Register<UIStateMachine>().As<IUIStateMachine>();
+            return builder;
+        }
+
+        public static IScopeBuilder AddUINavigation(this IScopeBuilder builder) {
+            builder.Register<UINavigation>().As<IUINavigation>();
+            return builder;
+        }
+    }
+}
+";
+
+        private const string CallsOnlyGlobalSource = @"
+using Internal;
+using Module.UI;
+
+namespace Global.Setup {
+    public static class GlobalUIExtensions {
+        public static IScopeBuilder AddGlobalUI(this IScopeBuilder builder) {
+            builder.AddUI();
+            return builder;
+        }
+    }
+    public static class GlobalScopeExtensions {
+        [ContainerScopeParent(typeof(OptionsContainer), nameof(OptionsContainer.Register))]
+        public static void Construct(IScopeBuilder builder) {
+            builder.AddGlobalUI();
+        }
+    }
+}
+";
+
+        private const string CallsOnlyPlaySource = @"
+using Internal;
+using Global.Setup;
+using Module.UI;
+
+namespace Play {
+    public class NeedsUI {
+        public NeedsUI(IUIStateMachine ui) {}
+    }
+    public static class PlayScopeExtensions {
+        [ContainerScopeParent(typeof(GlobalScopeExtensions), nameof(GlobalScopeExtensions.Construct))]
+        public static void Construct(IScopeBuilder builder) {
+            builder.Register<NeedsUI>();
+        }
+    }
+}
+";
+
+        private const string CallsOnlyTestsSource = @"
+namespace Play.Tests {
+    public class Probe {
+        public System.Type Global => typeof(Global.Setup.GlobalScopeExtensions);
     }
 }
 ";

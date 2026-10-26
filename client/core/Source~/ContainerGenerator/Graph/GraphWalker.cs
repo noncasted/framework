@@ -257,9 +257,13 @@ namespace ContainerGenerator {
                 model = _compilation.GetSemanticModel(syntax.SyntaxTree);
             }
 
+            // A method of a referenced assembly: its body comes from the manifest of that assembly (ManifestReader),
+            // so it belongs there and is not exported again with the manifest of this one.
             if (syntax == null || model == null) {
                 result.File = "";
                 result.Line = 0;
+                if (reference == null && syntaxSource.ContainingAssembly != null)
+                    result.AssemblyName = syntaxSource.ContainingAssembly.Name;
                 return;
             }
 

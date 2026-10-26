@@ -22,7 +22,10 @@ namespace ContainerGenerator {
                     if (method == null || string.IsNullOrEmpty(method.Id))
                         continue;
                     if (existing.TryGetValue(method.Id, out var local)) {
-                        if (local.Registrations.Count == 0 && method.Registrations.Count > 0) {
+                        // A local entry without a body (a call into the referenced assembly) takes the manifest one:
+                        // its registrations and its calls (an installer may only call other installers).
+                        if (local.Registrations.Count == 0 && local.Calls.Count == 0 &&
+                            (method.Registrations.Count > 0 || method.Calls.Count > 0)) {
                             local.Registrations.AddRange(method.Registrations);
                             local.Calls.AddRange(method.Calls);
                             local.CallOrdinals.AddRange(method.CallOrdinals);
@@ -60,6 +63,12 @@ namespace ContainerGenerator {
 
             for (var i = 0; i < document.Methods.Count; i++) {
                 var method = document.Methods[i];
+
+                // The calls of a method of a referenced assembly were checked when that assembly was compiled; this
+                // one may not reference everything they reach.
+                if (IsForeign(document, method) == true)
+                    continue;
+
                 for (var c = 0; c < method.Calls.Count; c++) {
                     var call = method.Calls[c];
                     if (ids.Contains(call))
@@ -76,6 +85,12 @@ namespace ContainerGenerator {
                         method.Line.ToString(CultureInfo.InvariantCulture)));
                 }
             }
+        }
+
+        private static bool IsForeign(GraphDocument document, GraphMethod method) {
+            return string.IsNullOrEmpty(method.AssemblyName) == false &&
+                   string.IsNullOrEmpty(document.AssemblyName) == false &&
+                   string.Equals(method.AssemblyName, document.AssemblyName, StringComparison.Ordinal) == false;
         }
 
         private static bool IsInstallerAttribute(AttributeData attribute) {
