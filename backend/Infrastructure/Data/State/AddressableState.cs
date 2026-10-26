@@ -88,6 +88,12 @@ public class AddressableState<T> : ViewableProperty<T>, IOrleansStarted, IAddres
             {
                 var value = _orleans.Serializer.Deserialize<T>(state.Value);
                 Set(value);
+
+                // A value loaded from the database is initialized just like a written one. Without this the flag
+                // stayed false until the first update on the channel, and ConfigsInitializer.Init overwrote the
+                // stored config with the seed on every start of the coordinator.
+                _isInitialized = true;
+                _updateDate = state.UpdateDate;
             }
 
             await _messaging.ListenChannel<AddressableStateValue>(lifetime, _channelId, OnUpdate);

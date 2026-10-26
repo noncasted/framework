@@ -13,7 +13,7 @@ namespace Framework.Tests.Security;
 
 /// <summary>
 /// Browser origins of meta / game come from configuration (CORS and the WebSocket handshake);
-/// Development adds loopback, production needs an explicit list.
+/// Development adds loopback, production needs an explicit list or the explicit "no browser origins" value.
 /// </summary>
 public class AllowedOriginsTests
 {
@@ -72,13 +72,54 @@ public class AllowedOriginsTests
 
     [Theory]
     [InlineData("https://game.example/tg/")]
+    [InlineData("https://game.example?x=1")]
+    [InlineData("https://game.example#x")]
+    [InlineData("https://user@game.example")]
+    [InlineData("https://user:secret@game.example")]
     [InlineData("game.example")]
+    [InlineData("*.itch.zone")]
     [InlineData("wss://game.example")]
+    [InlineData("None")]
     public void NotAnOrigin_FailsStartup(string origin)
     {
         var read = () => Read("Production", origin);
 
         read.Should().Throw<InvalidOperationException>().WithMessage($"*{origin}*");
+    }
+
+    [Theory]
+    [InlineData("Production", "https://evil.io")]
+    [InlineData("Production", "http://localhost:5000")]
+    [InlineData("Production", "https://localhost")]
+    [InlineData("Production", "null")]
+    [InlineData("Staging", "http://127.0.0.1:8080")]
+    public void NoBrowserOrigins_OutsideDevelopment_NothingAllowed(string environment, string origin)
+    {
+        var origins = Read(environment, $" {AllowedOrigins.NoBrowserOrigins} ");
+
+        origins.Origins.Should().BeEmpty();
+        origins.IsAllowed(origin).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("http://localhost:5000", true)]
+    [InlineData("http://127.0.0.1:8080", true)]
+    [InlineData("https://evil.io", false)]
+    public void NoBrowserOrigins_Development_LoopbackOnly(string origin, bool allowed)
+    {
+        var origins = Read("Development", AllowedOrigins.NoBrowserOrigins);
+
+        origins.IsAllowed(origin).Should().Be(allowed);
+    }
+
+    [Theory]
+    [InlineData("none, https://game.example")]
+    [InlineData("https://game.example,none")]
+    public void NoBrowserOrigins_WithOrigins_FailsStartup(string list)
+    {
+        var read = () => Read("Production", list);
+
+        read.Should().Throw<InvalidOperationException>().WithMessage($"*{AllowedOrigins.NoBrowserOrigins}*");
     }
 
     [Fact]
@@ -139,6 +180,27 @@ public class AllowedOriginsTests
         (await connect.Should().ThrowAsync<WebSocketException>()).Which.Message.Should().Contain("403");
     }
 
+    [Fact]
+    public async Task NoBrowserOrigins_NativeClientPasses_BrowserIsRejected()
+    {
+        await using var host = await Start(AllowedOrigins.NoBrowserOrigins);
+
+        var native = await host.Http.GetAsync("/ping");
+        var browser = await Send(host, HttpMethod.Get, "https://game.example");
+        var preflight = await Send(host, HttpMethod.Options, "https://game.example", preflight: true);
+
+        native.IsSuccessStatusCode.Should().BeTrue();
+        (await native.Content.ReadAsStringAsync()).Should().Be("pong");
+        browser.Headers.Contains("Access-Control-Allow-Origin").Should().BeFalse();
+        preflight.Headers.Contains("Access-Control-Allow-Origin").Should().BeFalse();
+
+        using var socket = await Connect(host, null);
+        socket.State.Should().Be(WebSocketState.Open);
+
+        var browserSocket = () => Connect(host, "https://game.example");
+        (await browserSocket.Should().ThrowAsync<WebSocketException>()).Which.Message.Should().Contain("403");
+    }
+
     private static AllowedOrigins Read(string environment, string list)
     {
         var configuration = new ConfigurationBuilder()
@@ -152,9 +214,9 @@ public class AllowedOriginsTests
     }
 
     // The same pipeline head as GameGateway.AddMiddleware / BackendMiddlewareExtensions.AddBackendMiddleware.
-    private static async Task<TestWebHost> Start()
+    private static async Task<TestWebHost> Start(string origins = ProductionOrigins)
     {
-        var builder = TestWebHost.CreateBuilder("Production", (AllowedOrigins.ConfigurationKey, ProductionOrigins));
+        var builder = TestWebHost.CreateBuilder("Production", (AllowedOrigins.ConfigurationKey, origins));
         builder.ConfigureCors();
 
         var app = builder.Build();
