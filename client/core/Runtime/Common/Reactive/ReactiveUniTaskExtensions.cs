@@ -39,6 +39,15 @@ namespace Internal
             }
         }
 
+        // Completes in the Terminate of the lifetime, at once for a terminated one (Listen runs the callback then).
+        // Unlike UniTask.WaitUntilCanceled(lifetime.Token) it does not wait for the next player loop.
+        public static UniTask WaitTermination(this IReadOnlyLifetime lifetime)
+        {
+            var completion = new UniTaskCompletionSource();
+            lifetime.Listen(() => completion.TrySetResult());
+            return completion.Task;
+        }
+
         public static UniTask WaitInvoke(this IEventSource viewableDelegate, IReadOnlyLifetime lifetime)
         {
             var completion = new UniTaskCompletionSource();

@@ -74,6 +74,29 @@ public class ReactiveCollectionsTests
         b.IsTerminated.Should().BeTrue();
     }
 
+    // As in Remove, the entries leave first: a listener of an entry lifetime sees the list empty and may add again.
+    [Fact]
+    public void List_Clear_EndsEntryLifetimesAfterEmptying_ListenerMayAdd()
+    {
+        var list = new ViewableList<string>();
+        var a = list.Add("a");
+        var b = list.Add("b");
+        var countAtEnd = -1;
+
+        a.Listen(() => {
+            countAtEnd = list.Count;
+            list.Add("re-added");
+        });
+
+        list.Clear();
+
+        a.IsTerminated.Should().BeTrue();
+        b.IsTerminated.Should().BeTrue();
+        countAtEnd.Should().Be(0);
+        list.Should().Equal("re-added");
+        list.GetLifetime("re-added").IsTerminated.Should().BeFalse();
+    }
+
     [Fact]
     public void List_AfterDispose_AddReturnsTerminatedLifetime_ListenRunsAtOnce()
     {
@@ -164,6 +187,43 @@ public class ReactiveCollectionsTests
         dictionary.Should().BeEmpty();
     }
 
+    // Clear ends the entry lifetimes as Remove does, after the entries left: the listener sees it empty.
+    [Fact]
+    public void Dictionary_Clear_EndsEveryEntryLifetime_AfterEmptying()
+    {
+        var dictionary = new CountingDictionary();
+        var a = dictionary.Add(1, "a");
+        var b = dictionary.Add(2, "b");
+        var countAtEnd = -1;
+        a.Listen(() => countAtEnd = dictionary.Count);
+        var modifiedBefore = dictionary.Modified;
+
+        dictionary.Clear();
+
+        a.IsTerminated.Should().BeTrue();
+        b.IsTerminated.Should().BeTrue();
+        countAtEnd.Should().Be(0);
+        dictionary.Should().BeEmpty();
+        dictionary.Modified.Should().Be(modifiedBefore + 1);
+    }
+
+    [Fact]
+    public void Dictionary_ClearedKeyAddedAgain_GetsNewLifetime_ListenerMayAdd()
+    {
+        var dictionary = new ViewableDictionary<int, string>();
+        var first = dictionary.Add(1, "a");
+        first.Listen(() => dictionary.Add(2, "re-added"));
+
+        dictionary.Clear();
+        var second = dictionary.Add(1, "b");
+
+        first.IsTerminated.Should().BeTrue();
+        second.IsTerminated.Should().BeFalse();
+        dictionary.GetLifetime(1).Should().BeSameAs(second);
+        dictionary.GetLifetime(2).IsTerminated.Should().BeFalse();
+        dictionary.Count.Should().Be(2);
+    }
+
     [Fact]
     public void Dictionary_Advise_SeesExistingAndAdded()
     {
@@ -203,5 +263,15 @@ public class ReactiveCollectionsTests
         source.Invoke();
 
         calls.Should().Be(1);
+    }
+
+    private class CountingDictionary : ViewableDictionary<int, string>
+    {
+        public int Modified { get; private set; }
+
+        protected override void OnModified()
+        {
+            Modified++;
+        }
     }
 }

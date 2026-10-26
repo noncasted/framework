@@ -123,13 +123,17 @@ namespace Internal
                 yield return source;
         }
 
+        // The entries leave the list before their lifetimes end (as in Remove): their listeners see it empty and may
+        // add entries again without breaking the pass.
         public new void Clear()
         {
-            foreach (var entry in this)
-                _lifetimes[entry].Terminate();
+            var lifetimes = new List<ILifetime>(_lifetimes.Values);
 
             _lifetimes.Clear();
             base.Clear();
+
+            foreach (var lifetime in lifetimes)
+                lifetime.Terminate();
 
             OnModified();
         }

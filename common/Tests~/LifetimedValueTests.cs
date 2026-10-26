@@ -49,6 +49,35 @@ public class LifetimedValueTests
         property.ValueLifetime.Should().BeSameAs(initial);
     }
 
+    // Null over null is an equal value too: what was subscribed in the lifetime of the empty value stays.
+    [Fact]
+    public void Set_NullOverNull_DoesNotNotify_KeepsValueLifetime()
+    {
+        var property = new ViewableProperty<string?>(null);
+        var initial = property.ValueLifetime;
+        var calls = 0;
+
+        property.Advise(new Lifetime(), (_, _) => calls++);
+        property.Set(null);
+
+        calls.Should().Be(0);
+        initial.IsTerminated.Should().BeFalse();
+        property.ValueLifetime.Should().BeSameAs(initial);
+    }
+
+    [Fact]
+    public void Set_NullOverValue_And_ValueOverNull_Notify()
+    {
+        var property = new ViewableProperty<string?>("a");
+        var seen = new List<string?>();
+
+        property.Advise(new Lifetime(), (_, value) => seen.Add(value));
+        property.Set(null);
+        property.Set("b");
+
+        seen.Should().Equal(null, "b");
+    }
+
     [Fact]
     public void Set_Changed_NotifiesAndRenewsValueLifetime()
     {

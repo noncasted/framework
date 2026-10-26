@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Internal
 {
@@ -29,10 +30,10 @@ namespace Internal
             _eventSource.Advise(lifetime, handler);
         }
 
-        // An equal value is not a change: no notification, the value lifetime stays.
+        // An equal value is not a change: no notification, the value lifetime stays. Null again is equal too.
         public void Set(T value)
         {
-            if (_value?.Equals(value) == true)
+            if (EqualityComparer<T>.Default.Equals(_value, value) == true)
                 return;
 
             _value = value;

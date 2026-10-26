@@ -88,6 +88,12 @@ namespace Internal
             OnModified();
         }
 
+        // Hides Dictionary.Clear, which would keep the entry lifetimes alive for good.
+        public new void Clear()
+        {
+            TerminateEntries();
+            OnModified();
+        }
 
         protected virtual void OnModified()
         {
@@ -122,8 +128,15 @@ namespace Internal
             return base.TryGetValue(key, out value);
         }
 
-        // The entries leave the dictionary before their lifetimes end (as in Remove): their listeners see it empty.
         public void Dispose()
+        {
+            TerminateEntries();
+            _eventSource.Dispose();
+        }
+
+        // The entries leave the dictionary before their lifetimes end (as in Remove): their listeners see it empty
+        // and may add keys again without breaking the pass.
+        private void TerminateEntries()
         {
             var lifetimes = new List<ILifetime>(_lifetimes.Values);
 
@@ -132,8 +145,6 @@ namespace Internal
 
             foreach (var lifetime in lifetimes)
                 lifetime.Terminate();
-
-            _eventSource.Dispose();
         }
     }
 }
