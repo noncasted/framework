@@ -1,5 +1,6 @@
 <Solution>
     <Project Path="shared/framework.shared.csproj" />
+    <Project Path="shared/SessionCore/framework.session.core.csproj" />
     <Folder Name="/common/">
         <Project Path="common/framework.common.csproj" />
         <Project Path="common/Tests~/Framework.Common.Tests.csproj" />

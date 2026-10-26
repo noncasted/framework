@@ -8,7 +8,7 @@ namespace Internal
     public static class NetworkServiceExtensions
     {
         // Fetches a service from the session (GetRequest), fills its properties and starts it. Each network
-        // service creates one with its own property ids (SharedLobbyService, SharedLocationService).
+        // service creates one with its own property ids (SharedLobbyService, SharedRunService of a game).
         public class NetworkServiceResolver<T> : INetworkSessionSetupCompleted where T : NetworkService
         {
             public NetworkServiceResolver(

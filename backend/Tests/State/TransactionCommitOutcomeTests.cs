@@ -63,7 +63,7 @@ public class TransactionCommitOutcomeTests
         IDbSource dbSource,
         ISideEffectsStorage sideEffectsStorage,
         ITransactionConfig transactionConfig)
-        : Transactions(stateStorage, eventStorage, dbSource, sideEffectsStorage, transactionConfig,
+        : Transactions(stateStorage, eventStorage, dbSource, sideEffectsStorage, new Lazy<ITransactionConfig>(() => transactionConfig),
             NullLogger<Transactions>.Instance)
     {
         protected override async Task CommitTransaction(NpgsqlTransaction transaction)

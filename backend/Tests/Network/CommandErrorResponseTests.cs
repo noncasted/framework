@@ -125,15 +125,16 @@ public class CommandErrorResponseTests
             var lifetime = new Lifetime();
             var connection = new Connection(sockets.Server, lifetime, NullLogger.Instance);
 
-            var user = Substitute.For<IUser>();
+            var user = Substitute.For<IHostedUser>();
             user.Id.Returns(Guid.NewGuid());
             user.Index.Returns(1);
-            user.Connection.Returns(connection);
+            user.Socket.Returns(connection);
+            user.Connection.Returns(new SocketUserConnection(connection));
 
             var oneWays = oneWay == null ? Array.Empty<ICommand>() : [oneWay];
             var commands = new CommandsCollection(oneWays, [command]);
             var queue = new ExecutionQueue(NullLogger<ExecutionQueue>.Instance);
-            var dispatcher = new CommandDispatcher(commands, queue, NullLogger<CommandDispatcher>.Instance);
+            var dispatcher = new CommandDispatcher(new SessionCommandRunner(commands, new NullSessionLog()), queue);
 
             dispatcher.Run(lifetime, user);
             connection.Run().NoAwait();

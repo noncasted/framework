@@ -32,11 +32,13 @@ namespace Internal
             PlatformOptions platformOptions,
             IClientOutdatedNotice outdatedNotice,
             ILocalServers localServers,
+            IPeerSockets peerSockets,
             NetworkProtocolHash protocolHash)
         {
             _platformOptions = platformOptions;
             _protocolHash = protocolHash.Value;
             _localServers = localServers;
+            _peerSockets = peerSockets;
             _outdatedNotice = outdatedNotice;
             _traffic = new NetworkTraffic();
             _reader = new ConnectionReader(_traffic);
@@ -53,6 +55,7 @@ namespace Internal
         private readonly PlatformOptions _platformOptions;
         private readonly IClientOutdatedNotice _outdatedNotice;
         private readonly ILocalServers _localServers;
+        private readonly IPeerSockets _peerSockets;
         private readonly ViewableDelegate<SocketCloseInfo> _closed = new();
 
         // The protocol this client was built with, sent in the query of the upgrade. A field: a play test replaces it
@@ -119,6 +122,10 @@ namespace Internal
                 // The offline mode: a server inside this process (LocalServerUrl), on every platform.
                 if (LocalServerUrl.IsLocal(socketUrl) == true)
                     return new LoopbackWebSocket(socketUrl, _localServers.Get(socketUrl), socketLifetime);
+
+                // A P2P match: the data channel to its host, on every platform.
+                if (PeerUrl.IsPeer(socketUrl) == true)
+                    return _peerSockets.Create(socketUrl, socketLifetime);
 
                 // ClientWebSocket does not work in WebGL, and referencing it pulls System.Net, TLS and Mono.Security into the build.
 #if UNITY_EDITOR || !UNITY_WEBGL

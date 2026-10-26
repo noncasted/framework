@@ -63,6 +63,7 @@ namespace Internal.Tests
                     new PlatformOptions(),
                     new SilentNotice(),
                     new LocalServers(),
+                    new PeerSockets(),
                     new NetworkProtocolHash("0123456789abcdef"));
 
                 typeof(NetworkConnection)

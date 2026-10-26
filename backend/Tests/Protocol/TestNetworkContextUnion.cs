@@ -32,6 +32,8 @@ namespace Framework.Tests.Protocol;
 [MemoryPackUnion(NetworkContextTags.LatencyPong, typeof(SharedSessionLatency.Pong))]
 [MemoryPackUnion(NetworkContextTags.LatencyPeerProbe, typeof(SharedSessionLatency.PeerProbe))]
 [MemoryPackUnion(NetworkContextTags.LatencyPeerEcho, typeof(SharedSessionLatency.PeerEcho))]
+[MemoryPackUnion(NetworkContextTags.PeerSignal, typeof(SharedSessionPeer.Signal))]
+[MemoryPackUnion(NetworkContextTags.PeerTunnel, typeof(SharedSessionPeer.Tunnel))]
 [MemoryPackUnion(NetworkContextTags.SessionSearch, typeof(SharedSessionRequests.Search))]
 [MemoryPackUnion(NetworkContextTags.SessionResult, typeof(SharedSessionRequests.Result))]
 [MemoryPackUnion(NetworkContextTags.LobbyCreate, typeof(SharedLobbies.CreateLobby))]

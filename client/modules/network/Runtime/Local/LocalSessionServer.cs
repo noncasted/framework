@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
+using Game.Session;
 using Shared;
 using UnityEngine;
 
 namespace Internal
 {
-    // The game server of the offline mode: sessions of one user each, the local counterpart of the backend session
-    // (backend/Game/Session). The client enters a session by its ticket, as with the game gateway; the session
-    // services that have backend logic are given by the creator of the session (LocalSessionService), a service of
-    // another key is created empty on its first request, as the backend ServiceFactory does.
+    // A game server inside the client: the sessions of the offline mode and of a P2P host. A session is the session
+    // core of the backend (SessionCore, shared/SessionCore) with the services of its creator; the client enters it by
+    // its ticket, as with the game gateway.
     public class LocalSessionServer : ILocalServer
     {
         public LocalSessionServer(IReadOnlyLifetime lifetime, string url)
@@ -24,9 +25,17 @@ namespace Internal
 
         public string Url { get; }
 
-        public LocalSession Create(IReadOnlyList<LocalSessionService> services)
+        // services: the game logic of the session (the IService the backend registers for its type), built over the
+        // parts of the core (owner, users, log).
+        public LocalSession Create(SessionType type, int maxUsers, Func<SessionCore, IEnumerable<IService>> services)
         {
-            var session = new LocalSession(_lifetime.Child(), Guid.NewGuid(), services);
+            return Create(Guid.NewGuid(), type, maxUsers, services);
+        }
+
+        // id: given by the creator (a P2P host runs the session of the match under the id of the server session).
+        public LocalSession Create(Guid id, SessionType type, int maxUsers, Func<SessionCore, IEnumerable<IService>> services)
+        {
+            var session = new LocalSession(_lifetime.Child(), id, type, maxUsers, services);
 
             _sessions.Add(session.Id, session);
             session.Lifetime.Listen(() => _sessions.Remove(session.Id));
@@ -34,12 +43,26 @@ namespace Internal
             return session;
         }
 
+        // The ticket of a user: the session, the id of the user (its seat) and the index of the seat (0 - the next
+        // one). The player of this device by default; a P2P host gives each player its seat of the server session.
         public string GetTicket(Guid sessionId)
+        {
+            return GetTicket(sessionId, OfflineUserId, 0);
+        }
+
+        public string GetTicket(Guid sessionId, Guid userId, int index)
         {
             if (_sessions.ContainsKey(sessionId) == false)
                 throw new LocalServerRequestException(ErrorCode.NotFound, $"Session {sessionId} is not on the local server");
 
-            return TicketPrefix + sessionId.ToString("N");
+            return CreateTicket(sessionId, userId, index);
+        }
+
+        // A ticket of a session that may not exist yet (a guest of a P2P host builds it from what the server session
+        // tells it).
+        public static string CreateTicket(Guid sessionId, Guid userId, int index)
+        {
+            return $"{TicketPrefix}{sessionId:N}.{userId:N}.{index}";
         }
 
         public ILocalServerConnection Accept(IReadOnlyLifetime lifetime, ILocalClient client)
@@ -47,44 +70,95 @@ namespace Internal
             return new LocalSessionConnection(lifetime, client, this);
         }
 
-        public LocalSession FindByTicket(string ticket)
+        // A ticket of another format or of a session that is not here: no session.
+        public LocalSession FindByTicket(string ticket, out Guid userId, out int index)
         {
+            userId = Guid.Empty;
+            index = 0;
+
             if (ticket.StartsWith(TicketPrefix, StringComparison.Ordinal) == false)
                 return null;
 
-            if (Guid.TryParseExact(ticket.Substring(TicketPrefix.Length), "N", out var id) == false)
+            var parts = ticket.Substring(TicketPrefix.Length).Split('.');
+
+            if (parts.Length != 3 ||
+                Guid.TryParseExact(parts[0], "N", out var id) == false ||
+                Guid.TryParseExact(parts[1], "N", out userId) == false ||
+                int.TryParse(parts[2], out index) == false)
                 return null;
 
             return _sessions.TryGetValue(id, out var session) == true ? session : null;
+        }
+
+        // A socket of another process to this server (a guest of a P2P host over a data channel): its frames go to a
+        // connection of the server as the frames of a loopback socket. The lifetime ends with the socket.
+        public void AcceptSocket(IReadOnlyLifetime lifetime, IWebSocket socket)
+        {
+            var connectionLifetime = lifetime.Child();
+            var connection = Accept(connectionLifetime, new SocketClient(socket, connectionLifetime));
+
+            socket.Received.Advise(connectionLifetime, connection.OnReceived);
+            socket.Closed.Advise(connectionLifetime, _ => connectionLifetime.Terminate());
+        }
+
+        // The meta id of the player of this device in a local session.
+        private static Guid OfflineUserId => new("00000000-0000-0000-0000-00000000000f");
+
+        private class SocketClient : ILocalClient
+        {
+            public SocketClient(IWebSocket socket, ILifetime lifetime)
+            {
+                _socket = socket;
+                _lifetime = lifetime;
+            }
+
+            private readonly IWebSocket _socket;
+            private readonly ILifetime _lifetime;
+
+            public void Send(byte[] bytes)
+            {
+                _socket.Send(bytes).Forget();
+            }
+
+            // The frames sent before the close are queued on the socket already; the peer sees the loss of the
+            // channel (there is no close code on a data channel).
+            public void Close(SocketCloseInfo info)
+            {
+                Debug.Log($"[Network] [Local] The server closes a socket: {info}");
+                _lifetime.Terminate();
+            }
         }
     }
 
     public class LocalSession
     {
-        public LocalSession(ILifetime lifetime, Guid id, IReadOnlyList<LocalSessionService> services)
+        public LocalSession(
+            ILifetime lifetime,
+            Guid id,
+            SessionType type,
+            int maxUsers,
+            Func<SessionCore, IEnumerable<IService>> services)
         {
             _lifetime = lifetime;
+            _maxUsers = maxUsers;
             Id = id;
 
-            foreach (var service in services)
-                AddService(service);
+            Core = new SessionCore(id, type, lifetime, new UnitySessionLog());
+
+            foreach (var service in services(Core))
+                Core.AddService(service);
+
+            Core.Start();
         }
 
-        // The only user of a local session: the indices of the backend start from 1.
-        public const int UserIndex = 1;
+        // The seat of the first user: the indices of the backend start from 1.
+        public const int FirstUserIndex = 1;
 
         private readonly ILifetime _lifetime;
-        private readonly Dictionary<string, LocalSessionService> _services = new();
-        private readonly Dictionary<int, LocalSessionService> _servicesById = new();
-        private readonly Dictionary<int, IEntityPayload> _entities = new();
-        private readonly HashSet<int> _removed = new();
-
-        // The id of the user in this session (SharedSessionPlayer.LocalUpdate.Id).
-        private readonly Guid _userId = Guid.NewGuid();
-
-        private LocalSessionConnection _user;
+        private readonly int _maxUsers;
 
         public Guid Id { get; }
+        public SessionCore Core { get; }
         public IReadOnlyLifetime Lifetime => _lifetime;
 
         public SessionAuthStatus GetEntryStatus()
@@ -92,152 +166,33 @@ namespace Internal
             if (_lifetime.IsTerminated == true)
                 return SessionAuthStatus.Closed;
 
-            // A local session is entered once: its user leaving ends it.
-            if (_user != null)
+            // Every place is taken (the user of an offline session is already in it).
+            if (Core.Users.Count >= _maxUsers)
                 return SessionAuthStatus.NoReservation;
 
             return SessionAuthStatus.Ok;
         }
 
-        public void Join(LocalSessionConnection user)
+        // backendId: the id of the user (the seat it returns to); index: the index of its seat (0 - the next one).
+        public IUser Join(LocalSessionConnection connection, Guid backendId, int index)
         {
             if (GetEntryStatus() != SessionAuthStatus.Ok)
                 throw new InvalidOperationException($"[Network] [Local] Session {Id} can't be entered: {GetEntryStatus()}");
 
-            _user = user;
-            user.Lifetime.Listen(_lifetime.Terminate);
+            var user = Core.Connect(connection.Lifetime, backendId, connection, index);
 
-            Debug.Log($"[Network] [Local] User {UserIndex} joins session {Id}");
+            // The session ends once nobody is in it (the offline user has left, the host closes its match).
+            user.Lifetime.Listen(() => {
+                if (Core.Users.Count == 0)
+                    _lifetime.Terminate();
+            });
 
-            user.Send(new SharedSessionPlayer.LocalUpdate { Index = UserIndex, Id = _userId });
-
-            foreach (var (_, service) in _services)
-                service.OnOwnerChanged(UserIndex);
-        }
-
-        public void SendAll(INetworkContext context)
-        {
-            _user?.Send(context);
-        }
-
-        public int CreateEntity(int id, IEntityPayload payload)
-        {
-            // As the backend EntityCreateCommand: an id out of the range of the creator or used before is refused.
-            if (SharedEntityIds.IsInRangeOf(id, UserIndex) == false)
-                throw new LocalServerRequestException(ErrorCode.Forbidden, $"Entity {id} is out of the id range of user {UserIndex}");
-
-            if (_entities.ContainsKey(id) == true || _removed.Contains(id) == true)
-                throw new LocalServerRequestException(ErrorCode.Forbidden, $"Entity id {id} is already used in the session");
-
-            _entities.Add(id, payload);
-            return id;
-        }
-
-        public void DestroyEntity(int id)
-        {
-            if (_entities.Remove(id) == true)
-            {
-                _removed.Add(id);
-                return;
-            }
-
-            // A destroy that crossed the destroy of the session (a travel): dropped, as on the backend.
-            if (_removed.Contains(id) == true)
-                return;
-
-            throw new InvalidOperationException($"[Network] [Local] Entity {id} is destroyed but never existed in the session");
-        }
-
-        // The session entities of a scene of the session that is left (the game services of the backend destroy them
-        // the same way): owned by the session and not persistent. The user gets DestroyUpdate for each.
-        public int DestroySessionEntities()
-        {
-            var destroyed = new List<int>();
-
-            foreach (var (id, payload) in _entities)
-            {
-                if (payload is ISessionEntityPayload && payload is not IPersistentSessionEntityPayload)
-                    destroyed.Add(id);
-            }
-
-            foreach (var id in destroyed)
-            {
-                _entities.Remove(id);
-                _removed.Add(id);
-                SendAll(new SharedSessionEntity.DestroyUpdate { EntityId = id });
-            }
-
-            return destroyed.Count;
-        }
-
-        public void WriteProperties(IReadOnlyList<SharedSessionObject.SetProperty> entries)
-        {
-            foreach (var entry in entries)
-            {
-                // A failed entry is reported, the others apply (backend SetPropertiesCommand).
-                try
-                {
-                    WriteProperty(entry);
-                }
-                catch (Exception exception)
-                {
-                    Debug.LogException(exception);
-                }
-            }
-        }
-
-        public void WriteProperty(SharedSessionObject.SetProperty entry)
-        {
-            if (_servicesById.TryGetValue(entry.ObjectId, out var service) == true)
-            {
-                service.Write(_user, entry.PropertyId, entry.Value);
-                return;
-            }
-
-            // Entity properties go only to the other users: the local session has none.
-            CheckObject(entry.ObjectId);
-        }
-
-        public void OnEvent(SharedSessionObject.Event context)
-        {
-            // Forwarded only to the other users: the local session has none.
-            if (_servicesById.ContainsKey(context.ObjectId) == false)
-                CheckObject(context.ObjectId);
-        }
-
-        public LocalSessionService GetOrCreateService(SharedSessionService.GetRequest request)
-        {
-            if (_services.TryGetValue(request.Key, out var service) == false)
-            {
-                service = new LocalSessionService(request.Key);
-
-                foreach (var propertyId in request.PropertiesIds)
-                    service.BindProperty(new LocalServiceProperty(propertyId, Array.Empty<byte>()));
-
-                AddService(service);
-            }
-
-            service.AddSubscriber(_user);
-            return service;
-        }
-
-        private void AddService(LocalSessionService service)
-        {
-            _services.Add(service.Key, service);
-            _servicesById.Add(service.Id, service);
-            service.Start(this, _lifetime);
-        }
-
-        private void CheckObject(int objectId)
-        {
-            if (_entities.ContainsKey(objectId) == true || _removed.Contains(objectId) == true)
-                return;
-
-            throw new InvalidOperationException($"[Network] [Local] Object {objectId} does not exist in the session");
+            Debug.Log($"[Network] [Local] User {user.Index} joins session {Id}");
+            return user;
         }
     }
 
-    public class LocalSessionConnection : LocalServerConnection
+    public class LocalSessionConnection : LocalServerConnection, IUserConnection
     {
         public LocalSessionConnection(IReadOnlyLifetime lifetime, ILocalClient client, LocalSessionServer server)
             : base(lifetime, client)
@@ -248,6 +203,17 @@ namespace Internal
         private readonly LocalSessionServer _server;
 
         private LocalSession _session;
+        private IUser _user;
+
+        void IUserConnection.Respond(INetworkContext context, int requestId)
+        {
+            Respond(requestId, context);
+        }
+
+        void IUserConnection.Disconnect()
+        {
+            Close(new SocketCloseInfo(SocketCloseInfo.AbnormalClosure, "dropped by the session"));
+        }
 
         protected override void OnRequest(int requestId, INetworkContext context)
         {
@@ -257,80 +223,20 @@ namespace Internal
                 return;
             }
 
-            var session = GetSession();
-
-            switch (context)
-            {
-                case SharedSessionEntity.CreateRequest create:
-                    var id = session.CreateEntity(create.Id, create.Payload);
-                    Respond(requestId, new SharedSessionEntity.CreateResponse { EntityId = id });
-                    break;
-
-                case SharedSessionService.GetRequest get:
-                {
-                    var service = session.GetOrCreateService(get);
-
-                    Respond(requestId, new SharedSessionService.GetResponse
-                    {
-                        Key = service.Key,
-                        Id = service.Id,
-                        Properties = service.CreateOverview()
-                    });
-
-                    break;
-                }
-
-                default:
-                    throw new LocalServerRequestException(ErrorCode.UnknownCommand, $"No command for {context.GetType().Name}");
-            }
+            _session.Core.OnRequest(GetUser(), context, requestId);
         }
 
         protected override void OnOneWay(INetworkContext context)
         {
-            var session = GetSession();
-
-            switch (context)
-            {
-                case SharedSessionObject.SetProperties properties:
-                    session.WriteProperties(properties.Entries);
-                    break;
-
-                case SharedSessionObject.SetProperty property:
-                    session.WriteProperty(property);
-                    break;
-
-                case SharedSessionObject.Event objectEvent:
-                    session.OnEvent(objectEvent);
-                    break;
-
-                case SharedSessionEntity.Destroy destroy:
-                    session.DestroyEntity(destroy.EntityId);
-                    break;
-
-                case SharedSessionLatency.Ping ping:
-                    Send(new SharedSessionLatency.Pong { Id = ping.Id });
-                    break;
-
-                // Peers of the latency overlay: a local session has no other users.
-                case SharedSessionLatency.PeerProbe:
-                case SharedSessionLatency.PeerEcho:
-                    break;
-
-                // The end of the connection ends the session either way.
-                case SharedSessionPlayer.Leave:
-                    break;
-
-                default:
-                    throw new InvalidOperationException($"[Network] [Local] No command for {context.GetType().Name}");
-            }
+            _session.Core.OnOneWay(GetUser(), context);
         }
 
         private void Authorize(int requestId, SharedSessionAuth.Request auth)
         {
-            if (_session != null)
+            if (_user != null)
                 throw new LocalServerRequestException(ErrorCode.InvalidRequest, "The connection is already authorized");
 
-            var session = _server.FindByTicket(auth.Ticket);
+            var session = _server.FindByTicket(auth.Ticket, out var userId, out var index);
             var status = session == null ? SessionAuthStatus.InvalidTicket : session.GetEntryStatus();
 
             // The response goes before LocalUpdate, as from the game gateway.
@@ -343,15 +249,41 @@ namespace Internal
             }
 
             _session = session;
-            session.Join(this);
+            _user = session.Join(this, userId, index);
         }
 
-        private LocalSession GetSession()
+        private IUser GetUser()
         {
-            if (_session == null)
+            if (_user == null)
                 throw new InvalidOperationException("[Network] [Local] A message before the session authorization");
 
-            return _session;
+            return _user;
+        }
+    }
+
+    // The log of a session core inside the client.
+    public class UnitySessionLog : ISessionLog
+    {
+        public void Debug(string message)
+        {
+        }
+
+        public void Info(string message)
+        {
+            UnityEngine.Debug.Log($"[Network] [Local] {message}");
+        }
+
+        public void Warning(string message)
+        {
+            UnityEngine.Debug.LogWarning($"[Network] [Local] {message}");
+        }
+
+        public void Error(string message, Exception exception = null)
+        {
+            UnityEngine.Debug.LogError($"[Network] [Local] {message}");
+
+            if (exception != null)
+                UnityEngine.Debug.LogException(exception);
         }
     }
 }

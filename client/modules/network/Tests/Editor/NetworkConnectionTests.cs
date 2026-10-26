@@ -210,6 +210,7 @@ namespace Internal.Tests
                 new PlatformOptions(),
                 notice ?? new FakeOutdatedNotice(),
                 new LocalServers(),
+                new PeerSockets(),
                 new NetworkProtocolHash(TestProtocolHash));
         }
 

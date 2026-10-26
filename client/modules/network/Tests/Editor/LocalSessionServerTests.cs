@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Game.Session;
 using MemoryPack;
 using NUnit.Framework;
 using Shared;
@@ -20,14 +21,14 @@ namespace Internal.Tests
         public IEnumerator Ticket_Authorized_LocalUpdateFollows() => UniTask.ToCoroutine(async () =>
         {
             using var client = new Client();
-            var session = client.Server.Create(Array.Empty<LocalSessionService>());
+            var session = client.Server.Create(SessionType.Match, 1, _ => Array.Empty<IService>());
 
             var response = await client.Authorize(client.Server.GetTicket(session.Id));
 
             Assert.AreEqual(SessionAuthStatus.Ok, response.Status);
 
             var update = await client.WaitOneWay<SharedSessionPlayer.LocalUpdate>();
-            Assert.AreEqual(LocalSession.UserIndex, update.Index);
+            Assert.AreEqual(LocalSession.FirstUserIndex, update.Index);
         });
 
         [UnityTest]
@@ -59,7 +60,7 @@ namespace Internal.Tests
 
             var request = client.Writer.WriteRequest<SharedSessionEntity.CreateResponse>(new SharedSessionEntity.CreateRequest
             {
-                Id = SharedEntityIds.Create(LocalSession.UserIndex + 1, 1),
+                Id = SharedEntityIds.Create(LocalSession.FirstUserIndex + 1, 1),
                 Properties = Array.Empty<SharedSessionObject.PropertyUpdate>()
             });
 
@@ -90,7 +91,7 @@ namespace Internal.Tests
                                   })
                                   .Timeout(Timeout);
 
-            Assert.AreEqual(LocalSessionService.GetId(CounterService.ServiceKey), get.Id);
+            Assert.AreEqual(Service.GetId(CounterService.ServiceKey), get.Id);
             Assert.AreEqual(1, get.Properties.Count);
 
             client.Writer.WriteOneWay(new SharedSessionObject.SetProperties
@@ -114,7 +115,7 @@ namespace Internal.Tests
             Assert.AreEqual(1, client.Count<SharedSessionObject.PropertyUpdate>());
         });
 
-        private class CounterService : LocalSessionService
+        private class CounterService : Service
         {
             public CounterService() : base(ServiceKey)
             {
@@ -124,7 +125,7 @@ namespace Internal.Tests
             public const string ServiceKey = "Counter";
             public const int PropertyId = 1;
 
-            private readonly LocalValueProperty<SharedSessionLatency.Ping> _counter = new(PropertyId);
+            private readonly ValueProperty<SharedSessionLatency.Ping> _counter = new(PropertyId);
 
             protected override void OnStarted(IReadOnlyLifetime lifetime)
             {
@@ -163,10 +164,10 @@ namespace Internal.Tests
             public LocalSessionServer Server { get; }
             public ConnectionWriter Writer { get; }
 
-            public static async UniTask<Client> Joined(params LocalSessionService[] services)
+            public static async UniTask<Client> Joined(params IService[] services)
             {
                 var client = new Client();
-                var session = client.Server.Create(services);
+                var session = client.Server.Create(SessionType.Match, 1, _ => services);
 
                 await client.Authorize(client.Server.GetTicket(session.Id));
                 await client.WaitOneWay<SharedSessionPlayer.LocalUpdate>();

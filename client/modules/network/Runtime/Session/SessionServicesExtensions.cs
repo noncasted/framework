@@ -87,6 +87,7 @@
                 builder.RegisterCommand<PeerProbeCommand>();
                 builder.RegisterCommand<PeerEchoCommand>();
             }
+
         }
     }
 }

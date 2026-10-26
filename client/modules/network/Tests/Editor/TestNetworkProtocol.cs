@@ -32,6 +32,8 @@ namespace Internal.Tests
     [MemoryPackUnion(NetworkContextTags.LatencyPong, typeof(SharedSessionLatency.Pong))]
     [MemoryPackUnion(NetworkContextTags.LatencyPeerProbe, typeof(SharedSessionLatency.PeerProbe))]
     [MemoryPackUnion(NetworkContextTags.LatencyPeerEcho, typeof(SharedSessionLatency.PeerEcho))]
+    [MemoryPackUnion(NetworkContextTags.PeerSignal, typeof(SharedSessionPeer.Signal))]
+    [MemoryPackUnion(NetworkContextTags.PeerTunnel, typeof(SharedSessionPeer.Tunnel))]
     public partial class TestNetworkContextUnion
     {
     }

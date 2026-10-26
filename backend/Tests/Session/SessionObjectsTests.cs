@@ -420,7 +420,7 @@ public class SessionObjectsTests
         var session = new TestSession(options, services => services.AddSingleton<IService>(new Service("Game")));
         var services = session.Provider.GetRequiredService<ISessionServices>();
 
-        var created = session.ServiceFactory.OnSessionCreated(session.Lifetime);
+        var created = session.Queue.SetupServices(session.ServiceFactory);
 
         services.Entries.Should().BeEmpty();
         created.IsCompleted.Should().BeFalse();

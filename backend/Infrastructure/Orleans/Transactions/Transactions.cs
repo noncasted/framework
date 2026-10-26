@@ -41,7 +41,7 @@ public class Transactions : ITransactions
         IEventStorage eventStorage,
         IDbSource dbSource,
         ISideEffectsStorage sideEffectsStorage,
-        ITransactionConfig transactionConfig,
+        Lazy<ITransactionConfig> transactionConfig,
         ILogger<Transactions> logger)
     {
         _stateStorage = stateStorage;
@@ -56,7 +56,7 @@ public class Transactions : ITransactions
     private readonly IEventStorage _eventStorage;
     private readonly IDbSource _dbSource;
     private readonly ISideEffectsStorage _sideEffectsStorage;
-    private readonly ITransactionConfig _transactionConfig;
+    private readonly Lazy<ITransactionConfig> _transactionConfig;
     private readonly ILogger<Transactions> _logger;
 
     public async Task<TransactionResult> Process(TransactionParameters parameters)
@@ -348,7 +348,7 @@ public class Transactions : ITransactions
     {
         // The server aborts this transaction when the commit does not follow the seal of the participants within
         // half of their stuck grace: a takeover after the grace (GrainTransactionHandler.Seal) cannot race a commit.
-        var idleTimeout = (int)(_transactionConfig.Value.StuckGraceSeconds * 1000 / 2);
+        var idleTimeout = (int)(_transactionConfig.Value.Value.StuckGraceSeconds * 1000 / 2);
 
         var commands = new List<NpgsqlBatchCommand>
         {

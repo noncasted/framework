@@ -204,7 +204,7 @@ public class TestSession
 
     public static TestConnection Connection(IUser user)
     {
-        return (TestConnection)user.Connection;
+        return (TestConnection)((IHostedUser)user).Socket;
     }
 
     public static IReadOnlyList<INetworkContext> Sent(IUser user)

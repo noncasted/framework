@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <!-- Real-time game sessions: users and their seats, entities, services, properties, commands over a WebSocket.
-         Hosting (the session factory, the gateway, the search) stays in the game. -->
+    <!-- The backend hosting of the real-time sessions: the core (shared/SessionCore: users, seats, entities, services,
+         properties, commands) over WebSockets, the execution queue, the admission (reservations, windows) and the
+         container. The session factory, the gateway and the search stay in the game. -->
     <PropertyGroup>
         <AssemblyName>Framework.Session</AssemblyName>
         <RootNamespace>Game.Session</RootNamespace>
@@ -9,6 +10,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\shared\framework.shared.csproj"/>
+        <ProjectReference Include="..\..\shared\SessionCore\framework.session.core.csproj"/>
         <ProjectReference Include="..\..\common\framework.common.csproj"/>
         <ProjectReference Include="..\Common\Common.csproj"/>
     </ItemGroup>

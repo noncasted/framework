@@ -75,7 +75,7 @@ tools/scripts/          scripts shared by the projects
   in the service defaults, Unity: on load). Members of type `INetworkContext` are `[MemoryPackAllowSerialize]`.
   The protocol hash belongs to the project (`ClientProtocolCheck.IsCurrent(context, hash)`). A project with real-time
   sessions lists the session tags too (`NetworkContextTags.Session*`, `Entity*`, `Object*`, `Player*`, `Service*`,
-  `Latency*`) and declares the unions over the payload interfaces of `shared/Session` the same way
+  `Latency*`, `Peer*`) and declares the unions over the payload interfaces of `shared/Session` the same way
   (`[MemoryPackUnionFormatter(typeof(IEntityPayload))] partial class EntityPayloadUnion`, also `IEventPayload`,
   `IStatePayload` when used), registered together with `NetworkContextUnion`.
 - **Persisted type names.** States are stored with `$type`; `MovedTypesBinder` finds a type moved to another

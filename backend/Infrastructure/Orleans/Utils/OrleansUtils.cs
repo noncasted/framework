@@ -1,5 +1,6 @@
 ﻿using Common.Extensions;
 using Infrastructure.State;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -70,6 +71,11 @@ public static class OrleansUtilsExtensions
 
         builder.Add<StateSerializer>()
                .As<IStateSerializer>();
+
+        // Lazy: the config is an addressable state, it needs IOrleans, and IOrleans needs ITransactions - resolved in
+        // place the three made a cycle that hung the start of every service (an endless resolution, no exception).
+        builder.Services.AddSingleton(provider =>
+            new Lazy<ITransactionConfig>(provider.GetRequiredService<ITransactionConfig>));
 
         builder.Add<Transactions>()
                .As<ITransactions>();

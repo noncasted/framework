@@ -24,24 +24,21 @@ public class UserFactory : IUserFactory
         ISessionUsers users,
         ISessionSeats seats,
         IExecutionQueue executionQueue,
-        ICommandsCollection commandsCollection,
-        ILogger<UserFactory> logger,
-        ILogger<CommandDispatcher> dispatcherLogger)
+        ISessionCommandRunner runner,
+        ILogger<UserFactory> logger)
     {
         _users = users;
         _seats = seats;
         _logger = logger;
-        _dispatcherLogger = dispatcherLogger;
         _executionQueue = executionQueue;
-        _commandsCollection = commandsCollection;
+        _runner = runner;
     }
 
     private readonly ISessionUsers _users;
     private readonly ISessionSeats _seats;
     private readonly ILogger<UserFactory> _logger;
-    private readonly ILogger<CommandDispatcher> _dispatcherLogger;
     private readonly IExecutionQueue _executionQueue;
-    private readonly ICommandsCollection _commandsCollection;
+    private readonly ISessionCommandRunner _runner;
 
     public IUser Create(IReadOnlyLifetime parentLifetime, Guid backendId, WebSocket webSocket)
     {
@@ -89,16 +86,8 @@ public class UserFactory : IUserFactory
         connectionLifetime.Listen(() => _executionQueue.Enqueue(userLifetime.Terminate));
         userLifetime.Listen(connectionLifetime.Terminate);
 
-        var dispatcher = new CommandDispatcher(_commandsCollection, _executionQueue, _dispatcherLogger);
-
-        var user = new User
-        {
-            Seat = seat,
-            IsBot = isBot,
-            Lifetime = userLifetime,
-            Dispatcher = dispatcher,
-            Connection = connection
-        };
+        var dispatcher = new CommandDispatcher(_runner, _executionQueue);
+        var user = new HostedUser(seat, isBot, userLifetime, connection, dispatcher);
 
         _seats.Attach(user);
         _users.AddUser(user);

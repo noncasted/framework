@@ -21,6 +21,7 @@
         <ProjectReference Include="..\Infrastructure\Infrastructure.csproj"/>
         <ProjectReference Include="..\Cluster\Cluster.csproj"/>
         <ProjectReference Include="..\Session\Session.csproj"/>
+        <ProjectReference Include="..\..\shared\SessionCore\framework.session.core.csproj"/>
     </ItemGroup>
 
 </Project>

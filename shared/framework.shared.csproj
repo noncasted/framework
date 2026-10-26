@@ -8,6 +8,12 @@
         <Nullable>disable</Nullable>
     </PropertyGroup>
 
+    <!-- SessionCore/ is its own assembly (Framework.Session.Core) inside the same package. -->
+    <ItemGroup>
+        <Compile Remove="SessionCore/**"/>
+        <None Remove="SessionCore/**"/>
+    </ItemGroup>
+
     <ItemGroup>
         <None Remove="**\*.meta"/>
         <None Remove="**\*.asmdef"/>

@@ -282,7 +282,7 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
             Sessions.Add(session.Session.Id, session);
 
         Collection.Add(session.Session);
-        var created = session.ServiceFactory.OnSessionCreated(session.Lifetime);
+        var created = session.Queue.SetupServices(session.ServiceFactory);
         session.Queue.Drain();
         created.GetAwaiter().GetResult();
         session.Run();

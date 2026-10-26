@@ -102,6 +102,7 @@ public class Session : ISession
         ISessionEntities entities,
         IExecutionQueue executionQueue,
         ISessionAdmission admission,
+        ISessionPresence presence,
         TimeProvider time,
         ILogger<Session> logger)
     {
@@ -111,6 +112,7 @@ public class Session : ISession
         _seats = seats;
         _entities = entities;
         _admission = admission;
+        _presence = presence;
         _time = time;
         _logger = logger;
         ExecutionQueue = executionQueue;
@@ -124,6 +126,7 @@ public class Session : ISession
     private readonly ISessionSeats _seats;
     private readonly ISessionEntities _entities;
     private readonly ISessionAdmission _admission;
+    private readonly ISessionPresence _presence;
     private readonly TimeProvider _time;
     private readonly ILogger<Session> _logger;
     private readonly SessionContainerData _data;
@@ -365,10 +368,7 @@ public class Session : ISession
                     seat.UserId,
                     _options.ReconnectWindow.TotalSeconds);
 
-                _users.SendAll(new SharedSessionPlayer.RemoteAway()
-                {
-                    Index = seat.Index
-                });
+                _presence.MarkAway(seat);
 
                 ScheduleAwayExpiry(seat, _options.ReconnectWindow);
             }
@@ -381,12 +381,7 @@ public class Session : ISession
     // The user is gone for good: the others destroy its entities with it (the backend ends them with the seat).
     private void EndSeat(ISessionSeat seat)
     {
-        _users.SendAll(new SharedSessionPlayer.RemoteDisconnect()
-        {
-            Index = seat.Index
-        });
-
-        _seats.End(seat);
+        _presence.EndSeat(seat);
     }
 
     private void ScheduleAwayExpiry(ISessionSeat seat, TimeSpan delay)
@@ -440,7 +435,7 @@ public class Session : ISession
             user.BackendId,
             reason);
 
-        user.Connection.ForceDisconnect();
+        user.Connection.Disconnect();
     }
 
     // The session is already marked closed in the admission, so neither the search nor the gateway can
@@ -509,44 +504,13 @@ public class Session : ISession
 
     private Task HandleUserConnect(IUser user)
     {
-        user.Dispatcher.Run(user.Lifetime, user);
+        // The users of the backend come from its UserFactory only.
+        var hosted = (IHostedUser)user;
+        hosted.Dispatcher.Run(user.Lifetime, hosted);
 
-        var connectionTask = user.Connection.Run();
+        var connectionTask = hosted.Socket.Run();
 
-        // The entities of the seat to restore: the ones its client has created (the ones built by the backend come
-        // to it as remote ones).
-        user.Send(new SharedSessionPlayer.LocalUpdate()
-        {
-            Index = user.Index,
-            Id = user.Id,
-            EntityCounter = user.Seat.EntityCounter,
-            IsReturn = user.Seat.IsReturn,
-            SeatEntities = _entities.Entries.Values.Count(entity =>
-                entity.Owner == user.Seat && SharedEntityIds.IsBackendIssued(entity.Id) == false)
-        });
-
-        _users.IterateOthers(user, other => {
-            // An older connection of a seat (this one's own or another one's, replaced by a return) is being dropped:
-            // the peers are the current connections of the other seats.
-            if (other.Seat == user.Seat || other.Seat.Connected != other)
-                return;
-
-            // Peers know each other by the index and the id in this session only: the meta id of a user is its login.
-            user.Send(new SharedSessionPlayer.RemoteUpdate()
-            {
-                Index = other.Index,
-                Id = other.Id
-            });
-
-            other.Send(new SharedSessionPlayer.RemoteUpdate()
-            {
-                Index = user.Index,
-                Id = user.Id
-            });
-        });
-
-        foreach (var (_, entity) in _entities.Entries)
-            user.Send(entity.CreateOverview());
+        _presence.Introduce(user);
 
         return connectionTask;
     }

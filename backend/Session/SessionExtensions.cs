@@ -9,7 +9,8 @@ public static class SessionExtensions
 {
     // The container of one session. The game adds its own services to it: the network services owned by the backend
     // (IService), its commands (ICommand, IResponseCommand) and its game logic. An ILoggerFactory is registered by
-    // the caller (the logs of a session go to the providers of the host).
+    // the caller (the logs of a session go to the providers of the host). The parts and the commands of the core are the
+    // ones SessionCore composes for a host client (shared/SessionCore): keep the two lists the same.
     public static IServiceCollection AddSessionServices(
         this IServiceCollection services,
         SessionContainerData data,
@@ -33,13 +34,16 @@ public static class SessionExtensions
             ExpectedUsers = data.ExpectedUsers
         });
 
+        services.AddSingleton<ISessionLog, SessionLog>();
         services.AddSingleton<ICommandsCollection, CommandsCollection>();
+        services.AddSingleton<ISessionCommandRunner, SessionCommandRunner>();
         services.AddSingleton<IExecutionQueue, ExecutionQueue>();
 
         services.AddSingleton<IUserFactory, UserFactory>();
         services.AddSingleton<ISessionUsers, SessionUsers>();
         services.AddSingleton<ISessionSeats, SessionSeats>();
         services.AddSingleton<ISessionOwner, SessionOwner>();
+        services.AddSingleton<ISessionPresence, SessionPresence>();
 
         services.AddSingleton<ISessionObjects, SessionObjects>();
         services.AddSingleton<IEntityFactory, EntityFactory>();
@@ -60,6 +64,8 @@ public static class SessionExtensions
         services.AddSingleton<ICommand, PingCommand>();
         services.AddSingleton<ICommand, PeerProbeCommand>();
         services.AddSingleton<ICommand, PeerEchoCommand>();
+        services.AddSingleton<ICommand, PeerSignalCommand>();
+        services.AddSingleton<ICommand, PeerTunnelCommand>();
 
         return services;
     }
