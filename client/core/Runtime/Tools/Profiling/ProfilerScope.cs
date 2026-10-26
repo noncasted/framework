@@ -49,7 +49,7 @@ namespace Internal
         /// <summary>
         /// Managed memory the main thread allocated during the span, bytes. Counted by the thread counter, not by
         /// the heap, so a garbage collection in the middle of the span does not spoil the number. A span that waits
-        /// for frames gets everything allocated while it waited.
+        /// for frames gets everything allocated while it waited. Always 0 outside the editor.
         /// </summary>
         public long AllocBytes
         {
@@ -58,7 +58,7 @@ namespace Internal
                 if (_startMs < 0d)
                     return 0L;
 
-                var end = _endAlloc < 0L ? GC.GetAllocatedBytesForCurrentThread() : _endAlloc;
+                var end = _endAlloc < 0L ? ContainerDiagnostics.AllocatedBytes() : _endAlloc;
 
                 return end - _startAlloc;
             }
@@ -122,7 +122,7 @@ namespace Internal
             _startMs = _profiler.ElapsedMs;
             _startFrame = Time.frameCount;
             _startNs = ProfilerClock.NowNs();
-            _startAlloc = GC.GetAllocatedBytesForCurrentThread();
+            _startAlloc = ContainerDiagnostics.AllocatedBytes();
         }
 
         public void Stop()
@@ -131,7 +131,7 @@ namespace Internal
                 return;
 
             // The counter is read first: the other measurements of the stop must not get into it.
-            _endAlloc = GC.GetAllocatedBytesForCurrentThread();
+            _endAlloc = ContainerDiagnostics.AllocatedBytes();
             _endMs = _profiler.ElapsedMs;
             _endFrame = Time.frameCount;
             _endNs = ProfilerClock.NowNs();

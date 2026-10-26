@@ -42,6 +42,7 @@ namespace Internal
                                                               Array.Empty<AllocationRecord>();
 
         // Thread counter: building and phases run on the main thread, other editor threads are not counted.
+        // Editor only: the icall is not implemented in WebGL and logs an error on every call.
         internal static long AllocatedBytes()
         {
 #if UNITY_EDITOR
