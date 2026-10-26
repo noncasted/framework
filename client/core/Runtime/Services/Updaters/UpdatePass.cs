@@ -14,7 +14,8 @@ namespace Internal
         }
 
         // A target removed during the pass is still visited (the list defers the removal), so its lifetime is checked.
-        // A target that throws does not stop the others: the exceptions are kept for Report after the phases.
+        // A target that throws does not stop the others: the exceptions are kept for Report after the phases. The time of
+        // a target goes to UpdaterSampling when it is enabled.
         public static void Run<T>(
             ModifiableList<UpdateTargetHandle<T>> list,
             float delta,
@@ -26,6 +27,8 @@ namespace Internal
                 if (handle.Lifetime.IsTerminated == true)
                     continue;
 
+                var start = UpdaterSampling.Begin();
+
                 try
                 {
                     update.Invoke(handle.Target, delta);
@@ -34,6 +37,8 @@ namespace Internal
                 {
                     (exceptions ??= new List<Exception>()).Add(exception);
                 }
+
+                UpdaterSampling.End(handle.Target, start);
             }
         }
 
