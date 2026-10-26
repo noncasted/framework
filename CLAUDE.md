@@ -100,6 +100,10 @@ tools/scripts/          scripts shared by the projects
 - **Project layout for the editor tools.** `ProjectSettings/Framework.json` (`FrameworkSettings`): content folder and
   assembly, module roots, scene folders, art and audio folders, favorite scenes, phases of the shared addressable
   groups, player assemblies to strip. Editor assets of the framework are loaded from `FrameworkSettings.Package(...)`.
+- **Player build steps.** A project step around the build entry points of the platforms implements `IPlayerBuildStep`
+  (`core/Editor/Tools/Build`: `BeforeBuild` / `AfterBuild(target, succeeded)`, a parameterless class, found by
+  `TypeCache`, ordered by full type name); `PlayerBuildSteps.Run(target, build)` calls `AfterBuild` of every started
+  step also after a failed build or a throwing step, then rethrows. Unity's postprocess callbacks skip failed builds.
 - **ContainerGenerator.** Sources in `client/core/Source~`, the dll in `client/core/Analyzers` (`RoslynAnalyzer`
   label, every platform off). After a change: build it (it copies itself into `Analyzers`) and run
   `ContainerGenerator.Verify`.
@@ -158,7 +162,7 @@ tools/scripts/          scripts shared by the projects
 - **Platforms.** `itch` (`AddItchSaves`: saves in PlayerPrefs), `web` (`AddWebLoadingScreen`, `AddWebSafeArea`,
   `WebShell.UseMobileCheck`; needs `window.loadingScreen` and, for the shell, `TemplateData/web-shell.js` in the
   WebGL template; register only under `#if UNITY_WEBGL && !UNITY_EDITOR`; editor: `Internal.WebGlBuild.Build`,
-  the batchmode build with the active build profile), `steam` (`AddSteam(SteamOptions)`: app id, Web API identity
+  the batchmode build with the active build profile inside `PlayerBuildSteps.Run`, exit code 1 on any failure), `steam` (`AddSteam(SteamOptions)`: app id, Web API identity
   of the backend auth ticket, the connect key of invites; `#if UNITY_STANDALONE`, needs Steamworks.NET), `telegram`
   (`AddTelegramAPI(PlatformOptions)`: the bridge to `window.telegramShell` of the Telegram WebGL template, a debug one in the editor; auth and back button are alternatives the game picks).
 - **Sessions.** Shared types in `shared/Session` (auth, entities, objects, players, services, latency, entity ids:

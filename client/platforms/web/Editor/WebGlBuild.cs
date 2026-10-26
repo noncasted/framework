@@ -10,6 +10,7 @@ namespace Internal
     ///     Batchmode entry point for CI/deploy scripts:
     ///     Unity -quit -batchmode -projectPath client -executeMethod Internal.WebGlBuild.Build
     ///     Output goes to client/build (or -buildOutput), with the settings of the active build profile.
+    ///     The project <see cref="IPlayerBuildStep" />s run around the build (<see cref="PlayerBuildSteps" />).
     /// </summary>
     public static class WebGlBuild
     {
@@ -20,7 +21,44 @@ namespace Internal
         {
             var output = GetArgument("-buildOutput") ?? DefaultOutput;
 
+            if (Application.isBatchMode == false)
+            {
+                BuildChecked(output);
+                return;
+            }
+
+            // -quit alone swallows exceptions and still exits 0, so the deploy
+            // script would happily package a stale build. Exit explicitly: 1 for a failed
+            // build and for any exception (a project step included), only after every AfterBuild.
+            try
+            {
+                BuildChecked(output);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+                EditorApplication.Exit(1);
+                return;
+            }
+
+            EditorApplication.Exit(0);
+        }
+
+        private static void BuildChecked(string output)
+        {
+            var report = PlayerBuildSteps.Run(BuildTarget.WebGL, () => BuildPlayer(output));
+            var summary = report.summary;
+
+            Debug.Log($"WebGL build {summary.result}: {summary.totalSize} bytes -> {output}");
+
+            if (summary.result != BuildResult.Succeeded)
+                throw new Exception($"WebGL build failed: {summary.result}");
+        }
+
+        private static BuildReport BuildPlayer(string output)
+        {
             // In batchmode the deferred recalculation of shared assets does not finish before the build.
+            // Runs after the project steps: the assets they add are synced too.
             SharedAddressablesSync.Sync();
 
             var scenes = EditorBuildSettings.scenes
@@ -40,20 +78,7 @@ namespace Internal
                 options = BuildOptions.None
             };
 
-            var report = BuildPipeline.BuildPlayer(options);
-            var summary = report.summary;
-
-            Debug.Log($"WebGL build {summary.result}: {summary.totalSize} bytes -> {output}");
-
-            var succeeded = summary.result == BuildResult.Succeeded;
-
-            // -quit alone swallows exceptions and still exits 0, so the deploy
-            // script would happily package a stale build. Exit explicitly.
-            if (Application.isBatchMode == true)
-                EditorApplication.Exit(succeeded ? 0 : 1);
-
-            if (succeeded == false)
-                throw new Exception($"WebGL build failed: {summary.result}");
+            return BuildPipeline.BuildPlayer(options);
         }
 
         private static string GetArgument(string name)
