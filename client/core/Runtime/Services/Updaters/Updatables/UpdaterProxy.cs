@@ -8,6 +8,8 @@
         IFixedUpdatable,
         IPostFixedUpdatable,
         IGizmosUpdatable,
+        IPostUpdatable,
+        ILateUpdatable,
         IScopeSetup
     {
         private readonly ModifiableList<IPreFixedUpdatable> _preFixed = new();
@@ -16,6 +18,8 @@
         private readonly ModifiableList<IPreUpdatable> _preUpdate = new();
         private readonly ModifiableList<IUpdatable> _update = new();
         private readonly ModifiableList<IGizmosUpdatable> _gizmos = new();
+        private readonly ModifiableList<IPostUpdatable> _postUpdate = new();
+        private readonly ModifiableList<ILateUpdatable> _lateUpdate = new();
 
         private readonly IUpdater _updater;
         private readonly ViewableProperty<float> _speed = new(1f);
@@ -37,6 +41,8 @@
             _updater.Add(lifetime, (IPostFixedUpdatable)this);
             _updater.Add(lifetime, (IGizmosUpdatable)this);
             _updater.Add(lifetime, (IPreFixedUpdatable)this);
+            _updater.Add(lifetime, (IPostUpdatable)this);
+            _updater.Add(lifetime, (ILateUpdatable)this);
         }
 
         public void Add(IReadOnlyLifetime l, IPreUpdatable u) => Add(l, u, _preUpdate);
@@ -45,11 +51,25 @@
         public void Add(IReadOnlyLifetime l, IPostFixedUpdatable u) => Add(l, u, _postFixed);
         public void Add(IReadOnlyLifetime l, IGizmosUpdatable u) => Add(l, u, _gizmos);
         public void Add(IReadOnlyLifetime l, IPreFixedUpdatable u) => Add(l, u, _preFixed);
+        public void Add(IReadOnlyLifetime l, IPostUpdatable u) => Add(l, u, _postUpdate);
+        public void Add(IReadOnlyLifetime l, ILateUpdatable u) => Add(l, u, _lateUpdate);
 
         public void OnUpdate(float delta)
         {
             foreach (var updatable in _update)
                 updatable.OnUpdate(delta * _updater.Speed.Value);
+        }
+
+        public void OnPostUpdate(float delta)
+        {
+            foreach (var updatable in _postUpdate)
+                updatable.OnPostUpdate(delta * _updater.Speed.Value);
+        }
+
+        public void OnLateUpdate(float delta)
+        {
+            foreach (var updatable in _lateUpdate)
+                updatable.OnLateUpdate(delta * _updater.Speed.Value);
         }
 
         public void OnPreUpdate(float delta)

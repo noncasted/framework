@@ -106,7 +106,8 @@ namespace Internal
                     EndFrame = scope.EndFrame,
                     StartNs = scope.StartNs,
                     EndNs = scope.EndNs,
-                    Unfinished = scope.WasUnfinished
+                    Unfinished = scope.WasUnfinished,
+                    AllocBytes = scope.AllocBytes
                 });
 
                 var children = scope.ChildrenInternal;

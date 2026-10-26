@@ -71,6 +71,28 @@ namespace Internal
             return handle;
         }
 
+        /// <summary>
+        /// An explicit restart of the current state: the lifetime of the previous entry ends, a new one is issued.
+        /// <see cref="Exited"/> is not raised, otherwise a waiting state could enter between the exit and the entry.
+        /// </summary>
+        public IStateHandle RestartHandle(IState state)
+        {
+            if (state != _currentState)
+                throw new InvalidOperationException(
+                    $"[StateMachine] RestartHandle: {state.Definition.Name} is not current state " +
+                    $"({_currentState?.Definition.Name ?? "none"})");
+
+            if (IsAlive == false)
+                throw new InvalidOperationException(
+                    $"[StateMachine] RestartHandle: {state.Definition.Name} entity lifetime is terminated");
+
+            _currentLifetime.Terminate();
+            _currentLifetime = _entityLifetime.Child();
+
+            var handle = new StateHandle(state, this, _currentLifetime);
+            return handle;
+        }
+
         public void Exit(IState state)
         {
             if (state != _currentState)

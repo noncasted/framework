@@ -56,6 +56,9 @@ namespace Internal
 
         public bool Unfinished;
 
+        /// <summary>Managed memory the main thread allocated during the span, bytes.</summary>
+        public long AllocBytes;
+
         public double EndMs => StartMs + DurationMs;
     }
 }

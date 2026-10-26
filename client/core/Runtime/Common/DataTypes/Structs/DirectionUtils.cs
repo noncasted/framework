@@ -5,6 +5,12 @@ namespace Internal
 {
     public static class DirectionUtils
     {
+        // A direction from an arbitrary vector: a zero one points right.
+        public static Vector2 NormalizeRight(Vector2 value)
+        {
+            return value.sqrMagnitude > 0.0001f ? value.normalized : Vector2.right;
+        }
+
         public static Quaternion RotationTo(this Transform from, Transform to)
         {
             var direction = (Vector2)(to.position - from.position).normalized;

@@ -15,5 +15,7 @@
         void Add(IReadOnlyLifetime l, IFixedUpdatable u);
         void Add(IReadOnlyLifetime l, IPostFixedUpdatable updatable);
         void Add(IReadOnlyLifetime l, IGizmosUpdatable updatable);
+        void Add(IReadOnlyLifetime l, IPostUpdatable updatable);
+        void Add(IReadOnlyLifetime l, ILateUpdatable updatable);
     }
 }

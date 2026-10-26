@@ -22,6 +22,9 @@ namespace Internal
         private const float ValueFontSize = 10f;
         private const float TicksCount = 4f;
 
+        /// <summary>Small allocations only add noise to the bar label: the full number is always in the tooltip.</summary>
+        private const long MinShownAllocBytes = 64L * 1024L;
+
         private static readonly Color[] _barColors =
         {
             new(0.29f, 0.72f, 0.71f),
@@ -539,7 +542,7 @@ namespace Internal
             var bar = new VisualElement
             {
                 tooltip =
-                    $"{span.Name}\nstart {FormatDuration(span.StartMs)}\nduration {FormatDuration(span.DurationMs)}\nframes {span.Frames}",
+                    $"{span.Name}\nstart {FormatDuration(span.StartMs)}\nduration {FormatDuration(span.DurationMs)}\nframes {span.Frames}\nalloc {FormatBytes(span.AllocBytes)}",
                 style =
                 {
                     position = Position.Absolute,
@@ -564,6 +567,7 @@ namespace Internal
             // that burned CPU look the same on the timeline, but are fixed differently.
             var text = FormatDuration(span.DurationMs) +
                        (span.Frames > 0 ? $"  ({span.Frames} fr)" : string.Empty) +
+                       (span.AllocBytes >= MinShownAllocBytes ? $"  {FormatBytes(span.AllocBytes)}" : string.Empty) +
                        (span.Unfinished ? "  (unfinished)" : string.Empty);
 
             var value = new Label(text)
@@ -621,6 +625,17 @@ namespace Internal
         private static Color ColorFor(int depth)
         {
             return _barColors[Mathf.Clamp(depth, 0, _barColors.Length - 1)];
+        }
+
+        private static string FormatBytes(long bytes)
+        {
+            if (bytes < 1024L)
+                return $"{bytes}B";
+
+            if (bytes < 1024L * 1024L)
+                return $"{bytes / 1024d:F1}KB";
+
+            return $"{bytes / (1024d * 1024d):F1}MB";
         }
 
         private static string FormatDuration(double ms)

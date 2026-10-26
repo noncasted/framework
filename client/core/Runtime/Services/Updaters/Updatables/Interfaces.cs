@@ -29,4 +29,16 @@
     {
         void OnUpdate(float delta);
     }
+
+    // The phase after every OnUpdate of the same frame.
+    public interface IPostUpdatable
+    {
+        void OnPostUpdate(float delta);
+    }
+
+    // The LateUpdate phase: after the animators and the ordinary Update of the scene.
+    public interface ILateUpdatable
+    {
+        void OnLateUpdate(float delta);
+    }
 }

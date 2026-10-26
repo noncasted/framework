@@ -12,6 +12,8 @@ namespace Internal
         private readonly ModifiableList<UpdateTargetHandle<IPreUpdatable>> _preUpdate = new();
         private readonly ModifiableList<UpdateTargetHandle<IUpdatable>> _update = new();
         private readonly ModifiableList<UpdateTargetHandle<IGizmosUpdatable>> _gizmos = new();
+        private readonly ModifiableList<UpdateTargetHandle<IPostUpdatable>> _postUpdate = new();
+        private readonly ModifiableList<UpdateTargetHandle<ILateUpdatable>> _lateUpdate = new();
 
         private readonly ViewableProperty<float> _speed = new(1f);
 
@@ -33,6 +35,23 @@ namespace Internal
             {
                 if (updatable.Lifetime.IsTerminated == false)
                     updatable.Target.OnUpdate(delta);
+            }
+
+            foreach (var updatable in _postUpdate)
+            {
+                if (updatable.Lifetime.IsTerminated == false)
+                    updatable.Target.OnPostUpdate(delta);
+            }
+        }
+
+        private void LateUpdate()
+        {
+            var delta = Time.unscaledDeltaTime * Speed.Value;
+
+            foreach (var updatable in _lateUpdate)
+            {
+                if (updatable.Lifetime.IsTerminated == false)
+                    updatable.Target.OnLateUpdate(delta);
             }
         }
 
@@ -74,11 +93,13 @@ namespace Internal
         public void Add(IReadOnlyLifetime l, IPostFixedUpdatable u) => Add(l, u, _postFixed);
         public void Add(IReadOnlyLifetime l, IGizmosUpdatable u) => Add(l, u, _gizmos);
         public void Add(IReadOnlyLifetime l, IPreFixedUpdatable u) => Add(l, u, _preFixed);
+        public void Add(IReadOnlyLifetime l, IPostUpdatable u) => Add(l, u, _postUpdate);
+        public void Add(IReadOnlyLifetime l, ILateUpdatable u) => Add(l, u, _lateUpdate);
 
         public void SetSpeed(float speed)
         {
             if (speed < 0f)
-                throw new ArgumentOutOfRangeException(nameof(speed), speed, "The speed of the updater is not negative");
+                throw new ArgumentOutOfRangeException(nameof(speed), speed, "The speed of the updater is negative");
 
             _speed.Set(speed);
         }

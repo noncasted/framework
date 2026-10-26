@@ -74,6 +74,42 @@ namespace Internal.Tests
             Assert.Throws<InvalidOperationException>(() => machine.CreateHandle(new TestState("State", 0)));
         }
 
+        [Test]
+        public void RestartHandle_Current_TerminatesPreviousWithoutExited()
+        {
+            var lifetime = new Lifetime();
+            var machine = new StateMachine();
+            machine.Initialize(lifetime);
+
+            var exitedCount = 0;
+            machine.Exited.Advise(lifetime, () => exitedCount++);
+
+            var state = new TestState("State", 0);
+            var first = machine.CreateHandle(state);
+            var second = machine.RestartHandle(state);
+
+            Assert.IsTrue(first.Lifetime.IsTerminated);
+            Assert.IsFalse(second.Lifetime.IsTerminated);
+            Assert.AreSame(state, machine.Current);
+            Assert.AreEqual(0, exitedCount);
+
+            lifetime.Terminate();
+        }
+
+        [Test]
+        public void RestartHandle_NotCurrent_Throws()
+        {
+            var lifetime = new Lifetime();
+            var machine = new StateMachine();
+            machine.Initialize(lifetime);
+
+            machine.CreateHandle(new TestState("Current", 0));
+
+            Assert.Throws<InvalidOperationException>(() => machine.RestartHandle(new TestState("Other", 0)));
+
+            lifetime.Terminate();
+        }
+
         [UnityTest]
         public IEnumerator PriorityQueue_SelectedButCurrentIsSameDefinition_NotEntered() => UniTask.ToCoroutine(async () =>
         {

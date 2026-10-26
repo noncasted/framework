@@ -43,7 +43,11 @@ namespace Internal
         {
             await EventLoop.RunDispose();
             _scopeLifetime.Terminate();
-            await _scenes.InvokeAsync(scene => scene.Unload());
+
+            // On quit Unity unloads the scenes itself, and Addressables no longer knows their handles.
+            if (ApplicationQuit.IsQuitting == false)
+                await _scenes.InvokeAsync(scene => scene.Unload());
+
             Container.Dispose();
 
             // Asset groups go last: terminating the lifetime tears down entities and views in an order that is

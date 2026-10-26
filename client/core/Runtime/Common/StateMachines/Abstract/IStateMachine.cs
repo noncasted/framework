@@ -11,6 +11,7 @@ namespace Internal
         void Initialize(IReadOnlyLifetime lifetime);
         bool IsAvailable(IState state);
         IStateHandle CreateHandle(IState state);
+        IStateHandle RestartHandle(IState state);
         UniTask<(bool, IStateHandle)> TryCreateHandleFromPriorityQueue(IState state);
         void Exit(IState state);
     }
