@@ -13,6 +13,10 @@ namespace Global.UI
             var state = new BaseUIState(lifetime);
             Base = state;
 
+            // Nothing is stacked yet: the head is the base, so a window opened over the head (CreateChild with
+            // StackHead) has a parent before the first stack too.
+            _stackHead = state;
+
             _handles = new Dictionary<IUIState, IInternalUIStateHandle>()
             {
                 { state, state }
@@ -33,6 +37,7 @@ namespace Global.UI
             var childHandle = new UIStateHandle(lifetime, headHandle, state, _constraintsStorage);
             Add(state, childHandle);
             childHandle.OnChild();
+            headHandle.OnParent(childHandle);
 
             return childHandle;
         }

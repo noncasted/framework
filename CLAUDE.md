@@ -141,7 +141,9 @@ tools/scripts/          scripts shared by the projects
     machine and input constraints, design elements and layouts (+ editors), gamepad navigation (the event system
     prefab needs a `StandaloneInputModule`), safe area, loading screen, the notice of an outdated client
     (`IClientOutdatedNotice` of the core, shown by the network on close code 4001; built from code, the game gives
-    the font, texts and colors in `ClientOutdatedNoticeStyle`). Depends on `inputs`.
+    the font, texts and colors in `ClientOutdatedNoticeStyle`). `AddUI` = `AddUIStateMachine` + `AddUINavigation`: a game on `InputSystemUIInputModule` without a gamepad
+    registers `AddUIStateMachine` only. Kinds of input constraints are instances of `InputConstraints` (`Game` in the
+    framework, the project declares its own). Depends on `inputs`.
   - `publish`: platform abstractions (`ISaves`, `IPlatformAuth`, back button, inventory, invites). The project
     composes its publisher from the platforms; registrations under a runtime `if` around another installer are all
     built by the generator, so a platform choice is made with `#if` or inside one installer.

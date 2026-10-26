@@ -45,10 +45,12 @@ namespace Global.UI
 
         private readonly ILifetime _innerLifetime;
         private ILifetime _outerLifetime;
+        private int _childCount;
 
         public IReadOnlyLifetime InnerLifetime => _innerLifetime;
         public IReadOnlyLifetime OuterLifetime => _outerLifetime;
         public IViewableProperty<bool> IsVisible => _isVisible;
+        public int ChildCount => _childCount;
         public IUIState State { get; }
         public UniTaskCompletionSource Completion { get; }
 
@@ -67,6 +69,12 @@ namespace Global.UI
         public void OnChild()
         {
             _parent.IsVisible.View(InnerLifetime, _isVisible.Set);
+        }
+
+        public void OnParent(IInternalUIStateHandle child)
+        {
+            _childCount++;
+            child.InnerLifetime.Listen(() => _childCount--);
         }
 
         public void ClearStack()

@@ -25,6 +25,17 @@ namespace Global.UI
             };
         }
 
+        // Disables each of the given kinds of input (the game input and a kind of the project at once).
+        public UIConstraints(IReadOnlyList<InputConstraints> disabled)
+        {
+            var input = new Dictionary<InputConstraints, bool>();
+
+            foreach (var kind in disabled)
+                input.Add(kind, false);
+
+            Input = input;
+        }
+
         public UIConstraints(IReadOnlyDictionary<InputConstraints, bool> input)
         {
             Input = input;
