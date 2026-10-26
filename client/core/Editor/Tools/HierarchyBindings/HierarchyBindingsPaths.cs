@@ -8,9 +8,13 @@ namespace Internal
     // The generated class must live in an assembly the user class can see:
     // the user class inherits it. So we target the assembly of a script already on the object, and only
     // if there are no own scripts or they are from another assembly - the nearest asmdef above the scene or prefab.
+    // A module (FrameworkSettings.ModuleRoots) takes the code into its Assets/Generated, another asmdef - into
+    // Generated next to it. There is no fallback folder: an object outside every assembly is an error, generated
+    // code in a random assembly would not compile or would end up where nobody looks for it.
     internal static class HierarchyBindingsPaths
     {
-        public static string FallbackFolder => FrameworkSettings.Content("Runtime/Tools/PrefabHierarchy/Generated");
+        // The folder for the bindings owned by a script of the content assembly (FrameworkSettings.ContentAssembly).
+        public static string ContentFolder => FrameworkSettings.Content("Runtime/Tools/PrefabHierarchy/Generated");
 
         private const string LogTag = "HierarchyBindingsGenerator";
 
@@ -25,12 +29,15 @@ namespace Internal
             // hierarchy types, which live in the assembly of the asset itself, and the base cannot see them.
             if (string.IsNullOrEmpty(ownerAssembly) == false &&
                 (string.IsNullOrEmpty(asmdefFolder) || IsAssetAssembly(asmdefFolder, ownerAssembly)))
-                return CatalogAssemblies.GetGeneratedFolder(LogTag, ownerAssembly, FallbackFolder);
+                return ResolveOwnerFolder(root, assetPath, ownerAssembly);
 
             if (string.IsNullOrEmpty(asmdefFolder) == false)
                 return CatalogAssemblies.GetConsumerGeneratedFolder(asmdefFolder);
 
-            return FallbackFolder;
+            throw new InvalidOperationException(
+                $"'{root.name}' in {assetPath}: no assembly to put the bindings into. The object has no project " +
+                "script and no asmdef lies above the asset. Move the asset into a module folder " +
+                "(FrameworkSettings.ModuleRoots) or add a script of that module to the object.");
         }
 
         public static string ResolveDefaultNamespace(GameObject root)
@@ -67,6 +74,21 @@ namespace Internal
             }
 
             return null;
+        }
+
+        private static string ResolveOwnerFolder(GameObject root, string assetPath, string ownerAssembly)
+        {
+            if (string.Equals(ownerAssembly, FrameworkSettings.ContentAssembly, StringComparison.Ordinal))
+                return ContentFolder;
+
+            var asmdefPath = UnityEditor.Compilation.CompilationPipeline
+                .GetAssemblyDefinitionFilePathFromAssemblyName(ownerAssembly);
+
+            if (string.IsNullOrEmpty(asmdefPath))
+                throw new InvalidOperationException(
+                    $"'{root.name}' in {assetPath}: asmdef of the owner assembly '{ownerAssembly}' not found.");
+
+            return CatalogAssemblies.GetConsumerGeneratedFolder(Path.GetDirectoryName(asmdefPath).Replace('\\', '/'));
         }
 
         private static bool IsProjectAssembly(string assemblyName)

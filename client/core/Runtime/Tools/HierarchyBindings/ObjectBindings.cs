@@ -18,12 +18,19 @@ namespace Internal
         // consists of references only.
         [SerializeField, HideInInspector] private string _structureHash;
 
+        // Layer - GUID of the asset the bindings are declared in (scene, prefab or variant). A variant carries the
+        // bindings of its base with the layer of the base next to its own ones, and each class mirrors only the
+        // objects and components of its layer.
+        [SerializeField, HideInInspector] private string _layerAssetGuid;
+
         // Not every binding needs DI registration, so interfaces are generated according to these
         // checkboxes. The value is stored on the component so Regenerate knows what to write.
         [SerializeField] private bool _isSceneService;
         [SerializeField] private bool _isEntityComponent;
 
         public string StructureHash => _structureHash;
+
+        public string LayerAssetGuid => _layerAssetGuid;
 
         public bool IsSceneService => _isSceneService;
 

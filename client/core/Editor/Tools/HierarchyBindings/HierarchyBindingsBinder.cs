@@ -16,7 +16,18 @@ namespace Internal
             if (component == null)
                 return false;
 
-            var node = HierarchyBindingsScanner.Scan(root, request.TypeName, errors);
+            var declaringAsset = HierarchyBindingsLayer.ResolveDeclaringAsset(component, request.AssetPath);
+
+            if (declaringAsset != request.AssetPath)
+            {
+                errors.Add(
+                    $"{component.GetType().Name} on '{root.name}' is declared in {declaringAsset}. " +
+                    "Regenerate it there: writing it here would turn every reference into an override.");
+                return false;
+            }
+
+            var layer = HierarchyBindingsLayer.Resolve(request.AssetPath, request.IsPrefabAsset);
+            var node = HierarchyBindingsScanner.Scan(root, request.TypeName, layer, errors);
 
             if (node == null)
                 return false;
@@ -49,18 +60,41 @@ namespace Internal
 
             hash.stringValue = structureHash;
 
+            var layerGuid = serializedObject.FindProperty("_layerAssetGuid");
+
+            if (layerGuid == null)
+            {
+                errors.Add("Field '_layerAssetGuid' is missing on ObjectBindings.");
+                return false;
+            }
+
+            // The layer is the asset the bindings are saved into now: a foreign layer is cut off in Prepare already.
+            layerGuid.stringValue = AssetDatabase.AssetPathToGUID(request.AssetPath);
+
             // Keep the checkboxes on the component in sync with what was actually generated.
             SetFlag(serializedObject, "_isSceneService", request.IsSceneService, errors);
             SetFlag(serializedObject, "_isEntityComponent", request.IsEntityComponent, errors);
 
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(component);
+
+            // The entity checkbox may have been set or cleared: the lists of the views are synced both ways.
+            HierarchyBindingsEntityViews.SyncOwners(root);
+
+            // The same for scene services in a scene: the list of the scene services factory.
+            if (request.IsPrefabAsset == false)
+                HierarchyBindingsEntityViews.SyncSceneServices(root.scene);
+
             return true;
         }
 
+        // An object may carry several bindings of different classes (base and variant, independent
+        // mirrors), so other classes are skipped. Only two instances of one class are forbidden:
+        // two exact ones or two derived ones - their references could not be told apart.
+        //
         // On the first generation the user class does not inherit the bindings yet, so the component
         // is added separately. Once the inheritance is written, we remove the extra component ourselves:
-        // otherwise the object would have two binding holders.
+        // otherwise the object would have two holders of the same bindings.
         private static Component ResolveComponent(GameObject root, Type type, List<string> errors)
         {
             Component derived = null;
@@ -71,15 +105,26 @@ namespace Internal
                 if (candidate == null || candidate is IObjectBindings == false)
                     continue;
 
+                if (type.IsInstanceOfType(candidate) == false)
+                    continue;
+
                 if (candidate.GetType() == type)
                 {
+                    if (exact != null)
+                    {
+                        errors.Add($"'{root.name}' carries {type.Name} twice. Remove the duplicate.");
+                        return null;
+                    }
+
                     exact = candidate;
                     continue;
                 }
 
-                if (type.IsInstanceOfType(candidate) == false)
+                if (derived != null)
                 {
-                    errors.Add($"'{root.name}' already carries other bindings: {candidate.GetType().Name}.");
+                    errors.Add(
+                        $"'{root.name}' carries two classes derived from {type.Name}: " +
+                        $"{derived.GetType().Name} and {candidate.GetType().Name}. Remove one of them.");
                     return null;
                 }
 

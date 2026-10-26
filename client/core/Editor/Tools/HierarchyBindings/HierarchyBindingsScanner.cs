@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
@@ -10,6 +11,11 @@ namespace Internal
     // nested prefabs. There are only two boundaries - an object with its own bindings (its own class is
     // responsible for its insides, and a reference to it resets the serialization depth, of which Unity
     // has only seven levels) and HierarchyBindingsIgnoreChildren, which cuts off unneeded branches.
+    //
+    // On a prefab variant the walk is also filtered by the layer (HierarchyBindingsLayer): foreign
+    // components are skipped, an inherited object without own content drops out entirely, and one with
+    // added content inside stays as a pass-through node - without a reference to the object itself, only
+    // with its own components and children.
     [NoAutoStaticsCleanup]
     internal static class HierarchyBindingsScanner
     {
@@ -27,7 +33,11 @@ namespace Internal
             typeof(HierarchyBindingsIgnoreChildren)
         };
 
-        public static HierarchyBindingsNode Scan(GameObject root, string rootTypeName, List<string> errors)
+        public static HierarchyBindingsNode Scan(
+            GameObject root,
+            string rootTypeName,
+            HierarchyBindingsLayer layer,
+            List<string> errors)
         {
             if (root == null)
             {
@@ -35,7 +45,7 @@ namespace Internal
                 return null;
             }
 
-            var node = ScanNode(root, rootTypeName, root.name, 0, errors);
+            var node = ScanNode(root, rootTypeName, root.name, 0, layer, errors);
             return errors.Count == 0 ? node : null;
         }
 
@@ -44,6 +54,7 @@ namespace Internal
             string typeName,
             string hierarchyPath,
             int depth,
+            HierarchyBindingsLayer layer,
             List<string> errors)
         {
             var node = new HierarchyBindingsNode
@@ -56,11 +67,16 @@ namespace Internal
             node.IgnoreChildren = target.GetComponent<HierarchyBindingsIgnoreChildren>() != null;
 
             var used = new HashSet<string>(StringComparer.Ordinal);
-            CollectGameObject(node, used);
-            CollectComponents(node, used, depth, errors);
+
+            // A reference to an inherited object belongs to the layer of the base. The root is an exception: it
+            // carries the bindings themselves and always has the property.
+            if (depth == 0 || layer.IsOwn(target))
+                CollectGameObject(node, used);
+
+            CollectComponents(node, used, depth, layer, errors);
 
             if (node.IgnoreChildren == false)
-                CollectChildren(node, used, depth, errors);
+                CollectChildren(node, used, depth, layer, errors);
 
             return node;
         }
@@ -84,6 +100,7 @@ namespace Internal
             HierarchyBindingsNode node,
             HashSet<string> used,
             int depth,
+            HierarchyBindingsLayer layer,
             List<string> errors)
         {
             foreach (var component in node.Target.GetComponents<Component>())
@@ -106,9 +123,22 @@ namespace Internal
                 if ((component.hideFlags & HideFlags.DontSaveInEditor) != 0)
                     continue;
 
+                // A non-public type (internal components of a package) cannot be declared as a field of the
+                // generated class - CS0122.
+                if (type.IsVisible == false)
+                    continue;
+
+                // Scripts without an asmdef live in Assembly-CSharp, which the asmdef assembly of the generated
+                // class cannot see - CS0400.
+                if (IsPredefinedAssembly(type))
+                    continue;
+
                 // The bindings owner is the generated component itself (or the user class
                 // that inherits it). A self reference is not needed in the mirror.
                 if (depth == 0 && component is IObjectBindings)
+                    continue;
+
+                if (layer.IsOwn(component) == false)
                     continue;
 
                 var field = MakeField(component, type.Name, used, errors, node.HierarchyPath);
@@ -122,28 +152,37 @@ namespace Internal
             HierarchyBindingsNode node,
             HashSet<string> used,
             int depth,
+            HierarchyBindingsLayer layer,
             List<string> errors)
         {
-            var scans = ScanChildren(node, depth, errors);
+            var scans = ScanChildren(node, depth, layer, errors);
+            var siblingNames = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var scan in scans)
+                siblingNames.Add(HierarchyBindingsNaming.ToIdentifier(scan.Child.name));
 
             for (var index = 0; index < scans.Count;)
             {
                 var length = GroupLength(scans, index);
 
-                if (length >= MinGroupSize && TryAddGroup(node, scans, index, length, used, errors))
+                if (length >= MinGroupSize && TryAddGroup(node, scans, index, length, used, siblingNames, errors))
                 {
                     index += length;
                     continue;
                 }
 
-                AddSingle(node, scans[index], used, errors);
+                AddSingle(node, scans[index], used, siblingNames, errors);
                 index++;
             }
         }
 
         // Names at the parent level are assigned only after it is known what collapses into what:
         // otherwise taken names would go to siblings that will no longer be in the class.
-        private static List<ChildScan> ScanChildren(HierarchyBindingsNode node, int depth, List<string> errors)
+        private static List<ChildScan> ScanChildren(
+            HierarchyBindingsNode node,
+            int depth,
+            HierarchyBindingsLayer layer,
+            List<string> errors)
         {
             var transform = node.Target.transform;
             var scans = new List<ChildScan>(transform.childCount);
@@ -159,15 +198,20 @@ namespace Internal
                     BaseName = HierarchyBindingsNaming.StripIndexSuffix(child.name)
                 };
 
-                var bindings = FindBindings(child);
+                var boundaries = FindBindings(child, childPath, layer, errors);
 
-                if (bindings != null)
+                if (boundaries.Count > 0)
                 {
-                    scan.Boundary = bindings;
-                    scan.Signature = "boundary:" + ToCodeTypeName(bindings);
+                    scan.Boundaries = boundaries;
+                    scan.Signature = ComputeBoundarySignature(boundaries);
                     scans.Add(scan);
                     continue;
                 }
+
+                // An inherited branch where the variant added nothing is not in its layer - neither the depth
+                // nor the contents concern it.
+                if (layer.IsVariant && ContainsOwnContent(child, layer) == false)
+                    continue;
 
                 if (depth + 1 > MaxNestingDepth)
                 {
@@ -178,7 +222,11 @@ namespace Internal
                     continue;
                 }
 
-                scan.Node = ScanNode(child, null, childPath, depth + 1, errors);
+                if (layer.IsOwn(child) == false &&
+                    layer.TryValidatePassThrough(child, childPath, errors) == false)
+                    continue;
+
+                scan.Node = ScanNode(child, null, childPath, depth + 1, layer, errors);
                 scan.Signature = ComputeSignature(scan.Node);
                 scans.Add(scan);
             }
@@ -219,6 +267,7 @@ namespace Internal
             int start,
             int length,
             HashSet<string> used,
+            HashSet<string> siblingNames,
             List<string> errors)
         {
             var first = scans[start];
@@ -227,28 +276,17 @@ namespace Internal
             if (Validate(baseName, first.BaseName, first.ChildPath, errors) == false)
                 return false;
 
+            var comment = $"{first.ChildPath} .. {scans[start + length - 1].Child.name} ({length} items)";
+
+            if (first.Boundaries != null)
+            {
+                AddBoundaryGroup(node, scans, start, length, baseName, comment, used, siblingNames, errors);
+                return true;
+            }
+
             var propertyName = HierarchyBindingsNaming.MakeUnique(
                 HierarchyBindingsNaming.ToPlural(baseName), used);
             var fieldName = HierarchyBindingsNaming.ToFieldName(propertyName);
-            var comment = $"{first.ChildPath} .. {scans[start + length - 1].Child.name} ({length} items)";
-
-            if (first.Boundary != null)
-            {
-                var field = new HierarchyBindingsField
-                {
-                    Target = first.Boundary,
-                    PropertyName = propertyName,
-                    FieldName = fieldName,
-                    CodeTypeName = ToCodeTypeName(first.Boundary),
-                    Comment = comment + " (own bindings)"
-                };
-
-                for (var index = start; index < start + length; index++)
-                    field.Targets.Add(scans[index].Boundary);
-
-                node.Fields.Add(field);
-                return true;
-            }
 
             var template = first.Node;
             template.TypeName = HierarchyBindingsNaming.MakeUnique(baseName + "Bindings", used);
@@ -266,19 +304,12 @@ namespace Internal
             HierarchyBindingsNode node,
             ChildScan scan,
             HashSet<string> used,
+            HashSet<string> siblingNames,
             List<string> errors)
         {
-            if (scan.Boundary != null)
+            if (scan.Boundaries != null)
             {
-                // The name comes from the object, not the type: from outside it is a child like the others,
-                // its own bindings class is just responsible for its insides.
-                var field = MakeField(scan.Boundary, scan.Child.name, used, errors, scan.ChildPath);
-
-                if (field == null)
-                    return;
-
-                field.Comment = scan.ChildPath + " (own bindings)";
-                node.Fields.Add(field);
+                AddBoundary(node, scan, used, siblingNames, errors);
                 return;
             }
 
@@ -289,12 +320,187 @@ namespace Internal
 
             propertyName = HierarchyBindingsNaming.MakeUnique(propertyName, used);
 
-            // The nested class name lives in the same name space as the properties,
-            // so it is also disambiguated through the shared set of taken names.
+            // The nested class name lives in the same namespace as the properties,
+            // so it is also deduplicated through the shared set of taken names.
             scan.Node.TypeName = HierarchyBindingsNaming.MakeUnique(propertyName + "Bindings", used);
             scan.Node.PropertyName = propertyName;
             scan.Node.FieldName = HierarchyBindingsNaming.ToFieldName(propertyName);
             node.Children.Add(scan.Node);
+        }
+
+        // The name comes from the object, not the type: from outside it is a child like the others,
+        // its own bindings class is just responsible for its insides. A child with several bindings gets a
+        // field per class: the object name + the type name without the Bindings suffix (Pair + ABindings =
+        // PairA). Such a name is not deduplicated with a digit: a taken one is a generation error.
+        private static void AddBoundary(
+            HierarchyBindingsNode node,
+            ChildScan scan,
+            HashSet<string> used,
+            HashSet<string> siblingNames,
+            List<string> errors)
+        {
+            if (scan.Boundaries.Count == 1)
+            {
+                var single = MakeField(scan.Boundaries[0], scan.Child.name, used, errors, scan.ChildPath);
+
+                if (single == null)
+                    return;
+
+                single.Comment = scan.ChildPath + " (own bindings)";
+                node.Fields.Add(single);
+                return;
+            }
+
+            foreach (var boundary in scan.Boundaries)
+            {
+                var propertyName = HierarchyBindingsNaming.ToIdentifier(scan.Child.name) + ToShortTypeName(boundary);
+
+                if (ReserveExact(propertyName, scan.ChildPath, used, siblingNames, errors) == false)
+                    continue;
+
+                node.Fields.Add(new HierarchyBindingsField
+                {
+                    Target = boundary,
+                    PropertyName = propertyName,
+                    FieldName = HierarchyBindingsNaming.ToFieldName(propertyName),
+                    CodeTypeName = ToCodeTypeName(boundary),
+                    Comment = scan.ChildPath + " (own bindings)"
+                });
+            }
+        }
+
+        private static string ToShortTypeName(Component boundary)
+        {
+            var name = boundary.GetType().Name;
+            var suffix = HierarchyBindingsGenerator.TypeNameSuffix;
+
+            return name.Length > suffix.Length && name.EndsWith(suffix, StringComparison.Ordinal)
+                ? name.Substring(0, name.Length - suffix.Length)
+                : name;
+        }
+
+        // The field name for one of several bindings of a child must not match a taken name nor the name of a
+        // sibling that gets its field later: otherwise the sibling would silently become "Name2".
+        private static bool ReserveExact(
+            string propertyName,
+            string hierarchyPath,
+            HashSet<string> used,
+            HashSet<string> siblingNames,
+            List<string> errors)
+        {
+            if (Validate(propertyName, propertyName, hierarchyPath, errors) == false)
+                return false;
+
+            if (siblingNames.Contains(propertyName) || used.Add(propertyName) == false)
+            {
+                errors.Add(
+                    $"'{hierarchyPath}': field '{propertyName}' for one of its bindings collides with another member. " +
+                    "Rename the object or the bindings class.");
+                return false;
+            }
+
+            return true;
+        }
+
+        // A row of siblings with their own bindings - an array of references per type. The set of types is the
+        // same for every element (the signature checked it), but the order of the components may differ, so an
+        // element is found by type, not by position.
+        private static void AddBoundaryGroup(
+            HierarchyBindingsNode node,
+            List<ChildScan> scans,
+            int start,
+            int length,
+            string baseName,
+            string comment,
+            HashSet<string> used,
+            HashSet<string> siblingNames,
+            List<string> errors)
+        {
+            var first = scans[start];
+            var isSingle = first.Boundaries.Count == 1;
+
+            foreach (var template in first.Boundaries)
+            {
+                var type = template.GetType();
+                var plural = HierarchyBindingsNaming.ToPlural(baseName);
+                string propertyName;
+
+                if (isSingle)
+                {
+                    propertyName = HierarchyBindingsNaming.MakeUnique(plural, used);
+                }
+                else
+                {
+                    propertyName = plural + ToShortTypeName(template);
+
+                    if (ReserveExact(propertyName, first.ChildPath, used, siblingNames, errors) == false)
+                        return;
+                }
+
+                var field = new HierarchyBindingsField
+                {
+                    Target = template,
+                    PropertyName = propertyName,
+                    FieldName = HierarchyBindingsNaming.ToFieldName(propertyName),
+                    CodeTypeName = ToCodeTypeName(template),
+                    Comment = comment + " (own bindings)"
+                };
+
+                for (var index = start; index < start + length; index++)
+                {
+                    var element = scans[index].Boundaries.FirstOrDefault(candidate => candidate.GetType() == type);
+
+                    if (element == null)
+                    {
+                        errors.Add($"'{scans[index].ChildPath}' has no {type.Name}, but its group expects it.");
+                        return;
+                    }
+
+                    field.Targets.Add(element);
+                }
+
+                node.Fields.Add(field);
+            }
+        }
+
+        // A row collapses only when the siblings carry the same set of bindings types. The order of the
+        // components on the objects is not part of the signature.
+        private static string ComputeBoundarySignature(List<Component> boundaries)
+        {
+            var types = boundaries
+                .Select(boundary => ToCodeTypeName(boundary))
+                .OrderBy(name => name, StringComparer.Ordinal);
+
+            return "boundary:" + string.Join(",", types);
+        }
+
+        // Whether the branch has anything of the variant layer: an own object or an own component.
+        private static bool ContainsOwnContent(GameObject target, HierarchyBindingsLayer layer)
+        {
+            if (layer.IsOwn(target))
+                return true;
+
+            foreach (var component in target.GetComponents<Component>())
+            {
+                // A missing script is not decided here: the walk of the object itself reports it loudly.
+                if (component == null)
+                    return true;
+
+                if (layer.IsOwn(component))
+                    return true;
+            }
+
+            // The walk does not mirror the branch under the marker anyway, what was added there does not count.
+            if (target.GetComponent<HierarchyBindingsIgnoreChildren>() != null)
+                return false;
+
+            foreach (Transform child in target.transform)
+            {
+                if (ContainsOwnContent(child.gameObject, layer))
+                    return true;
+            }
+
+            return false;
         }
 
         // Node contents without its own name: decides whether one class serves
@@ -327,20 +533,40 @@ namespace Internal
             public string BaseName;
             public string Signature;
 
-            // The child has its own bindings: do not go inside, expose a reference to its component.
-            public Component Boundary;
+            // The child has its own bindings: do not go inside, expose a reference to each of its bindings
+            // components. Null - a regular child, then Node is set.
+            public List<Component> Boundaries;
             public HierarchyBindingsNode Node;
         }
 
-        private static Component FindBindings(GameObject target)
+        // Only bindings of the own layer are a boundary: on a variant the base bindings on an inherited child are
+        // foreign components, and the walk goes on through such an object.
+        private static List<Component> FindBindings(
+            GameObject target,
+            string hierarchyPath,
+            HierarchyBindingsLayer layer,
+            List<string> errors)
         {
+            var result = new List<Component>();
+
             foreach (var component in target.GetComponents<Component>())
             {
-                if (component is IObjectBindings)
-                    return component;
+                if (component is IObjectBindings == false)
+                    continue;
+
+                if (layer.IsOwn(component) == false)
+                    continue;
+
+                if (result.Any(existing => existing.GetType() == component.GetType()))
+                {
+                    errors.Add($"'{hierarchyPath}' carries {component.GetType().Name} twice. Remove the duplicate.");
+                    continue;
+                }
+
+                result.Add(component);
             }
 
-            return null;
+            return result;
         }
 
         private static HierarchyBindingsField MakeField(
@@ -382,6 +608,12 @@ namespace Internal
             }
 
             return true;
+        }
+
+        private static bool IsPredefinedAssembly(Type type)
+        {
+            var name = type.Assembly.GetName().Name;
+            return name == "Assembly-CSharp" || name == "Assembly-CSharp-firstpass";
         }
 
         public static string ToCodeTypeName(Type type)

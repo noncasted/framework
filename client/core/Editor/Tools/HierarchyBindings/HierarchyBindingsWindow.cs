@@ -1,47 +1,73 @@
+using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
 namespace Internal
 {
-    // One window for both the first generation and Regenerate: if the object already has bindings,
-    // the name and namespace are taken from them and are not editable, so no second class is created.
+    // One window for both the first generation and Regenerate. An object may carry several bindings of
+    // different classes (base and variant of a prefab), so the window shows every class already on it with
+    // its own Regenerate button and below offers to create one more under a new name. The name and the
+    // namespace of the existing ones are not editable, so no second class is created.
     public sealed class HierarchyBindingsWindow : EditorWindow
     {
+        private readonly List<ExistingBindings> _existing = new();
+
         private GameObject _target;
+        private string _assetGuid;
         private string _bindingsName;
         private string _namespace;
         private bool _isSceneService;
         private bool _isEntityComponent;
-        private bool _isRegenerate;
 
         public static void Open(GameObject target)
         {
             var window = CreateInstance<HierarchyBindingsWindow>();
             window.titleContent = new GUIContent("Object Bindings");
             window.Setup(target);
-            window.minSize = new Vector2(420f, 150f);
+            window.minSize = new Vector2(460f, 200f);
             window.ShowUtility();
         }
 
         private void Setup(GameObject target)
         {
             _target = target;
+            _assetGuid = HierarchyBindingsTarget.TryDescribe(target, out var assetPath, out _, out _, out _)
+                ? AssetDatabase.AssetPathToGUID(assetPath)
+                : string.Empty;
 
-            var bindings = FindBindings(target);
-            var existing = HierarchyBindingsGenerator.ResolveGeneratedType(bindings);
-
-            if (existing != null)
+            foreach (var bindings in target.GetComponents<ObjectBindings>())
             {
-                _bindingsName = existing.Name;
-                _namespace = existing.Namespace ?? string.Empty;
-                _isSceneService = bindings.IsSceneService;
-                _isEntityComponent = bindings.IsEntityComponent;
-                _isRegenerate = true;
-                return;
+                var type = HierarchyBindingsGenerator.ResolveGeneratedType(bindings);
+
+                if (type == null)
+                    throw new InvalidOperationException(
+                        $"{bindings.GetType().Name} on '{target.name}' does not derive from a generated class.");
+
+                _existing.Add(new ExistingBindings
+                {
+                    Type = type,
+                    LayerAssetPath = AssetDatabase.GUIDToAssetPath(bindings.LayerAssetGuid),
+                    IsForeign = IsForeignLayer(bindings),
+                    IsSceneService = bindings.IsSceneService,
+                    IsEntityComponent = bindings.IsEntityComponent
+                });
             }
 
             _bindingsName = HierarchyBindingsNaming.ToIdentifier(target.name);
-            _namespace = HierarchyBindingsPaths.ResolveDefaultNamespace(target);
+            _namespace = _existing.Count > 0
+                ? _existing[0].Type.Namespace ?? string.Empty
+                : HierarchyBindingsPaths.ResolveDefaultNamespace(target);
+        }
+
+        // The layer is written at binding. An empty layer - bindings older than this field, they count as own:
+        // if that is wrong, the generator still stops the regeneration with a loud error.
+        private bool IsForeignLayer(ObjectBindings bindings)
+        {
+            if (string.IsNullOrEmpty(bindings.LayerAssetGuid) || string.IsNullOrEmpty(_assetGuid))
+                return false;
+
+            return bindings.LayerAssetGuid != _assetGuid;
         }
 
         private void OnGUI()
@@ -54,38 +80,123 @@ namespace Internal
 
             EditorGUILayout.LabelField("Object", _target.name);
 
-            using (new EditorGUI.DisabledScope(_isRegenerate))
+            if (_existing.Count > 0)
             {
-                _bindingsName = EditorGUILayout.TextField("Bindings Name", _bindingsName);
-                _namespace = EditorGUILayout.TextField("Namespace", _namespace);
+                EditorGUILayout.Space();
+                EditorGUILayout.LabelField("Existing Bindings", EditorStyles.boldLabel);
+
+                foreach (var existing in _existing)
+                {
+                    if (DrawExisting(existing))
+                        return;
+                }
             }
 
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField(_existing.Count > 0 ? "Add Bindings" : "New Bindings", EditorStyles.boldLabel);
+            DrawNew();
+        }
+
+        // Returns true if the window is closed and nothing more may be drawn.
+        private bool DrawExisting(ExistingBindings existing)
+        {
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                EditorGUILayout.LabelField("Class", existing.Type.FullName);
+
+                if (string.IsNullOrEmpty(existing.LayerAssetPath) == false)
+                    EditorGUILayout.LabelField("Layer", existing.LayerAssetPath);
+
+                if (existing.IsForeign)
+                {
+                    EditorGUILayout.HelpBox(
+                        $"Declared in {existing.LayerAssetPath}. Open that asset to regenerate these bindings.",
+                        MessageType.Info);
+                    return false;
+                }
+
+                existing.IsSceneService = EditorGUILayout.Toggle("Is Scene Service", existing.IsSceneService);
+                existing.IsEntityComponent = EditorGUILayout.Toggle("Is Entity Component", existing.IsEntityComponent);
+
+                if (GUILayout.Button("Regenerate") == false)
+                    return false;
+            }
+
+            var target = _target;
+            Close();
+            HierarchyBindingsGenerator.Generate(
+                    target,
+                    existing.Type.Name,
+                    existing.Type.Namespace ?? string.Empty,
+                    existing.IsSceneService,
+                    existing.IsEntityComponent
+                );
+            return true;
+        }
+
+        private void DrawNew()
+        {
+            _bindingsName = EditorGUILayout.TextField("Bindings Name", _bindingsName);
+            _namespace = EditorGUILayout.TextField("Namespace", _namespace);
             _isSceneService = EditorGUILayout.Toggle("Is Scene Service", _isSceneService);
             _isEntityComponent = EditorGUILayout.Toggle("Is Entity Component", _isEntityComponent);
 
             var typeName = HierarchyBindingsGenerator.ToTypeName(_bindingsName);
             EditorGUILayout.LabelField("Class", string.IsNullOrEmpty(typeName) ? "<invalid name>" : typeName);
 
+            var problem = FindNameProblem(typeName);
+
+            if (string.IsNullOrEmpty(problem) == false)
+                EditorGUILayout.HelpBox(problem, MessageType.Warning);
+
             EditorGUILayout.Space();
 
-            using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(typeName)))
+            using (new EditorGUI.DisabledScope(string.IsNullOrEmpty(problem) == false))
             {
-                if (GUILayout.Button(_isRegenerate ? "Regenerate" : "Generate"))
-                {
-                    var target = _target;
-                    var name = _bindingsName;
-                    var namespaceName = _namespace;
-                    var isSceneService = _isSceneService;
-                    var isEntityComponent = _isEntityComponent;
-                    Close();
-                    HierarchyBindingsGenerator.Generate(target, name, namespaceName, isSceneService, isEntityComponent);
-                }
+                if (GUILayout.Button("Generate") == false)
+                    return;
             }
+
+            var target = _target;
+            var name = _bindingsName;
+            var namespaceName = _namespace;
+            var isSceneService = _isSceneService;
+            var isEntityComponent = _isEntityComponent;
+            Close();
+            HierarchyBindingsGenerator.Generate(target, name, namespaceName, isSceneService, isEntityComponent);
         }
 
-        private static ObjectBindings FindBindings(GameObject target)
+        // A new class must match neither the bindings on this object (they have Regenerate) nor another
+        // class of the project: the generator would overwrite its file.
+        private string FindNameProblem(string typeName)
         {
-            return target.GetComponent<ObjectBindings>();
+            if (string.IsNullOrEmpty(typeName))
+                return "Name is not a C# identifier.";
+
+            var fullName = string.IsNullOrEmpty(_namespace) ? typeName : _namespace + "." + typeName;
+
+            foreach (var existing in _existing)
+            {
+                if (existing.Type.FullName == fullName)
+                    return $"{typeName} is already on this object. Use its Regenerate button above.";
+            }
+
+            foreach (var type in TypeCache.GetTypesDerivedFrom<ObjectBindings>())
+            {
+                if (type.FullName == fullName)
+                    return $"{fullName} already exists for another object. Pick another name.";
+            }
+
+            return string.Empty;
+        }
+
+        private sealed class ExistingBindings
+        {
+            public Type Type;
+            public string LayerAssetPath;
+            public bool IsForeign;
+            public bool IsSceneService;
+            public bool IsEntityComponent;
         }
     }
 }

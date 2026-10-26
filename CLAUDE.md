@@ -105,6 +105,13 @@ tools/scripts/          scripts shared by the projects
   `ContainerGenerator.Verify`.
 - **Updater.** The global scope calls `AddUpdater(prefab)` (core); delays without coroutines:
   `updater.RunDelay(lifetime, time)`, ends earlier with the lifetime.
+- **Hierarchy bindings.** Generated `*Bindings.g.cs` (`ObjectBindings`) go to `Assets/Generated` of a module root
+  (`FrameworkSettings.ModuleRoots`), to `Generated` next to any other asmdef, to
+  `Runtime/Tools/PrefabHierarchy/Generated` of the content folder for an owner from the content assembly; an asset
+  outside every asmdef is an error. One object may carry several bindings classes: a prefab variant keeps the ones
+  of its base and mirrors only what it added (`_layerAssetGuid`). Prefab batch:
+  `HierarchyBindingsBatch.RegeneratePrefabs`, then `HierarchyBindingsGenerator.PumpPending()` until `Idle.` when the
+  editor is not focused; check with `HierarchyBindingsValidator`.
 - **Flow.** The project's startup derives from `StartupEntry`, its mocks from `MockEntry` (`MockSwitcher` runs the mock
   of a scene opened directly); `GameLoopScopeLoader` keeps one game loop scope at a time.
 - **`[Inject]` methods** of a type that may be registered from another assembly are `public`: the generator does

@@ -15,6 +15,7 @@ namespace Internal
         public const string Codegen = Root + "Codegen/";
         public const string Container = Root + "Container/";
         public const string LifetimeGraph = Root + "Lifetime Graph/";
+        public const string ObjectBindings = Root + "Object Bindings/";
 
         // The items at the top of the folder.
         public const int Priority = 2000;

@@ -7,6 +7,9 @@ namespace Internal
     // user class can simply inherit the generated one and get the properties
     // directly. Children live in nested [Serializable] classes; Unity serializes references to them
     // by field name, like regular hand-written [SerializeField], with all their merge properties.
+    //
+    // [DisallowMultipleComponent] forbids only a second instance of the same class (or of a class derived from
+    // it): bindings of different classes (base and variant of a prefab) still live on one object.
     internal static class HierarchyBindingsCodeGenerator
     {
         public const string FileSuffix = "Bindings.g.cs";
@@ -179,7 +182,11 @@ namespace Internal
 
                 if (childNode == null)
                 {
-                    // The child is not in the mirror - it has its own bindings and we do not go inside.
+                    // The child is not in the mirror as a node: either it has its own bindings (a field per
+                    // class, we do not go inside), or on a variant it belongs to the base entirely.
+                    if (HasBoundaryFields(node, child) == false)
+                        continue;
+
                     builder.AppendLine($"{indent}// {padding}- {child.name} (own bindings)");
                     continue;
                 }
@@ -238,6 +245,17 @@ namespace Internal
                     elementIndex = index;
                     return true;
                 }
+            }
+
+            return false;
+        }
+
+        private static bool HasBoundaryFields(HierarchyBindingsNode node, GameObject child)
+        {
+            foreach (var field in node.Fields)
+            {
+                if (field.Target is Component component && component.gameObject == child)
+                    return true;
             }
 
             return false;

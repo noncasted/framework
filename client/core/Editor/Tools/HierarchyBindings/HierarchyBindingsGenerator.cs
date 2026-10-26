@@ -15,6 +15,7 @@ namespace Internal
         public const string TypeNameSuffix = "Bindings";
 
         private const string LogTag = "HierarchyBindingsGenerator";
+        private const string AwaitingReloadKey = "Internal.HierarchyBindings.AwaitingReload";
 
         public static string ToTypeName(string bindingsName)
         {
@@ -27,12 +28,6 @@ namespace Internal
                 return identifier;
 
             return identifier + TypeNameSuffix;
-        }
-
-        [InitializeOnLoadMethod]
-        private static void InstallRegenerateHandler()
-        {
-            ObjectBindings.RegenerateHandler = Regenerate;
         }
 
         public static void Regenerate(ObjectBindings bindings)
@@ -105,19 +100,6 @@ namespace Internal
                 return false;
             }
 
-            var existing = root.GetComponent<ObjectBindings>();
-
-            // A prefab instance carries the bindings of its asset. Generating from the instance would name the root
-            // after the instance and write the hash and references as overrides of the scene, not into the asset.
-            if (existing != null && PrefabUtility.GetCorrespondingObjectFromSource(existing) != null)
-            {
-                Debug.LogError(
-                    $"[{LogTag}] '{root.name}' carries bindings of prefab " +
-                    $"{AssetDatabase.GetAssetPath(PrefabUtility.GetCorrespondingObjectFromSource(existing))}. " +
-                    "Regenerate them in that prefab.", root);
-                return false;
-            }
-
             if (HierarchyBindingsTarget.TryDescribe(root, out var assetPath, out var objectPath, out var isPrefab,
                     out var describeError) ==
                 false)
@@ -127,9 +109,38 @@ namespace Internal
             }
 
             var errors = new List<string>();
-            var node = HierarchyBindingsScanner.Scan(root, typeName, errors);
+            string code = null;
+            string structureHash = null;
+            string boundHash = null;
 
-            if (node == null)
+            using (var target = HierarchyBindingsTarget.OpenForScan(root, assetPath, objectPath, isPrefab,
+                       out var openError))
+            {
+                if (target == null)
+                {
+                    Debug.LogError($"[{LogTag}] {openError}", root);
+                    return false;
+                }
+
+                // The node holds references to objects of the loaded contents, so the code is built
+                // before they are unloaded.
+                var node = Scan(target.Root, typeName, namespaceName, assetPath, isPrefab, errors);
+
+                if (node != null)
+                {
+                    structureHash = HierarchyBindingsStructure.ComputeHash(node);
+                    boundHash = FindBindings(target.Root, typeName, namespaceName)?.StructureHash;
+                    code = HierarchyBindingsCodeGenerator.Build(
+                            node,
+                            namespaceName,
+                            structureHash,
+                            isSceneService,
+                            isEntityComponent
+                        );
+                }
+            }
+
+            if (code == null)
             {
                 Report(errors, root);
                 return false;
@@ -137,21 +148,12 @@ namespace Internal
 
             var folder = HierarchyBindingsPaths.ResolveGeneratedFolder(root, assetPath);
             var filePath = $"{folder}/{typeName}.g.cs";
-            var structureHash = HierarchyBindingsStructure.ComputeHash(node);
-
-            var code = HierarchyBindingsCodeGenerator.Build(
-                    node,
-                    namespaceName,
-                    structureHash,
-                    isSceneService,
-                    isEntityComponent
-                );
 
             changed = HasChanged(filePath, code);
 
             // Same code but a stale hash on the object: an earlier binding failed or never ran (the object was
             // saved with old references). Bind again, otherwise the object never catches up with its code.
-            var isBoundStale = existing == null || existing.StructureHash != structureHash;
+            var isBoundStale = boundHash != structureHash;
 
             if (changed || bindUnchanged || isBoundStale)
             {
@@ -174,18 +176,118 @@ namespace Internal
         }
 
         // Without code changes there is no compilation, so DidReloadScripts will not fire either,
-        // hence we bind right away.
+        // hence we bind right away. With changes we set the "awaiting reload" mark: until the reload the
+        // requests must not be bound - the domain still has the old classes without the new fields.
         public static void Flush(bool changed)
         {
             if (changed)
+            {
+                SessionState.SetBool(AwaitingReloadKey, true);
                 AssetDatabase.Refresh();
-            else
-                EditorApplication.delayCall += ProcessPending;
+                return;
+            }
+
+            EditorApplication.delayCall += ProcessPending;
+        }
+
+        // The entry point for MCP and an unfocused editor: there delayCall does not tick, and the binding
+        // after compilation does not start by itself. Safe to call any number of times - while compiling or
+        // awaiting the reload it does nothing. Returns the state.
+        public static string PumpPending()
+        {
+            if (EditorApplication.isCompiling || SessionState.GetBool(AwaitingReloadKey, false))
+                return "Waiting for compilation. " + HierarchyBindingsBatch.Status();
+
+            ProcessPending();
+
+            if (HierarchyBindingsQueue.IsEmpty() == false)
+                return "Pending requests remain. " + HierarchyBindingsBatch.Status();
+
+            return HierarchyBindingsBatch.Status();
+        }
+
+        // Resets a stuck state (for example, the generated code failed to compile): the queue and the awaiting mark.
+        internal static void ResetPending()
+        {
+            HierarchyBindingsQueue.Clear();
+            SessionState.EraseBool(AwaitingReloadKey);
+        }
+
+        // The bindings of this class on the object, if any: the existing component may be a user class
+        // that inherits the generated one.
+        private static ObjectBindings FindBindings(GameObject root, string typeName, string namespaceName)
+        {
+            foreach (var bindings in root.GetComponents<ObjectBindings>())
+            {
+                if (IsGeneratedAs(bindings, typeName, namespaceName))
+                    return bindings;
+            }
+
+            return null;
+        }
+
+        [InitializeOnLoadMethod]
+        private static void InstallRegenerateHandler()
+        {
+            ObjectBindings.RegenerateHandler = Regenerate;
+        }
+
+        private static HierarchyBindingsNode Scan(
+            GameObject root,
+            string typeName,
+            string namespaceName,
+            string assetPath,
+            bool isPrefab,
+            List<string> errors)
+        {
+            if (ValidateLayer(root, typeName, namespaceName, assetPath, errors) == false)
+                return null;
+
+            var layer = HierarchyBindingsLayer.Resolve(assetPath, isPrefab);
+            return HierarchyBindingsScanner.Scan(root, typeName, layer, errors);
+        }
+
+        // Bindings already on the object under this name are regenerated only in the asset where they
+        // were declared. Base bindings seen from a variant would otherwise be written into the variant as
+        // overrides of every reference, and prefab bindings seen from a scene - as overrides of the instance.
+        private static bool ValidateLayer(
+            GameObject root,
+            string typeName,
+            string namespaceName,
+            string assetPath,
+            List<string> errors)
+        {
+            foreach (var bindings in root.GetComponents<ObjectBindings>())
+            {
+                if (IsGeneratedAs(bindings, typeName, namespaceName) == false)
+                    continue;
+
+                var declaringAsset = HierarchyBindingsLayer.ResolveDeclaringAsset(bindings, assetPath);
+
+                if (declaringAsset == assetPath)
+                    continue;
+
+                errors.Add($"{typeName} on '{root.name}' is declared in {declaringAsset}. Open it and regenerate there.");
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsGeneratedAs(ObjectBindings bindings, string typeName, string namespaceName)
+        {
+            var type = ResolveGeneratedType(bindings);
+
+            return type != null &&
+                   string.Equals(type.Name, typeName, StringComparison.Ordinal) &&
+                   string.Equals(type.Namespace ?? string.Empty, namespaceName, StringComparison.Ordinal);
         }
 
         [DidReloadScripts]
         private static void OnScriptsReloaded()
         {
+            SessionState.EraseBool(AwaitingReloadKey);
+
             if (HierarchyBindingsQueue.IsEmpty())
                 return;
 
@@ -194,6 +296,11 @@ namespace Internal
 
         private static void ProcessPending()
         {
+            // An old delayCall may outlive a manual pump and arrive when the next phase of the batch
+            // has already written its code and awaits compilation.
+            if (EditorApplication.isCompiling || SessionState.GetBool(AwaitingReloadKey, false))
+                return;
+
             var requests = HierarchyBindingsQueue.Take();
 
             if (requests.Count == 0)
@@ -207,11 +314,13 @@ namespace Internal
                     bound++;
             }
 
-            if (bound == 0)
-                return;
+            if (bound > 0)
+            {
+                AssetDatabase.SaveAssets();
+                Debug.Log($"[{LogTag}] Bound {bound} of {requests.Count} bindings.");
+            }
 
-            AssetDatabase.SaveAssets();
-            Debug.Log($"[{LogTag}] Bound {bound} of {requests.Count} bindings.");
+            HierarchyBindingsBatch.OnPendingProcessed();
         }
 
         private static bool Process(HierarchyBindingsRequest request)

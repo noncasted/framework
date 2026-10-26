@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -9,9 +10,79 @@ namespace Internal
 {
     // Batch regeneration: the code of all bindings is written before the domain reload, and binding
     // happens after it from the shared request queue.
-    internal static class HierarchyBindingsBatch
+    //
+    // Prefabs go in phases, with compilation and binding between the phases. The order: the base before the
+    // variants (by the depth of the variant chain), children before parents inside an asset. A parent is
+    // generated from the bindings already on its children, so a new binding of a child must be bound before
+    // the parent is scanned. A phase without code changes does not compile and is bound right away.
+    // The plan of the phases lives in SessionState: the domain reloads between the phases.
+    public static class HierarchyBindingsBatch
     {
         private const string LogTag = "HierarchyBindingsGenerator";
+        private const string PlanKey = "Internal.HierarchyBindings.PrefabBatch";
+
+        public static bool IsRunning => LoadPlan() != null;
+
+        // Regenerates every binding declared in these prefabs (bindings of the base on a variant and
+        // bindings of nested prefabs are not theirs, they are regenerated in their own assets if those are
+        // in the list too). Returns a line for the log / MCP; the progress and the result go to the console.
+        public static string RegeneratePrefabs(IEnumerable<string> assetPaths)
+        {
+            if (IsRunning)
+                throw new InvalidOperationException("A prefab batch is already running. Pump it to the end first.");
+
+            if (HierarchyBindingsQueue.IsEmpty() == false)
+                throw new InvalidOperationException("Bindings queue is not empty. Pump pending requests first.");
+
+            var paths = assetPaths.Distinct(StringComparer.Ordinal).OrderBy(path => path, StringComparer.Ordinal)
+                .ToList();
+            var items = new List<PrefabItem>();
+
+            foreach (var path in paths)
+                CollectPrefab(path, items);
+
+            var plan = new PrefabPlan { Assets = paths };
+
+            foreach (var group in items
+                         .GroupBy(item => (item.VariantDepth, item.HierarchyDepth))
+                         .OrderBy(group => group.Key.VariantDepth)
+                         .ThenByDescending(group => group.Key.HierarchyDepth))
+            {
+                var phase = new PrefabPhase();
+                phase.Requests.AddRange(group.Select(item => item.Request));
+                plan.Phases.Add(phase);
+            }
+
+            if (ValidateUniqueTypes(items) == false)
+                return "Duplicate bindings types. See the console.";
+
+            SavePlan(plan);
+            Debug.Log($"[{LogTag}] Prefab batch: {items.Count} bindings in {paths.Count} prefabs, " +
+                      $"{plan.Phases.Count} phases.");
+            RunNextPhase();
+            return Status();
+        }
+
+        // The state for MCP: the caller pumps HierarchyBindingsGenerator.PumpPending while the batch runs.
+        public static string Status()
+        {
+            var plan = LoadPlan();
+
+            if (plan == null)
+                return "Idle.";
+
+            return $"Phase {plan.Next} of {plan.Phases.Count} is binding" +
+                   (EditorApplication.isCompiling ? " (compiling)." : ".");
+        }
+
+        // The batch got stuck (the generated code failed to compile, a manual edit between phases): drop the
+        // plan and the requests. Phases already bound stay as they are - a rerun passes them without changes.
+        public static void Cancel()
+        {
+            ClearPlan();
+            HierarchyBindingsGenerator.ResetPending();
+            Debug.LogWarning($"[{LogTag}] Prefab batch cancelled.");
+        }
 
         public static string RegenerateScene(Scene scene)
         {
@@ -23,78 +94,21 @@ namespace Internal
             if (bindings.Count == 0)
                 return $"No bindings found in '{scene.name}'.";
 
-            var prepared = PrepareAll(bindings, true, new HashSet<string>(StringComparer.Ordinal), out var changed);
-
-            if (prepared == 0)
-                return $"Nothing regenerated in '{scene.name}'. See the console.";
-
-            HierarchyBindingsGenerator.Flush(changed);
-            return $"Regenerating {prepared} bindings in '{scene.name}'...";
-        }
-
-        // Every bindings component owned by a prefab asset or by a loaded scene. Scenes that are not loaded are not
-        // opened (opening scenes from tools crashes the shared editor): they are listed in the log. Only bindings whose
-        // code changed are bound again after the reload. The caller flushes once (changed = a file was written).
-        public static int PrepareProject(out bool changed)
-        {
             var types = new HashSet<string>(StringComparer.Ordinal);
-            var owned = new List<ObjectBindings>();
-
-            foreach (var guid in AssetDatabase.FindAssets("t:Prefab", new[] { "Assets" }))
-            {
-                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(AssetDatabase.GUIDToAssetPath(guid));
-
-                if (prefab == null)
-                    continue;
-
-                foreach (var component in prefab.GetComponentsInChildren<ObjectBindings>(true))
-                {
-                    // Nested prefabs and variants carry the bindings of their source asset.
-                    if (PrefabUtility.GetCorrespondingObjectFromSource(component) == null)
-                        owned.Add(component);
-                }
-            }
-
-            var loadedScenes = new HashSet<string>(StringComparer.Ordinal);
-
-            for (var index = 0; index < SceneManager.sceneCount; index++)
-            {
-                var scene = SceneManager.GetSceneAt(index);
-
-                if (scene.isLoaded == false)
-                    continue;
-
-                loadedScenes.Add(scene.path);
-
-                // Scene objects of prefab instances are owned by the prefab asset.
-                foreach (var component in Collect(scene))
-                {
-                    if (PrefabUtility.IsPartOfPrefabInstance(component) == false)
-                        owned.Add(component);
-                }
-            }
-
-            var prepared = PrepareAll(owned, false, types, out changed);
-            LogSkippedScenes(loadedScenes);
-            return prepared;
-        }
-
-        public static int Count(Scene scene)
-        {
-            return scene.IsValid() && scene.isLoaded ? Collect(scene).Count : 0;
-        }
-
-        private static int PrepareAll(
-            IReadOnlyList<ObjectBindings> bindings,
-            bool bindUnchanged,
-            HashSet<string> types,
-            out bool changed)
-        {
             var prepared = 0;
-            changed = false;
+            var foreign = 0;
+            var changed = false;
 
             foreach (var component in bindings)
             {
+                // Bindings of prefab instances are declared in the prefabs themselves and are regenerated there:
+                // from the scene they would be written as overrides of the instance.
+                if (HierarchyBindingsLayer.ResolveDeclaringAsset(component, scene.path) != scene.path)
+                {
+                    foreign++;
+                    continue;
+                }
+
                 var type = HierarchyBindingsGenerator.ResolveGeneratedType(component);
 
                 if (type == null)
@@ -118,8 +132,7 @@ namespace Internal
                         type.Namespace ?? string.Empty,
                         component.IsSceneService,
                         component.IsEntityComponent,
-                        out var fileChanged,
-                        bindUnchanged
+                        out var fileChanged
                     );
 
                 if (ok == false)
@@ -129,7 +142,331 @@ namespace Internal
                 changed |= fileChanged;
             }
 
+            var foreignNote = foreign > 0 ? $" Skipped {foreign} bindings declared in prefabs." : string.Empty;
+
+            if (prepared == 0)
+                return $"Nothing regenerated in '{scene.name}'. See the console.{foreignNote}";
+
+            HierarchyBindingsGenerator.Flush(changed);
+            return $"Regenerating {prepared} bindings in '{scene.name}'...{foreignNote}";
+        }
+
+        // Every binding declared in prefab assets and in loaded scenes, in one pass without phases (Regenerate
+        // All). The bindings are already on the objects, so the "children before parents" order is not needed,
+        // and all the code is written before one Refresh - otherwise after a failed compile a phase would wait
+        // for a reload that never comes. Only bindings whose code changed (or whose object is stale) are bound
+        // again. Scenes that are not loaded are not opened (opening scenes from tools crashes the shared
+        // editor): they are listed in the log. The caller flushes once (changed = a file was written).
+        public static int PrepareProject(out bool changed)
+        {
+            if (IsRunning)
+                throw new InvalidOperationException("A prefab batch is running. Pump it to the end or cancel it first.");
+
+            if (HierarchyBindingsQueue.IsEmpty() == false)
+                throw new InvalidOperationException("Bindings queue is not empty. Pump pending requests first.");
+
+            var items = new List<PrefabItem>();
+
+            foreach (var guid in AssetDatabase.FindAssets("t:Prefab", new[] { "Assets" }))
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                var asset = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+
+                if (asset == null)
+                    throw new InvalidOperationException($"{path} is not a prefab.");
+
+                if (asset.GetComponentsInChildren<ObjectBindings>(true).Length > 0)
+                    CollectPrefab(path, items);
+            }
+
+            if (ValidateUniqueTypes(items) == false)
+                throw new InvalidOperationException("Duplicate bindings types. See the console.");
+
+            var types = new HashSet<string>(items.Select(item => item.FullTypeName), StringComparer.Ordinal);
+            var prepared = 0;
+            var failed = 0;
+            changed = false;
+
+            foreach (var item in items)
+            {
+                var request = item.Request;
+
+                if (HierarchyBindingsGenerator.Prepare(FindInAsset(request), request.TypeName, request.Namespace,
+                        request.IsSceneService, request.IsEntityComponent, out var fileChanged, false) == false)
+                {
+                    failed++;
+                    continue;
+                }
+
+                prepared++;
+                changed |= fileChanged;
+            }
+
+            var loadedScenes = new HashSet<string>(StringComparer.Ordinal);
+
+            for (var index = 0; index < SceneManager.sceneCount; index++)
+            {
+                var scene = SceneManager.GetSceneAt(index);
+
+                if (scene.isLoaded == false)
+                    continue;
+
+                loadedScenes.Add(scene.path);
+
+                foreach (var component in Collect(scene))
+                {
+                    // Bindings of prefab instances are regenerated in their prefabs above.
+                    if (HierarchyBindingsLayer.ResolveDeclaringAsset(component, scene.path) != scene.path)
+                        continue;
+
+                    var type = HierarchyBindingsGenerator.ResolveGeneratedType(component);
+
+                    if (type == null)
+                        throw new InvalidOperationException(
+                            $"{component.GetType().Name} in {scene.path} does not derive from a generated class.");
+
+                    if (types.Add(type.FullName) == false)
+                        throw new InvalidOperationException(
+                            $"'{type.FullName}' in {scene.path} is used by more than one object.");
+
+                    if (HierarchyBindingsGenerator.Prepare(component.gameObject, type.Name, type.Namespace ?? string.Empty,
+                            component.IsSceneService, component.IsEntityComponent, out var fileChanged, false) == false)
+                    {
+                        failed++;
+                        continue;
+                    }
+
+                    prepared++;
+                    changed |= fileChanged;
+                }
+            }
+
+            LogSkippedScenes(loadedScenes);
+
+            if (failed > 0)
+                throw new InvalidOperationException($"{failed} bindings failed to regenerate. See the console.");
+
             return prepared;
+        }
+
+        public static int Count(Scene scene)
+        {
+            return scene.IsValid() && scene.isLoaded ? Collect(scene).Count : 0;
+        }
+
+        // Called by the generator after every binding pass.
+        internal static void OnPendingProcessed()
+        {
+            if (IsRunning)
+                RunNextPhase();
+        }
+
+        private static void RunNextPhase()
+        {
+            var plan = LoadPlan();
+
+            while (plan.Next < plan.Phases.Count)
+            {
+                var phase = plan.Phases[plan.Next];
+                plan.Next++;
+                SavePlan(plan);
+
+                var changed = false;
+                var prepared = 0;
+
+                foreach (var request in phase.Requests)
+                {
+                    var target = FindInAsset(request);
+
+                    if (HierarchyBindingsGenerator.Prepare(target, request.TypeName, request.Namespace,
+                            request.IsSceneService, request.IsEntityComponent, out var fileChanged) == false)
+                        continue;
+
+                    prepared++;
+                    changed |= fileChanged;
+                }
+
+                // The whole phase failed - nothing to bind, and a second run will not save it: move on,
+                // the errors are already in the console.
+                if (prepared == 0)
+                    continue;
+
+                Debug.Log($"[{LogTag}] Prefab batch: phase {plan.Next} of {plan.Phases.Count}, " +
+                          $"{prepared} bindings{(changed ? ", compiling" : string.Empty)}.");
+                HierarchyBindingsGenerator.Flush(changed);
+                return;
+            }
+
+            Finish(plan);
+        }
+
+        // The last step: the entity view lists in every prefab of the batch (the base bindings get into the
+        // views of the variants only this way) and the check of the result.
+        private static void Finish(PrefabPlan plan)
+        {
+            ClearPlan();
+
+            var synced = 0;
+
+            foreach (var path in plan.Assets)
+            {
+                var contents = PrefabUtility.LoadPrefabContents(path);
+
+                try
+                {
+                    if (HierarchyBindingsEntityViews.SyncAll(contents) == false)
+                        continue;
+
+                    PrefabUtility.SaveAsPrefabAsset(contents, path);
+                    synced++;
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(contents);
+                }
+            }
+
+            if (synced > 0)
+                AssetDatabase.SaveAssets();
+
+            var errors = HierarchyBindingsValidator.ValidatePrefabs(plan.Assets);
+            var message = $"[{LogTag}] Prefab batch done: {plan.Assets.Count} prefabs, " +
+                          $"{synced} entity view lists updated, {errors} validation errors.";
+
+            if (errors > 0)
+                Debug.LogError(message);
+            else
+                Debug.Log(message);
+        }
+
+        private static void CollectPrefab(string assetPath, List<PrefabItem> items)
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+
+            if (asset == null)
+                throw new InvalidOperationException($"{assetPath} is not a prefab.");
+
+            var variantDepth = VariantDepth(asset);
+            var contents = PrefabUtility.LoadPrefabContents(assetPath);
+
+            try
+            {
+                foreach (var bindings in contents.GetComponentsInChildren<ObjectBindings>(true))
+                {
+                    if (HierarchyBindingsLayer.ResolveDeclaringAsset(bindings, assetPath) != assetPath)
+                        continue;
+
+                    var type = HierarchyBindingsGenerator.ResolveGeneratedType(bindings);
+
+                    if (type == null)
+                        throw new InvalidOperationException(
+                            $"{bindings.GetType().Name} in {assetPath} does not derive from a generated class.");
+
+                    items.Add(new PrefabItem
+                    {
+                        VariantDepth = variantDepth,
+                        HierarchyDepth = Depth(bindings.transform),
+                        FullTypeName = type.FullName,
+                        Request = new HierarchyBindingsRequest
+                        {
+                            AssetPath = assetPath,
+                            ObjectPath = RelativePath(bindings.transform),
+                            TypeName = type.Name,
+                            Namespace = type.Namespace ?? string.Empty,
+                            IsPrefabAsset = true,
+                            IsSceneService = bindings.IsSceneService,
+                            IsEntityComponent = bindings.IsEntityComponent
+                        }
+                    });
+                }
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(contents);
+            }
+        }
+
+        // One class - one object: otherwise two owners would overwrite the file one after another.
+        private static bool ValidateUniqueTypes(List<PrefabItem> items)
+        {
+            var valid = true;
+
+            foreach (var group in items.GroupBy(item => item.FullTypeName))
+            {
+                if (group.Count() == 1)
+                    continue;
+
+                valid = false;
+                var places = string.Join(", ", group.Select(item => item.Request.AssetPath + ":" + item.Request.ObjectPath));
+                Debug.LogError($"[{LogTag}] '{group.Key}' is declared on more than one object: {places}.");
+            }
+
+            return valid;
+        }
+
+        private static int VariantDepth(GameObject asset)
+        {
+            var depth = 0;
+
+            for (var current = asset;
+                 PrefabUtility.GetPrefabAssetType(current) == PrefabAssetType.Variant;
+                 current = PrefabUtility.GetCorrespondingObjectFromSource(current))
+                depth++;
+
+            return depth;
+        }
+
+        private static int Depth(Transform target)
+        {
+            var depth = 0;
+
+            for (var current = target.parent; current != null; current = current.parent)
+                depth++;
+
+            return depth;
+        }
+
+        private static string RelativePath(Transform target)
+        {
+            var names = new List<string>();
+
+            for (var current = target; current.parent != null; current = current.parent)
+                names.Add(current.name);
+
+            names.Reverse();
+            return string.Join("/", names);
+        }
+
+        private static GameObject FindInAsset(HierarchyBindingsRequest request)
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(request.AssetPath);
+
+            if (asset == null)
+                throw new InvalidOperationException($"{request.AssetPath} disappeared during the batch.");
+
+            var found = string.IsNullOrEmpty(request.ObjectPath) ? asset.transform : asset.transform.Find(request.ObjectPath);
+
+            if (found == null)
+                throw new InvalidOperationException(
+                    $"'{request.ObjectPath}' disappeared from {request.AssetPath} during the batch.");
+
+            return found.gameObject;
+        }
+
+        private static PrefabPlan LoadPlan()
+        {
+            var json = SessionState.GetString(PlanKey, string.Empty);
+            return string.IsNullOrEmpty(json) ? null : JsonUtility.FromJson<PrefabPlan>(json);
+        }
+
+        private static void SavePlan(PrefabPlan plan)
+        {
+            SessionState.SetString(PlanKey, JsonUtility.ToJson(plan));
+        }
+
+        private static void ClearPlan()
+        {
+            SessionState.EraseString(PlanKey);
         }
 
         private static List<ObjectBindings> Collect(Scene scene)
@@ -194,6 +531,28 @@ namespace Internal
             }
 
             return false;
+        }
+
+        private sealed class PrefabItem
+        {
+            public int VariantDepth;
+            public int HierarchyDepth;
+            public string FullTypeName;
+            public HierarchyBindingsRequest Request;
+        }
+
+        [Serializable]
+        private sealed class PrefabPlan
+        {
+            public List<string> Assets = new();
+            public List<PrefabPhase> Phases = new();
+            public int Next;
+        }
+
+        [Serializable]
+        private sealed class PrefabPhase
+        {
+            public List<HierarchyBindingsRequest> Requests = new();
         }
     }
 }

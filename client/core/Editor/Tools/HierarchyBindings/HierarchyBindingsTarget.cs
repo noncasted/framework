@@ -68,9 +68,32 @@ namespace Internal
             error = string.Empty;
 
             if (request.IsPrefabAsset)
-                return ResolvePrefab(request, out error);
+                return ResolvePrefab(request.AssetPath, request.ObjectPath, out error);
 
             return ResolveScene(request, out error);
+        }
+
+        // The target to scan in the code generation phase. An object in a prefab stage or in a scene is
+        // scanned as is, and an object selected right in the asset - through the loaded contents: the
+        // variant layers are resolved only there (see HierarchyBindingsLayer), and the binding after the
+        // domain reload looks there too, so the code and the references are built from the same tree.
+        public static HierarchyBindingsTarget OpenForScan(
+            GameObject target,
+            string assetPath,
+            string objectPath,
+            bool isPrefabAsset,
+            out string error)
+        {
+            error = string.Empty;
+
+            if (isPrefabAsset && PrefabUtility.IsPartOfPrefabAsset(target))
+                return ResolvePrefab(assetPath, objectPath, out error);
+
+            return new HierarchyBindingsTarget
+            {
+                Root = target,
+                _assetPath = assetPath
+            };
         }
 
         public void Commit()
@@ -94,19 +117,19 @@ namespace Internal
             _loadedContents = null;
         }
 
-        private static HierarchyBindingsTarget ResolvePrefab(HierarchyBindingsRequest request, out string error)
+        private static HierarchyBindingsTarget ResolvePrefab(string assetPath, string objectPath, out string error)
         {
             error = string.Empty;
 
             var stage = PrefabStageUtility.GetCurrentPrefabStage();
 
-            if (stage != null && stage.assetPath == request.AssetPath)
+            if (stage != null && stage.assetPath == assetPath)
             {
-                var staged = FindChild(stage.prefabContentsRoot.transform, request.ObjectPath);
+                var staged = FindChild(stage.prefabContentsRoot.transform, objectPath);
 
                 if (staged == null)
                 {
-                    error = $"'{request.ObjectPath}' is missing in the open prefab stage.";
+                    error = $"'{objectPath}' is missing in the open prefab stage.";
                     return null;
                 }
 
@@ -114,32 +137,32 @@ namespace Internal
                 return new HierarchyBindingsTarget
                 {
                     Root = staged.gameObject,
-                    _assetPath = request.AssetPath,
+                    _assetPath = assetPath,
                     _scene = stage.scene
                 };
             }
 
-            var contents = PrefabUtility.LoadPrefabContents(request.AssetPath);
+            var contents = PrefabUtility.LoadPrefabContents(assetPath);
 
             if (contents == null)
             {
-                error = $"Failed to open prefab {request.AssetPath}.";
+                error = $"Failed to open prefab {assetPath}.";
                 return null;
             }
 
-            var found = FindChild(contents.transform, request.ObjectPath);
+            var found = FindChild(contents.transform, objectPath);
 
             if (found == null)
             {
                 PrefabUtility.UnloadPrefabContents(contents);
-                error = $"'{request.ObjectPath}' is missing in {request.AssetPath}.";
+                error = $"'{objectPath}' is missing in {assetPath}.";
                 return null;
             }
 
             return new HierarchyBindingsTarget
             {
                 Root = found.gameObject,
-                _assetPath = request.AssetPath,
+                _assetPath = assetPath,
                 _loadedContents = contents
             };
         }
