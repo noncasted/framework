@@ -132,7 +132,9 @@ tools/scripts/          scripts shared by the projects
     scene set by the game: `Current`, the reactive `Value`, `SetOutputResolution` for the screen and the render texture
     of every camera set later), `ICameraUtils` (`ScreenToWorld` takes a perspective camera's point on its near plane).
   - `audio` (`AddAudio(player, listener)`): pooled sounds with limits, crossfaded music on two sources. The scope
-    must have an `IAudioVolume` (the settings of the game implement it). Button sounds are wired by the game.
+    must have an `IAudioVolume` (the settings of the game implement it). Button sounds are wired by the game. Sounds
+    go on lines (`AudioLine.Music` / `SFX`, lines of the game with `AudioLine.Of<TVolume>`), may be trimmed
+    (`SoundPlay.WithTrim`), clips loaded at runtime play as `clip.ToSound()`, music may be bound to a lifetime.
   - `inputs` (`AddInput(InputOptions, EventSystem prefab)`): input scheme, gamepad by meaning, back / pause.
     Controls of a game (aim, sticks, touch layout) are options of the game.
   - `ui` (`AddUI`, `AddLoadingScreen(prefab)`, `AddScreenSafeArea`, `AddClientOutdatedNotice(style)`): UI state
