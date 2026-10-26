@@ -8,6 +8,10 @@ namespace Internal
 
         public abstract string Title { get; }
 
+        // A tab with scroll panels of its own (a list next to details) fills the window height instead of going into
+        // the shared scroll view.
+        public virtual bool FillsWindow => false;
+
         public VisualElement Build(IProjectToolsHost host)
         {
             Host = host;

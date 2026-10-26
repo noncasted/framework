@@ -12,8 +12,8 @@ namespace Internal
     // the previous domain, so reflection (GetType, MonoScript.GetClass) reports the names of the last successful build.
     // A generator that rewrites those names after a namespace rename would keep the compile broken (the rename
     // deadlock). While the last compile failed, the name of a top-level script class is read from its source file:
-    // the class named after the file and the namespace around it. Nested types and files that do not follow the
-    // file-name rule keep the reflected name.
+    // the class named after the file (up to the first dot, XBindings.g.cs -> XBindings) and the namespace around it.
+    // Nested types and files that do not follow the file-name rule keep the reflected name.
     [NoAutoStaticsCleanup]
     public static class ScriptTypeNames
     {
@@ -48,7 +48,8 @@ namespace Internal
             };
         }
 
-        // Reads "Namespace.FileName" from a script that declares a class named after the file.
+        // Reads "Namespace.FileName" from a script that declares a class named after the file (the file name up to its
+        // first dot) and the assembly the script compiles into.
         public static bool TryReadSource(string scriptPath, out string fullName, out string assemblyName)
         {
             fullName = string.Empty;
@@ -63,7 +64,8 @@ namespace Internal
                 return false;
 
             var source = File.ReadAllText(fullPath);
-            var name = Path.GetFileNameWithoutExtension(scriptPath);
+            var fileName = Path.GetFileName(scriptPath);
+            var name = fileName.Substring(0, fileName.IndexOf('.'));
             var declaration = Regex.Match(source, @"\bclass\s+" + Regex.Escape(name) + @"\b");
 
             if (declaration.Success == false)

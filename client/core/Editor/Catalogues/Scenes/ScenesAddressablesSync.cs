@@ -8,7 +8,9 @@ using UnityEngine;
 namespace Internal
 {
     // StaticScene loads scenes by GUID, so a scene without an Addressables entry fails with InvalidKeyException.
-    // Scenes of one domain (a folder under Assets/) are always loaded together and live in one `Scenes_<domain>` group.
+    // Scenes of one domain are always loaded together and live in one `Scenes_<domain>` group. The domain of a scene
+    // under a module root (FrameworkSettings.ModuleRoots) is the folder name of the root, so modules under one parent
+    // folder (Assets/Game/Engine, Assets/Game/Menu) get their own groups; any other scene takes its folder under Assets/.
     // Build Settings scenes are already in the player: in Addressables they would get into the build a second time with their dependencies.
     public static class ScenesAddressablesSync
     {
@@ -97,6 +99,9 @@ namespace Internal
 
         private static string GetDomain(string assetPath)
         {
+            if (ModuleAssetLayout.TryGetRoot(assetPath, out var root))
+                return root.Substring(root.LastIndexOf('/') + 1);
+
             var parts = assetPath.Split('/');
             return parts.Length > 2 ? parts[1] : "Common";
         }

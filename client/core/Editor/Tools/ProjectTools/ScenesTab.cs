@@ -9,6 +9,7 @@ using UnityEngine.UIElements;
 
 namespace Internal
 {
+    [ProjectToolsTab(100)]
     public class ScenesTab : ProjectToolsTab
     {
         private static IReadOnlyList<string> FavoriteSceneNames => FrameworkSettings.FavoriteScenes;

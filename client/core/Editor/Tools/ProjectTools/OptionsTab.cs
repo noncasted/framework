@@ -4,6 +4,7 @@ using UnityEngine.UIElements;
 
 namespace Internal
 {
+    [ProjectToolsTab(300)]
     public class OptionsTab : ProjectToolsTab
     {
         public override string Title => "Options";
@@ -50,6 +51,10 @@ namespace Internal
             var localUrl = new TextField("Local URL") { value = options.BackendOptions.LocalApiUrl };
             localUrl.RegisterValueChangedCallback(e => Apply(() => options.BackendOptions.LocalApiUrl = e.newValue));
             backendSection.Add(localUrl);
+
+            var timeout = new IntegerField("Timeout (sec)") { value = options.BackendOptions.TimeoutSeconds };
+            timeout.RegisterValueChangedCallback(e => Apply(() => options.BackendOptions.TimeoutSeconds = e.newValue));
+            backendSection.Add(timeout);
             parent.Add(backendSection);
 
             var platformSection = BuildSubSection("Platform Options");

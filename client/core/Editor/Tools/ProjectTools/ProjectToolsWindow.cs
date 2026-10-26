@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -10,54 +12,53 @@ namespace Internal
         OptionsContainer Options { get; }
 
         void SetStatus(string message, bool isError);
+
+        // Redraws the window: IMGUI parts of a tab, progress of a long run.
+        void Repaint();
     }
 
+    // The tabs are the ProjectToolsTab classes marked with [ProjectToolsTab] in every editor assembly: the framework
+    // ones and the tabs of the project. A tab is built when it is shown first, so the window opens at once and a heavy
+    // tab pays only when selected. The selected tab is restored on the next opening.
     public class ProjectToolsWindow : EditorWindow, IProjectToolsHost
     {
+        private const string ActiveTabPrefsKey = "Internal.ProjectTools.ActiveTab";
+
         private static readonly string UssPath = FrameworkSettings.Package("Editor/Tools/ProjectTools/ProjectToolsWindow.uss");
 
-        private readonly List<ProjectToolsTab> _tabs = new()
-        {
-            new ScenesTab(),
-            new CurrentSceneTab(),
-            new OptionsTab(),
-            new AssetsTab(),
-            new UserTab()
-        };
-
+        // A content is null until its tab is shown.
         private readonly List<VisualElement> _tabContents = new();
         private readonly List<Button> _tabButtons = new();
 
+        private List<ProjectToolsTab> _tabs;
         private OptionsContainer _options;
         private VisualElement _root;
+        private ScrollView _scrollHost;
+        private VisualElement _fillHost;
         private Label _statusLabel;
 
         public OptionsContainer Options => _options;
 
+        // Ctrl+G (Cmd+G) by default. A project that needs the key for a tool of its own defines
+        // FRAMEWORK_NO_PROJECT_TOOLS_HOTKEY (scripting define symbols of every platform it builds) and binds
+        // ToggleWindow to another key in its editor assembly, e.g. [Shortcut("Project Tools", KeyCode.T, ShortcutModifiers.Action)].
+#if FRAMEWORK_NO_PROJECT_TOOLS_HOTKEY
+        [MenuItem(FrameworkMenu.Root + "Project Tools", priority = FrameworkMenu.Priority)]
+#else
         [MenuItem(FrameworkMenu.Root + "Project Tools %g", priority = FrameworkMenu.Priority)]
+#endif
         public static void ToggleWindow()
         {
-            var existing = Resources.FindObjectsOfTypeAll<ProjectToolsWindow>();
-
-            foreach (var window in existing)
+            // Only a focused window is closed: one open behind a dock tab or another window comes forward instead.
+            if (focusedWindow is ProjectToolsWindow opened)
             {
-                try
-                {
-                    if (window != null)
-                    {
-                        window.Close();
-                        return;
-                    }
-                }
-                catch
-                {
-                    // Zombie window, skip and create new
-                }
+                opened.Close();
+                return;
             }
 
-            var newWindow = GetWindow<ProjectToolsWindow>();
-            newWindow.titleContent = new GUIContent("Project Tools");
-            newWindow.minSize = new Vector2(420, 500);
+            var window = GetWindow<ProjectToolsWindow>();
+            window.titleContent = new GUIContent("Project Tools");
+            window.minSize = new Vector2(420, 500);
         }
 
         public void CreateGUI()
@@ -80,6 +81,8 @@ namespace Internal
 
         private void OnEnable()
         {
+            _tabs = CreateTabs();
+
             foreach (var tab in _tabs)
                 tab.OnEnable();
         }
@@ -109,7 +112,7 @@ namespace Internal
             BuildTabContents();
             BuildFooter();
 
-            SelectTab(0);
+            SelectTab(RestoreTabIndex());
         }
 
         private void BuildHeader()
@@ -147,17 +150,16 @@ namespace Internal
 
         private void BuildTabContents()
         {
-            var scroll = new ScrollView(ScrollViewMode.Vertical);
-            scroll.AddToClassList("tab-content-wrapper");
+            _scrollHost = new ScrollView(ScrollViewMode.Vertical);
+            _scrollHost.AddToClassList("tab-content-wrapper");
+            _root.Add(_scrollHost);
 
-            foreach (var tab in _tabs)
-            {
-                var content = tab.Build(this);
-                scroll.Add(content);
-                _tabContents.Add(content);
-            }
+            _fillHost = new VisualElement();
+            _fillHost.AddToClassList("tab-content-wrapper");
+            _root.Add(_fillHost);
 
-            _root.Add(scroll);
+            for (var i = 0; i < _tabs.Count; i++)
+                _tabContents.Add(null);
         }
 
         private void BuildFooter()
@@ -174,11 +176,61 @@ namespace Internal
 
         private void SelectTab(int index)
         {
+            var selected = _tabs[index];
+
+            if (_tabContents[index] == null)
+            {
+                var content = selected.Build(this);
+                (selected.FillsWindow ? _fillHost : _scrollHost).Add(content);
+                _tabContents[index] = content;
+            }
+
             for (int i = 0; i < _tabButtons.Count; i++)
                 _tabButtons[i].EnableInClassList("tab-button--active", i == index);
 
             for (int i = 0; i < _tabContents.Count; i++)
-                _tabContents[i].style.display = i == index ? DisplayStyle.Flex : DisplayStyle.None;
+            {
+                if (_tabContents[i] != null)
+                    _tabContents[i].style.display = i == index ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+
+            _scrollHost.style.display = selected.FillsWindow ? DisplayStyle.None : DisplayStyle.Flex;
+            _fillHost.style.display = selected.FillsWindow ? DisplayStyle.Flex : DisplayStyle.None;
+
+            EditorPrefs.SetString(ActiveTabPrefsKey, selected.Title);
+        }
+
+        private int RestoreTabIndex()
+        {
+            var title = EditorPrefs.GetString(ActiveTabPrefsKey, string.Empty);
+            var index = _tabs.FindIndex(tab => tab.Title == title);
+            return index >= 0 ? index : 0;
+        }
+
+        private static List<ProjectToolsTab> CreateTabs()
+        {
+            var declared = new List<(int order, ProjectToolsTab tab)>();
+
+            foreach (var type in TypeCache.GetTypesWithAttribute<ProjectToolsTabAttribute>())
+            {
+                if (type.IsAbstract || typeof(ProjectToolsTab).IsAssignableFrom(type) == false)
+                    throw new InvalidOperationException(
+                        $"[ProjectTools] {type.FullName}: [ProjectToolsTab] marks a non-abstract {nameof(ProjectToolsTab)}");
+
+                var order = type.GetCustomAttribute<ProjectToolsTabAttribute>().Order;
+                declared.Add((order, (ProjectToolsTab)Activator.CreateInstance(type)));
+            }
+
+            declared.Sort((a, b) => a.order != b.order
+                ? a.order.CompareTo(b.order)
+                : string.CompareOrdinal(a.tab.Title, b.tab.Title));
+
+            var tabs = new List<ProjectToolsTab>(declared.Count);
+
+            foreach (var (_, tab) in declared)
+                tabs.Add(tab);
+
+            return tabs;
         }
 
         private void OnSaveClicked()

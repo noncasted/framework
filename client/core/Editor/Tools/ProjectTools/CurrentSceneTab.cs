@@ -4,6 +4,7 @@ using UnityEngine.UIElements;
 
 namespace Internal
 {
+    [ProjectToolsTab(200)]
     public class CurrentSceneTab : ProjectToolsTab
     {
         private Label _summaryLabel;

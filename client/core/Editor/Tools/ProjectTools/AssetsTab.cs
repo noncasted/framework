@@ -1,9 +1,11 @@
 using System;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Internal
 {
+    [ProjectToolsTab(400)]
     public class AssetsTab : ProjectToolsTab
     {
         private ProgressBar _progressBar;
@@ -21,6 +23,20 @@ namespace Internal
             buttonRow.Add(BuildActionButton("Generate Audio", OnGenerateAudioClicked));
 
             parent.Add(buttonRow);
+
+            // The generators of the project, the [RegenerateAllStep] methods.
+            var projectSteps = RegenerateAll.ProjectSteps();
+
+            if (projectSteps.Count > 0)
+            {
+                var projectRow = new VisualElement();
+                projectRow.AddToClassList("assets-button-row");
+
+                foreach (var step in projectSteps)
+                    projectRow.Add(BuildActionButton(step.Name, () => OnProjectStepClicked(step)));
+
+                parent.Add(projectRow);
+            }
 
             _progressBar = new ProgressBar { lowValue = 0, highValue = 100, value = 0 };
             _progressBar.AddToClassList("assets-progress");
@@ -51,6 +67,13 @@ namespace Internal
         private void OnGenerateAudioClicked() => Run("Generating audio...", "Audio generated",
             "Audio generation failed", AudioCatalogGenerator.Generate);
 
+        private void OnProjectStepClicked(RegenerateAll.ProjectStep step) => Run($"Running {step.Name}...",
+            $"{step.Name} completed", $"{step.Name} failed", () => {
+                // A step does not refresh: Regenerate All refreshes once after all of them.
+                step.Run();
+                AssetDatabase.Refresh();
+            });
+
         private void OnRunAllClicked()
         {
             Run("Running all generators...", "All generators completed", "Run All failed", () => {
@@ -67,6 +90,18 @@ namespace Internal
 
                 _progressBar.value = 80;
                 AudioCatalogGenerator.Generate();
+
+                var projectSteps = RegenerateAll.ProjectSteps();
+
+                if (projectSteps.Count > 0)
+                {
+                    _progressBar.value = 90;
+
+                    foreach (var step in projectSteps)
+                        step.Run();
+
+                    AssetDatabase.Refresh();
+                }
 
                 _progressBar.value = 100;
             });

@@ -6,6 +6,7 @@ using UnityEngine.UIElements;
 
 namespace Internal
 {
+    [ProjectToolsTab(500)]
     public class UserTab : ProjectToolsTab
     {
         private const string Empty = "<none>";

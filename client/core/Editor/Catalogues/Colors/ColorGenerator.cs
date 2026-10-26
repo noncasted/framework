@@ -33,6 +33,12 @@ namespace Internal
             GenerateNow();
         }
 
+        // The catalogue is optional: a project without a ColorCatalog asset has no Colors class.
+        public static bool HasCatalog()
+        {
+            return AssetDatabase.FindAssets("t:ColorCatalog").Length > 0;
+        }
+
         // Synchronous run for Tools/Framework/Codegen/Regenerate All, which checks Play mode and compilation itself.
         public static void GenerateNow()
         {
