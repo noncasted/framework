@@ -9,7 +9,7 @@ using Shared;
 namespace Framework.Tests.Session;
 
 // One real session container (AddSessionServices) on a manual execution queue and manual time: no threads and no
-// real delays. A user is created the way UserFactory.Create does it, over a TestConnection instead of a WebSocket;
+// real delays. A user is created by the real UserFactory, over a TestConnection instead of a WebSocket;
 // what the game gateway does (TryAccept, then the creation in the queue) is Enter. A connection ends through
 // IConnection.Run, so a user leaves the session the way it does after a real disconnect (Session.HandleUser).
 public class TestSession
@@ -133,36 +133,24 @@ public class TestSession
         return ReserveAndEnter(Guid.NewGuid());
     }
 
-    // What UserFactory.Create does in the session queue, over a TestConnection.
-    public IUser Join(Guid backendId)
+    // What the gateway does in the session queue after TryAccept: the real UserFactory.Create, over a TestConnection
+    // instead of a WebSocket. connection: a connection built by the test (over Session.Lifetime), e.g. a failing one.
+    public IUser Join(Guid backendId, TestConnection? connection = null)
     {
         IUser? created = null;
-
-        Queue.Enqueue(() => {
-            var seat = Seats.Take(backendId);
-            var connectionLifetime = Session.Lifetime.Child();
-            var userLifetime = new Lifetime();
-            connectionLifetime.Listen(() => Queue.Enqueue(userLifetime.Terminate));
-
-            var user = new User
-            {
-                Seat = seat,
-                IsBot = false,
-                Lifetime = userLifetime,
-                Connection = new TestConnection(),
-                Dispatcher = new CommandDispatcher(Commands,
-                    Queue,
-                    Provider.GetRequiredService<ILogger<CommandDispatcher>>())
-            };
-
-            Seats.Attach(user);
-            Users.AddUser(user);
-            created = user;
-        });
-
+        EnqueueJoin(backendId, user => created = user, connection);
         Queue.Drain();
 
         return created ?? throw new InvalidOperationException($"User {backendId} was not created");
+    }
+
+    // The creation of the user is only queued: the test decides what runs before it.
+    public void EnqueueJoin(Guid backendId, Action<IUser>? onCreated = null, TestConnection? connection = null)
+    {
+        Queue.Enqueue(() => {
+            var user = Session.UserFactory.Create(Session.Lifetime, backendId, connection ?? new TestConnection(Session.Lifetime));
+            onCreated?.Invoke(user);
+        });
     }
 
     // A bot of the session (the real UserFactory.CreateBot), connected until the session ends.
@@ -240,11 +228,18 @@ public class TestSession
 }
 
 // The server side of a client connection: records what the session sends, delivers what the test makes the client
-// send. Run completes when the connection is closed (by the client or forced by the session).
+// send. Like Common.Network.Connection: its lifetime is a child of the session one, Run completes when the connection
+// is closed (by the client, forced by the session, or with the session) and fails on a connection terminated before it.
 public class TestConnection : IConnection, IConnectionReader, IConnectionWriter
 {
+    public TestConnection(IReadOnlyLifetime parentLifetime)
+    {
+        _lifetime = parentLifetime.Child();
+        _lifetime.Listen(() => _run.TrySetResult());
+    }
+
     private readonly TaskCompletionSource _run = new();
-    private readonly Lifetime _lifetime = new();
+    private readonly ILifetime _lifetime;
     private readonly List<INetworkContext> _sent = new();
     private readonly ViewableDelegate<OneWayMessageFromClient> _oneWay = new();
     private readonly ViewableDelegate<RequestMessageFromClient> _requests = new();
@@ -268,8 +263,17 @@ public class TestConnection : IConnection, IConnectionReader, IConnectionWriter
         }
     }
 
+    // Not null: Run fails with it (a transport error of the socket).
+    public Exception? RunFailure;
+
     public Task Run()
     {
+        if (_lifetime.IsTerminated == true)
+            return Task.FromException(new InvalidOperationException("Connection is terminated"));
+
+        if (RunFailure != null)
+            return Task.FromException(RunFailure);
+
         return _run.Task;
     }
 
@@ -282,7 +286,6 @@ public class TestConnection : IConnection, IConnectionReader, IConnectionWriter
     public void Close()
     {
         _lifetime.Terminate();
-        _run.TrySetResult();
     }
 
     public void ReceiveOneWay(INetworkContext context)

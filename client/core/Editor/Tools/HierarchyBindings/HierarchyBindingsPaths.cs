@@ -81,14 +81,8 @@ namespace Internal
             if (string.Equals(ownerAssembly, FrameworkSettings.ContentAssembly, StringComparison.Ordinal))
                 return ContentFolder;
 
-            var asmdefPath = UnityEditor.Compilation.CompilationPipeline
-                .GetAssemblyDefinitionFilePathFromAssemblyName(ownerAssembly);
-
-            if (string.IsNullOrEmpty(asmdefPath))
-                throw new InvalidOperationException(
-                    $"'{root.name}' in {assetPath}: asmdef of the owner assembly '{ownerAssembly}' not found.");
-
-            return CatalogAssemblies.GetConsumerGeneratedFolder(Path.GetDirectoryName(asmdefPath).Replace('\\', '/'));
+            var asmdefFolder = CatalogAssemblies.GetAsmdefDirectory(LogTag, ownerAssembly);
+            return CatalogAssemblies.GetConsumerGeneratedFolder(asmdefFolder);
         }
 
         private static bool IsProjectAssembly(string assemblyName)
@@ -130,39 +124,23 @@ namespace Internal
             return string.Equals(folder, asmdefFolder, StringComparison.Ordinal);
         }
 
-        private static string FindAsmdefFolder(string assetPath)
+        // The folder of the asmdef the assembly of the asset folder is defined by. The compilation pipeline knows it,
+        // .asmref folders included (they resolve to the referenced asmdef); a script of the folder is all it needs,
+        // the file does not have to exist. Empty - the folder compiles into Assembly-CSharp, or the asset is not under
+        // Assets/ (the generated code belongs to the project, never to a package).
+        internal static string FindAsmdefFolder(string assetPath)
         {
-            if (string.IsNullOrEmpty(assetPath))
+            if (string.IsNullOrEmpty(assetPath) || assetPath.StartsWith("Assets/", StringComparison.Ordinal) == false)
                 return string.Empty;
 
-            var folder = Path.GetDirectoryName(assetPath)?.Replace('\\', '/');
+            var folder = Path.GetDirectoryName(assetPath).Replace('\\', '/');
+            var asmdefPath = UnityEditor.Compilation.CompilationPipeline
+                .GetAssemblyDefinitionFilePathFromScriptPath(folder + "/Bindings.cs");
 
-            while (string.IsNullOrEmpty(folder) == false && folder.StartsWith("Assets", StringComparison.Ordinal))
-            {
-                if (ContainsAsmdef(folder))
-                    return folder;
+            if (string.IsNullOrEmpty(asmdefPath))
+                return string.Empty;
 
-                if (folder == "Assets")
-                    return string.Empty;
-
-                folder = Path.GetDirectoryName(folder)?.Replace('\\', '/');
-            }
-
-            return string.Empty;
-        }
-
-        private static bool ContainsAsmdef(string folder)
-        {
-            try
-            {
-                var fullPath = CatalogPaths.ToFullPath(folder);
-                return Directory.Exists(fullPath) && Directory.GetFiles(fullPath, "*.asmdef").Length > 0;
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError($"[{LogTag}] Failed to scan {folder}: {exception}");
-                return false;
-            }
+            return Path.GetDirectoryName(asmdefPath).Replace('\\', '/');
         }
     }
 }

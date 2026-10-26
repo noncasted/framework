@@ -15,11 +15,19 @@ public interface ISessionAdmission
 
     void Seal();
 
+    // Closes the session whoever still holds it (the expected users have not all joined in time): the caller
+    // terminates it right after.
+    void Close();
+
     // Search, lobby: reserves a place for SessionCreateOptions.JoinTimeout. A repeated call from the same user refreshes the reservation.
     // A user that reserves a place is not connected any more: its joined connections are stale (the client was lost
     // without a close; the session drops them, see ISession.DropConnections). They don't take a place, and a session
     // held only by them is refused - it is closed as soon as they are dropped.
     bool TryReserve(Guid userId, int maxUsers, DateTime now);
+
+    // The joined connections of the user are all that holds the session (they are stale for a user that reserves
+    // anew, see TryReserve).
+    bool IsHeldOnlyBy(Guid userId);
 
     // Not closed, not sealed and the user would get a place now (TryReserve would succeed).
     bool HasFreePlace(Guid userId, int maxUsers, DateTime now);
@@ -112,6 +120,23 @@ public class SessionAdmission : ISessionAdmission
     {
         lock (_lock)
             _isSealed = true;
+    }
+
+    public void Close()
+    {
+        lock (_lock)
+            _isClosed = true;
+    }
+
+    public bool IsHeldOnlyBy(Guid userId)
+    {
+        lock (_lock)
+        {
+            // The same count as the refusal of CanReserve.
+            var stale = _joined.GetValueOrDefault(userId);
+            var awayOthers = _away.Count - (_away.ContainsKey(userId) == true ? 1 : 0);
+            return stale != 0 && _joinedCount - stale + _joiningCount + _reservations.Count + awayOthers == 0;
+        }
     }
 
     public bool TryReserve(Guid userId, int maxUsers, DateTime now)

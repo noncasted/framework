@@ -27,7 +27,8 @@ namespace Internal
             }
 
             var layer = HierarchyBindingsLayer.Resolve(request.AssetPath, request.IsPrefabAsset);
-            var node = HierarchyBindingsScanner.Scan(root, request.TypeName, layer, errors);
+            var node = HierarchyBindingsScanner.Scan(root, request.TypeName, layer, errors, request.IsSceneService,
+                request.IsEntityComponent);
 
             if (node == null)
                 return false;
@@ -40,7 +41,7 @@ namespace Internal
             if (structureHash != request.StructureHash)
             {
                 errors.Add(
-                    $"Structure of '{request.ObjectPath}' in {request.AssetPath} is {structureHash}, the code was " +
+                    $"Structure of '{request.ObjectNames}' in {request.AssetPath} is {structureHash}, the code was " +
                     $"generated from {request.StructureHash}. The object changed after generation, generate again.");
                 return false;
             }

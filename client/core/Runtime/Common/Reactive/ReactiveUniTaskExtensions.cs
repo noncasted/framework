@@ -48,16 +48,20 @@ namespace Internal
             return completion.Task;
         }
 
+        // The waits below subscribe on a lifetime of their own under the given one: a completed wait leaves the source
+        // and the given lifetime at once (a loop of waits on a long lifetime does not pile up dead handlers). The end
+        // of the given lifetime cancels the wait.
         public static UniTask WaitInvoke(this IEventSource viewableDelegate, IReadOnlyLifetime lifetime)
         {
             var completion = new UniTaskCompletionSource();
+            var waitLifetime = lifetime.Child();
 
-            lifetime.Listen(() => {
-                completion.TrySetException(new OperationCanceledException());
-            });
+            waitLifetime.Listen(() => completion.TrySetCanceled());
 
-            viewableDelegate.Advise(lifetime, () => {
+            viewableDelegate.Advise(waitLifetime, () => {
+                // The result goes first: the end of the wait lifetime would cancel it.
                 completion.TrySetResult();
+                waitLifetime.Terminate();
             });
 
             return completion.Task;
@@ -68,11 +72,13 @@ namespace Internal
             IReadOnlyLifetime lifetime)
         {
             var completion = new UniTaskCompletionSource<T>();
+            var waitLifetime = lifetime.Child();
 
-            lifetime.Listen(() => completion.TrySetException(new OperationCanceledException()));
+            waitLifetime.Listen(() => completion.TrySetCanceled());
 
-            viewableDelegate.Advise(lifetime, value => {
+            viewableDelegate.Advise(waitLifetime, value => {
                 completion.TrySetResult(value);
+                waitLifetime.Terminate();
             });
 
             return completion.Task;
@@ -94,13 +100,16 @@ namespace Internal
                 return UniTask.CompletedTask;
 
             var completion = new UniTaskCompletionSource();
-            lifetime.Listen(() => completion.TrySetCanceled());
+            var waitLifetime = lifetime.Child();
 
-            // The subscription lives on with the lifetime: a later change is not of this wait (the level is not ready
-            // again between two floors), the completed source ignores it.
-            property.Advise(lifetime, (_, value) => {
-                if (value == expected)
-                    completion.TrySetResult();
+            waitLifetime.Listen(() => completion.TrySetCanceled());
+
+            property.Advise(waitLifetime, (_, value) => {
+                if (value != expected)
+                    return;
+
+                completion.TrySetResult();
+                waitLifetime.Terminate();
             });
 
             return completion.Task;

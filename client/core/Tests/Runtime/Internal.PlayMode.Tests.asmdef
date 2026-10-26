@@ -1,0 +1,24 @@
+{
+    "name": "Internal.PlayMode.Tests",
+    "rootNamespace": "",
+    "references": [
+        "Internal",
+        "GUID:3ea5c3f1172040daa713d5ad71728b78",
+        "UniTask",
+        "UnityEngine.UI",
+        "UnityEngine.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

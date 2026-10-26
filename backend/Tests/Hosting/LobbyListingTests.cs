@@ -458,4 +458,24 @@ public class LobbyListingTests
 
         condition().Should().BeTrue();
     }
+
+    // A bot of the match takes no place: it is neither a player of the listing nor its leader.
+    [Fact]
+    public async Task MatchWithABot_BotIsNotAPlayerNorTheLeader()
+    {
+        var lobby = await TestLobby.Create(guests: 1);
+        var code = lobby.Code;
+
+        lobby.WriteVisibility(true);
+        lobby.RunCountdown();
+
+        var match = lobby.World.Sessions[lobby.Game.SessionId];
+        match.AddBot();
+        var player = lobby.World.Enter(match.Session.Id, lobby.Users[0].BackendId)!;
+
+        var listed = lobby.World.Codes.FindListed(code);
+        listed.Should().NotBeNull();
+        listed!.PlayersCount.Should().Be(1);
+        listed.LeaderUserId.Should().Be(player.BackendId);
+    }
 }

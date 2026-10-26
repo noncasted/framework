@@ -12,7 +12,8 @@ namespace Internal
     {
         public static Action<Exception> Handler { get; set; }
 
-        internal static void Report(List<Exception> exceptions)
+        // Public for the other passes that follow the same rule (the updater of the client core).
+        public static void Report(List<Exception> exceptions)
         {
             var handler = Handler;
 

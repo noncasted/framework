@@ -14,6 +14,7 @@ namespace Global.Cameras
     public class GlobalCamera : MonoBehaviour, IGlobalCamera, IScopeBaseSetup
     {
         private ICurrentCamera _currentCamera;
+        private IReadOnlyLifetime _lifetime;
 
         public Camera Camera { get; private set; }
 
@@ -26,12 +27,13 @@ namespace Global.Cameras
         public void OnBaseSetup(IReadOnlyLifetime lifetime)
         {
             Camera = GetComponent<Camera>();
+            _lifetime = lifetime;
         }
 
         public void Enable()
         {
             gameObject.SetActive(true);
-            _currentCamera.SetCamera(Camera);
+            _currentCamera.SetCamera(_lifetime, Camera);
         }
 
         public void Disable()

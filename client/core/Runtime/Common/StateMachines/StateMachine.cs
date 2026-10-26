@@ -19,11 +19,22 @@ namespace Internal
         public IViewableDelegate Exited => _exited;
         public IState Current => _currentState;
 
+        // A new run of the machine: the state of the previous run ends, its queued requests are not selected.
         public void Initialize(IReadOnlyLifetime lifetime)
         {
+            var previous = _currentLifetime;
+
             _entityLifetime = lifetime;
             _currentLifetime = null;
             _currentState = null;
+
+            previous?.Terminate();
+
+            var pending = _priorityQueue.Values.ToList();
+            _priorityQueue.Clear();
+
+            foreach (var completion in pending)
+                completion.TrySetResult(false);
         }
 
         // The machine lives no longer than the entity: after the lifetime terminates (including on exiting
@@ -63,12 +74,17 @@ namespace Internal
                     $"[StateMachine] CreateHandle: {state.Definition.Name} is not available " +
                     $"(current {_currentState?.Definition.Name ?? "none"}, alive {IsAlive})");
 
-            _currentLifetime?.Terminate();
-            _currentState = state;
-            _currentLifetime = _entityLifetime.Child();
+            // The new state is installed before the previous one ends: a listener of the previous state may enter
+            // another one, and that one must replace this entry rather than be overwritten by it.
+            var previous = _currentLifetime;
+            var lifetime = _entityLifetime.Child();
 
-            var handle = new StateHandle(state, this, _currentLifetime);
-            return handle;
+            _currentState = state;
+            _currentLifetime = lifetime;
+
+            previous?.Terminate();
+
+            return new StateHandle(state, this, lifetime);
         }
 
         /// <summary>
@@ -86,11 +102,14 @@ namespace Internal
                 throw new InvalidOperationException(
                     $"[StateMachine] RestartHandle: {state.Definition.Name} entity lifetime is terminated");
 
-            _currentLifetime.Terminate();
-            _currentLifetime = _entityLifetime.Child();
+            var previous = _currentLifetime;
+            var lifetime = _entityLifetime.Child();
 
-            var handle = new StateHandle(state, this, _currentLifetime);
-            return handle;
+            _currentLifetime = lifetime;
+
+            previous.Terminate();
+
+            return new StateHandle(state, this, lifetime);
         }
 
         public void Exit(IState state)
@@ -99,11 +118,16 @@ namespace Internal
                 throw new InvalidOperationException(
                     $"[StateMachine] Exit: {state.Definition.Name} is not current state ({_currentState?.Definition.Name ?? "none"})");
 
-            _currentLifetime?.Terminate();
+            var previous = _currentLifetime;
+
             _currentLifetime = null;
             _currentState = null;
 
-            _exited?.Invoke();
+            previous?.Terminate();
+
+            // A listener of the state may have entered another one: the machine is not free then.
+            if (_currentState == null)
+                _exited.Invoke();
         }
 
         public async UniTask<(bool, IStateHandle)> TryCreateHandleFromPriorityQueue(IState state)
@@ -137,6 +161,10 @@ namespace Internal
         private async UniTask ProcessPriorityQueue()
         {
             await UniTask.Yield(PlayerLoopTiming.Update);
+
+            // Initialize has resolved the requests of the previous run, or another round has taken them already.
+            if (_priorityQueue.Count == 0)
+                return;
 
             var selected = IsAlive
                 ? _priorityQueue.Keys.OrderByDescending(t => t.Priority).First()

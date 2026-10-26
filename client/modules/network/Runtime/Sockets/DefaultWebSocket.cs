@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Net.WebSockets;
 using System.Threading;
@@ -17,6 +18,8 @@ namespace Internal
 
         private readonly ILifetime _lifetime;
         private readonly CancellationToken _cancellation;
+
+        private readonly ConcurrentQueue<byte[]> _inbox = new();
 
         private bool _isClosedNotified;
         private bool _isSendFailed;
@@ -55,13 +58,18 @@ namespace Internal
 
         public async UniTask Connect()
         {
+            // Before the connect: a lifetime that ends while it runs (NetworkConnection: the connect timed out)
+            // cancels it and disposes the socket, and one that ends between the connect and the switch below closes
+            // the open socket. Registered after it, the socket of a cancelled connect was never disposed.
+            _lifetime.Listen(() => Shutdown().Forget());
+
             await _socket.ConnectAsync(_uri, _cancellation);
 
             // ClientWebSocket continues on the thread pool, while everything above the socket
             // works with Unity objects.
             await UniTask.SwitchToMainThread(_cancellation);
 
-            _lifetime.Listen(() => Shutdown().Forget());
+            Deliver(_lifetime).Forget();
             Receive(_lifetime).Forget();
         }
 
@@ -121,8 +129,16 @@ namespace Internal
         /// into Aborted, and it can no longer close properly after that. The loop ends either with
         /// a Close frame or with socket Dispose from <see cref="Shutdown"/>.
         /// </summary>
+        /// <para>
+        /// The loop runs on the thread pool: ClientWebSocket answers the pings of the server only inside a pending
+        /// ReceiveAsync, so a loop that waited for the main thread between two receives (a long frame, a scene load)
+        /// left the pings unanswered and the server timed the client out. The frames go to the main thread through
+        /// the inbox, in their order.
+        /// </para>
         private async UniTask Receive(IReadOnlyLifetime lifetime)
         {
+            await UniTask.SwitchToThreadPool();
+
             var buffer = new ArraySegment<byte>(new byte[8192]);
             var closeInfo = new SocketCloseInfo(SocketCloseInfo.AbnormalClosure, "unknown");
 
@@ -136,7 +152,8 @@ namespace Internal
 
                     do
                     {
-                        result = await _socket.ReceiveAsync(buffer, CancellationToken.None);
+                        // Not back to the main thread: the synchronization context of Unity would post it there.
+                        result = await _socket.ReceiveAsync(buffer, CancellationToken.None).ConfigureAwait(false);
                         stream.Write(buffer.Array, buffer.Offset, result.Count);
                     }
                     while (result.EndOfMessage == false);
@@ -160,10 +177,7 @@ namespace Internal
                         break;
                     }
 
-                    var rawValue = stream.ToArray();
-
-                    await UniTask.SwitchToMainThread(_cancellation);
-                    _received.Invoke(rawValue);
+                    _inbox.Enqueue(stream.ToArray());
                 }
             }
             catch (OperationCanceledException)
@@ -211,11 +225,39 @@ namespace Internal
             }
         }
 
+        // The frames received by the loop, handed to the listeners on the main thread once a frame.
+        private async UniTaskVoid Deliver(IReadOnlyLifetime lifetime)
+        {
+            while (true)
+            {
+                var isCanceled = await UniTask
+                                       .Yield(PlayerLoopTiming.Update, lifetime.Token)
+                                       .SuppressCancellationThrow();
+
+                if (isCanceled == true)
+                    return;
+
+                DeliverInbox();
+            }
+        }
+
+        private void DeliverInbox()
+        {
+            while (_lifetime.IsTerminated == false && _inbox.TryDequeue(out var rawValue) == true)
+                _received.Invoke(rawValue);
+        }
+
         private async UniTask NotifyClosed(SocketCloseInfo info)
         {
             await UniTask.SwitchToMainThread();
 
             if (_lifetime.IsTerminated == true || _isClosedNotified == true)
+                return;
+
+            // The frames the server sent before the loss reach the listeners first, as they did before the loss.
+            DeliverInbox();
+
+            if (_lifetime.IsTerminated == true)
                 return;
 
             _isClosedNotified = true;

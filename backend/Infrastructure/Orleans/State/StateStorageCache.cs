@@ -4,22 +4,25 @@ namespace Infrastructure.State;
 
 public class StateStorageCache
 {
-    private readonly ConcurrentDictionary<string, string> _readQueries = new();
-    private readonly ConcurrentDictionary<string, string> _readExtQueries = new();
-    private readonly ConcurrentDictionary<string, string> _readAllQueries = new();
-    private readonly ConcurrentDictionary<string, string> _readBatchQueries = new();
-    private readonly ConcurrentDictionary<string, string> _readBatchExtQueries = new();
-    private readonly ConcurrentDictionary<string, string> _writeQueries = new();
-    private readonly ConcurrentDictionary<string, string> _writeExtQueries = new();
-    private readonly ConcurrentDictionary<string, string> _deleteQueries = new();
-    private readonly ConcurrentDictionary<string, string> _deleteExtQueries = new();
+    // The text of a query names the table: one state name may live in several tables.
+    private static (string TableName, string Type) Key(StateIdentity identity) => (identity.TableName, identity.Type);
+
+    private readonly ConcurrentDictionary<(string TableName, string Type), string> _readQueries = new();
+    private readonly ConcurrentDictionary<(string TableName, string Type), string> _readExtQueries = new();
+    private readonly ConcurrentDictionary<(string TableName, string Type), string> _readAllQueries = new();
+    private readonly ConcurrentDictionary<(string TableName, string Type), string> _readBatchQueries = new();
+    private readonly ConcurrentDictionary<(string TableName, string Type), string> _readBatchExtQueries = new();
+    private readonly ConcurrentDictionary<(string TableName, string Type), string> _writeQueries = new();
+    private readonly ConcurrentDictionary<(string TableName, string Type), string> _writeExtQueries = new();
+    private readonly ConcurrentDictionary<(string TableName, string Type), string> _deleteQueries = new();
+    private readonly ConcurrentDictionary<(string TableName, string Type), string> _deleteExtQueries = new();
 
     public string GetReadQuery(StateIdentity stateIdentity)
     {
         var hasExtension = stateIdentity.Extension != null;
         var cache = hasExtension ? _readExtQueries : _readQueries;
 
-        if (cache.TryGetValue(stateIdentity.Type, out var query))
+        if (cache.TryGetValue(Key(stateIdentity), out var query))
             return query;
 
         var extensionClause = hasExtension ? "and extension = @extension" : string.Empty;
@@ -32,18 +35,18 @@ public class StateStorageCache
             {extensionClause}
             ";
 
-        cache[stateIdentity.Type] = query;
+        cache[Key(stateIdentity)] = query;
         return query;
     }
 
     public string GetReadAllQuery(StateIdentity stateIdentity)
     {
-        if (_readAllQueries.TryGetValue(stateIdentity.Type, out var query))
+        if (_readAllQueries.TryGetValue(Key(stateIdentity), out var query))
             return query;
 
         query = $"SELECT key, value, version FROM {stateIdentity.TableName} WHERE type = @type";
 
-        _readAllQueries[stateIdentity.Type] = query;
+        _readAllQueries[Key(stateIdentity)] = query;
         return query;
     }
 
@@ -52,7 +55,7 @@ public class StateStorageCache
         var hasExtension = stateIdentity.Extension != null;
         var cache = hasExtension ? _readBatchExtQueries : _readBatchQueries;
 
-        if (cache.TryGetValue(stateIdentity.Type, out var query))
+        if (cache.TryGetValue(Key(stateIdentity), out var query))
             return query;
 
         var extensionClause = hasExtension ? "AND extension = @extension" : string.Empty;
@@ -60,7 +63,7 @@ public class StateStorageCache
         query =
             $"SELECT key, value, version FROM {stateIdentity.TableName} WHERE type = @type AND key = ANY(@keys) {extensionClause}";
 
-        cache[stateIdentity.Type] = query;
+        cache[Key(stateIdentity)] = query;
         return query;
     }
 
@@ -69,7 +72,7 @@ public class StateStorageCache
         var hasExtension = stateIdentity.Extension != null;
         var cache = hasExtension ? _writeExtQueries : _writeQueries;
 
-        if (cache.TryGetValue(stateIdentity.Type, out var query))
+        if (cache.TryGetValue(Key(stateIdentity), out var query))
             return query;
 
         var extension = hasExtension ? ", extension" : string.Empty;
@@ -83,7 +86,7 @@ public class StateStorageCache
             do update set value = EXCLUDED.value
             ";
 
-        cache[stateIdentity.Type] = query;
+        cache[Key(stateIdentity)] = query;
         return query;
     }
 
@@ -92,14 +95,14 @@ public class StateStorageCache
         var hasExtension = stateIdentity.Extension != null;
         var cache = hasExtension ? _deleteExtQueries : _deleteQueries;
 
-        if (cache.TryGetValue(stateIdentity.Type, out var query))
+        if (cache.TryGetValue(Key(stateIdentity), out var query))
             return query;
 
         var extensionClause = hasExtension ? " AND extension = @extension" : string.Empty;
 
         query = $"DELETE FROM {stateIdentity.TableName} WHERE key = @key AND type = @type{extensionClause}";
 
-        cache[stateIdentity.Type] = query;
+        cache[Key(stateIdentity)] = query;
         return query;
     }
 }

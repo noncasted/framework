@@ -30,6 +30,9 @@ public class SequencedMessage
 {
     [Id(0)] public long Sequence { get; set; }
     [Id(1)] public object Payload { get; set; } = null!;
+
+    // The activation of the channel that numbered the message: a new activation numbers from 1 again.
+    [Id(2)] public Guid Epoch { get; set; }
 }
 
 [GenerateSerializer]
@@ -38,6 +41,7 @@ public class CatchUpResult
     [Id(0)] public IReadOnlyList<SequencedMessage> Messages { get; set; } = Array.Empty<SequencedMessage>();
     [Id(1)] public bool GapDetected { get; set; }
     [Id(2)] public long CurrentSequence { get; set; }
+    [Id(3)] public Guid Epoch { get; set; }
 }
 
 public interface IRuntimeChannel : IGrainWithStringKey
@@ -71,6 +75,10 @@ public class RuntimeChannel : Grain, IRuntimeChannel
     private readonly ConcurrentDictionary<Guid, ObserverData> _observers = new();
 
     private long _sequenceNumber;
+
+    // The sequence numbers live in this activation only: the epoch tells a client that saw the numbers of another
+    // activation that its LastSeenSequence means nothing here (RuntimeChannelClient.Listener.Resubscribe).
+    private readonly Guid _epoch = Guid.NewGuid();
     private SequencedMessage?[] _buffer = null!;
     private int _bufferSize;
     private DateTime _keepAliveUntil;
@@ -149,7 +157,7 @@ public class RuntimeChannel : Grain, IRuntimeChannel
         BackendMetrics.ChannelObserverCount.Record(_observers.Count);
 
         _sequenceNumber++;
-        var sequenced = new SequencedMessage { Sequence = _sequenceNumber, Payload = message };
+        var sequenced = new SequencedMessage { Sequence = _sequenceNumber, Payload = message, Epoch = _epoch };
         _buffer[_sequenceNumber % _bufferSize] = sequenced;
         activity?.SetTag("messaging.sequence", sequenced.Sequence);
 
@@ -252,7 +260,8 @@ public class RuntimeChannel : Grain, IRuntimeChannel
             return Task.FromResult(new CatchUpResult
             {
                 GapDetected = true,
-                CurrentSequence = _sequenceNumber
+                CurrentSequence = _sequenceNumber,
+                Epoch = _epoch
             });
         }
 
@@ -260,7 +269,8 @@ public class RuntimeChannel : Grain, IRuntimeChannel
         {
             return Task.FromResult(new CatchUpResult
             {
-                CurrentSequence = _sequenceNumber
+                CurrentSequence = _sequenceNumber,
+                Epoch = _epoch
             });
         }
 
@@ -301,7 +311,8 @@ public class RuntimeChannel : Grain, IRuntimeChannel
         {
             Messages = messages,
             GapDetected = gapDetected,
-            CurrentSequence = _sequenceNumber
+            CurrentSequence = _sequenceNumber,
+            Epoch = _epoch
         });
     }
 

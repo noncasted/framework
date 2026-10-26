@@ -30,6 +30,9 @@ public class RuntimeChannelObserver : IRuntimeChannelObserver
     public Guid Id { get; } = Guid.NewGuid();
     public long LastSeenSequence { get; private set; }
 
+    // The channel activation LastSeenSequence belongs to (SequencedMessage.Epoch), empty before the first message.
+    public Guid LastSeenEpoch { get; private set; }
+
     public void BeginBuffering()
     {
         lock (_bufferGate)
@@ -83,6 +86,12 @@ public class RuntimeChannelObserver : IRuntimeChannelObserver
         LastSeenSequence = lastSeenSequence;
     }
 
+    public void ResetLastSeen(Guid epoch, long lastSeenSequence)
+    {
+        LastSeenEpoch = epoch;
+        LastSeenSequence = lastSeenSequence;
+    }
+
     public async Task Send(object message)
     {
         lock (_bufferGate)
@@ -114,7 +123,12 @@ public class RuntimeChannelObserver : IRuntimeChannelObserver
             return;
         }
 
-        if (sequenced.Sequence <= LastSeenSequence)
+        // The first message tells the epoch. A message of another epoch is a late one of a previous activation: the
+        // switch to a new activation happens in the resubscribe, with its catch-up (RuntimeChannelClient.Listener).
+        if (LastSeenSequence == 0 && LastSeenEpoch == Guid.Empty)
+            LastSeenEpoch = sequenced.Epoch;
+
+        if (sequenced.Epoch != LastSeenEpoch || sequenced.Sequence <= LastSeenSequence)
             return;
 
         await _onMessage(sequenced.Payload);

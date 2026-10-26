@@ -70,12 +70,16 @@ namespace Global.Settings
             OnPush(save);
         }
 
+        // A copy is kept: the caller's instance (the save a settings window edits) changed later changed the
+        // settings in force without a Push or a save.
         public async UniTask Apply(TSave save)
         {
-            save.WasChanged = true;
-            await _saves.Save(save);
-            _save = save;
-            Push(save);
+            var applied = SettingsSave.Copy(save);
+            applied.WasChanged = true;
+
+            await _saves.Save(applied);
+            _save = applied;
+            Push(applied);
         }
 
         // The fields of the game go to its properties; called on every Push, the base values are already set.

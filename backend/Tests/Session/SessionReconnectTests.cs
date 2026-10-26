@@ -287,4 +287,92 @@ public class SessionReconnectTests
 
         return session.Entities.Entries[id];
     }
+
+    // A return while the old connection is still joined: the new connection is not told about the old one (its own
+    // seat), the old one hears nothing of the new.
+    [Fact]
+    public void ReturnWhileStillJoined_NoRemoteUpdateAboutItsOwnSeat()
+    {
+        var session = TestSession.Create(reconnectWindow: Window);
+        var other = session.ReserveAndEnter();
+        var userId = Guid.NewGuid();
+        var old = session.ReserveAndEnter(userId);
+        session.ClearSent();
+
+        var returned = session.Enter(userId)!;
+
+        TestSession.Sent<SharedSessionPlayer.RemoteUpdate>(returned).Should()
+                   .ContainSingle().Which.Index.Should().Be(other.Index);
+
+        TestSession.Sent<SharedSessionPlayer.RemoteUpdate>(old).Should().BeEmpty();
+    }
+
+    // A refused reservation (a sealed session: a lobby that has started its match) leaves the live connection of the
+    // user alone: only a user that gets a place comes anew. A session held only by the user is the other case (its
+    // connections are dropped and it closes).
+    [Fact]
+    public void TryReserve_Refused_LiveConnectionStays()
+    {
+        var session = TestSession.Create();
+        var user = session.ReserveAndEnter();
+        session.ReserveAndEnter();
+        session.Admission.Seal();
+
+        session.Session.TryReserve(user.BackendId).Should().BeFalse();
+        session.Queue.Drain();
+
+        TestSession.Connection(user).ForceDisconnects.Should().Be(0);
+        user.Lifetime.IsTerminated.Should().BeFalse();
+    }
+
+    // The connections of a seat leave nothing on the session lifetime when they end: returns don't pile listeners up.
+    [Fact]
+    public void Returns_LeaveNoListenersOnTheSessionLifetime()
+    {
+        var session = TestSession.Create(reconnectWindow: Window);
+        var userId = Guid.NewGuid();
+        var user = session.ReserveAndEnter(userId);
+        var listeners = ListenerCount(session.Lifetime);
+
+        for (var i = 0; i < 3; i++)
+        {
+            session.Lose(user);
+            user = session.Enter(userId)!;
+        }
+
+        ListenerCount(session.Lifetime).Should().Be(listeners);
+    }
+
+    // The session owner is a user with a client: a bot never is, the first human is even if a bot came before it, and
+    // a leaving owner passes to the next human.
+    [Fact]
+    public void Owner_IsNeverABot()
+    {
+        var session = TestSession.Create();
+        session.AddBot();
+
+        session.Owner.Owner.Value.Should().BeNull();
+
+        var first = session.ReserveAndEnter();
+        session.AddBot();
+        var second = session.ReserveAndEnter();
+
+        session.Owner.Owner.Value.Should().Be(first);
+
+        session.Leave(first);
+
+        session.Owner.Owner.Value.Should().Be(second);
+
+        session.Leave(second);
+
+        session.Owner.Owner.Value.Should().BeNull();
+    }
+
+    private static int ListenerCount(Lifetime lifetime)
+    {
+        var field = typeof(Lifetime).GetField("_listeners",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+
+        return ((List<Action>?)field.GetValue(lifetime))?.Count ?? 0;
+    }
 }

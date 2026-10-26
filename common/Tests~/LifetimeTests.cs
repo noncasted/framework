@@ -79,8 +79,8 @@ public class LifetimeTests
 
         lifetime.Terminate();
 
-        // The list is already taken at the time of removal, so the listener is still called.
-        removedCalled.Should().BeTrue();
+        // Removed before its turn in the pass: it is skipped, as if it had been removed before the termination.
+        removedCalled.Should().BeFalse();
     }
 
     [Fact]
@@ -291,5 +291,32 @@ public class LifetimeTests
         {
             _listeners.Remove(callback);
         }
+    }
+
+    [Fact]
+    public void RemoveListener_DuringTerminate_ListenerNotRunYetIsSkipped()
+    {
+        var lifetime = new Lifetime();
+        var ran = false;
+        Action second = () => ran = true;
+
+        lifetime.Listen(() => lifetime.RemoveListener(second));
+        lifetime.Listen(second);
+
+        lifetime.Terminate();
+
+        ran.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Intersect_SourceEndsWhileAnotherListenerRemovesIt_IntersectionStillEnds()
+    {
+        var a = new Lifetime();
+        var b = new Lifetime();
+        var intersection = a.Intersect(b);
+
+        a.Terminate();
+
+        intersection.IsTerminated.Should().BeTrue();
     }
 }

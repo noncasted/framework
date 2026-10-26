@@ -97,18 +97,39 @@ public class DeploymentState<T> : ViewableProperty<T>, IDeploymentState<T>, IDep
         _identity = CreateStateIdentity(newDeployId);
         _channelId = new DeploymentStateChannelId<T>(newDeployId);
 
-        var state = await _orleans.StateStorage.Read<AddressableStateValue>(_identity);
-
-        var value = state.IsInitialized ? _orleans.Serializer.Deserialize<T>(state.Value) : new T();
-
         lock (_applyLock)
+            _lastAppliedUpdate = default;
+
+        // Listening before the read: an update published while the read runs is not lost, the watermark keeps the
+        // newer of the two. A gap of the channel (missed updates) reloads the value from the database.
+        var identity = _identity;
+
+        await _messaging.ListenChannel<AddressableStateValue>(deployLifetime, _channelId, OnUpdate,
+            () => Load(identity).NoAwait());
+
+        await Load(identity);
+        _isInitialized = true;
+    }
+
+    private async Task Load(StateIdentity identity)
+    {
+        var state = await _orleans.StateStorage.Read<AddressableStateValue>(identity);
+
+        if (identity != _identity)
+            return;
+
+        if (state.IsInitialized == true)
         {
-            _lastAppliedUpdate = state.IsInitialized ? state.UpdateDate : default;
-            Set(value);
+            TryApplyUpdate(state);
+            return;
         }
 
-        await _messaging.ListenChannel<AddressableStateValue>(deployLifetime, _channelId, OnUpdate);
-        _isInitialized = true;
+        // Nothing stored for this epoch and nothing came on its channel: the value of the previous epoch goes.
+        lock (_applyLock)
+        {
+            if (_lastAppliedUpdate == default)
+                Set(new T());
+        }
     }
 
     public virtual async Task SetValue(T value)
@@ -120,20 +141,35 @@ public class DeploymentState<T> : ViewableProperty<T>, IDeploymentState<T>, IDep
             if (_deployId == Guid.Empty || _identity == null || _channelId == null)
                 throw new InvalidOperationException("DeploymentState is not initialized with a valid deploy ID.");
 
-            var state = new AddressableStateValue
-            {
-                IsInitialized = true,
-                UpdateDate = DateTime.UtcNow,
-                Value = _orleans.Serializer.Serialize(value)
-            };
+            // Later than every value this host has seen, whatever the clock of the host that wrote it: the readers
+            // order the values by this date, a write must never lose to the one it replaces.
+            var updateDate = DateTime.UtcNow;
 
             lock (_applyLock)
             {
-                _lastAppliedUpdate = state.UpdateDate;
-                Set(value);
+                if (updateDate <= _lastAppliedUpdate)
+                    updateDate = _lastAppliedUpdate.AddTicks(1);
             }
 
+            var state = new AddressableStateValue
+            {
+                IsInitialized = true,
+                UpdateDate = updateDate,
+                Value = _orleans.Serializer.Serialize(value)
+            };
+
+            // The value becomes visible only once it is in the database: a failed write leaves the old one.
             await _orleans.StateStorage.Write(_identity, state);
+
+            lock (_applyLock)
+            {
+                if (state.UpdateDate > _lastAppliedUpdate)
+                {
+                    _lastAppliedUpdate = state.UpdateDate;
+                    Set(value);
+                }
+            }
+
             await _messaging.PublishChannel(_channelId, state);
         }
         catch (Exception e)

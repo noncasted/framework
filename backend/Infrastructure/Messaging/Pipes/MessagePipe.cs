@@ -22,6 +22,9 @@ public class RuntimePipe : Grain, IRuntimePipe
         _config = config;
     }
 
+    // The start of the failure of a request that reached no handler: the only one a sender may repeat.
+    public const string NoObserverPrefix = "[Messaging] [RuntimePipe] No observer bound";
+
     private static readonly TimeSpan LivenessCheckTimeout = TimeSpan.FromMilliseconds(500);
 
     private readonly ILogger<RuntimePipe> _logger;
@@ -70,6 +73,14 @@ public class RuntimePipe : Grain, IRuntimePipe
             await observer.Ping().WaitAsync(LivenessCheckTimeout);
             return true;
         }
+        catch (TimeoutException e)
+        {
+            // The ping of an observer busy with a request waits behind it: slow is not dead, the observer stays.
+            _logger.LogWarning(e,
+                "[Messaging] [RuntimePipe] Observer {ObserverId} on pipe {PipeId} did not answer the liveness check in time",
+                observerId, this.GetPrimaryKeyString());
+            return false;
+        }
         catch (Exception e)
         {
             DiscardObserverIfSame(observerId);
@@ -104,7 +115,7 @@ public class RuntimePipe : Grain, IRuntimePipe
             _logger.LogError(
                 "[Messaging] [RuntimePipe] No observer bound for request-response message {MessageType} on pipe {PipeId}",
                 message.GetType().Name, pipeId);
-            throw new InvalidOperationException($"No observer bound for pipe {pipeId}");
+            throw new InvalidOperationException($"{NoObserverPrefix} for pipe {pipeId}");
         }
 
         try
@@ -119,8 +130,7 @@ public class RuntimePipe : Grain, IRuntimePipe
         }
         catch (TimeoutException ex)
         {
-            DiscardObserverIfSame(observerId);
-
+            // A slow handler is not a dead observer: it stays bound, the request may still complete there.
             activity?.SetStatus(ActivityStatusCode.Error, "Pipe send timed out");
             BackendMetrics.PipeTimeout.Add(1);
 

@@ -1,5 +1,6 @@
 using Common.Extensions;
 using Internal;
+using Infrastructure;
 using Infrastructure.State;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -24,15 +25,18 @@ public class DeployCleanup : IDeployCleanup, IHostedService
     public DeployCleanup(
         IDeployContext deployContext,
         IStateStorage stateStorage,
+        IMessaging messaging,
         ILogger<DeployCleanup> logger)
     {
         _deployContext = deployContext;
         _stateStorage = stateStorage;
+        _messaging = messaging;
         _logger = logger;
     }
 
     private readonly IDeployContext _deployContext;
     private readonly IStateStorage _stateStorage;
+    private readonly IMessaging _messaging;
     private readonly ILogger<DeployCleanup> _logger;
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -51,6 +55,16 @@ public class DeployCleanup : IDeployCleanup, IHostedService
 
         if (currentDeployId == Guid.Empty)
             throw new InvalidOperationException("No active deploy, refusing to run cleanup");
+
+        // The local deploy id of a host started before the current deploy (a lagging console) is an old one: the rows
+        // of the deploy the cluster runs would be taken for stale. The coordinator answers the current one.
+        var clusterDeploy = await _messaging.SendPipe<DeployIdResponse>(DeployIdPipe.Id, new DeployIdRequest());
+
+        if (clusterDeploy.DeployId != currentDeployId)
+        {
+            throw new InvalidOperationException(
+                $"Local deploy {currentDeployId} is not the current deploy {clusterDeploy.DeployId} of the cluster, refusing to run cleanup");
+        }
 
         var lifetime = new Lifetime();
 

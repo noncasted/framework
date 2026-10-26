@@ -32,8 +32,15 @@ namespace Global.UI
             IUIState state)
         {
             var handle = stateMachine.CreateChild(lifetime, parent, state);
-            await handle.TryProcess();
-            handle.Exit();
+
+            try
+            {
+                await handle.TryProcess();
+            }
+            finally
+            {
+                handle.Exit();
+            }
         }
 
         public static async UniTask ProcessChild(
@@ -44,8 +51,16 @@ namespace Global.UI
             Func<IUIStateHandle, UniTask> action)
         {
             var handle = stateMachine.CreateChild(lifetime, parent, state);
-            await action.Invoke(handle);
-            handle.Exit();
+
+            // In finally: a window whose action throws would keep its constraints (the game input off) forever.
+            try
+            {
+                await action.Invoke(handle);
+            }
+            finally
+            {
+                handle.Exit();
+            }
         }
 
         public static async UniTask<T> ProcessChild<T>(
@@ -56,10 +71,15 @@ namespace Global.UI
             Func<IUIStateHandle, UniTask<T>> action)
         {
             var handle = stateMachine.CreateChild(lifetime, parent, state);
-            var result = await action.Invoke(handle);
-            handle.Exit();
 
-            return result;
+            try
+            {
+                return await action.Invoke(handle);
+            }
+            finally
+            {
+                handle.Exit();
+            }
         }
 
         public static UniTask ProcessStack(
@@ -79,8 +99,16 @@ namespace Global.UI
             Func<IUIStateHandle, UniTask> action)
         {
             var handle = stateMachine.CreateStackChild(lifetime, parent, state);
-            await action.Invoke(handle);
-            handle.Exit();
+
+            // In finally: a window whose action throws would keep its constraints (the game input off) forever.
+            try
+            {
+                await action.Invoke(handle);
+            }
+            finally
+            {
+                handle.Exit();
+            }
         }
 
         public static async UniTask<T> ProcessStack<T>(
@@ -91,9 +119,15 @@ namespace Global.UI
             Func<IUIStateHandle, UniTask<T>> action)
         {
             var handle = stateMachine.CreateStackChild(lifetime, parent, state);
-            var result = await action.Invoke(handle);
-            handle.Exit();
-            return result;
+
+            try
+            {
+                return await action.Invoke(handle);
+            }
+            finally
+            {
+                handle.Exit();
+            }
         }
 
         public static UniTask Process(
@@ -108,17 +142,24 @@ namespace Global.UI
 
         public static async UniTask TryProcess(this IUIStateHandle handle)
         {
-            switch (handle.State)
+            try
             {
-                case IUIStateEnterHandler handler:
-                    handler.OnEntered(handle);
-                    await handle.Completion.Task;
+                switch (handle.State)
+                {
+                    case IUIStateEnterHandler handler:
+                        handler.OnEntered(handle);
+                        await handle.Completion.Task;
+                        break;
+                    case IUIStateAsyncEnterHandler handler:
+                        await handler.OnEntered(handle);
+                        break;
+                }
+            }
+            finally
+            {
+                // A state without an enter handler stays: its owner exits it.
+                if (handle.State is IUIStateEnterHandler or IUIStateAsyncEnterHandler)
                     handle.Exit();
-                    break;
-                case IUIStateAsyncEnterHandler handler:
-                    await handler.OnEntered(handle);
-                    handle.Exit();
-                    break;
             }
         }
 

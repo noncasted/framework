@@ -50,11 +50,9 @@ public class EventState<TAggregate> : IGrainEventTransactionParticipant
 
             try
             {
+                // The pending events are applied to the value already: they stay until Write stores them.
                 if (_value != null)
-                {
-                    _pendingEvents.Clear();
                     return;
-                }
 
                 _value = await _eventStorage.Read<TAggregate>(StreamId);
                 _pendingEvents.Clear();
@@ -73,12 +71,13 @@ public class EventState<TAggregate> : IGrainEventTransactionParticipant
         if (_currentTransactionId == TransactionContextProvider.Current.Id)
             return;
 
+        // Registered before the read: a failed read is rolled back by the handler (OnTransactionFailure), otherwise
+        // the state keeps the id of the dead transaction and rejects every later one.
         _currentTransactionId = TransactionContextProvider.Current.Id;
+        RegisterInTransaction();
+
         _value = await _eventStorage.Read<TAggregate>(StreamId);
         _pendingEvents.Clear();
-
-        var handler = (GrainTransactionHandler)_context.GetComponent<IGrainTransactionHandler>().ThrowIfNull();
-        handler.RecordEventStateChanged(this);
     }
 
     public async Task Append(params object[] events)
@@ -110,11 +109,22 @@ public class EventState<TAggregate> : IGrainEventTransactionParticipant
         if (_currentTransactionId != Guid.Empty && TransactionContextProvider.Current.Id != _currentTransactionId)
             throw new InvalidOperationException("Concurrent transactions are not supported.");
 
+        // Loaded outside this transaction: joins it here, so a transaction that fails before Write rolls back the
+        // applied events too.
         if (_currentTransactionId == Guid.Empty)
+        {
             _currentTransactionId = TransactionContextProvider.Current.Id;
+            RegisterInTransaction();
+        }
 
         _pendingEvents.AddRange(events);
         ApplyEvents(events);
+    }
+
+    private void RegisterInTransaction()
+    {
+        var handler = (GrainTransactionHandler)_context.GetComponent<IGrainTransactionHandler>().ThrowIfNull();
+        handler.RecordEventStateChanged(this);
     }
 
     public async Task Write()

@@ -7,7 +7,11 @@ public interface IDurableQueue : IGrainWithStringKey
 {
     Task AddObserver(Guid id, IDurableQueueObserver observer);
     Task RemoveObserver(Guid id);
-    Task Push(object message, Guid correlationId = default);
+    // Delivers the message to every subscribed observer and fails while one of them has not got it. A retry with the
+    // same messageId (DurableQueueSideEffect) goes only to the observers that have not got it yet: a failed observer
+    // gets the message once it resubscribes, the others do not get it again. The ids live in the activation memory,
+    // so a reactivation between the retries delivers to everyone again: at least once per observer.
+    Task Push(object message, Guid correlationId = default, Guid messageId = default);
 }
 
 public class DurableQueue : Grain, IDurableQueue
@@ -21,7 +25,12 @@ public class DurableQueue : Grain, IDurableQueue
     private readonly ILogger<DurableQueue> _logger;
     private readonly IDurableQueueConfig _config;
 
+    private static readonly TimeSpan DeliveredRetention = TimeSpan.FromHours(1);
+
     private readonly Dictionary<Guid, ObserverData> _observers = new();
+
+    // messageId → the observers that got a message whose push failed for some other observer, until it is retried.
+    private readonly Dictionary<Guid, DeliveredData> _delivered = new();
 
     public Task AddObserver(Guid id, IDurableQueueObserver observer)
     {
@@ -54,7 +63,7 @@ public class DurableQueue : Grain, IDurableQueue
         return Task.CompletedTask;
     }
 
-    public async Task Push(object message, Guid correlationId = default)
+    public async Task Push(object message, Guid correlationId = default, Guid messageId = default)
     {
         var queueName = this.GetPrimaryKeyString();
         using var activity = TraceExtensions.MessagingDurableQueue.StartActivity("DurableQueue.Push");
@@ -80,55 +89,90 @@ public class DurableQueue : Grain, IDurableQueue
                 $"No active subscribers for durable queue '{queueName}'. Message left in processing for requeue.");
         }
 
-        var toRemove = new List<Guid>();
-        var successCount = 0;
-        var failedCount = 0;
+        PruneDelivered();
 
-        foreach (var data in _observers.Values.ToArray())
-        {
+        // A message without an id (a direct push) is not retried by a side effect: nothing to remember.
+        var delivered = messageId != Guid.Empty && _delivered.TryGetValue(messageId, out var data)
+            ? data.Observers
+            : new HashSet<Guid>();
+
+        var targets = _observers.Values.Where(observer => delivered.Contains(observer.Id) == false).ToArray();
+
+        // In parallel: an observer on a dead silo holds the grain for one call timeout, not one per dead observer.
+        var results = await Task.WhenAll(targets.Select(async observer => {
             try
             {
-                await data.Observer.Send(message);
-                successCount++;
+                await observer.Observer.Send(message);
+                return (Observer: observer, Error: (Exception?)null);
             }
             catch (Exception e)
             {
-                failedCount++;
-                toRemove.Add(data.Id);
-                BackendMetrics.DurableQueueDeliveryFailure.Add(1);
-
-                _logger.LogError(e,
-                    "[Messaging] [DurableQueue] Delivering message from {QueueName} to observer {ObserverId} failed (correlation {CorrelationId})",
-                    queueName, data.Id, correlationId);
+                return (Observer: observer, Error: e);
             }
+        }));
+
+        var failedCount = 0;
+
+        foreach (var (observer, error) in results)
+        {
+            if (error == null)
+            {
+                delivered.Add(observer.Id);
+                continue;
+            }
+
+            failedCount++;
+            _observers.Remove(observer.Id);
+            BackendMetrics.DurableQueueDeliveryFailure.Add(1);
+
+            _logger.LogError(error,
+                "[Messaging] [DurableQueue] Delivering message from {QueueName} to observer {ObserverId} failed (correlation {CorrelationId})",
+                queueName, observer.Id, correlationId);
         }
 
-        foreach (var id in toRemove)
-            _observers.Remove(id);
-
-        activity?.SetTag("observer.success_count", successCount);
+        activity?.SetTag("observer.success_count", targets.Length - failedCount);
         activity?.SetTag("observer.failure_count", failedCount);
 
-        if (successCount > 0)
+        if (failedCount == 0)
         {
-            if (failedCount > 0)
-            {
-                _logger.LogWarning(
-                    "[Messaging] [DurableQueue] Delivered message from {QueueName} to {SuccessCount}/{ObserverCount} observers; removed {FailedCount} failed observers (correlation {CorrelationId})",
-                    queueName, successCount, successCount + failedCount, failedCount, correlationId);
-            }
-
+            _delivered.Remove(messageId);
             return;
+        }
+
+        if (messageId != Guid.Empty)
+        {
+            _delivered[messageId] = new DeliveredData
+            {
+                Observers = delivered,
+                Until = DateTime.UtcNow + DeliveredRetention
+            };
         }
 
         BackendMetrics.DurableQueueNoSubscribers.Add(1);
 
         _logger.LogWarning(
-            "[Messaging] [DurableQueue] No successful deliveries on queue '{QueueName}': observers={ObserverCount}, failed={FailedCount}, remaining={RemainingCount}, correlation={CorrelationId}",
-            queueName, successCount + failedCount, failedCount, _observers.Count, correlationId);
+            "[Messaging] [DurableQueue] Delivered message from {QueueName} to {SuccessCount}/{TargetCount} observers; removed {FailedCount} failed observers, the retry goes to the rest (correlation {CorrelationId})",
+            queueName, targets.Length - failedCount, targets.Length, failedCount, correlationId);
 
         throw new InvalidOperationException(
-            $"No subscribers successfully processed durable queue '{queueName}'. Message left in processing for requeue.");
+            $"{failedCount} of {targets.Length} observers of durable queue '{queueName}' failed. Message left in processing for requeue.");
+    }
+
+    private void PruneDelivered()
+    {
+        var now = DateTime.UtcNow;
+
+        foreach (var (id, data) in _delivered.ToArray())
+        {
+            if (data.Until < now)
+                _delivered.Remove(id);
+        }
+    }
+
+    private class DeliveredData
+    {
+        public required HashSet<Guid> Observers { get; init; }
+        public required DateTime Until { get; init; }
     }
 
     public class ObserverData

@@ -93,10 +93,11 @@ namespace Internal
             HierarchyBindingsBatch.Cancel();
         }
 
+        // Requests left by a single Generate or by Regenerate All (a failed compile never reloads) are reset here too.
         [MenuItem(CancelBatchPath, true)]
-        private static bool ValidateCancelBatch()
+        internal static bool ValidateCancelBatch()
         {
-            return HierarchyBindingsBatch.IsRunning;
+            return HierarchyBindingsBatch.IsRunning || HierarchyBindingsGenerator.HasPending();
         }
 
         private static void Report(int errors, string scope)

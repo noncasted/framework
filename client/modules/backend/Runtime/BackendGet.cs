@@ -1,5 +1,4 @@
-﻿using System;
-using Cysharp.Threading.Tasks;
+﻿using Cysharp.Threading.Tasks;
 using Internal;
 using UnityEngine.Networking;
 
@@ -12,6 +11,13 @@ namespace Global.Backend
 
     public class BackendGet : IBackendGet
     {
+        public BackendGet(BackendOptions options)
+        {
+            _options = options;
+        }
+
+        private readonly BackendOptions _options;
+
         public async UniTask<string> Get(IReadOnlyLifetime lifetime, IGetRequest request)
         {
             // Requests are sent from different places and live in parallel, so the span is concurrent:
@@ -21,13 +27,10 @@ namespace Global.Backend
             using var downloadHandlerBuffer = new DownloadHandlerBuffer();
             using var webRequest = new UnityWebRequest(request.Uri, "GET", downloadHandlerBuffer, null);
 
-            foreach (var header in request.Headers)
-                webRequest.SetRequestHeader(header.Type, header.Value);
+            webRequest.SetHeaders(request.Headers, _options);
 
+            // A failure (a network error, an error status, the timeout) throws UnityWebRequestException.
             await webRequest.SendWebRequest().ToUniTask(cancellationToken: lifetime.Token);
-
-            if (webRequest.result != UnityWebRequest.Result.Success)
-                throw new Exception("GET request failed");
 
             var responseContent = downloadHandlerBuffer.text;
 

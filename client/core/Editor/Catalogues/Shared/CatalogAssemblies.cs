@@ -1,8 +1,6 @@
 using System;
 using System.IO;
-using Newtonsoft.Json;
-using UnityEditor;
-using UnityEngine;
+using UnityEditor.Compilation;
 
 namespace Internal
 {
@@ -32,19 +30,38 @@ namespace Internal
             return assemblyName != "Internal" && assemblyName.StartsWith("Internal.", StringComparison.Ordinal) == false;
         }
 
+        // A generated class can live only in an assembly with an asmdef: the content folder cannot see the types of
+        // another assembly (CS0246), and the predefined Assembly-CSharp is seen by no asmdef at all.
         public static string GetGeneratedFolder(string logTag, string assemblyName, string internalFolder)
         {
             if (string.Equals(assemblyName, "Internal", StringComparison.Ordinal) ||
                 string.Equals(assemblyName, FrameworkSettings.ContentAssembly, StringComparison.Ordinal))
                 return internalFolder;
 
-            if (TryGetAsmdefDirectory(logTag, assemblyName, out var directory) == false)
-            {
-                Debug.LogError($"[{logTag}] asmdef '{assemblyName}' not found");
-                return internalFolder;
-            }
+            return GetConsumerGeneratedFolder(GetAsmdefDirectory(logTag, assemblyName));
+        }
 
-            return GetConsumerGeneratedFolder(directory);
+        // The namespace of the classes generated into a project assembly is the assembly name, so it must be one.
+        public static string ToNamespace(string logTag, string assemblyName)
+        {
+            if (CodeIdentifiers.IsNamespace(assemblyName) == false)
+                throw new InvalidOperationException(
+                    $"[{logTag}] Assembly '{assemblyName}' is not a C# namespace, so generated classes cannot be " +
+                    "put into it. Move the scripts into an asmdef with a name made of identifiers.");
+
+            return assemblyName;
+        }
+
+        public static string GetAsmdefDirectory(string logTag, string assemblyName)
+        {
+            var asmdefPath = CompilationPipeline.GetAssemblyDefinitionFilePathFromAssemblyName(assemblyName);
+
+            if (string.IsNullOrEmpty(asmdefPath))
+                throw new InvalidOperationException(
+                    $"[{logTag}] Assembly '{assemblyName}' has no asmdef, so generated classes cannot be put into " +
+                    "it. Scripts without an asmdef compile into Assembly-CSharp: move them into an asmdef.");
+
+            return Path.GetDirectoryName(asmdefPath).Replace('\\', '/');
         }
 
         public static string GetConsumerGeneratedFolder(string asmdefDirectory)
@@ -72,43 +89,6 @@ namespace Internal
 
             if (assemblyComma > 0)
                 assemblyName = assemblyName.Substring(0, assemblyComma).Trim();
-        }
-
-        private static bool TryGetAsmdefDirectory(string logTag, string assemblyName, out string directory)
-        {
-            directory = null;
-
-            foreach (var guid in AssetDatabase.FindAssets("t:asmdef"))
-            {
-                var path = AssetDatabase.GUIDToAssetPath(guid);
-
-                try
-                {
-                    var fullPath = CatalogPaths.ToFullPath(path);
-
-                    if (File.Exists(fullPath) == false)
-                        continue;
-
-                    var file = JsonConvert.DeserializeObject<AsmdefFile>(File.ReadAllText(fullPath));
-
-                    if (file == null || string.Equals(file.name, assemblyName, StringComparison.Ordinal) == false)
-                        continue;
-
-                    directory = Path.GetDirectoryName(path).Replace('\\', '/');
-                    return true;
-                }
-                catch (Exception exception)
-                {
-                    Debug.LogError($"[{logTag}] Failed to read {path}: {exception}");
-                }
-            }
-
-            return false;
-        }
-
-        private sealed class AsmdefFile
-        {
-            public string name;
         }
     }
 }

@@ -12,8 +12,13 @@ namespace Internal
         public static async UniTask<T> LoadTyped<T>(this ServiceScopeSceneLoader loader, AssetReference scene, bool isMain = false)
         {
             var result = await loader.Load(scene, isMain);
+            return result.Scene.GetRoot<T>();
+        }
 
-            var rootObjects = result.Scene.GetRootGameObjects();
+        // The component of the type on a root object of the scene.
+        public static T GetRoot<T>(this Scene scene)
+        {
+            var rootObjects = scene.GetRootGameObjects();
 
             foreach (var rootObject in rootObjects)
             {
@@ -21,7 +26,8 @@ namespace Internal
                     return searched;
             }
 
-            throw new NullReferenceException($"Searched {typeof(T)} is not found");
+            // The scene stays in the results of the loader: the failed scope unloads it with its other scenes.
+            throw new InvalidOperationException($"{typeof(T)} is not on a root object of the scene {scene.name}");
         }
 
         public static async UniTask<T> FindOrLoadScene<T>(
@@ -34,20 +40,29 @@ namespace Internal
             if (utils.IsMock != true || SceneManager.GetSceneByName(scene.editorAsset.name).IsValid() != true)
                 return await utils.SceneLoader.LoadTyped<T>(scene, isMain);
 
+            return FindInOpenScene<T>(scene.editorAsset.name);
+#else
+            return await utils.SceneLoader.LoadTyped<T>(scene, isMain);
+#endif
+        }
+
+#if UNITY_EDITOR
+        // A mock started from an opened scene takes the object of that scene instead of loading it again.
+        public static T FindInOpenScene<T>(string sceneName) where T : MonoBehaviour
+        {
             var targets = Object.FindObjectsByType<T>(FindObjectsInactive.Include);
 
             foreach (var target in targets)
             {
-                if (target.gameObject.scene.name != scene.editorAsset.name)
+                if (target.gameObject.scene.name != sceneName)
                     continue;
 
                 return target;
             }
 
-            return Object.FindAnyObjectByType<T>();
-#else
-            return await utils.SceneLoader.LoadTyped<T>(scene, isMain);
-#endif
+            // An object of another scene is not of this one: the scene of the mock lacks it.
+            throw new InvalidOperationException($"{typeof(T)} is not in the opened scene {sceneName}");
         }
+#endif
     }
 }

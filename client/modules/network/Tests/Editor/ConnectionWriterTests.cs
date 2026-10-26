@@ -155,6 +155,112 @@ namespace Internal.Tests
             lifetime.Terminate();
         });
 
+        // The loop of a lost run may still be inside a send of its socket when the writer runs again: the rest of its
+        // batch is not sent on the new socket, and the new loop does not die on a batch shared with the old one.
+        [UnityTest]
+        public IEnumerator RunAgainWhileLostSendPending_NewSocketGetsOnlyItsMessages() => UniTask.ToCoroutine(async () =>
+        {
+            var writer = new ConnectionWriter(new NetworkTraffic());
+            var lostSocket = new ManualSocket();
+            var lostLifetime = new Lifetime();
+            writer.Run(lostLifetime, lostSocket);
+
+            writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.Ok });
+            writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.Ok });
+            await Frames();
+
+            Assert.AreEqual(1, lostSocket.Started);
+
+            lostSocket.Drop("lost");
+            lostLifetime.Terminate();
+
+            var socket = new FakeSocket();
+            var lifetime = new Lifetime();
+            writer.Run(lifetime, socket);
+
+            writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.NoReservation });
+            await Frames();
+
+            lostSocket.CompleteAll();
+            await Frames();
+
+            writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.NoReservation });
+            await Frames();
+
+            Assert.AreEqual(1, lostSocket.Started);
+            Assert.AreEqual(2, socket.Sent.Count);
+            lifetime.Terminate();
+        });
+
+        // ForceSendAll while the loop is inside a send: the sends do not overlap (ClientWebSocket allows one outstanding
+        // SendAsync), the queued messages go after the one in flight, and they are counted as traffic.
+        [UnityTest]
+        public IEnumerator ForceSendAll_WhileLoopSends_SendsDoNotOverlap() => UniTask.ToCoroutine(async () =>
+        {
+            var traffic = new NetworkTraffic();
+            var writer = new ConnectionWriter(traffic);
+            var socket = new ManualSocket();
+            var lifetime = new Lifetime();
+            writer.Run(lifetime, socket);
+
+            writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.Ok });
+            await Frames();
+
+            Assert.AreEqual(1, socket.Started);
+
+            writer.WriteOneWay(new SharedSessionPlayer.Leave());
+            var force = writer.ForceSendAll();
+
+            await Frames();
+            Assert.AreEqual(1, socket.Started, "a send started while another one is outstanding");
+
+            socket.CompleteAll();
+            await Frames();
+            socket.CompleteAll();
+
+            await force.Timeout(TimeSpan.FromSeconds(2));
+
+            Assert.AreEqual(2, socket.Started);
+            Assert.AreEqual(0, socket.Overlaps);
+            Assert.AreEqual(2, traffic.SentMessages);
+            lifetime.Terminate();
+        });
+
+        // A request that fails to serialize is failed at once with the error, not left to its 20 s timeout.
+        [UnityTest]
+        public IEnumerator Request_NotSerializable_FailsAtOnce() => UniTask.ToCoroutine(async () =>
+        {
+            var (writer, _, lifetime) = Create();
+
+            var request = writer.WriteRequest<EmptyResponse>(new UnknownContext());
+            var exception = await Catch(request.Timeout(TimeSpan.FromSeconds(2)));
+
+            Assert.IsInstanceOf<MemoryPack.MemoryPackSerializationException>(exception, exception.ToString());
+            lifetime.Terminate();
+        });
+
+        // A connection closed locally while the loop sends: the socket refuses the rest (disposed), and that is not
+        // reported as a failed send.
+        [UnityTest]
+        public IEnumerator LifetimeEndsDuringSend_RestIsNotSentNorLogged() => UniTask.ToCoroutine(async () =>
+        {
+            var writer = new ConnectionWriter(new NetworkTraffic());
+            var socket = new ManualSocket();
+            var lifetime = new Lifetime();
+            writer.Run(lifetime, socket);
+
+            writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.Ok });
+            writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.Ok });
+            await Frames();
+
+            lifetime.Terminate();
+            socket.Dispose();
+            await Frames();
+
+            Assert.AreEqual(1, socket.Started);
+            LogAssert.NoUnexpectedReceived();
+        });
+
         [Test]
         public void RunAgainWhileAlive_Throws()
         {
@@ -203,6 +309,72 @@ namespace Internal.Tests
         private static UniTask Frames()
         {
             return UniTask.Delay(200, DelayType.Realtime);
+        }
+
+        private class UnknownContext : INetworkContext
+        {
+        }
+
+        // A send completes when the test says so, as a ClientWebSocket send waits for the network; a send started while
+        // another one is outstanding is counted (ClientWebSocket throws there). Disposed, it fails every send as the
+        // disposed ClientWebSocket of a terminated DefaultWebSocket does.
+        private class ManualSocket : IWebSocket
+        {
+            private readonly ViewableDelegate<SocketCloseInfo> _closed = new();
+            private readonly List<UniTaskCompletionSource> _pending = new();
+
+            private bool _isDisposed;
+
+            public int Started { get; private set; }
+            public int Overlaps { get; private set; }
+
+            public IViewableDelegate<byte[]> Received { get; } = new ViewableDelegate<byte[]>();
+            public IViewableDelegate<SocketCloseInfo> Closed => _closed;
+
+            public UniTask Connect()
+            {
+                return UniTask.CompletedTask;
+            }
+
+            public UniTask Send(byte[] bytes)
+            {
+                if (_isDisposed == true)
+                    throw new ObjectDisposedException(nameof(ManualSocket));
+
+                if (_pending.Count > 0)
+                    Overlaps++;
+
+                Started++;
+
+                var completion = new UniTaskCompletionSource();
+                _pending.Add(completion);
+                return completion.Task;
+            }
+
+            public void CompleteAll()
+            {
+                var pending = new List<UniTaskCompletionSource>(_pending);
+                _pending.Clear();
+
+                foreach (var completion in pending)
+                    completion.TrySetResult();
+            }
+
+            public void Dispose()
+            {
+                _isDisposed = true;
+
+                var pending = new List<UniTaskCompletionSource>(_pending);
+                _pending.Clear();
+
+                foreach (var completion in pending)
+                    completion.TrySetException(new ObjectDisposedException(nameof(ManualSocket)));
+            }
+
+            public void Drop(string reason)
+            {
+                _closed.Invoke(new SocketCloseInfo(SocketCloseInfo.AbnormalClosure, reason));
+            }
         }
 
         private class FakeSocket : IWebSocket

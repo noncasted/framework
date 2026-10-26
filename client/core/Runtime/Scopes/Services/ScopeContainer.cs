@@ -18,18 +18,26 @@ namespace Internal
             return GeneratedScopes.Create(rootId, builder);
         }
 
-        // Entity: the variant class is selected by the concrete view type.
+        // Entity: a root loaded with several view types has a class per view type, otherwise one class for the root.
+        // A view type without its variant class means the asset map is stale: the root is never taken instead.
         public static IContainer CreateEntity(string rootId, Type viewType, ContainerBuilder builder)
         {
-            if (viewType != null)
-            {
-                var variant = GeneratedScopes.VariantKey(rootId, viewType);
+            if (viewType == null)
+                throw new ArgumentNullException(nameof(viewType));
 
-                if (GeneratedScopes.IsRegistered(variant) == true)
-                    return Create(variant, builder);
+            if (GeneratedScopes.HasVariants(rootId) == false)
+                return Create(rootId, builder);
+
+            var variant = GeneratedScopes.VariantKey(rootId, viewType);
+
+            if (GeneratedScopes.IsRegistered(variant) == false)
+            {
+                throw new InvalidOperationException(
+                    $"Entity root '{rootId}' has no variant for view {viewType.FullName}. The generator splits the " +
+                    "root by the view types of its load sites: regenerate the asset map of the project.");
             }
 
-            return Create(rootId, builder);
+            return Create(variant, builder);
         }
     }
 }

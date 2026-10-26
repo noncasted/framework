@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -33,6 +34,8 @@ namespace Internal
 
             if (HierarchyBindingsQueue.IsEmpty() == false)
                 throw new InvalidOperationException("Bindings queue is not empty. Pump pending requests first.");
+
+            RequireNoPrefabStage();
 
             var paths = assetPaths.Distinct(StringComparer.Ordinal).OrderBy(path => path, StringComparer.Ordinal)
                 .ToList();
@@ -79,9 +82,27 @@ namespace Internal
         // plan and the requests. Phases already bound stay as they are - a rerun passes them without changes.
         public static void Cancel()
         {
+            Abort();
+            Debug.LogWarning($"[{LogTag}] Prefab batch cancelled.");
+        }
+
+        // A step of the batch threw: nothing pending may wait for a pass that will not come.
+        internal static void Abort()
+        {
             ClearPlan();
             HierarchyBindingsGenerator.ResetPending();
-            Debug.LogWarning($"[{LogTag}] Prefab batch cancelled.");
+        }
+
+        // The batch plans from the prefabs on the disk, and the generator scans and binds a prefab open in a prefab
+        // stage in the stage: one batch would mix the unsaved copy with the asset, and the entity views written at the
+        // end would be overwritten by the stage on save.
+        private static void RequireNoPrefabStage()
+        {
+            var stage = PrefabStageUtility.GetCurrentPrefabStage();
+
+            if (stage != null)
+                throw new InvalidOperationException(
+                    $"[{LogTag}] {stage.assetPath} is open in a prefab stage. Save it and close the stage first.");
         }
 
         public static string RegenerateScene(Scene scene)
@@ -165,6 +186,8 @@ namespace Internal
             if (HierarchyBindingsQueue.IsEmpty() == false)
                 throw new InvalidOperationException("Bindings queue is not empty. Pump pending requests first.");
 
+            RequireNoPrefabStage();
+
             var items = new List<PrefabItem>();
 
             foreach (var guid in AssetDatabase.FindAssets("t:Prefab", new[] { "Assets" }))
@@ -183,6 +206,8 @@ namespace Internal
                 throw new InvalidOperationException("Duplicate bindings types. See the console.");
 
             var types = new HashSet<string>(items.Select(item => item.FullTypeName), StringComparer.Ordinal);
+            var files = new HashSet<string>(items.Select(item => GeneratedFilePath(item.Request)),
+                StringComparer.Ordinal);
             var prepared = 0;
             var failed = 0;
             changed = false;
@@ -229,6 +254,13 @@ namespace Internal
                         throw new InvalidOperationException(
                             $"'{type.FullName}' in {scene.path} is used by more than one object.");
 
+                    var file = HierarchyBindingsGenerator.ToFilePath(
+                        HierarchyBindingsPaths.ResolveGeneratedFolder(component.gameObject, scene.path), type.Name);
+
+                    if (files.Add(file) == false)
+                        throw new InvalidOperationException(
+                            $"'{type.FullName}' in {scene.path} is generated into {file}, which another class uses.");
+
                     if (HierarchyBindingsGenerator.Prepare(component.gameObject, type.Name, type.Namespace ?? string.Empty,
                             component.IsSceneService, component.IsEntityComponent, out var fileChanged, false) == false)
                     {
@@ -261,7 +293,22 @@ namespace Internal
                 RunNextPhase();
         }
 
+        // A phase that throws (a prefab that cannot be found or scanned) ends the batch: its plan already points past
+        // the phase, and nothing would ever be bound to move it on.
         private static void RunNextPhase()
+        {
+            try
+            {
+                RunPhases();
+            }
+            catch (Exception)
+            {
+                Abort();
+                throw;
+            }
+        }
+
+        private static void RunPhases()
         {
             var plan = LoadPlan();
 
@@ -339,7 +386,7 @@ namespace Internal
                 Debug.Log(message);
         }
 
-        private static void CollectPrefab(string assetPath, List<PrefabItem> items)
+        internal static void CollectPrefab(string assetPath, List<PrefabItem> items)
         {
             var asset = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
 
@@ -370,7 +417,8 @@ namespace Internal
                         Request = new HierarchyBindingsRequest
                         {
                             AssetPath = assetPath,
-                            ObjectPath = RelativePath(bindings.transform),
+                            ObjectPath = HierarchyBindingsTarget.IndexPath(bindings.transform, contents.transform),
+                            ObjectNames = HierarchyBindingsTarget.NamePath(bindings.gameObject),
                             TypeName = type.Name,
                             Namespace = type.Namespace ?? string.Empty,
                             IsPrefabAsset = true,
@@ -386,8 +434,10 @@ namespace Internal
             }
         }
 
-        // One class - one object: otherwise two owners would overwrite the file one after another.
-        private static bool ValidateUniqueTypes(List<PrefabItem> items)
+        // One class - one object: otherwise two owners would overwrite the file one after another. One file - one
+        // class too: the file is named by the short type name, so ShopBindings of two namespaces generated into one
+        // folder would overwrite each other.
+        internal static bool ValidateUniqueTypes(List<PrefabItem> items)
         {
             var valid = true;
 
@@ -397,11 +447,34 @@ namespace Internal
                     continue;
 
                 valid = false;
-                var places = string.Join(", ", group.Select(item => item.Request.AssetPath + ":" + item.Request.ObjectPath));
-                Debug.LogError($"[{LogTag}] '{group.Key}' is declared on more than one object: {places}.");
+                Debug.LogError($"[{LogTag}] '{group.Key}' is declared on more than one object: {Places(group)}.");
+            }
+
+            foreach (var group in items.GroupBy(item => GeneratedFilePath(item.Request)))
+            {
+                var types = group.Select(item => item.FullTypeName).Distinct(StringComparer.Ordinal).ToList();
+
+                if (types.Count == 1)
+                    continue;
+
+                valid = false;
+                Debug.LogError(
+                    $"[{LogTag}] {string.Join(", ", types)} are all generated into {group.Key}: {Places(group)}. " +
+                    "Rename all of them but one.");
             }
 
             return valid;
+        }
+
+        private static string Places(IEnumerable<PrefabItem> items)
+        {
+            return string.Join(", ", items.Select(item => item.Request.AssetPath + ":" + item.Request.ObjectNames));
+        }
+
+        private static string GeneratedFilePath(HierarchyBindingsRequest request)
+        {
+            var folder = HierarchyBindingsPaths.ResolveGeneratedFolder(FindInAsset(request), request.AssetPath);
+            return HierarchyBindingsGenerator.ToFilePath(folder, request.TypeName);
         }
 
         private static int VariantDepth(GameObject asset)
@@ -426,29 +499,18 @@ namespace Internal
             return depth;
         }
 
-        private static string RelativePath(Transform target)
-        {
-            var names = new List<string>();
-
-            for (var current = target; current.parent != null; current = current.parent)
-                names.Add(current.name);
-
-            names.Reverse();
-            return string.Join("/", names);
-        }
-
-        private static GameObject FindInAsset(HierarchyBindingsRequest request)
+        internal static GameObject FindInAsset(HierarchyBindingsRequest request)
         {
             var asset = AssetDatabase.LoadAssetAtPath<GameObject>(request.AssetPath);
 
             if (asset == null)
                 throw new InvalidOperationException($"{request.AssetPath} disappeared during the batch.");
 
-            var found = string.IsNullOrEmpty(request.ObjectPath) ? asset.transform : asset.transform.Find(request.ObjectPath);
+            var found = HierarchyBindingsTarget.FindByIndexPath(asset.transform, request.ObjectPath);
 
             if (found == null)
                 throw new InvalidOperationException(
-                    $"'{request.ObjectPath}' disappeared from {request.AssetPath} during the batch.");
+                    $"'{request.ObjectNames}' disappeared from {request.AssetPath} during the batch.");
 
             return found.gameObject;
         }
@@ -533,7 +595,7 @@ namespace Internal
             return false;
         }
 
-        private sealed class PrefabItem
+        internal sealed class PrefabItem
         {
             public int VariantDepth;
             public int HierarchyDepth;

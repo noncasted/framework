@@ -19,6 +19,10 @@ public class ServiceDiscoveryStorage : Grain, IServiceDiscoveryStorage
     // A member without a heartbeat for this long is treated as gone (also by ServiceSlicesWriter).
     public static readonly TimeSpan StaleThreshold = TimeSpan.FromSeconds(30);
 
+    // A game server without a heartbeat for this long gets no new sessions (GameServerBalancer); the members refresh
+    // every 2 s.
+    public static readonly TimeSpan GameServerHeartbeatTimeout = TimeSpan.FromSeconds(10);
+
     public async Task<Dictionary<Guid, IServiceOverview>> Update(IServiceOverview overview)
     {
         var deployId = this.GetPrimaryKey();
@@ -26,7 +30,9 @@ public class ServiceDiscoveryStorage : Grain, IServiceDiscoveryStorage
         var staleCutoff = now - StaleThreshold;
 
         var value = await _state.Update(s => {
-            s.Members[overview.Id] = overview;
+            // Stamped with the clock of this grain: the staleness of the members is measured by one clock, not by
+            // the clocks of their hosts.
+            s.Members[overview.Id] = Stamp(overview, now);
 
             var staleIds = s.Members.Values
                             .Where(m => m.UpdateTime < staleCutoff)
@@ -45,6 +51,27 @@ public class ServiceDiscoveryStorage : Grain, IServiceDiscoveryStorage
         });
 
         return value.Members;
+    }
+
+    private static IServiceOverview Stamp(IServiceOverview overview, DateTime now)
+    {
+        return overview switch
+        {
+            GameServerOverview server => new GameServerOverview
+            {
+                Id = server.Id,
+                Tag = server.Tag,
+                UpdateTime = now,
+                Url = server.Url
+            },
+            ServiceOverview service => new ServiceOverview
+            {
+                Id = service.Id,
+                Tag = service.Tag,
+                UpdateTime = now
+            },
+            _ => throw new InvalidOperationException($"Unknown service overview {overview.GetType().FullName}")
+        };
     }
 
     public async Task<Dictionary<Guid, IServiceOverview>> Get()

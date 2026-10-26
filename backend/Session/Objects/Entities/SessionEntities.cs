@@ -25,10 +25,15 @@ public class SessionEntities : ISessionEntities
         if (entity.Owner == null)
             return;
 
-        if (_byUser.TryGetValue(entity.Owner, out var byUser) == false)
+        var owner = entity.Owner;
+
+        if (_byUser.TryGetValue(owner, out var byUser) == false)
         {
             byUser = new List<IEntity>();
-            _byUser[entity.Owner] = byUser;
+            _byUser[owner] = byUser;
+
+            // The entities of a seat end with it: an ended seat is forgotten, not kept with an empty list.
+            owner.Lifetime.Listen(() => _byUser.Remove(owner));
         }
 
         var userEntities = ((List<IEntity>)byUser);

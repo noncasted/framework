@@ -54,10 +54,23 @@ through `InternalsVisibleTo`.
 6. **Emit** (`Scope/ScopeEmitter`). One `{Type}{Method}Container.g.cs` per root (and per entity variant):
    `internal sealed class {Type}{Method}Container : Internal.IContainer, Internal.IProvides<T>...` with a field per
    registration, ctor-time construction in dependency order, a static export table for `Resolve` / `TryResolve`
-   (falls back to the parent), `Dispose` terminating the scope lifetime, and
+   (falls back to the parent), `Dispose`, and
    `[RuntimeInitializeOnLoadMethod(SubsystemRegistration)] RegisterGenerated()` calling
-   `Internal.GeneratedScopes.Register(rootId, request => new ...Container(...))`
+   `Internal.GeneratedScopes.Register(rootId, request => new ...Container(...), constructed, instances)`
    (or `RegisterVariant(rootId, typeof(View), ...)` for entity variants).
+   Runtime values are bound to their registration, not to their type: a `RegisterInstance` / `RegisterComponent`
+   slot takes `request.GetInstance<T>(n)` (the n-th instance registration of the declared type `T`, in installer
+   order), a `WithParameter` hole takes `request.GetParameter<T>(typeof(Implementation), n)` (its own registration,
+   then the parent), a parent export takes `request.GetFromParent<T>()`.
+   `constructed` / `instances` list what the class has slots for; before building, the builder is checked against
+   them: a registration the generator did not see (a call through an interface or a virtual method, a stale asset
+   map) or more instances of a type than slots (a loop, a repeated installer call) throws.
+   A type resolves to its last registration, the same one a constructor parameter takes (CINGR009 warns).
+   An alternative (`if` / `switch` branch) whose branch did not run leaves its field null: the scope builds, a
+   dependent throws (`RequireAlternative`), `Resolve` goes to the parent, lists leave it out.
+   `Dispose` terminates the lifetime first (its listeners still see live services), then disposes the services in
+   reverse construction order; a throwing step does not skip the rest, the errors are rethrown at the end; after it
+   `Resolve` throws `ObjectDisposedException`. Transients are not tracked: whoever resolves one disposes it.
    A `builder.Inject(x)` slot also takes `request.GetInjections<T>()` (every instance passed with that type, e.g.
    identical scene services) and calls `[Inject]` on each of them in a loop; the slot field keeps the last instance.
    Several `builder.Inject` call sites of one type share a single loop.
@@ -67,7 +80,8 @@ At runtime `ScopeContainer` / `EntityScopeLoader` take the root id from the meth
 `GeneratedScopeRequest` (lifetime, parent, builder parameters, `IsRegistered` for alternatives).
 
 `Injector/` holds the shared symbol lookups (`ReferenceSymbols`) and the per-type constructor / `[Inject]`
-analysis (`TypeAnalyzer`, `InjectorModel`) used by the resolver.
+analysis (`TypeAnalyzer`, `InjectorModel`) used by the resolver. The `[Inject]` method is looked up on the type and
+its base classes; an override counts as the method it overrides.
 
 ## Diagnostics
 
@@ -83,6 +97,13 @@ All are errors.
 | CINGR006 | One `ScopeEntityView` type used by two assets |
 | CINGR007 | Declared parent scope manifest not found |
 | CINGR008 | `builder.Injectable<T>` type has no visible `[Inject]` method |
+| CINGR009 | Warning: a parameter takes the last of several registrations of its type |
+| CINGR010 | The `[Inject]` method cannot be called: several of them (the type and its base classes), generic, not accessible |
+| CINGR011 | The registered type cannot be constructed: struct, interface, abstract, static, not accessible, no accessible constructor, several constructors with the longest parameter count |
+| CINGR012 | A transient registration listens to several scope phases (each phase would get a new instance) |
+
+An exception inside the generator is reported as CINGR001 for the scope it happened in; the other scopes of the
+assembly are still emitted.
 
 Check generated code without Unity:
 `dotnet build client/<Asm>.csproj --no-incremental --no-dependencies -p:EmitCompilerGeneratedFiles=true -p:CompilerGeneratedFilesOutputPath=<dir>`.

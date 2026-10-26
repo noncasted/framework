@@ -49,20 +49,28 @@ namespace Internal
 
             var bindingsChanged = false;
             var bindings = 0;
-            Step("Hierarchy bindings", () => bindings = HierarchyBindingsBatch.PrepareProject(out bindingsChanged));
 
-            Step("Env assets", AssetCatalogGenerator.GenerateNow);
-            Step("Prefabs", PrefabCatalogGenerator.GenerateNow);
+            // The bindings written before a later step throws are flushed anyway: their requests are queued, and
+            // without the flush they would wait for a pass that never comes and block the next batch.
+            try
+            {
+                Step("Hierarchy bindings", () => bindings = HierarchyBindingsBatch.PrepareProject(out bindingsChanged));
 
-            foreach (var step in ProjectSteps())
-                Step(step.Name, step.Run);
+                Step("Env assets", AssetCatalogGenerator.GenerateNow);
+                Step("Prefabs", PrefabCatalogGenerator.GenerateNow);
 
-            Step("Container asset map", ContainerGraphPostprocessor.GenerateNow);
-            Step("Shared addressables", SharedAddressablesSync.GenerateNow);
+                foreach (var step in ProjectSteps())
+                    Step(step.Name, step.Run);
 
-            // Refresh covers every written script; binding of changed bindings waits for the reload.
-            HierarchyBindingsGenerator.Flush(bindingsChanged);
-            AssetDatabase.Refresh();
+                Step("Container asset map", ContainerGraphPostprocessor.GenerateNow);
+                Step("Shared addressables", SharedAddressablesSync.GenerateNow);
+            }
+            finally
+            {
+                // Refresh covers every written script; binding of changed bindings waits for the reload.
+                HierarchyBindingsGenerator.Flush(bindingsChanged);
+                AssetDatabase.Refresh();
+            }
 
             Debug.Log($"[{LogTag}] Done: {bindings} bindings checked. Changed scripts recompile now.");
         }

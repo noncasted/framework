@@ -12,6 +12,12 @@ namespace Internal
         void Update(byte[] value, int version);
         byte[] Collect();
 
+        // The collected value has gone to the server as a write (SetProperty): the server gives it the next version
+        // and sends it to the others but not to this client, so the property takes that version itself. Without it
+        // a write of another client that the server applied before this one (an older version) replaced the value
+        // here, while the server and the other clients kept this one.
+        void OnWriteSent();
+
         // The object of the property is live in the session (INetworkObjectsCollection.Add): from now on every
         // write is reported to the sink (NetworkPropertiesCollector), a write made before - right here.
         void Attach(INetworkObject owner, INetworkDirtyProperties sink);
@@ -83,6 +89,11 @@ namespace Internal
             _isDirty = false;
             var serialized = MemoryPackSerializer.Serialize(Value);
             return serialized;
+        }
+
+        public void OnWriteSent()
+        {
+            _version++;
         }
 
         public void Attach(INetworkObject owner, INetworkDirtyProperties sink)

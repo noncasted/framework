@@ -14,7 +14,7 @@ namespace Internal
         private readonly List<ExistingBindings> _existing = new();
 
         private GameObject _target;
-        private string _assetGuid;
+        private string _assetPath;
         private string _bindingsName;
         private string _namespace;
         private bool _isSceneService;
@@ -32,8 +32,8 @@ namespace Internal
         private void Setup(GameObject target)
         {
             _target = target;
-            _assetGuid = HierarchyBindingsTarget.TryDescribe(target, out var assetPath, out _, out _, out _)
-                ? AssetDatabase.AssetPathToGUID(assetPath)
+            _assetPath = HierarchyBindingsTarget.TryDescribe(target, out var assetPath, out _, out _, out _)
+                ? assetPath
                 : string.Empty;
 
             foreach (var bindings in target.GetComponents<ObjectBindings>())
@@ -47,8 +47,8 @@ namespace Internal
                 _existing.Add(new ExistingBindings
                 {
                     Type = type,
-                    LayerAssetPath = AssetDatabase.GUIDToAssetPath(bindings.LayerAssetGuid),
-                    IsForeign = IsForeignLayer(bindings),
+                    LayerAssetPath = DeclaringAsset(bindings, _assetPath),
+                    IsForeign = IsForeignLayer(bindings, _assetPath),
                     IsSceneService = bindings.IsSceneService,
                     IsEntityComponent = bindings.IsEntityComponent
                 });
@@ -60,14 +60,19 @@ namespace Internal
                 : HierarchyBindingsPaths.ResolveDefaultNamespace(target);
         }
 
-        // The layer is written at binding. An empty layer - bindings older than this field, they count as own:
-        // if that is wrong, the generator still stops the regeneration with a loud error.
-        private bool IsForeignLayer(ObjectBindings bindings)
+        // The layer is the asset that declares the component, and PrefabUtility knows it: the GUID stored at binding
+        // stays the one of the original in a duplicated prefab (Ctrl+D), whose bindings are its own.
+        internal static bool IsForeignLayer(ObjectBindings bindings, string assetPath)
         {
-            if (string.IsNullOrEmpty(bindings.LayerAssetGuid) || string.IsNullOrEmpty(_assetGuid))
+            if (string.IsNullOrEmpty(assetPath))
                 return false;
 
-            return bindings.LayerAssetGuid != _assetGuid;
+            return DeclaringAsset(bindings, assetPath) != assetPath;
+        }
+
+        private static string DeclaringAsset(ObjectBindings bindings, string assetPath)
+        {
+            return HierarchyBindingsLayer.ResolveDeclaringAsset(bindings, assetPath);
         }
 
         private void OnGUI()

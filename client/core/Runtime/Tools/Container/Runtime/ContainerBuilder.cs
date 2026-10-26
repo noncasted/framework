@@ -31,13 +31,14 @@ namespace Internal
 
         // The lists live from the first registration until MarkBuilt and go back to the pool: building runs only
         // on the main thread (ContainerThread.Assert), and array growth is paid once per process.
-        private static readonly Stack<List<Type>> _implementationsPool = new Stack<List<Type>>();
+        private static readonly Stack<List<Entry>> _entriesPool = new Stack<List<Entry>>();
         private static readonly Stack<List<Hole>> _holesPool = new Stack<List<Hole>>();
 
-        // Implementation type of each registration by its index: installer if/switch branches are looked up by it.
-        private List<Type> _implementations;
+        // Every registration by its index, in the order the installer wrote them: the implementation type
+        // (installer if/switch branches are looked up by it) and the ready instance with its declared type.
+        private List<Entry> _entries;
 
-        // Ready instances and WithParameter parameters: what the generated class receives as holes.
+        // WithParameter parameters by the index of their registration.
         private List<Hole> _holes;
         private List<object> _injections;
 
@@ -65,7 +66,7 @@ namespace Internal
             if (implementation == null)
                 throw new ArgumentNullException(nameof(implementation));
 
-            return new ServiceRegistration(this, AddImplementation(implementation));
+            return new ServiceRegistration(this, AddEntry(new Entry(implementation, null, null)));
         }
 
         public ServiceRegistration AddInstance(Type serviceType, object instance)
@@ -79,9 +80,7 @@ namespace Internal
             if (instance == null)
                 throw new ArgumentNullException(nameof(instance));
 
-            var index = AddImplementation(instance.GetType());
-            AddHole(new Hole(index, null, instance));
-            return new ServiceRegistration(this, index);
+            return new ServiceRegistration(this, AddEntry(new Entry(instance.GetType(), serviceType, instance)));
         }
 
         public ServiceRegistration AddComponent(
@@ -98,9 +97,7 @@ namespace Internal
             if (component == null)
                 throw new ArgumentNullException(nameof(component));
 
-            var index = AddImplementation(component.GetType());
-            AddHole(new Hole(index, null, component));
-            return new ServiceRegistration(this, index);
+            return new ServiceRegistration(this, AddEntry(new Entry(component.GetType(), serviceType, component)));
         }
 
         // Calls the builder constructor. One ContainerBuilder - one IBuilder.
@@ -146,11 +143,11 @@ namespace Internal
         {
             _built = true;
 
-            if (_implementations != null)
+            if (_entries != null)
             {
-                _implementations.Clear();
-                _implementationsPool.Push(_implementations);
-                _implementations = null;
+                _entries.Clear();
+                _entriesPool.Push(_entries);
+                _entries = null;
             }
 
             if (_holes != null)
@@ -164,7 +161,7 @@ namespace Internal
         internal Type GetImplementation(int index)
         {
             ThrowIfBuilt();
-            return _implementations[index];
+            return _entries[index].Implementation;
         }
 
         internal void SetParameter(int index, Type type, object value)
@@ -192,13 +189,122 @@ namespace Internal
         {
             ThrowIfBuilt();
 
-            for (var i = 0; i < (_implementations?.Count ?? 0); i++)
+            for (var i = 0; i < (_entries?.Count ?? 0); i++)
             {
-                if (_implementations[i] == implementation)
+                if (_entries[i].Implementation == implementation)
                     return true;
             }
 
             return false;
+        }
+
+        // The instance of the occurrence-th RegisterInstance / RegisterComponent with this declared type: the
+        // generated class has a slot per such call and takes the instances in the order the installer wrote them.
+        internal object GetInstance(Type serviceType, int occurrence)
+        {
+            ThrowIfBuilt();
+
+            var seen = 0;
+
+            for (var i = 0; i < (_entries?.Count ?? 0); i++)
+            {
+                if (_entries[i].InstanceType != serviceType)
+                    continue;
+
+                if (seen == occurrence)
+                    return _entries[i].Instance;
+
+                seen++;
+            }
+
+            throw new InvalidOperationException(
+                $"Scope '{Name}' has {seen} instance(s) of {serviceType.FullName}, the generated class expects at least " +
+                $"{occurrence + 1}: a registration of it did not run (an if without else around RegisterInstance).");
+        }
+
+        // The WithParameter value of this type on the occurrence-th registration of the implementation.
+        internal bool TryGetParameter(Type implementation, int occurrence, Type type, out object value)
+        {
+            ThrowIfBuilt();
+
+            var seen = 0;
+
+            for (var i = 0; i < (_entries?.Count ?? 0); i++)
+            {
+                if (_entries[i].InstanceType != null || _entries[i].Implementation != implementation)
+                    continue;
+
+                if (seen++ != occurrence)
+                    continue;
+
+                for (var h = 0; h < (_holes?.Count ?? 0); h++)
+                {
+                    if (_holes[h].Index == i && _holes[h].Type == type)
+                    {
+                        value = _holes[h].Value;
+                        return true;
+                    }
+                }
+
+                value = null;
+                return false;
+            }
+
+            throw new InvalidOperationException(
+                $"Scope '{Name}' has {seen} registration(s) of {implementation.FullName}, the generated class expects " +
+                $"at least {occurrence + 1}.");
+        }
+
+        // Every runtime registration must have a slot in the generated class: one the generator did not see
+        // (a call through an interface or a virtual method, a stale asset map) would otherwise be dropped silently,
+        // and the instances of a loop would all go into one slot.
+        internal void VerifyCovered(string rootId, Type[] constructed, Type[] instances)
+        {
+            ThrowIfBuilt();
+
+            for (var i = 0; i < (_entries?.Count ?? 0); i++)
+            {
+                var entry = _entries[i];
+
+                if (entry.InstanceType == null)
+                {
+                    if (Array.IndexOf(constructed, entry.Implementation) < 0)
+                    {
+                        throw new InvalidOperationException(
+                            $"Scope '{rootId}': {entry.Implementation.FullName} is registered at runtime, but the " +
+                            "generated class does not know it. It was registered through code the generator does not " +
+                            "follow (a call through an interface or a virtual method, reflection), or the asset map " +
+                            "of the project is stale.");
+                    }
+
+                    continue;
+                }
+
+                var registered = 0;
+
+                for (var j = 0; j < _entries.Count; j++)
+                {
+                    if (_entries[j].InstanceType == entry.InstanceType)
+                        registered++;
+                }
+
+                var slots = 0;
+
+                for (var j = 0; j < instances.Length; j++)
+                {
+                    if (instances[j] == entry.InstanceType)
+                        slots++;
+                }
+
+                if (registered > slots)
+                {
+                    throw new InvalidOperationException(
+                        $"Scope '{rootId}': {entry.InstanceType.FullName} is registered as an instance {registered} " +
+                        $"time(s), the generated class has {slots} slot(s) for it. A registration in a loop, a repeated " +
+                        "installer call, identical scene services or code the generator does not follow: one slot " +
+                        "keeps one instance (builder.Inject takes every instance of a type).");
+                }
+            }
         }
 
         internal bool TryGetHole(Type type, out object instance)
@@ -208,31 +314,25 @@ namespace Internal
 
             ThrowIfBuilt();
 
-            // The last registration wins; within it, the ready instance wins, then the parameter. A parameter
-            // can be appended to an earlier registration later (a chain extension), so
-            // the write order does not match the registration order and the whole list is scanned.
-            var found = -1;
-
-            for (var i = (_holes?.Count ?? 0) - 1; i >= 0; i--)
+            // By type only, the last registration wins; within it, the ready instance wins, then the parameter.
+            // What a generated slot owns is taken by its registration (GetInstance, TryGetParameter): this lookup is
+            // left to the switch arm parameters and the builder.Inject slots.
+            for (var i = (_entries?.Count ?? 0) - 1; i >= 0; i--)
             {
-                var hole = _holes[i];
+                if (_entries[i].InstanceType != null && type.IsInstanceOfType(_entries[i].Instance) == true)
+                {
+                    instance = _entries[i].Instance;
+                    return true;
+                }
 
-                var matches = hole.Type == null
-                    ? type.IsInstanceOfType(hole.Value) == true
-                    : hole.Type == type;
-
-                if (matches == false)
-                    continue;
-
-                if (found < 0 || hole.Index > _holes[found].Index ||
-                    (hole.Index == _holes[found].Index && hole.Type == null))
-                    found = i;
-            }
-
-            if (found >= 0)
-            {
-                instance = _holes[found].Value;
-                return true;
+                for (var h = (_holes?.Count ?? 0) - 1; h >= 0; h--)
+                {
+                    if (_holes[h].Index == i && _holes[h].Type == type)
+                    {
+                        instance = _holes[h].Value;
+                        return true;
+                    }
+                }
             }
 
             // builder.Inject(x): the generated class receives the instance as a hole and calls Construct itself.
@@ -280,11 +380,11 @@ namespace Internal
                 throw new InvalidOperationException("Cannot register after the container is created.");
         }
 
-        private int AddImplementation(Type implementation)
+        private int AddEntry(Entry entry)
         {
-            _implementations ??= _implementationsPool.Count > 0 ? _implementationsPool.Pop() : new List<Type>();
-            _implementations.Add(implementation);
-            return _implementations.Count - 1;
+            _entries ??= _entriesPool.Count > 0 ? _entriesPool.Pop() : new List<Entry>();
+            _entries.Add(entry);
+            return _entries.Count - 1;
         }
 
         private void AddHole(Hole hole)
@@ -293,8 +393,23 @@ namespace Internal
             _holes.Add(hole);
         }
 
-        // Type == null - the ready instance of registration Index: matches any type it implements.
-        // Otherwise a WithParameter parameter: matches only its own type.
+        // InstanceType == null - a constructed registration; otherwise RegisterInstance / RegisterComponent with
+        // its declared type and the ready instance.
+        private readonly struct Entry
+        {
+            public Entry(Type implementation, Type instanceType, object instance)
+            {
+                Implementation = implementation;
+                InstanceType = instanceType;
+                Instance = instance;
+            }
+
+            public readonly Type Implementation;
+            public readonly Type InstanceType;
+            public readonly object Instance;
+        }
+
+        // A WithParameter parameter of registration Index: matches only its own type.
         private readonly struct Hole
         {
             public Hole(int index, Type type, object value)

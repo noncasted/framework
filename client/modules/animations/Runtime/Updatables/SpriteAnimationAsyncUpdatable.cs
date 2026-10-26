@@ -30,8 +30,11 @@ namespace Internal
             if (_voidUpdatable.Update(deltaTime) == false)
                 return false;
 
-            _completion.TrySetResult();
+            // Taken before it completes: TrySetResult runs the awaiter synchronously, and an awaiter that plays the
+            // next PlayAsync sets a new completion here - cleared after, that one was lost.
+            var completion = _completion;
             _completion = null;
+            completion.TrySetResult();
 
             return false;
         }

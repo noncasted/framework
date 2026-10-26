@@ -41,12 +41,14 @@ public class Transactions : ITransactions
         IEventStorage eventStorage,
         IDbSource dbSource,
         ISideEffectsStorage sideEffectsStorage,
+        ITransactionConfig transactionConfig,
         ILogger<Transactions> logger)
     {
         _stateStorage = stateStorage;
         _eventStorage = eventStorage;
         _dbSource = dbSource;
         _sideEffectsStorage = sideEffectsStorage;
+        _transactionConfig = transactionConfig;
         _logger = logger;
     }
 
@@ -54,6 +56,7 @@ public class Transactions : ITransactions
     private readonly IEventStorage _eventStorage;
     private readonly IDbSource _dbSource;
     private readonly ISideEffectsStorage _sideEffectsStorage;
+    private readonly ITransactionConfig _transactionConfig;
     private readonly ILogger<Transactions> _logger;
 
     public async Task<TransactionResult> Process(TransactionParameters parameters)
@@ -120,6 +123,19 @@ public class Transactions : ITransactions
         try
         {
             await Commit(result, context, parameters.Callbacks);
+        }
+        catch (TransactionOutcomeUnknownException e)
+        {
+            // Neither a success nor a failure the caller may retry: the memory of the participants is reloaded from
+            // the database (whatever is there), the caller gets the exception.
+            _logger.LogError(e,
+                "[Transaction] [Error] Outcome of the commit of transaction {TransactionId} is unknown",
+                context.Id);
+
+            await Rollback(context, activity);
+            BackendMetrics.TransactionTotal.Add(1);
+            BackendMetrics.TransactionFailure.Add(1);
+            throw;
         }
         catch (Exception e)
         {
@@ -210,11 +226,13 @@ public class Transactions : ITransactions
         await using var connection = await _dbSource.Value.OpenConnectionAsync();
         await using var transaction = await connection.BeginTransactionAsync();
 
+        string transactionXid;
+
         try
         {
             // Direct states and side effects go to Postgres as one NpgsqlBatch: one round trip
             // for the whole transaction instead of one per table group plus one for side effects.
-            await WriteBatch(connection, transaction, result.States, context.SideEffects);
+            transactionXid = await WriteBatch(connection, transaction, result.States, context.SideEffects);
 
             // Marten runs its own pipeline inside the same transaction; it cannot join the batch.
             if (result.Events.Count != 0)
@@ -222,6 +240,10 @@ public class Transactions : ITransactions
 
             foreach (var callback in callbacks)
                 await callback(transaction);
+
+            // A participant taken over by another transaction (GrainTransactionHandler.Join) rejects the seal: the
+            // upserts carry no version, committing would overwrite the newer commit with this old snapshot.
+            await Task.WhenAll(context.Participants.Values.Select(participant => participant.Seal(context.Id)));
         }
         catch (Exception e)
         {
@@ -233,8 +255,65 @@ public class Transactions : ITransactions
             throw;
         }
 
-        // A failed commit is rolled back by the server; there is nothing left to roll back here.
-        await transaction.CommitAsync();
+        // A failed commit is rolled back by the server; there is nothing left to roll back here. But the call can fail
+        // after the server committed (the connection broke while the answer was on the way): reported as a failure,
+        // the caller would apply the change again. The server tells what happened to the transaction id.
+        try
+        {
+            await CommitTransaction(transaction);
+        }
+        catch (Exception e)
+        {
+            if (await IsCommitted(transactionXid, e) == false)
+                throw;
+
+            _logger.LogWarning(e,
+                "[Transaction] Commit of transaction {TransactionId} reported a failure, but the server committed it",
+                context.Id);
+        }
+    }
+
+    private async Task<bool> IsCommitted(string transactionXid, Exception commitError)
+    {
+        const int attempts = 50;
+
+        try
+        {
+            await using var connection = await _dbSource.Value.OpenConnectionAsync();
+
+            for (var attempt = 0; attempt < attempts; attempt++)
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText = "SELECT pg_xact_status(@xid::xid8)";
+                command.Parameters.AddWithValue("xid", transactionXid);
+
+                switch (await command.ExecuteScalarAsync())
+                {
+                    case "committed":
+                        return true;
+                    case "aborted":
+                        return false;
+                    case "in progress":
+                        // The server still finishes the transaction of the broken connection.
+                        await Task.Delay(100);
+                        continue;
+                    default:
+                        throw new TransactionOutcomeUnknownException(transactionXid, commitError);
+                }
+            }
+        }
+        catch (Exception e) when (e is not TransactionOutcomeUnknownException)
+        {
+            throw new TransactionOutcomeUnknownException(transactionXid, new AggregateException(commitError, e));
+        }
+
+        throw new TransactionOutcomeUnknownException(transactionXid, commitError);
+    }
+
+    // The commit itself, apart for the tests: a commit that throws after the server committed.
+    protected virtual Task CommitTransaction(NpgsqlTransaction transaction)
+    {
+        return transaction.CommitAsync();
     }
 
     private async Task ConfirmParticipants(TransactionContext context)
@@ -260,22 +339,28 @@ public class Transactions : ITransactions
         await Task.WhenAll(confirmations);
     }
 
-    private async Task WriteBatch(
+    // Returns the id of the database transaction (pg_current_xact_id) for IsCommitted.
+    private async Task<string> WriteBatch(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
         IReadOnlyList<GrainStateRecord> states,
         ConcurrentDictionary<Guid, ISideEffect> sideEffects)
     {
-        var commands = new List<NpgsqlBatchCommand>();
+        // The server aborts this transaction when the commit does not follow the seal of the participants within
+        // half of their stuck grace: a takeover after the grace (GrainTransactionHandler.Seal) cannot race a commit.
+        var idleTimeout = (int)(_transactionConfig.Value.StuckGraceSeconds * 1000 / 2);
+
+        var commands = new List<NpgsqlBatchCommand>
+        {
+            new("SELECT pg_current_xact_id()::text"),
+            new($"SET LOCAL idle_in_transaction_session_timeout = {idleTimeout}")
+        };
 
         if (states.Count != 0)
             commands.AddRange(_stateStorage.BuildWriteCommands(states));
 
         if (sideEffects.Count != 0)
             commands.Add(_sideEffectsStorage.BuildWriteCommand(sideEffects.Values.ToList()));
-
-        if (commands.Count == 0)
-            return;
 
         // Same metrics DirectStorage.Write would have recorded for the transactional write.
         var start = Stopwatch.GetTimestamp();
@@ -287,7 +372,19 @@ public class Transactions : ITransactions
             foreach (var command in commands)
                 batch.BatchCommands.Add(command);
 
-            await batch.ExecuteNonQueryAsync();
+            await using var reader = await batch.ExecuteReaderAsync();
+
+            if (await reader.ReadAsync() == false)
+                throw new InvalidOperationException("The batch of the transaction returned no transaction id");
+
+            var transactionXid = reader.GetString(0);
+
+            // The errors of the writes come with their results.
+            while (await reader.NextResultAsync())
+            {
+            }
+
+            return transactionXid;
         }
         finally
         {

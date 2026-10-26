@@ -70,7 +70,7 @@ namespace ContainerGenerator {
                 var id = MatchParent(document, hint);
                 if (string.IsNullOrEmpty(id)) {
                     method.ParentUnresolved = true;
-                    // Корень из манифеста чужой сборки: его родителя проверяет сборка-владелец.
+                    // A root from the manifest of another assembly: its parent is checked by the assembly that owns it.
                     if (string.IsNullOrEmpty(method.AssemblyName) == false &&
                         string.Equals(method.AssemblyName, document.AssemblyName, StringComparison.Ordinal) == false)
                         continue;
@@ -124,6 +124,7 @@ namespace ContainerGenerator {
             for (var i = 0; i < graph.Registrations.Count; i++)
                 Bind(graph, i, index, compilation, references, implicitTypes, lastByType, allByType, parentExports);
 
+            ReportTransientPhaseListeners(graph);
             DetectCycles(graph);
             graph.ConstructionOrder.AddRange(SortTopologically(graph));
             return graph;
@@ -226,7 +227,7 @@ namespace ContainerGenerator {
                 steps.Add(new Step(ordinal, steps.Count, null, method.Calls[i], i));
             }
 
-            // Стабильно: сервисы сцены делят ординал вызова сцены и идут в порядке SceneServicesFactory.
+            // Stable: the scene services share the ordinal of the scene call and keep the order of SceneServicesFactory.
             steps.Sort((a, b) => a.Ordinal != b.Ordinal
                 ? a.Ordinal.CompareTo(b.Ordinal)
                 : a.Sequence.CompareTo(b.Sequence));
@@ -238,7 +239,7 @@ namespace ContainerGenerator {
             int index,
             Dictionary<string, int> lastByType,
             Dictionary<string, List<int>> allByType) {
-            // Injectable не сервис: его никто не резолвит, скоуп только инжектит готовый экземпляр.
+            // Injectable is not a service: nobody resolves it, the scope only injects a ready instance.
             if (registration.Origin == "Injectable")
                 return;
 
@@ -363,8 +364,8 @@ namespace ContainerGenerator {
             }
         }
 
-        // IEventLoop — тот самый builder.Events загрузчика: на нём висят AddBeforeBuild/AddAfterDispose
-        // и по нему загрузчик гонит фазы. Свой экземпляр в классе скоупа был бы другим циклом.
+        // IEventLoop is the very builder.Events of the loader: AddBeforeBuild / AddAfterDispose hang on it
+        // and the loader runs the phases through it. An instance of the scope class would be another loop.
         private static void EnsureEventLoopHole(ScopeGraph graph, Compilation compilation, TypeIndex types) {
             var service = types.Format(LoaderServices.Find(compilation, LoaderServices.EventLoopService));
             if (string.IsNullOrEmpty(service) || HasService(graph, service))
@@ -473,7 +474,7 @@ namespace ContainerGenerator {
             }
 
             if (string.IsNullOrEmpty(registration.ImplementationType)) {
-                // Регистрация без типа — вызов не связался (ошибка в исходнике): класс с пустым типом не эмитится.
+                // A registration without a type: the call did not bind (an error in the source), no class is emitted for it.
                 if (registration.Origin != LoaderServices.Origin)
                     graph.Diagnostics.Add(MissingType(registration, "(unbound " + registration.Kind + ")"));
                 return;
@@ -514,17 +515,32 @@ namespace ContainerGenerator {
             int arm = -1,
             string armParameterType = "") {
             var registration = graph.Registrations[ownerIndex];
+
+            // What the generated class cannot write (a constructor call or an [Inject] call it has no access to)
+            // is an error at the registration, not a compile error in the generated file or a silently skipped call.
+            var constructs = BindsConstructor(registration.Origin);
+            var constructProblems = constructs
+                ? TypeAnalyzer.ConstructProblems(implementation, compilation)
+                : new List<string>();
+            var injectProblems = TypeAnalyzer.InjectProblems(implementation, references, compilation);
+            for (var i = 0; i < constructProblems.Count; i++)
+                graph.Diagnostics.Add(TypeProblem(GraphDescriptors.NotConstructible, registration, implementation, constructProblems[i]));
+            for (var i = 0; i < injectProblems.Count; i++)
+                graph.Diagnostics.Add(TypeProblem(GraphDescriptors.NotInjectable, registration, implementation, injectProblems[i]));
+            if (constructProblems.Count > 0 || injectProblems.Count > 0)
+                return;
+
             var model = TypeAnalyzer.Analyze(implementation, references, registration.Location, false);
             if (registration.Origin == "Injectable" && (model == null || string.IsNullOrEmpty(model.ConstructName)))
                 graph.Diagnostics.Add(NoInjectMethod(registration));
             if (model == null)
                 return;
 
-            // У [Inject] без параметров нет рёбер: имя метода нужно эмиттеру отдельно.
+            // An [Inject] without parameters gives no edges: the emitter needs the method name separately.
             if (arm < 0)
                 registration.InjectMethod = model.ConstructName;
 
-            if (BindsConstructor(registration.Origin))
+            if (constructs)
                 BindParameters(
                     graph,
                     ownerIndex,
@@ -555,7 +571,7 @@ namespace ContainerGenerator {
                 model.ConstructName);
         }
 
-        // switch по enum строит ветку по значению, зарегистрированному в скоупе (RegisterInstance(definition.Type)).
+        // A switch over an enum builds the arm by the value registered in the scope (RegisterInstance(definition.Type)).
         private static void BindDiscriminant(
             ScopeGraph graph,
             GraphRegistration registration,
@@ -610,12 +626,13 @@ namespace ContainerGenerator {
                 };
 
                 if (string.IsNullOrEmpty(armParameterType) == false && parameter.TypeFullName == armParameterType) {
-                    // WithParameter своей ветки: в рантайме в билдере лежит только значение выбранной ветки.
+                    // WithParameter of its own arm: at runtime the builder holds only the value of the chosen arm.
                     edge.Kind = "ArmParameter";
                 }
                 else if (lastByType.TryGetValue(parameter.TypeFullName, out var target)) {
                     edge.Kind = "Registration";
                     edge.TargetIndex = target;
+                    WarnIfAmbiguous(graph, registration, parameter, target, allByType);
                 }
                 else if (TryGetCollectionElement(parameter.TypeFullName, out var element) &&
                          allByType.TryGetValue(element, out var indices)) {
@@ -629,8 +646,8 @@ namespace ContainerGenerator {
                 }
                 else if (TryGetCollectionElement(parameter.TypeFullName, out _) &&
                          parentExports.ContainsKey(parameter.TypeFullName) == false) {
-                    // Коллекция — всегда ResolveAll своего скоупа (как ContainerLocal<IReadOnlyList<T>>),
-                    // даже у регистрации с WithParameter: пустой список, а не дырка.
+                    // A collection is always ResolveAll of its own scope (like ContainerLocal<IReadOnlyList<T>>),
+                    // even for a registration with WithParameter: an empty list, not a hole.
                     edge.Kind = "Collection";
                 }
                 else if (allowsHole) {
@@ -641,7 +658,7 @@ namespace ContainerGenerator {
                     edge.ParentRootId = parentId;
                 }
                 else if (TryGetCollectionElement(parameter.TypeFullName, out _)) {
-                    // Нет ни одной регистрации элемента в скоупе — пустой массив, как ResolveAll.
+                    // No registration of the element in the scope: an empty array, as ResolveAll gives.
                     edge.Kind = "Collection";
                 }
                 else if (graph.ParentMissing) {
@@ -656,6 +673,84 @@ namespace ContainerGenerator {
             }
         }
 
+        // A single parameter of a type registered several times takes the last registration (Resolve does the same):
+        // usually one of them is a mistake, or the parameter wants all of them.
+        private static void WarnIfAmbiguous(
+            ScopeGraph graph,
+            GraphRegistration owner,
+            ParameterModel parameter,
+            int target,
+            Dictionary<string, List<int>> allByType) {
+            if (allByType.TryGetValue(parameter.TypeFullName, out var indices) == false)
+                return;
+
+            // The branches of one if / switch are one registration at runtime.
+            var count = 0;
+            var hasAlternative = false;
+            for (var i = 0; i < indices.Count; i++) {
+                if (graph.Registrations[indices[i]].Origin == "Alternative")
+                    hasAlternative = true;
+                else
+                    count++;
+            }
+
+            if (hasAlternative)
+                count++;
+            if (count < 2)
+                return;
+
+            graph.Diagnostics.Add(new DiagnosticInfo(
+                GraphDescriptors.AmbiguousRegistration,
+                owner.Location,
+                parameter.Name,
+                string.IsNullOrEmpty(owner.ImplementationType) ? owner.Kind : owner.ImplementationType,
+                count.ToString(CultureInfo.InvariantCulture),
+                parameter.TypeFullName,
+                Display(graph.Registrations[target]),
+                owner.File ?? "",
+                owner.Line.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        private static readonly string[] PhaseMarkers = {
+            "global::Internal.IScopeBaseSetup",
+            "global::Internal.IScopeBaseSetupAsync",
+            "global::Internal.IScopeSetup",
+            "global::Internal.IScopeSetupAsync",
+            "global::Internal.IScopeSetupCompletion",
+            "global::Internal.IScopeSetupCompletionAsync",
+            "global::Internal.IScopeLoaded",
+            "global::Internal.IScopeLoadedAsync",
+            "global::Internal.IScopeDispose",
+            "global::Internal.IScopeDisposeAsync",
+        };
+
+        // Every phase resolves its listeners anew: a transient that listens to setup and dispose would get them
+        // on two different instances.
+        private static void ReportTransientPhaseListeners(ScopeGraph graph) {
+            for (var i = 0; i < graph.Registrations.Count; i++) {
+                var registration = graph.Registrations[i];
+                if (registration.Lifetime != "Transient")
+                    continue;
+
+                var phases = new List<string>();
+                for (var s = 0; s < registration.ServiceTypes.Count; s++) {
+                    if (Array.IndexOf(PhaseMarkers, registration.ServiceTypes[s]) >= 0)
+                        phases.Add(registration.ServiceTypes[s].Substring("global::Internal.".Length));
+                }
+
+                if (phases.Count < 2)
+                    continue;
+
+                graph.Diagnostics.Add(new DiagnosticInfo(
+                    GraphDescriptors.TransientPhaseListener,
+                    registration.Location,
+                    registration.ImplementationType,
+                    string.Join(", ", phases),
+                    registration.File ?? "",
+                    registration.Line.ToString(CultureInfo.InvariantCulture)));
+            }
+        }
+
         private static DiagnosticInfo MissingType(GraphRegistration registration, string typeFullName) {
             var line = registration.Line.ToString(CultureInfo.InvariantCulture);
             return new DiagnosticInfo(
@@ -666,6 +761,20 @@ namespace ContainerGenerator {
                 string.IsNullOrEmpty(registration.ImplementationType) ? registration.Kind : registration.ImplementationType,
                 registration.File ?? "",
                 line);
+        }
+
+        private static DiagnosticInfo TypeProblem(
+            DiagnosticDescriptor descriptor,
+            GraphRegistration registration,
+            INamedTypeSymbol type,
+            string problem) {
+            return new DiagnosticInfo(
+                descriptor,
+                registration.Location,
+                TypeNames.ForCode(type),
+                problem,
+                registration.File ?? "",
+                registration.Line.ToString(CultureInfo.InvariantCulture));
         }
 
         private static DiagnosticInfo NoInjectMethod(GraphRegistration registration) {

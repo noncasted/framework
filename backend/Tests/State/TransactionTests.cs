@@ -424,7 +424,7 @@ public class TransactionTests
         });
 
         await grain.Deactivate();
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         var value = await grain.Get();
         value.Should().Be(2);
@@ -441,7 +441,7 @@ public class TransactionTests
         await RunTransaction(() => Task.WhenAll(grain.IncrementWithDelay(200), grain.Increment()));
 
         await grain.Deactivate();
-        await Task.Delay(100);
+        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         var value = await grain.Get();
         value.Should().Be(2);

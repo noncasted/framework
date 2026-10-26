@@ -50,6 +50,7 @@ namespace Global.Audio
         private float[] _soundEnds;
         private long[] _soundOrders;
         private long _soundOrder;
+        private double _lastTime;
 
         // The followed lines: Music and SFX from the setup, a line of the game from its first sound.
         private readonly Dictionary<AudioLine, IViewableProperty<float>> _lines = new();
@@ -101,15 +102,22 @@ namespace Global.Audio
             foreach (var line in _lines.Values)
                 line.View(lifetime, UpdateVolume);
 
+            _lastTime = Time.realtimeSinceStartupAsDouble;
             _updater.Add(lifetime, this);
         }
 
+        // The delta of the updater is the game time (0 while the game is paused): the music fades on real time, so
+        // a crossfade into the music of the pause menu does not stand still.
         public void OnUpdate(float delta)
         {
+            var now = Time.realtimeSinceStartupAsDouble;
+            var realDelta = (float)(now - _lastTime);
+            _lastTime = now;
+
             var changed = false;
 
             foreach (var channel in _music)
-                changed |= channel.Step(delta);
+                changed |= channel.Step(realDelta);
 
             if (changed == true)
                 ApplyMusicVolume();

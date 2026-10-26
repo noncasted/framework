@@ -22,9 +22,11 @@ namespace Internal
         private readonly List<DirtyEntry> _dirty = new();
 
         private float _timer = 0f;
+        private double _lastTime;
 
         public void OnSetup(IReadOnlyLifetime lifetime)
         {
+            _lastTime = UnityEngine.Time.realtimeSinceStartupAsDouble;
             _updater.Add(lifetime, this);
         }
 
@@ -33,11 +35,15 @@ namespace Internal
             _dirty.Add(new DirtyEntry(owner, property));
         }
 
+        // The delta of the updater is the game time (0 while the game is paused): the sync of the session goes on
+        // in a pause, so it runs on real time. The updater still orders it after the writes of the frame.
         public void OnUpdate(float delta)
         {
             var interval = _options.PropertiesSyncInterval;
 
-            _timer += delta;
+            var now = UnityEngine.Time.realtimeSinceStartupAsDouble;
+            _timer += (float)(now - _lastTime);
+            _lastTime = now;
 
             if (_timer < interval)
                 return;
@@ -64,6 +70,9 @@ namespace Internal
                     PropertyId = property.Id,
                     Value = property.Collect()
                 });
+
+                // The server versions this write once more and does not send it back to this client.
+                property.OnWriteSent();
             }
 
             _dirty.Clear();

@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace Internal
@@ -7,47 +8,47 @@ namespace Internal
     {
     }
 
-    public class ViewableDictionary<TKey, TSource, TView> :
-        Dictionary<TKey, TSource>,
-        IViewableDictionary<TKey, TView>
-        where TSource : TView
+    // The entries are kept in a private dictionary, not inherited from Dictionary<,>: the mutators of the base (or of
+    // ICollection<KeyValuePair> / IDictionary) would change the entries without their lifetimes.
+    public class ViewableDictionary<TKey, TSource, TView> : IViewableDictionary<TKey, TView> where TSource : TView
     {
+        private readonly Dictionary<TKey, TSource> _items = new();
         private readonly EventSource<IReadOnlyLifetime, TKey, TView> _eventSource = new();
         private readonly Dictionary<TKey, ILifetime> _lifetimes = new();
 
-        public new TView this[TKey key]
+        public int Count => _items.Count;
+
+        public TView this[TKey key]
         {
-            get => base[key];
+            get => _items[key];
             set
             {
-                if (ContainsKey(key) == false)
+                if (_items.ContainsKey(key) == false)
                 {
+                    // Add reports the modification itself.
                     Add(key, (TSource)value);
+                    return;
                 }
-                else
-                {
-                    _lifetimes[key].Terminate();
 
-                    var lifetime = new Lifetime();
-                    _lifetimes[key] = lifetime;
+                _lifetimes[key].Terminate();
 
-                    base[key] = (TSource)value;
-                    _eventSource.Invoke(lifetime, key, value);
-                }
+                var lifetime = new Lifetime();
+                _lifetimes[key] = lifetime;
+
+                _items[key] = (TSource)value;
+                _eventSource.Invoke(lifetime, key, value);
 
                 OnModified();
             }
         }
 
-        public new IEnumerable<TKey> Keys => base.Keys;
+        public IEnumerable<TKey> Keys => _items.Keys;
 
-        public new IEnumerable<TView> Values
+        public IEnumerable<TView> Values
         {
             get
             {
-                IEnumerable<TSource> values = base.Values;
-
-                foreach (var value in values)
+                foreach (var value in _items.Values)
                     yield return value;
             }
         }
@@ -62,9 +63,14 @@ namespace Internal
             return _lifetimes[value];
         }
 
-        public new IReadOnlyLifetime Add(TKey key, TSource value)
+        public bool ContainsKey(TKey key)
         {
-            base.Add(key, value);
+            return _items.ContainsKey(key);
+        }
+
+        public IReadOnlyLifetime Add(TKey key, TSource value)
+        {
+            _items.Add(key, value);
             var lifetime = new Lifetime();
             _lifetimes.Add(key, lifetime);
 
@@ -75,21 +81,20 @@ namespace Internal
             return lifetime;
         }
 
-        public new void Remove(TKey key)
+        public void Remove(TKey key)
         {
             // The lifetime leaves the map with the entry: a key added again gets a new one (Add threw on the
             // stale entry before), and a removed entry is not referenced any more.
             if (_lifetimes.Remove(key, out var lifetime) == false)
                 throw new KeyNotFoundException($"{key} is not in the dictionary");
 
-            base.Remove(key);
+            _items.Remove(key);
             lifetime.Terminate();
 
             OnModified();
         }
 
-        // Hides Dictionary.Clear, which would keep the entry lifetimes alive for good.
-        public new void Clear()
+        public void Clear()
         {
             TerminateEntries();
             OnModified();
@@ -99,33 +104,32 @@ namespace Internal
         {
         }
 
-        // Enumerates through the base Dictionary type: when TSource == TView the interface
-        // IEnumerable<KeyValuePair<TKey, TSource>> is implemented by this very method, and going
-        // through it recursed until stack overflow.
-        private Dictionary<TKey, TSource> Source => this;
-
-        public new IEnumerator<KeyValuePair<TKey, TView>> GetEnumerator()
+        public IEnumerator<KeyValuePair<TKey, TView>> GetEnumerator()
         {
-            foreach (var pair in Source)
+            foreach (var pair in _items)
                 yield return new KeyValuePair<TKey, TView>(pair.Key, pair.Value);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
 
         public IEnumerable<KeyValuePair<TKey, TSource>> GetEnumerable()
         {
-            foreach (var pair in Source)
-                yield return new KeyValuePair<TKey, TSource>(pair.Key, pair.Value);
+            return _items;
         }
 
         public bool TryGetValue(TKey key, out TView value)
         {
-            var result = base.TryGetValue(key, out var source);
+            var result = _items.TryGetValue(key, out var source);
             value = source;
             return result;
         }
 
         public bool TryGetSourceValue(TKey key, out TSource value)
         {
-            return base.TryGetValue(key, out value);
+            return _items.TryGetValue(key, out value);
         }
 
         public void Dispose()
@@ -141,7 +145,7 @@ namespace Internal
             var lifetimes = new List<ILifetime>(_lifetimes.Values);
 
             _lifetimes.Clear();
-            base.Clear();
+            _items.Clear();
 
             foreach (var lifetime in lifetimes)
                 lifetime.Terminate();

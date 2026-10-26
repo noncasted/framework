@@ -58,7 +58,7 @@ namespace ContainerGenerator {
             WriteFields(writer, plan, deeper);
             writer.AppendLine();
             WriteContainerApi(writer, plan, graph, deeper, body);
-            WriteRegister(writer, plan, deeper, body);
+            WriteRegister(writer, plan, graph, deeper, body);
             WriteFactories(writer, plan, graph, deeper, body);
             WriteProvides(writer, plan, graph, deeper, body);
             WriteDiagnostics(writer, plan, graph, deeper, body);
@@ -112,7 +112,7 @@ namespace ContainerGenerator {
 
             WriteMarkers(writer, plan, graph, body);
             if (plan.HasContainerDiagnostics) {
-                // Диагностика есть только в редакторе и dev-билде; бенчмарк выключает её флагом.
+                // Diagnostics exist only in the editor and a dev build; the benchmark turns them off with the flag.
                 writer.AppendLine("#if UNITY_EDITOR || DEBUG");
                 writer.AppendLine(body + "if (global::Internal.ContainerRegistryDebug.IsEnabled == true) {");
                 writer.AppendLine(body + "    _diagnostics = new global::Internal.ContainerDiagnostics(");
@@ -166,7 +166,11 @@ namespace ContainerGenerator {
 
             if (slot.IsAlternative && slot.IsGroupPrimary) {
                 WriteAlternative(writer, plan, graph, slot, indent);
-                WriteConstructCall(writer, plan, graph, slot, slot.FieldName, indent);
+                if (Arguments(plan, graph, slot.Registration, "Construct") == null)
+                    return;
+                writer.AppendLine(indent + "if (" + slot.FieldName + " != null) {");
+                WriteConstructCall(writer, plan, graph, slot, slot.FieldName, indent + "    ");
+                writer.AppendLine(indent + "}");
                 return;
             }
 
@@ -178,7 +182,7 @@ namespace ContainerGenerator {
             WriteConstructCall(writer, plan, graph, slot, slot.FieldName, indent);
         }
 
-        // Синглтон ветки switch: поле, построенное по значению дискриминанта в скоупе (locked 8).
+        // A singleton of a switch arm: the field built by the value of the discriminant in the scope.
         private static void WriteSwitchConstruction(
             CodeWriter writer,
             ScopePlan plan,
@@ -205,7 +209,7 @@ namespace ContainerGenerator {
             ScopeGraph graph,
             ScopePlan.Slot slot,
             string indent) {
-            // Ветка if/switch в installer'е выполнилась одна: строится та реализация, что попала в билдер.
+            // One if / switch branch of the installer ran: the implementation that got into the builder is built.
             var members = slot.GroupMembers.Count == 0 ? new List<int> { slot.Index } : slot.GroupMembers;
             writer.AppendLine(indent + slot.FieldName + " =");
             for (var m = 0; m < members.Count; m++) {
@@ -216,8 +220,9 @@ namespace ContainerGenerator {
                 writer.AppendLine(indent + "        :");
             }
 
-            writer.AppendLine(indent + "    throw new global::System.InvalidOperationException(\"No alternative of " +
-                              ScopeNames.StripGlobal(slot.FieldType) + " was registered.\");");
+            // An if without else registers nothing when its branch does not run: the field stays null, the scope
+            // still builds, and only what depends on it fails (RequireAlternative).
+            writer.AppendLine(indent + "    null;");
         }
 
         private static void WriteConstructCall(
@@ -240,7 +245,7 @@ namespace ContainerGenerator {
                 writer.AppendLine(indent + target + "." + method + "(" + string.Join(", ", args) + ");");
         }
 
-        // Имя метода с [Inject] лежит на рёбрах Source == "Construct"; без рёбер вызова нет.
+        // The name of the [Inject] method is on the edges with Source == "Construct"; without edges there is no call.
         private static string ConstructName(GraphRegistration registration, int arm = -1) {
             for (var i = 0; i < registration.Dependencies.Count; i++) {
                 var edge = registration.Dependencies[i];
@@ -286,7 +291,7 @@ namespace ContainerGenerator {
                 args.Add(Argument(plan, graph, edge));
             }
 
-            // [Inject] без параметров рёбер не даёт, но вызывается.
+            // An [Inject] without parameters gives no edges, but is called.
             if (found == false)
                 return source == "Construct" && (arm >= 0 || string.IsNullOrEmpty(registration.InjectMethod)) ? null : args;
             return args;
@@ -312,6 +317,9 @@ namespace ContainerGenerator {
                 var target = plan.Slots[edge.TargetIndex];
                 if (target.IsTransient && string.IsNullOrEmpty(target.CreateMethod) == false)
                     return target.CreateMethod + "()";
+                if (string.IsNullOrEmpty(target.FieldName) == false && target.IsAlternative)
+                    return "global::Internal.GeneratedScopes.RequireAlternative(" + target.FieldName + ", " +
+                           Literal(ScopeNames.StripGlobal(target.FieldType)) + ")";
                 if (string.IsNullOrEmpty(target.FieldName) == false)
                     return target.FieldName;
             }
@@ -328,6 +336,8 @@ namespace ContainerGenerator {
                 TryUnwrapList(edge.ParameterType, out element);
 
             var items = new List<string>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var hasAlternative = false;
             for (var i = 0; i < edge.CollectionIndices.Count; i++) {
                 var index = edge.CollectionIndices[i];
                 if (index < 0 || index >= plan.Slots.Count)
@@ -335,17 +345,29 @@ namespace ContainerGenerator {
                 var slot = plan.Slots[index];
                 if (slot.IsTransient && string.IsNullOrEmpty(slot.CreateMethod) == false)
                     items.Add(slot.CreateMethod + "()");
-                else if (string.IsNullOrEmpty(slot.FieldName) == false)
+                else if (string.IsNullOrEmpty(slot.FieldName) == false && (slot.IsAlternative == false || seen.Add(slot.FieldName))) {
                     items.Add(slot.FieldName);
+                    hasAlternative |= slot.IsAlternative;
+                }
             }
 
-            return "new " + element + "[] { " + string.Join(", ", items) + " }";
+            return WithoutAbsent("new " + element + "[] { " + string.Join(", ", items) + " }", hasAlternative);
+        }
+
+        // A list over the field of an alternative drops it when its branch did not run.
+        private static string WithoutAbsent(string array, bool hasAlternative) {
+            return hasAlternative ? "global::Internal.GeneratedScopes.WithoutAbsent(" + array + ")" : array;
         }
 
         private static string HoleParam(ScopePlan plan, GraphEdge edge) {
             for (var i = 0; i < plan.CtorParams.Count; i++) {
+                if (plan.CtorParams[i].Edges.Contains(edge))
+                    return HoleValue(plan, plan.CtorParams[i]);
+            }
+
+            for (var i = 0; i < plan.CtorParams.Count; i++) {
                 var param = plan.CtorParams[i];
-                if (param.IsLifetime || param.IsParent || param.IsRequest || param.IsAlternative || param.IsInjections)
+                if (IsBoundParam(param))
                     continue;
                 if (param.Type == edge.ParameterType &&
                     (param.Name == edge.ParameterName || param.Name == ScopeNames.Escape(edge.ParameterName)))
@@ -354,7 +376,7 @@ namespace ContainerGenerator {
 
             for (var i = 0; i < plan.CtorParams.Count; i++) {
                 var param = plan.CtorParams[i];
-                if (param.IsLifetime || param.IsParent || param.IsRequest || param.IsAlternative || param.IsInjections)
+                if (IsBoundParam(param))
                     continue;
                 if (param.Type == edge.ParameterType)
                     return HoleValue(plan, param);
@@ -365,7 +387,13 @@ namespace ContainerGenerator {
                 "' has no constructor parameter.");
         }
 
-        // Значение дырки доступно везде в классе: поле ребра или поле слота, не параметр конструктора.
+        // Loader parameters and the holes owned by their edges are never taken by type.
+        private static bool IsBoundParam(ScopePlan.CtorParam param) {
+            return param.IsLifetime || param.IsParent || param.IsRequest || param.IsAlternative || param.IsInjections ||
+                   param.IsParameter || param.IsParentHole;
+        }
+
+        // The value of a hole is available everywhere in the class: the field of the edge or of the slot, not the ctor parameter.
         private static string HoleValue(ScopePlan plan, ScopePlan.CtorParam param) {
             if (string.IsNullOrEmpty(param.FieldName) == false)
                 return param.FieldName;
@@ -387,7 +415,7 @@ namespace ContainerGenerator {
         private static void WriteMarkers(CodeWriter writer, ScopePlan plan, ScopeGraph graph, string indent) {
             for (var i = 0; i < plan.Markers.Count; i++) {
                 var marker = plan.Markers[i];
-                // Список с transient'ами собирается на каждый ResolveAll: поле держало бы одни и те же экземпляры.
+                // A list with transients is built on every ResolveAll: a field would keep the same instances.
                 if (ScopePlan.HasTransientSlot(plan, marker.Slots))
                     continue;
 
@@ -399,6 +427,7 @@ namespace ContainerGenerator {
             var marker = plan.Markers[markerIndex];
             var items = new List<string>();
             var seen = new HashSet<string>(StringComparer.Ordinal);
+            var hasAlternative = false;
             for (var s = 0; s < marker.Slots.Count; s++) {
                 var slot = plan.Slots[marker.Slots[s]];
                 if (slot.IsTransient) {
@@ -412,13 +441,14 @@ namespace ContainerGenerator {
                 if (seen.Add(slot.FieldName) == false)
                     continue;
                 items.Add(slot.FieldName);
+                hasAlternative |= slot.IsAlternative;
             }
 
-            return "new " + marker.ElementType + "[] { " + string.Join(", ", items) + " }";
+            return WithoutAbsent("new " + marker.ElementType + "[] { " + string.Join(", ", items) + " }", hasAlternative);
         }
 
-        // Тип → номер экземпляра в GetExport. Таблица статическая, общая для всех экземпляров класса:
-        // экземпляры и так лежат в полях, и скоуп не платит за свой словарь (340–790 байт).
+        // Type -> the number of the instance in GetExport. The table is static, shared by every instance of the class:
+        // the instances are in the fields anyway, and a scope does not pay for a dictionary of its own (340-790 bytes).
         private static void WriteExportTable(CodeWriter writer, ScopePlan plan, string indent) {
             var values = ExportValues(plan);
             writer.AppendLine(indent + "private static readonly global::System.Collections.Generic.Dictionary<global::System.Type, int> _exports =");
@@ -446,7 +476,7 @@ namespace ContainerGenerator {
             writer.AppendLine();
         }
 
-        // Несколько сервисных типов одного экземпляра делят один case.
+        // Several service types of one instance share one case.
         private static List<string> ExportValues(ScopePlan plan) {
             var values = new List<string>();
             for (var i = 0; i < plan.Exports.Count; i++) {
@@ -472,6 +502,7 @@ namespace ContainerGenerator {
             WriteExportTable(writer, plan, indent);
             if (plan.HasContainerDiagnostics)
                 writer.AppendLine(indent + "private readonly global::Internal.ContainerDiagnostics _diagnostics;");
+            writer.AppendLine(indent + "private bool _isDisposing;");
             writer.AppendLine(indent + "private bool _disposed;");
         }
 
@@ -490,8 +521,12 @@ namespace ContainerGenerator {
             writer.AppendLine(indent + "public global::Internal.IReadOnlyLifetime Lifetime => " + plan.LifetimeField + ";");
             writer.AppendLine();
             writer.AppendLine(indent + "public object Resolve(global::System.Type type) {");
-            writer.AppendLine(body + "if (_exports.TryGetValue(type, out var export) == true)");
-            writer.AppendLine(body + "    return GetExport(export);");
+            WriteThrowIfDisposed(writer, plan, body);
+            writer.AppendLine(body + "if (_exports.TryGetValue(type, out var export) == true) {");
+            writer.AppendLine(body + "    var value = GetExport(export);");
+            writer.AppendLine(body + "    if (value != null)");
+            writer.AppendLine(body + "        return value;");
+            writer.AppendLine(body + "}");
             WriteTransientResolve(writer, plan, body, false);
             writer.AppendLine(body + "if (" + plan.ParentField + " != null)");
             writer.AppendLine(body + "    return " + plan.ParentField + ".Resolve(type);");
@@ -507,9 +542,11 @@ namespace ContainerGenerator {
             writer.AppendLine(body + "    instance = null;");
             writer.AppendLine(body + "    return false;");
             writer.AppendLine(body + "}");
+            WriteThrowIfDisposed(writer, plan, body);
             writer.AppendLine(body + "if (_exports.TryGetValue(type, out var export) == true) {");
             writer.AppendLine(body + "    instance = GetExport(export);");
-            writer.AppendLine(body + "    return true;");
+            writer.AppendLine(body + "    if (instance != null)");
+            writer.AppendLine(body + "        return true;");
             writer.AppendLine(body + "}");
             WriteTransientResolve(writer, plan, body, true);
             writer.AppendLine(body + "if (" + plan.ParentField + " != null)");
@@ -523,6 +560,7 @@ namespace ContainerGenerator {
             writer.AppendLine(indent + "public void Inject(object target) {");
             writer.AppendLine(body + "if (target == null)");
             writer.AppendLine(body + "    throw new global::System.ArgumentNullException(nameof(target));");
+            WriteThrowIfDisposed(writer, plan, body);
             WriteInjectCases(writer, plan, graph, body);
             writer.AppendLine(body + "throw new global::System.InvalidOperationException(\"No generated inject for \" + target.GetType().FullName + \".\");");
             writer.AppendLine(indent + "}");
@@ -548,24 +586,47 @@ namespace ContainerGenerator {
                 writer.AppendLine();
             }
 
+            // The lifetime ends first: its listeners still see live services and may resolve them. Then the services
+            // go in reverse construction order. A throwing step does not skip the rest; the errors are rethrown at the end.
+            // Transients are not tracked: whoever resolves one owns it and disposes it.
             writer.AppendLine(indent + "public void Dispose() {");
-            writer.AppendLine(body + "if (_disposed == true)");
+            writer.AppendLine(body + "if (_isDisposing == true)");
             writer.AppendLine(body + "    return;");
+            writer.AppendLine(body + "_isDisposing = true;");
+            writer.AppendLine(body + "global::System.Collections.Generic.List<global::System.Exception> errors = null;");
+            WriteDisposeStep(writer, body, plan.LifetimeField + ".Terminate();");
             writer.AppendLine(body + "_disposed = true;");
             for (var i = 0; i < plan.DisposeOrder.Count; i++) {
                 var slot = plan.Slots[plan.DisposeOrder[i]];
-                if (string.IsNullOrEmpty(slot.FieldName) == false)
-                    writer.AppendLine(body + "((global::System.IDisposable)" + slot.FieldName + ").Dispose();");
+                if (string.IsNullOrEmpty(slot.FieldName))
+                    continue;
+                var call = "((global::System.IDisposable)" + slot.FieldName + ").Dispose();";
+                WriteDisposeStep(writer, body, slot.IsAlternative ? "if (" + slot.FieldName + " != null) " + call : call);
             }
 
-            writer.AppendLine(body + plan.LifetimeField + ".Terminate();");
+            writer.AppendLine(body + "global::Internal.GeneratedScopes.ThrowDisposeErrors(errors);");
             writer.AppendLine(indent + "}");
             writer.AppendLine();
         }
 
+        private static void WriteDisposeStep(CodeWriter writer, string indent, string statement) {
+            writer.AppendLine(indent + "try {");
+            writer.AppendLine(indent + "    " + statement);
+            writer.AppendLine(indent + "}");
+            writer.AppendLine(indent + "catch (global::System.Exception exception) {");
+            writer.AppendLine(indent + "    (errors ??= new global::System.Collections.Generic.List<global::System.Exception>()).Add(exception);");
+            writer.AppendLine(indent + "}");
+        }
+
+        // A disposed scope resolves nothing: its singletons are disposed and its lifetime is over.
+        private static void WriteThrowIfDisposed(CodeWriter writer, ScopePlan plan, string indent) {
+            writer.AppendLine(indent + "if (_disposed == true)");
+            writer.AppendLine(indent + "    throw new global::System.ObjectDisposedException(" + Literal(plan.ClassName) + ");");
+        }
+
         private static void WriteTransientResolve(CodeWriter writer, ScopePlan plan, string indent, bool assign) {
-            // Одному типу — одна ветка. Как и в _exports, резолв отдаёт последнюю регистрацию,
-            // а экспорт синглтона того же типа проверяется раньше и ветку не получает.
+            // One branch per type. As a constructor parameter, Resolve gives the last registration: a type whose last
+            // registration is a singleton is exported (checked earlier) and gets no branch.
             var exported = new HashSet<string>(StringComparer.Ordinal);
             for (var i = 0; i < plan.Exports.Count; i++)
                 exported.Add(plan.Exports[i].ServiceType);
@@ -616,6 +677,7 @@ namespace ContainerGenerator {
 
         private static void WriteResolveAll(CodeWriter writer, ScopePlan plan, string indent, string body) {
             writer.AppendLine(indent + "public global::System.Collections.Generic.IReadOnlyList<T> ResolveAll<T>() {");
+            WriteThrowIfDisposed(writer, plan, body);
             for (var i = 0; i < plan.Markers.Count; i++) {
                 var marker = plan.Markers[i];
                 var list = ScopePlan.HasTransientSlot(plan, marker.Slots) ? MarkerArray(plan, i) : marker.FieldName;
@@ -623,9 +685,11 @@ namespace ContainerGenerator {
                 writer.AppendLine(body + "    return (global::System.Collections.Generic.IReadOnlyList<T>)(object)" + list + ";");
             }
 
-            // Тип с единственной регистрацией маркерного массива не получает.
-            writer.AppendLine(body + "if (_exports.TryGetValue(typeof(T), out var single) == true)");
-            writer.AppendLine(body + "    return new T[] { (T)GetExport(single) };");
+            // A type with a single registration gets no marker array.
+            writer.AppendLine(body + "if (_exports.TryGetValue(typeof(T), out var single) == true) {");
+            writer.AppendLine(body + "    var value = GetExport(single);");
+            writer.AppendLine(body + "    return value != null ? new T[] { (T)value } : global::System.Array.Empty<T>();");
+            writer.AppendLine(body + "}");
             writer.AppendLine(body + "return global::System.Array.Empty<T>();");
             writer.AppendLine(indent + "}");
             writer.AppendLine();
@@ -660,9 +724,45 @@ namespace ContainerGenerator {
             }
         }
 
+        // What the installer registers at runtime, for the check of the builder against the class: the implementation of
+        // every Register (each member of an alternative, each arm of a switch) and the declared type of every instance.
+        private static List<string> ShapeConstructed(ScopeGraph graph) {
+            var types = new List<string>();
+            for (var i = 0; i < graph.Registrations.Count; i++) {
+                var registration = graph.Registrations[i];
+                if (registration.Origin == "SwitchFactory") {
+                    for (var a = 0; a < registration.Arms.Count; a++)
+                        AddType(types, registration.Arms[a].ImplementationType);
+                    continue;
+                }
+
+                if (ScopePlan.IsRuntimeRegister(registration))
+                    AddType(types, registration.ImplementationType);
+            }
+
+            return types;
+        }
+
+        private static List<string> ShapeInstances(ScopeGraph graph) {
+            var types = new List<string>();
+            for (var i = 0; i < graph.Registrations.Count; i++) {
+                var registration = graph.Registrations[i];
+                if (ScopePlan.IsInstanceKind(registration.Kind) && string.IsNullOrEmpty(registration.ImplementationType) == false)
+                    types.Add(registration.ImplementationType);
+            }
+
+            return types;
+        }
+
+        private static void AddType(List<string> types, string type) {
+            if (string.IsNullOrEmpty(type) == false && types.Contains(type) == false)
+                types.Add(type);
+        }
+
         private static void WriteRegister(
             CodeWriter writer,
             ScopePlan plan,
+            ScopeGraph graph,
             string indent,
             string body) {
             if (plan.HasRuntimeInitialize)
@@ -670,7 +770,7 @@ namespace ContainerGenerator {
 
             writer.AppendLine(indent + "private static void RegisterGenerated() {");
             if (string.IsNullOrEmpty(plan.ViewType) == false && plan.OriginRootId != plan.RootId) {
-                // Вариант сущности: загрузчик ищет класс по корню и конкретному типу вьюхи.
+                // An entity variant: the loader finds the class by the root and the concrete view type.
                 writer.AppendLine(body + "global::Internal.GeneratedScopes.RegisterVariant(");
                 writer.AppendLine(body + "    " + Literal(plan.OriginRootId) + ",");
                 writer.AppendLine(body + "    typeof(global::" + ScopeNames.StripGlobal(plan.ViewType) + "),");
@@ -691,12 +791,21 @@ namespace ContainerGenerator {
                             ? "request"
                             : param.IsInjections
                                 ? "request.GetInjections<" + param.ElementType + ">()"
-                                : "request.Get<" + param.Type + ">()";
+                                : param.IsInstance
+                                    ? "request.GetInstance<" + param.Type + ">(" + param.Occurrence.ToString() + ")"
+                                    : param.IsParameter
+                                        ? "request.GetParameter<" + param.Type + ">(typeof(" + param.ParameterImplementation +
+                                          "), " + param.Occurrence.ToString() + ")"
+                                        : param.IsParentHole
+                                            ? "request.GetFromParent<" + param.Type + ">()"
+                                            : "request.Get<" + param.Type + ">()";
                 var comma = i + 1 < plan.CtorParams.Count ? "," : "";
                 writer.AppendLine(body + "        " + argument + comma);
             }
 
-            writer.AppendLine(body + "    ));");
+            writer.AppendLine(body + "    ),");
+            writer.AppendLine(body + "    " + TypeArray(ShapeConstructed(graph)) + ",");
+            writer.AppendLine(body + "    " + TypeArray(ShapeInstances(graph)) + ");");
             writer.AppendLine(indent + "}");
             writer.AppendLine();
         }
@@ -792,7 +901,7 @@ namespace ContainerGenerator {
             }
         }
 
-        // Таблица статическая: экземпляр скоупа платит только за объект ContainerDiagnostics.
+        // The table is static: an instance of the scope pays only for the ContainerDiagnostics object.
         private static void WriteDiagnostics(CodeWriter writer, ScopePlan plan, ScopeGraph graph, string indent, string body) {
             if (plan.HasContainerDiagnostics == false)
                 return;

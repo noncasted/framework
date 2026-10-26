@@ -1,0 +1,27 @@
+{
+    "name": "Internal.Flow.Tests",
+    "rootNamespace": "",
+    "references": [
+        "GUID:f039cb8c565843dba6da5b3c1ccde7d6",
+        "GUID:151f819dea3f41aca2370ed33b39e059",
+        "GUID:3ea5c3f1172040daa713d5ad71728b78",
+        "UniTask",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -29,6 +29,19 @@ namespace Internal
                 throw new System.InvalidOperationException($"{Name} is missing at Resources/{path}");
         }
 
+        // Without the asset the load of the handle has failed: the generated UnloadGroup unpacks the asset (an audio
+        // group releases its decoded clips), here only the failed handle is released.
+        protected override void UnloadFailedGroup()
+        {
+            if (Asset == null)
+            {
+                UnloadAsset();
+                return;
+            }
+
+            UnloadGroup();
+        }
+
         protected void UnloadAsset()
         {
             Asset = null;

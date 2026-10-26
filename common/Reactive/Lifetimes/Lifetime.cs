@@ -33,6 +33,11 @@ namespace Internal
         private Action _terminate;
 
         private List<Action> _listeners;
+
+        // The list taken by Terminate while its pass runs: a listener removed during the pass is cleared in it and
+        // skipped, as if it had been removed before the termination.
+        private List<Action> _passListeners;
+
         private CancellationTokenSource _cancellation;
         private volatile bool _isTerminated;
 
@@ -92,7 +97,21 @@ namespace Internal
         public void RemoveListener(Action callback)
         {
             lock (this)
-                _listeners?.Remove(callback);
+            {
+                if (_listeners != null)
+                {
+                    _listeners.Remove(callback);
+                    return;
+                }
+
+                if (_passListeners == null)
+                    return;
+
+                var index = _passListeners.IndexOf(callback);
+
+                if (index >= 0)
+                    _passListeners[index] = null;
+            }
         }
 
         public void Terminate()
@@ -110,6 +129,7 @@ namespace Internal
                 _isTerminated = true;
                 listeners = _listeners;
                 _listeners = null;
+                _passListeners = listeners;
                 cancellation = _cancellation;
             }
 
@@ -124,8 +144,16 @@ namespace Internal
 
             if (listeners != null)
             {
-                foreach (var listener in listeners)
+                for (var i = 0; i < listeners.Count; i++)
                 {
+                    Action listener;
+
+                    lock (this)
+                        listener = listeners[i];
+
+                    if (listener == null)
+                        continue;
+
                     try
                     {
                         listener.Invoke();
@@ -137,8 +165,13 @@ namespace Internal
                 }
             }
 
-            // An intersection has no parent: its sources are unsubscribed by its own listener (Intersect).
-            if (_terminate != null && _parent != null)
+            lock (this)
+                _passListeners = null;
+
+            // An intersection has no parent: its sources are unsubscribed by its own listener (Intersect). A parent that
+            // is terminating is not asked: its pass has taken the list, and searching it for every child that ends with it
+            // would make the end of a parent with many children quadratic.
+            if (_terminate != null && _parent != null && _parent.IsTerminated == false)
                 _parent.RemoveListener(_terminate);
 
             if (exceptions != null)

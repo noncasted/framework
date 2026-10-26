@@ -157,7 +157,7 @@ namespace Internal
 
         // userData cannot hold a live type reference, so the root component is stored as a script GUID
         // with a readable name beside it. The GUID survives renames; the name is re-derived every run.
-        private static string ResolveComponentType(string path, GameObject prefab, PrefabCatalogMetadata metadata)
+        internal static string ResolveComponentType(string path, GameObject prefab, PrefabCatalogMetadata metadata)
         {
             var componentType = metadata.ComponentType ?? string.Empty;
             var componentGuid = metadata.ComponentGuid ?? string.Empty;
@@ -168,13 +168,11 @@ namespace Internal
             var resolved = PrefabCatalogMetadata.ResolveType(componentGuid, componentType);
             var behaviour = FindBehaviour(prefab, resolved, componentType);
 
+            // Falling back to GameObject would change the type of the catalogue property and break its users.
             if (behaviour == null)
-            {
-                Debug.LogError(
-                        $"[PrefabCatalogGenerator] Root type '{PrefabCatalogMetadata.ToDisplayName(componentType)}' is missing on {path}. Falling back to GameObject, reassign the root in the inspector."
-                    );
-                return string.Empty;
-            }
+                throw new InvalidOperationException(
+                    $"[PrefabCatalogGenerator] Root type '{PrefabCatalogMetadata.ToDisplayName(componentType)}' is " +
+                    $"missing on {path}. Reassign the root in the inspector.");
 
             // The previous domain is still loaded after a failed compile: the code gets the names from the sources,
             // the metadata keeps the old names until the next clean run fixes them.
@@ -245,7 +243,7 @@ namespace Internal
             _metadataFixes.Clear();
         }
 
-        private static List<PrefabGroupDefinition> BuildGroups(List<PrefabSource> sources)
+        internal static List<PrefabGroupDefinition> BuildGroups(List<PrefabSource> sources)
         {
             sources.Sort((left, right) => {
                 var group = string.Compare(left.Group, right.Group, StringComparison.Ordinal);
@@ -275,13 +273,11 @@ namespace Internal
                     usedNames.Add(source.Group, new HashSet<string>(StringComparer.Ordinal));
                 }
 
+                // Dropping one of the two would silently take a prefab out of the catalogue.
                 if (usedNames[source.Group].Add(source.PropertyName) == false)
-                {
-                    Debug.LogError(
-                            $"[PrefabCatalogGenerator] Duplicate identifier '{source.PropertyName}' in group '{source.Group}'. Skipping {source.Path}."
-                        );
-                    continue;
-                }
+                    throw new InvalidOperationException(
+                        $"[PrefabCatalogGenerator] Duplicate identifier '{source.PropertyName}' in group " +
+                        $"'{source.Group}': {source.Path}. Rename one of the prefabs or move it to another group.");
 
                 group.Properties.Add(new PrefabPropertyDefinition
                 {
@@ -517,7 +513,7 @@ namespace Internal
             public string ComponentGuid;
         }
 
-        private sealed class PrefabSource
+        internal sealed class PrefabSource
         {
             public string Path;
             public string Group;

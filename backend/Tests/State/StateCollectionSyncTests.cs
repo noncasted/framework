@@ -36,7 +36,7 @@ public class StateCollectionSyncTests
         var setup = collection.OnLocalSetupCompleted(lifetime);
 
         // The snapshot is taken (a = v1); the records change and are notified before the snapshot is applied.
-        await utils.LoadStarted.Task.WaitAsync(Wait);
+        await utils.LoadStarted.Task.WaitAsync(Wait, TestContext.Current.CancellationToken);
         utils.Listener.Should().NotBeNull("the subscription must exist before the load");
 
         utils.Storage[a] = Value(a, "v2");
@@ -51,7 +51,7 @@ public class StateCollectionSyncTests
         collection.IsLoaded.Should().BeFalse();
 
         utils.ReleaseLoad();
-        await setup.WaitAsync(Wait);
+        await setup.WaitAsync(Wait, TestContext.Current.CancellationToken);
 
         collection.IsLoaded.Should().BeTrue();
         collection[a].Name.Should().Be("v2");
@@ -136,7 +136,7 @@ public class StateCollectionSyncTests
         })));
 
         stop.Cancel();
-        (await reader.WaitAsync(Wait)).Should().BePositive();
+        (await reader.WaitAsync(Wait, TestContext.Current.CancellationToken)).Should().BePositive();
 
         collection.Count.Should().Be(keys.Length);
 

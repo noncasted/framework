@@ -93,6 +93,86 @@ namespace Internal.Tests
             Assert.IsTrue(isCancelled);
         });
 
+        [Test]
+        public void WaitInvokeOfEventSource_Invoked_Unsubscribes()
+        {
+            var lifetime = new Lifetime();
+            var source = new EventSource();
+
+            var wait = source.WaitInvoke(lifetime);
+            source.Invoke();
+
+            Assert.AreEqual(UniTaskStatus.Succeeded, wait.Status);
+            Assert.AreEqual(0, source.ListenersCount);
+
+            lifetime.Terminate();
+        }
+
+        [Test]
+        public void WaitInvokeOfEventSource_LifetimeEnds_IsCanceled()
+        {
+            var lifetime = new Lifetime();
+            var source = new EventSource();
+
+            var wait = source.WaitInvoke(lifetime);
+            lifetime.Terminate();
+
+            Assert.AreEqual(UniTaskStatus.Canceled, wait.Status);
+            Assert.AreEqual(0, source.ListenersCount);
+        }
+
+        [Test]
+        public void WaitInvokeOfTypedEventSource_Invoked_ReturnsTheValueAndUnsubscribes()
+        {
+            var lifetime = new CountingLifetime();
+            var source = new EventSource<int>();
+
+            var wait = source.WaitInvoke(lifetime);
+            source.Invoke(5);
+
+            Assert.AreEqual(UniTaskStatus.Succeeded, wait.Status);
+            Assert.AreEqual(5, wait.GetAwaiter().GetResult());
+            Assert.AreEqual(0, source.ListenersCount);
+            Assert.AreEqual(0, lifetime.Count);
+        }
+
+        [Test]
+        public void WaitInvokeOfTypedEventSource_LifetimeEnds_IsCanceled()
+        {
+            var lifetime = new Lifetime();
+            var source = new EventSource<int>();
+
+            var wait = source.WaitInvoke(lifetime);
+            lifetime.Terminate();
+
+            Assert.AreEqual(UniTaskStatus.Canceled, wait.Status);
+        }
+
+        [Test]
+        public void WaitTrue_Completed_LeavesTheLifetimeAndTheProperty()
+        {
+            var lifetime = new CountingLifetime();
+            var property = new ViewableProperty<bool>(false);
+
+            var wait = property.WaitTrue(lifetime);
+            property.Set(true);
+
+            Assert.AreEqual(UniTaskStatus.Succeeded, wait.Status);
+            Assert.AreEqual(0, lifetime.Count);
+        }
+
+        [Test]
+        public void WaitFalse_LifetimeEnds_IsCanceled()
+        {
+            var lifetime = new Lifetime();
+            var property = new ViewableProperty<bool>(true);
+
+            var wait = property.WaitFalse(lifetime);
+            lifetime.Terminate();
+
+            Assert.AreEqual(UniTaskStatus.Canceled, wait.Status);
+        }
+
         private sealed class CountingLifetime : IReadOnlyLifetime
         {
             private readonly List<Action> _listeners = new();

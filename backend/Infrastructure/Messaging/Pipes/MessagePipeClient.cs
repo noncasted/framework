@@ -78,21 +78,15 @@ public class RuntimePipeClient : IRuntimePipeClient
         throw lastException!;
     }
 
+    // Only a request that reached no handler is sent again. A timeout or a transport failure may come after the
+    // handler ran: repeating it would run a non-idempotent handler twice.
     private static bool IsTransient(Exception e)
-    {
-        if (ContainsHandlerFailure(e))
-            return false;
-
-        return e is not (InvalidCastException or ArgumentException or NotSupportedException);
-    }
-
-    private static bool ContainsHandlerFailure(Exception e)
     {
         var current = e;
 
         while (current != null)
         {
-            if (current.Message.Contains(RuntimePipeObserver.HandlerFailurePrefix, StringComparison.Ordinal))
+            if (current.Message.Contains(RuntimePipe.NoObserverPrefix, StringComparison.Ordinal))
                 return true;
 
             current = current.InnerException;

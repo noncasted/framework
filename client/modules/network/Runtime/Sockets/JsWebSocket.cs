@@ -35,6 +35,13 @@ namespace Internal
         private bool _isClosed;
         private int _closeCode;
 
+        // The browser calls OnMessage and OnClose from its own events, outside the player loop: the frames and the
+        // loss are handed to the listeners in the player loop, in their order, as DefaultWebSocket and
+        // LoopbackWebSocket do. Run inside the browser event, the whole command pipeline ran between two frames of
+        // Unity (and its exceptions reached the browser).
+        private readonly Queue<byte[]> _inbox = new();
+        private SocketCloseInfo? _pendingClose;
+
         public IViewableDelegate<byte[]> Received => _received;
         public IViewableDelegate<SocketCloseInfo> Closed => _closed;
 
@@ -57,6 +64,8 @@ namespace Internal
 
             // Setup cleanup on lifetime termination
             _lifetime.Listen(Dispose);
+
+            Deliver().Forget();
 
             Debug.Log($"[Network] [JsWebSocket] Created: id={_handlerId}, url={url}");
         }
@@ -178,6 +187,42 @@ namespace Internal
             Debug.Log($"[Network] [JsWebSocket] Disposed: id={_handlerId}");
         }
 
+        private async UniTaskVoid Deliver()
+        {
+            while (true)
+            {
+                var isCanceled = await UniTask
+                                       .Yield(PlayerLoopTiming.Update, _lifetime.Token)
+                                       .SuppressCancellationThrow();
+
+                if (isCanceled == true)
+                    return;
+
+                while (_inbox.Count > 0 && _isDisposed == false)
+                {
+                    var data = _inbox.Dequeue();
+
+                    try
+                    {
+                        _received.Invoke(data);
+                    }
+                    catch (Exception exception)
+                    {
+                        // The next frames go on, as the receive loop of DefaultWebSocket does not stop on an error of
+                        // the code above it.
+                        Debug.LogException(exception);
+                    }
+                }
+
+                if (_pendingClose.HasValue == true && _isDisposed == false)
+                {
+                    var info = _pendingClose.Value;
+                    _pendingClose = null;
+                    _closed.Invoke(info);
+                }
+            }
+        }
+
         #region JavaScript Interop
 
         // The functions of the .jslib exist only in a WebGL player: an IL2CPP standalone build fails to link them.
@@ -276,19 +321,11 @@ namespace Internal
         {
             if (Instances.TryGetValue(handlerId, out var instance))
             {
-                try
-                {
-                    // Copy data from unmanaged memory to managed byte array
-                    var data = new byte[length];
-                    Marshal.Copy(bufferPtr, data, 0, length);
+                // Copy data from unmanaged memory to managed byte array: the buffer is freed after the callback.
+                var data = new byte[length];
+                Marshal.Copy(bufferPtr, data, 0, length);
 
-                    // Invoke the received event
-                    instance._received.Invoke(data);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"[Network] [JsWebSocket] OnMessage error: {ex}");
-                }
+                instance._inbox.Enqueue(data);
             }
             else
             {
@@ -328,8 +365,9 @@ namespace Internal
                 // The browser sends onclose after onerror too, so the loss is reported only from here.
                 // Dispose removes the instance from Instances before JsWebSocketClose, so a local
                 // close does not get here.
+                // Reported after the frames received before it, in the player loop.
                 if (wasConnected == true && instance._isDisposed == false)
-                    instance._closed.Invoke(new SocketCloseInfo(code, "closed by browser"));
+                    instance._pendingClose = new SocketCloseInfo(code, "closed by browser");
             }
             else
             {

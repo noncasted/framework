@@ -13,6 +13,9 @@ namespace Global.Publisher.Itch
         private const string Key = "save_v2";
         private const string LegacyKey = "save";
 
+        // The last broken save (OnBaseSetup), for a report.
+        private const string CorruptKey = "save_v2_corrupt";
+
         private readonly Dictionary<string, string> _entries = new();
 
         public void OnBaseSetup(IReadOnlyLifetime lifetime)
@@ -23,8 +26,31 @@ namespace Global.Publisher.Itch
             if (PlayerPrefs.HasKey(Key) == false)
                 return;
 
-            // Only Save writes the key: a value that does not parse or an entry without a key is a broken save.
-            var container = Parse<SaveEntries>(Key, PlayerPrefs.GetString(Key));
+            var raw = PlayerPrefs.GetString(Key);
+
+            try
+            {
+                Load(raw);
+            }
+            catch (Exception exception)
+            {
+                // The start fails loudly once; left in place the same blob failed every next start, and the player
+                // could not get past it. The blob is kept for the report, the next start begins with empty saves.
+                _entries.Clear();
+                PlayerPrefs.SetString(CorruptKey, raw);
+                PlayerPrefs.DeleteKey(Key);
+                PlayerPrefs.Save();
+
+                throw new InvalidOperationException(
+                    $"[ItchSaves] {Key} is broken, kept as {CorruptKey}: the saves start empty from the next start",
+                    exception);
+            }
+        }
+
+        // Only Save writes the key: a value that does not parse or an entry without a key is a broken save.
+        private void Load(string raw)
+        {
+            var container = Parse<SaveEntries>(Key, raw);
 
             if (container.Entries == null)
                 throw new InvalidOperationException($"[ItchSaves] {Key} has no entries list");

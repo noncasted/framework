@@ -36,21 +36,21 @@ namespace Internal
 
         private readonly NetworkTraffic _traffic;
 
-        private IWebSocket _webSocket;
-
         private readonly Dictionary<int, UniTaskCompletionSource<INetworkContext>> _pendingRequests = new();
-        private readonly List<IMessageFromClient> _writeQueue = new();
-        private readonly List<IMessageFromClient> _sendBatch = new();
 
         private const float RequestTimeoutSeconds = 20f;
 
         private int _requestCounter;
         private IReadOnlyLifetime _connectionLifetime;
         private ILifetime _lifetime;
-        private bool _isClosed;
+
+        // The state of one Run. The loop of a lost run may still be inside a send of its socket when the writer runs
+        // again (a socket resumes on a later frame): it keeps its own run and stops there, instead of sending the rest
+        // of its batch on the new socket or clearing a batch the new loop enumerates.
+        private RunState _run;
 
         // Never run: no connection to answer either.
-        public bool IsClosed => _connectionLifetime == null || _isClosed == true || _connectionLifetime.IsTerminated == true;
+        public bool IsClosed => _run == null || _run.IsClosed == true;
 
         public void Run(IReadOnlyLifetime lifetime, IWebSocket webSocket)
         {
@@ -58,17 +58,16 @@ namespace Internal
                 throw new InvalidOperationException("[Network] The writer runs again while its previous connection is alive");
 
             // A connection may be run again after a loss (the meta socket): the state of the previous one goes.
-            _webSocket = webSocket;
+            var run = new RunState(lifetime, webSocket);
+            _run = run;
             _connectionLifetime = lifetime;
-            _isClosed = false;
-            _writeQueue.Clear();
 
             // Ended by ForceSendAll as well, while the connection itself is still alive.
             _lifetime = lifetime.Child();
 
             webSocket.Closed.Advise(lifetime, OnClosed);
 
-            Loop(lifetime).Forget();
+            Loop(run).Forget();
         }
 
         /// <summary>
@@ -86,8 +85,8 @@ namespace Internal
         /// </summary>
         public void Close()
         {
-            _isClosed = true;
-            _writeQueue.Clear();
+            _run.IsLost = true;
+            _run.Queue.Clear();
 
             // Copy: TrySetCanceled synchronously wakes the waiters, and they remove themselves from the dictionary.
             var pending = new List<UniTaskCompletionSource<INetworkContext>>(_pendingRequests.Values);
@@ -97,43 +96,85 @@ namespace Internal
                 completion.TrySetCanceled();
         }
 
-        private async UniTask Loop(IReadOnlyLifetime lifetime)
+        // The only sender of a run: ForceSendAll waits for it instead of sending by itself, a socket takes one send at
+        // a time (ClientWebSocket throws on a second outstanding SendAsync).
+        private async UniTask Loop(RunState run)
         {
-            while (lifetime.IsTerminated == false && _isClosed == false)
+            try
             {
-                if (_writeQueue.Count == 0)
+                while (run.IsClosed == false)
                 {
-                    // Every frame: a 50 ms sleep added up to three frames of latency to each packet.
-                    await UniTask.Yield();
-                    continue;
-                }
-
-                // The whole queue is flushed per frame: with one message per frame it grew faster than
-                // it drained (each dirty property is a separate message), and in WebGL the latency
-                // built up to seconds.
-                _sendBatch.AddRange(_writeQueue);
-                _writeQueue.Clear();
-                _traffic.OnBatch(_sendBatch.Count);
-
-                foreach (var message in _sendBatch)
-                {
-                    if (_isClosed == true)
-                        break;
-
-                    try
+                    if (run.Queue.Count == 0)
                     {
-                        var payload = MemoryPackSerializer.Serialize(message);
-                        await _webSocket.Send(payload);
-                        _traffic.OnSent(payload.Length);
+                        // Everything written before ForceSendAll is sent.
+                        run.CompleteFlushes();
+
+                        // Every frame: a 50 ms sleep added up to three frames of latency to each packet.
+                        await UniTask.Yield();
+                        continue;
                     }
-                    catch (Exception e)
+
+                    // The whole queue is flushed per frame: with one message per frame it grew faster than
+                    // it drained (each dirty property is a separate message), and in WebGL the latency
+                    // built up to seconds.
+                    var batch = new List<IMessageFromClient>(run.Queue);
+                    run.Queue.Clear();
+                    _traffic.OnBatch(batch.Count);
+
+                    foreach (var message in batch)
                     {
-                        // A crashed send loop silently hangs all subsequent requests, so we keep going.
-                        UnityEngine.Debug.LogError($"Failed to send message to server: {e}");
+                        if (run.IsClosed == true)
+                            break;
+
+                        await Send(run, message);
                     }
                 }
+            }
+            finally
+            {
+                // Closed: nothing more is sent on this run, the loss itself is reported by Closed.
+                run.CompleteFlushes();
+            }
+        }
 
-                _sendBatch.Clear();
+        private async UniTask Send(RunState run, IMessageFromClient message)
+        {
+            byte[] payload;
+
+            try
+            {
+                payload = MemoryPackSerializer.Serialize(message);
+            }
+            catch (Exception exception)
+            {
+                // A message the protocol does not know (a type missing from the union) is a mistake of the caller:
+                // its request fails with the error at once instead of on the timeout, the next messages go on.
+                if (message is RequestMessageFromClient request
+                    && _pendingRequests.TryGetValue(request.RequestId, out var completion) == true)
+                {
+                    completion.TrySetException(exception);
+                    return;
+                }
+
+                UnityEngine.Debug.LogException(exception);
+                return;
+            }
+
+            try
+            {
+                await run.Socket.Send(payload);
+                _traffic.OnSent(payload.Length);
+            }
+            catch (Exception) when (run.IsClosed == true)
+            {
+                // The connection is closed during the send (the lifetime ended: OperationCanceledException, the socket
+                // is disposed: ObjectDisposedException): the message goes as every other one left in the queue of a
+                // closed connection, not a failure to report.
+            }
+            catch (Exception exception)
+            {
+                // A crashed send loop silently hangs all subsequent requests, so we keep going.
+                UnityEngine.Debug.LogError($"Failed to send message to server: {exception}");
             }
         }
 
@@ -144,7 +185,7 @@ namespace Internal
                 Context = value,
             };
 
-            _writeQueue.Add(oneWay);
+            Enqueue(oneWay);
         }
 
         public async UniTask<T> WriteRequest<T>(INetworkContext commandContext)
@@ -173,7 +214,7 @@ namespace Internal
             var completion = new UniTaskCompletionSource<INetworkContext>();
             _pendingRequests.Add(request.RequestId, completion);
 
-            _writeQueue.Add(request);
+            Enqueue(request);
 
             // The end of the connection (or ForceSendAll) cancels the request. Removed when the request ends:
             // a listener per request would otherwise stay on the connection lifetime until it ends.
@@ -234,7 +275,7 @@ namespace Internal
                 Context = commandContext
             };
 
-            _writeQueue.Add(response);
+            Enqueue(response);
         }
 
         public void OnRequestHandled(INetworkContext commandContext, int requestId)
@@ -251,19 +292,56 @@ namespace Internal
             }
         }
 
-        public async UniTask ForceSendAll()
+        // A closed connection sends nothing: the message goes as every other one left in its queue.
+        private void Enqueue(IMessageFromClient message)
+        {
+            if (IsClosed == true)
+                return;
+
+            _run.Queue.Add(message);
+        }
+
+        // Sends everything written so far before it returns. The send loop does it: a second sender would overlap its
+        // send. Messages written after it still go with the loop; requests are refused.
+        public UniTask ForceSendAll()
         {
             _lifetime.Terminate();
 
-            // The queue is taken, not read: left in place, the send loop sent it a second time on the next frame
-            // (and a write during the await below modified the list under the enumeration).
-            var messages = new List<IMessageFromClient>(_writeQueue);
-            _writeQueue.Clear();
+            if (_run.IsClosed == true)
+                return UniTask.CompletedTask;
 
-            foreach (var message in messages)
+            var flush = new UniTaskCompletionSource();
+            _run.Flushes.Add(flush);
+            return flush.Task;
+        }
+
+        private class RunState
+        {
+            public RunState(IReadOnlyLifetime lifetime, IWebSocket socket)
             {
-                var payload = MemoryPackSerializer.Serialize(message);
-                await _webSocket.Send(payload);
+                Lifetime = lifetime;
+                Socket = socket;
+            }
+
+            public readonly IReadOnlyLifetime Lifetime;
+            public readonly IWebSocket Socket;
+            public readonly List<IMessageFromClient> Queue = new();
+            public readonly List<UniTaskCompletionSource> Flushes = new();
+
+            public bool IsLost;
+
+            public bool IsClosed => IsLost == true || Lifetime.IsTerminated == true;
+
+            public void CompleteFlushes()
+            {
+                if (Flushes.Count == 0)
+                    return;
+
+                var flushes = new List<UniTaskCompletionSource>(Flushes);
+                Flushes.Clear();
+
+                foreach (var flush in flushes)
+                    flush.TrySetResult();
             }
         }
     }

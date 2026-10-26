@@ -148,7 +148,7 @@ namespace Internal
             return sources;
         }
 
-        private static List<AssetGroupDefinition> BuildGroups(List<AssetSource> sources)
+        internal static List<AssetGroupDefinition> BuildGroups(List<AssetSource> sources)
         {
             var groups = new Dictionary<string, AssetGroupDefinition>(StringComparer.Ordinal);
             var usedNames = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
@@ -170,12 +170,11 @@ namespace Internal
                     usedNames.Add(source.Group, new HashSet<string>(StringComparer.Ordinal));
                 }
 
+                // Dropping one of the two would silently take an asset out of the catalogue.
                 if (usedNames[source.Group].Add(source.PropertyName) == false)
-                {
-                    Debug.LogError(
-                        $"[{LogTag}] Duplicate identifier '{source.PropertyName}' in group '{source.Group}'. Skipping {source.Path}.");
-                    continue;
-                }
+                    throw new InvalidOperationException(
+                        $"[{LogTag}] Duplicate identifier '{source.PropertyName}' in group '{source.Group}': " +
+                        $"{source.Path}. Rename one of the assets or move it to another group.");
 
                 var type = source.Asset.GetType();
                 var script = ScriptTypeNames.ScriptOf(source.Asset);
@@ -209,7 +208,7 @@ namespace Internal
 
         // A group class must live in an assembly that sees the types of its assets,
         // so a group that mixes assemblies is not code-generated at all.
-        private static void AssignGeneratedTargets(List<AssetGroupDefinition> groups)
+        internal static void AssignGeneratedTargets(List<AssetGroupDefinition> groups)
         {
             foreach (var group in groups)
             {
@@ -231,7 +230,7 @@ namespace Internal
 
                 if (assemblies.Count == 1)
                 {
-                    group.TargetNamespace = assemblies.Min;
+                    group.TargetNamespace = CatalogAssemblies.ToNamespace(LogTag, assemblies.Min);
                     group.GeneratedFolder = AssetsCatalogClassGenerator.GetAssemblyGeneratedFolder(assemblies.Min);
                     continue;
                 }
@@ -359,7 +358,7 @@ namespace Internal
             }
         }
 
-        private sealed class AssetSource
+        internal sealed class AssetSource
         {
             public string Path;
             public string Group;

@@ -160,6 +160,15 @@ namespace Internal
                 }
 
                 entity = await listener.Invoke(creation, data);
+
+                // Added under its own id, the entity left data.Id in Creating forever: its updates were buffered
+                // for nobody.
+                if (entity.Id != data.Id)
+                {
+                    throw new InvalidOperationException(
+                        $"[Network] The listener of entity {data.Id} with payload {data.Payload.GetType().Name} " +
+                        $"has built entity {entity.Id}");
+                }
             }
             catch
             {

@@ -44,9 +44,11 @@ namespace Internal
             _callback?.Invoke(delta);
         }
 
+        // The lifetime ended before the predicate: the wait is cancelled, as Progression and Tween are. After the
+        // completion by the predicate the cancellation is ignored.
         private void Dispose()
         {
-            _completion.TrySetResult();
+            _completion.TrySetCanceled();
         }
 
         protected abstract void ListenUpdate(IReadOnlyLifetime lifetime, IUpdater updater);

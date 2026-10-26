@@ -1,3 +1,4 @@
+using Common.Extensions;
 using Cluster.Deploy;
 using Infrastructure;
 using Internal;
@@ -35,13 +36,21 @@ public class OpenLobbiesWatcher : IOpenLobbiesWatcher, IDeployAware
         lock (_lock)
             _lobbies.Set(Empty());
 
-        // Listened before the read: a change made in between comes by the channel, the read never hides it.
-        await _messaging.ListenChannel<OpenLobbies>(deployLifetime, new OpenLobbiesChannelId(newDeployId), Apply);
+        // Listened before the read: a change made in between comes by the channel, the read never hides it. A gap of
+        // the channel (missed pushes) reads the registry again; the version keeps the newer snapshot.
+        await _messaging.ListenChannel<OpenLobbies>(deployLifetime, new OpenLobbiesChannelId(newDeployId), Apply,
+            () => Reload(newDeployId).NoAwait());
 
-        var current = await _orleans.GetGrain<ILobbyRegistry>(newDeployId).GetOpenLobbies();
-        Apply(current);
+        var current = await Reload(newDeployId);
 
         _logger.LogInformation("[Lobby] Open lobbies of deploy {DeployId}: {Count}", newDeployId, current.Entries.Count);
+    }
+
+    private async Task<OpenLobbies> Reload(Guid deployId)
+    {
+        var current = await _orleans.GetGrain<ILobbyRegistry>(deployId).GetOpenLobbies();
+        Apply(current);
+        return current;
     }
 
     private void Apply(OpenLobbies lobbies)

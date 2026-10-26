@@ -17,9 +17,13 @@ namespace Internal
 
             // Whoever ends it (either source or a direct Terminate), the subscriptions leave both sources:
             // otherwise an intersection terminated early stays on the sources until they end.
+            // A source that is terminating is skipped, as for a child (Lifetime.Terminate).
             child.Listen(() => {
-                lifetimeA.RemoveListener(child.TerminateCallback);
-                lifetimeB.RemoveListener(child.TerminateCallback);
+                if (lifetimeA.IsTerminated == false)
+                    lifetimeA.RemoveListener(child.TerminateCallback);
+
+                if (lifetimeB.IsTerminated == false)
+                    lifetimeB.RemoveListener(child.TerminateCallback);
             });
 
             lifetimeA.Listen(child.TerminateCallback);

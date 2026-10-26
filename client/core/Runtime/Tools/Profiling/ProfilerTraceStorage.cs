@@ -73,40 +73,33 @@ namespace Internal
             LastPath = null;
             ColdDomain = false;
 
-            try
-            {
-                var directory = Directory;
+            var directory = Directory;
 
-                if (System.IO.Directory.Exists(directory) == false)
-                    System.IO.Directory.CreateDirectory(directory);
+            if (System.IO.Directory.Exists(directory) == false)
+                System.IO.Directory.CreateDirectory(directory);
 
-                trace.Id = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
+            trace.Id = DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
 
-                var name = $"trace_{trace.Id}.json";
-                var path = Path.Combine(directory, name);
-                var json = JsonUtility.ToJson(trace);
+            var name = $"trace_{trace.Id}.json";
+            var path = Path.Combine(directory, name);
+            var json = JsonUtility.ToJson(trace);
 
-                File.WriteAllText(path, json);
+            File.WriteAllText(path, json);
 
-                LastPath = path;
+            LastPath = path;
 
-                Cleanup(directory);
+            Cleanup(directory);
 
 #if UNITY_WEBGL && !UNITY_EDITOR
-                // On WebGL the file stays in MEMFS, and a long console line gets truncated -
-                // the trace is offered as a download from DevTools.
-                ProfilerTraceStore(name, json);
-                Debug.Log($"[Profiler] Trace saved: {name}. Call downloadProfilerTrace() in DevTools console to get it");
+            // On WebGL the file stays in MEMFS, and a long console line gets truncated -
+            // the trace is offered as a download from DevTools.
+            ProfilerTraceStore(name, json);
+            Debug.Log($"[Profiler] Trace saved: {name}. Call downloadProfilerTrace() in DevTools console to get it");
 #elif !UNITY_EDITOR
-                // A desktop build has no editor window - the trace is duplicated into Player.log.
-                Debug.Log($"[Profiler] Trace saved to {path}");
-                Debug.Log($"[Profiler] Trace json: {json}");
+            // A desktop build has no editor window - the trace is duplicated into Player.log.
+            Debug.Log($"[Profiler] Trace saved to {path}");
+            Debug.Log($"[Profiler] Trace json: {json}");
 #endif
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"[Profiler] Failed to save trace: {e.Message}");
-            }
 
             Saved?.Invoke(trace);
         }
@@ -134,15 +127,7 @@ namespace Internal
 
         public static ProfilerTraceData Load(string path)
         {
-            try
-            {
-                return JsonUtility.FromJson<ProfilerTraceData>(File.ReadAllText(path));
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning($"[Profiler] Failed to read trace {path}: {e.Message}");
-                return null;
-            }
+            return JsonUtility.FromJson<ProfilerTraceData>(File.ReadAllText(path));
         }
 
         /// <summary>

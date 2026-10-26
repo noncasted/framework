@@ -22,15 +22,6 @@ namespace Internal
         {
         }
 
-        public void RemoveTerminationListener(Action callback)
-        {
-        }
-
-        public ILifetime CreateChild()
-        {
-            return new TerminatedLifetime();
-        }
-
         public void Terminate()
         {
         }

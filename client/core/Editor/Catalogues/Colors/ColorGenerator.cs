@@ -65,10 +65,17 @@ namespace Internal
             if (catalog == null)
                 throw new ArgumentNullException(nameof(catalog));
 
-            var groups = BuildGroups(catalog);
+            var source = BuildSource(catalog, out var groupCount);
             CatalogPaths.EnsureFolder(GeneratedFolder);
-            GeneratedFile.WriteIfChanged(LogTag, $"{GeneratedFolder}/{GeneratedFileName}", BuildColorsClass(groups));
-            Debug.Log($"[ColorGenerator] Generated {groups.Count} color group(s).");
+            GeneratedFile.WriteIfChanged(LogTag, $"{GeneratedFolder}/{GeneratedFileName}", source);
+            Debug.Log($"[ColorGenerator] Generated {groupCount} color group(s).");
+        }
+
+        internal static string BuildSource(ColorCatalog catalog, out int groupCount)
+        {
+            var groups = BuildGroups(catalog);
+            groupCount = groups.Count;
+            return BuildColorsClass(groups);
         }
 
         private static List<ColorGroupDefinition> BuildGroups(ColorCatalog catalog)
@@ -182,8 +189,13 @@ namespace Internal
             builder.AppendLine("    [NoAutoStaticsCleanup]");
             builder.AppendLine("    public static class Colors {");
 
+            var members = new IdentifierScope("Colors", Array.Empty<string>());
+
             foreach (var group in groups)
+            {
+                members.Declare(group.Name, $"Color group '{group.Name}'");
                 builder.AppendLine($"        public static readonly {group.ClassName} {group.Name} = new();");
+            }
 
             builder.AppendLine("    }");
 
@@ -192,8 +204,13 @@ namespace Internal
                 builder.AppendLine();
                 builder.AppendLine($"    public sealed class {group.ClassName} {{");
 
+                var entries = new IdentifierScope(group.ClassName, CodeIdentifiers.InheritedMembers(typeof(object)));
+
                 foreach (var entry in group.Entries)
+                {
+                    entries.Declare(entry.Name, $"Color group '{group.Name}'");
                     builder.AppendLine($"        public readonly Color {entry.Name} = {FormatColor(entry.Value)};");
+                }
 
                 builder.AppendLine("    }");
             }

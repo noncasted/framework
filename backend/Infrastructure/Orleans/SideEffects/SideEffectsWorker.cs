@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Common;
 using Common.Extensions;
 using Internal;
@@ -41,71 +42,90 @@ public class SideEffectsWorker : IHostedService
     private int _inProgress;
     private readonly CancellationTokenSource _shutdownCts = new();
     private DateTime _lastStuckCheck = DateTime.MinValue;
+    private Task _loop = Task.CompletedTask;
 
+    // Entries this worker executes: touched before every stuck check, so a long effect is not taken for stuck.
+    private readonly ConcurrentDictionary<Guid, byte> _executing = new();
+
+    // The loop ends with StopAsync. The token of StartAsync only cancels the start, it is never cancelled at shutdown.
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        var lifetime = cancellationToken.ToLifetime();
-        Loop(lifetime).NoAwait();
+        var lifetime = _shutdownCts.Token.ToLifetime();
+        _loop = Loop(lifetime);
+        _loop.NoAwait();
         return Task.CompletedTask;
     }
 
     private async Task Loop(IReadOnlyLifetime lifetime)
     {
-        await _loopObserver.IsOrleansStarted.WaitTrue(lifetime);
-        await _participantContext.IsInitialized.WaitTrue(lifetime);
-
-        while (lifetime.IsTerminated == false)
+        try
         {
-            if (_clusterFlags.SideEffectsEnabled == false)
-            {
-                await Task.Delay(500, lifetime.Token);
-                continue;
-            }
+            await _loopObserver.IsOrleansStarted.WaitTrue(lifetime);
+            await _participantContext.IsInitialized.WaitTrue(lifetime);
 
-            if (_shutdownCts.IsCancellationRequested)
-                break;
-
-            var foundWork = false;
-
-            try
-            {
-                var options = _config.Value;
-                var freeSlots = options.ConcurrentExecutions - _inProgress;
-
-                if (freeSlots <= 0)
-                {
-                    await Task.Delay(_config.Value.EmptyScanDelay, lifetime.Token);
-                    continue;
-                }
-
-                await _storage.RequeueReady();
-
-                if ((DateTime.UtcNow - _lastStuckCheck).TotalSeconds >= options.StuckCheckIntervalSeconds)
-                {
-                    await _storage.RequeueStuckOlderThan(TimeSpan.FromMinutes(options.StuckThresholdMinutes));
-                    _lastStuckCheck = DateTime.UtcNow;
-                }
-
-                var entries = await _storage.Read(freeSlots);
-                foundWork = entries.Count > 0;
-                BackendMetrics.SideEffectQueueDepth.Record(entries.Count);
-
-                foreach (var entry in entries)
-                {
-                    if (_shutdownCts.IsCancellationRequested)
-                        break;
-
-                    ExecuteEntry(entry, lifetime).NoAwait();
-                }
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, "[SideEffects] Error in scan loop");
-            }
-
-            var delay = foundWork ? _config.Value.ScanDelay : _config.Value.EmptyScanDelay;
-            await Task.Delay(delay, lifetime.Token);
+            while (lifetime.IsTerminated == false)
+                await Iterate(lifetime);
         }
+        catch (OperationCanceledException) when (lifetime.IsTerminated == true)
+        {
+        }
+    }
+
+    private async Task Iterate(IReadOnlyLifetime lifetime)
+    {
+        if (_clusterFlags.SideEffectsEnabled == false)
+        {
+            await Task.Delay(500, lifetime.Token);
+            return;
+        }
+
+        var foundWork = false;
+
+        try
+        {
+            var options = _config.Value;
+            var freeSlots = options.ConcurrentExecutions - _inProgress;
+
+            if (freeSlots <= 0)
+            {
+                await Task.Delay(_config.Value.EmptyScanDelay, lifetime.Token);
+                return;
+            }
+
+            await _storage.RequeueReady();
+
+            if ((DateTime.UtcNow - _lastStuckCheck).TotalSeconds >= options.StuckCheckIntervalSeconds)
+            {
+                // Every worker touches its own entries at its stuck check: only the entries of a worker that is
+                // gone stay untouched for StuckThresholdMinutes.
+                await _storage.TouchProcessing(_executing.Keys.ToArray());
+                await _storage.RequeueStuckOlderThan(TimeSpan.FromMinutes(options.StuckThresholdMinutes));
+                _lastStuckCheck = DateTime.UtcNow;
+            }
+
+            var entries = await _storage.Read(freeSlots);
+            foundWork = entries.Count > 0;
+            BackendMetrics.SideEffectQueueDepth.Record(entries.Count);
+
+            foreach (var entry in entries)
+            {
+                if (_shutdownCts.IsCancellationRequested)
+                    break;
+
+                ExecuteEntry(entry, lifetime).NoAwait();
+            }
+        }
+        catch (OperationCanceledException) when (lifetime.IsTerminated == true)
+        {
+            throw;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "[SideEffects] Error in scan loop");
+        }
+
+        var delay = foundWork ? _config.Value.ScanDelay : _config.Value.EmptyScanDelay;
+        await Task.Delay(delay, lifetime.Token);
     }
 
     private async Task ExecuteEntry(SideEffectEntry entry, IReadOnlyLifetime lifetime)
@@ -117,6 +137,7 @@ public class SideEffectsWorker : IHostedService
             activity?.SetTag("side_effect.correlation_id", correlated.CorrelationId);
 
         Interlocked.Increment(ref _inProgress);
+        _executing[entry.Id] = 0;
         BackendMetrics.SideEffectInProgress.Add(1);
         using var watch = MetricWatch.Start(BackendMetrics.SideEffectDuration);
 
@@ -169,6 +190,7 @@ public class SideEffectsWorker : IHostedService
         }
         finally
         {
+            _executing.TryRemove(entry.Id, out _);
             BackendMetrics.SideEffectInProgress.Add(-1);
             Interlocked.Decrement(ref _inProgress);
         }
@@ -177,6 +199,7 @@ public class SideEffectsWorker : IHostedService
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         _shutdownCts.Cancel();
+        await _loop.WaitAsync(cancellationToken);
 
         const int maxIterations = 200;
         var iterations = 0;

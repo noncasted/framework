@@ -185,12 +185,12 @@ public class AllowedOriginsTests
     {
         await using var host = await Start(AllowedOrigins.NoBrowserOrigins);
 
-        var native = await host.Http.GetAsync("/ping");
+        var native = await host.Http.GetAsync("/ping", TestContext.Current.CancellationToken);
         var browser = await Send(host, HttpMethod.Get, "https://game.example");
         var preflight = await Send(host, HttpMethod.Options, "https://game.example", preflight: true);
 
         native.IsSuccessStatusCode.Should().BeTrue();
-        (await native.Content.ReadAsStringAsync()).Should().Be("pong");
+        (await native.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).Should().Be("pong");
         browser.Headers.Contains("Access-Control-Allow-Origin").Should().BeFalse();
         preflight.Headers.Contains("Access-Control-Allow-Origin").Should().BeFalse();
 

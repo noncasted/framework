@@ -1,4 +1,3 @@
-using System;
 using System.Text;
 using Cysharp.Threading.Tasks;
 using Internal;
@@ -8,12 +7,20 @@ namespace Global.Backend
 {
     public interface IBackendPost
     {
-        UniTask Post(IReadOnlyLifetime lifetime, IPostRequest request);
+        // The body of the response.
+        UniTask<string> Post(IReadOnlyLifetime lifetime, IPostRequest request);
     }
 
     public class BackendPost : IBackendPost
     {
-        public async UniTask Post(IReadOnlyLifetime lifetime, IPostRequest request)
+        public BackendPost(BackendOptions options)
+        {
+            _options = options;
+        }
+
+        private readonly BackendOptions _options;
+
+        public async UniTask<string> Post(IReadOnlyLifetime lifetime, IPostRequest request)
         {
             using var trace = GameProfiler.Concurrent($"POST {request.Uri}");
 
@@ -23,15 +30,14 @@ namespace Global.Backend
             if (request.Body != null)
                 uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(request.Body));
 
-            using var webRequest = new UnityWebRequest(request.Uri, "POST", null, uploadHandler);
+            using var webRequest = new UnityWebRequest(request.Uri, "POST", downloadHandlerBuffer, uploadHandler);
 
-            foreach (var header in request.Headers)
-                webRequest.SetRequestHeader(header.Type, header.Value);
+            webRequest.SetHeaders(request.Headers, _options);
 
+            // A failure (a network error, an error status, the timeout) throws UnityWebRequestException.
             await webRequest.SendWebRequest().ToUniTask(cancellationToken: lifetime.Token);
 
-            if (webRequest.result != UnityWebRequest.Result.Success)
-                throw new Exception("POST request failed");
+            return downloadHandlerBuffer.text;
         }
     }
 }

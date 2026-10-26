@@ -184,4 +184,40 @@ public class LifetimedValueTests
         trueLifetimes[0].IsTerminated.Should().BeTrue();
         trueLifetimes[1].IsTerminated.Should().BeFalse();
     }
+
+    [Fact]
+    public void Set_InsideHandler_LaterHandlersSeeOnlyTheNewestValue()
+    {
+        var lifetime = new Lifetime();
+        var property = new ViewableProperty<int>(0);
+        var seen = new List<(int Value, bool IsTerminated)>();
+
+        property.Advise(lifetime, (_, value) => {
+            if (value == 1)
+                property.Set(2);
+        });
+
+        property.Advise(lifetime, (valueLifetime, value) => seen.Add((value, valueLifetime.IsTerminated)));
+
+        property.Set(1);
+
+        // The nested Set already delivered 2; the outer pass must not deliver the superseded 1 after it.
+        seen.Should().Equal((2, false));
+        property.Value.Should().Be(2);
+    }
+
+    [Fact]
+    public void ViewTrue_NotifyWhileTrue_EndsThePreviousTrueLifetime()
+    {
+        var lifetime = new Lifetime();
+        var property = new ViewableProperty<bool>(true);
+        var lifetimes = new List<IReadOnlyLifetime>();
+
+        property.ViewTrue(lifetime, trueLifetime => lifetimes.Add(trueLifetime));
+        property.Notify();
+
+        lifetimes.Should().HaveCount(2);
+        lifetimes[0].IsTerminated.Should().BeTrue();
+        lifetimes[1].IsTerminated.Should().BeFalse();
+    }
 }

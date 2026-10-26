@@ -1,5 +1,4 @@
-﻿using System;
-using Cysharp.Threading.Tasks;
+﻿using Cysharp.Threading.Tasks;
 using Internal;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -14,6 +13,13 @@ namespace Global.Backend
 
     public class BackendMedia : IBackendMedia
     {
+        public BackendMedia(BackendOptions options)
+        {
+            _options = options;
+        }
+
+        private readonly BackendOptions _options;
+
         public async UniTask<AudioClip> GetAudio(IReadOnlyLifetime lifetime, IGetRequest request, AudioType audioType)
         {
             using var trace = GameProfiler.Concurrent($"GET audio {request.Uri}");
@@ -21,13 +27,10 @@ namespace Global.Backend
             using var downloadHandlerAudioClip = new DownloadHandlerAudioClip(request.Uri, audioType);
             using var webRequest = new UnityWebRequest(request.Uri, "GET", downloadHandlerAudioClip, null);
 
-            foreach (var header in request.Headers)
-                webRequest.SetRequestHeader(header.Type, header.Value);
+            webRequest.SetHeaders(request.Headers, _options);
 
+            // A failure (a network error, an error status, the timeout) throws UnityWebRequestException.
             await webRequest.SendWebRequest().ToUniTask(cancellationToken: lifetime.Token);
-
-            if (webRequest.result != UnityWebRequest.Result.Success)
-                throw new Exception("GET request failed");
 
             return downloadHandlerAudioClip.audioClip;
         }
@@ -38,10 +41,11 @@ namespace Global.Backend
 
             using var downloadHandler = new DownloadHandlerTexture(true);
             using var webRequest = new UnityWebRequest(request.Uri, "GET", downloadHandler, null);
-            await webRequest.SendWebRequest().ToUniTask(cancellationToken: lifetime.Token);
 
-            if (webRequest.result != UnityWebRequest.Result.Success)
-                throw new Exception("GET request failed");
+            // The headers too: the image of an authorized endpoint was refused.
+            webRequest.SetHeaders(request.Headers, _options);
+
+            await webRequest.SendWebRequest().ToUniTask(cancellationToken: lifetime.Token);
 
             return downloadHandler.texture;
         }

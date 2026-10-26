@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEngine;
@@ -16,6 +17,9 @@ namespace Internal
 
         private const string LogTag = "HierarchyBindingsGenerator";
         private const string AwaitingReloadKey = "Internal.HierarchyBindings.AwaitingReload";
+
+        // The namespace line HierarchyBindingsCodeGenerator writes; a class without a namespace has none.
+        private static readonly Regex DeclaredNamespace = new(@"^namespace (\S+) \{", RegexOptions.Multiline);
 
         public static string ToTypeName(string bindingsName)
         {
@@ -124,7 +128,8 @@ namespace Internal
 
                 // The node holds references to objects of the loaded contents, so the code is built
                 // before they are unloaded.
-                var node = Scan(target.Root, typeName, namespaceName, assetPath, isPrefab, errors);
+                var node = Scan(target.Root, typeName, namespaceName, assetPath, isPrefab, isSceneService,
+                    isEntityComponent, errors);
 
                 if (node != null)
                 {
@@ -147,9 +152,19 @@ namespace Internal
             }
 
             var folder = HierarchyBindingsPaths.ResolveGeneratedFolder(root, assetPath);
-            var filePath = $"{folder}/{typeName}.g.cs";
+            var filePath = ToFilePath(folder, typeName);
+            var fileConflict = FindFileConflict(filePath, typeName, namespaceName);
 
-            changed = HasChanged(filePath, code);
+            if (fileConflict != null)
+            {
+                Debug.LogError($"[{LogTag}] {fileConflict}", root);
+                return false;
+            }
+
+            // The code is written before the request is queued: a failed write throws and leaves no request waiting
+            // for a reload that never comes. Changed means written, so a reload follows.
+            CatalogPaths.EnsureFolder(folder);
+            changed = GeneratedFile.WriteIfChanged(LogTag, filePath, code);
 
             // Same code but a stale hash on the object: an earlier binding failed or never ran (the object was
             // saved with old references). Bind again, otherwise the object never catches up with its code.
@@ -161,6 +176,7 @@ namespace Internal
                 {
                     AssetPath = assetPath,
                     ObjectPath = objectPath,
+                    ObjectNames = HierarchyBindingsTarget.NamePath(root),
                     TypeName = typeName,
                     Namespace = namespaceName,
                     IsPrefabAsset = isPrefab,
@@ -170,9 +186,32 @@ namespace Internal
                 });
             }
 
-            CatalogPaths.EnsureFolder(folder);
-            GeneratedFile.WriteIfChanged(LogTag, filePath, code);
             return true;
+        }
+
+        // The file of a class is named by the short type name: classes of one name from different namespaces
+        // (Menu/Shop.prefab and GamePlay/Shop.prefab, both ShopBindings) that resolve to one folder share it.
+        internal static string ToFilePath(string folder, string typeName)
+        {
+            return $"{folder}/{typeName}.g.cs";
+        }
+
+        // The file at the path is generated for another class: writing would silently replace that class.
+        private static string FindFileConflict(string filePath, string typeName, string namespaceName)
+        {
+            var fullPath = CatalogPaths.ToFullPath(filePath);
+
+            if (File.Exists(fullPath) == false)
+                return null;
+
+            var match = DeclaredNamespace.Match(File.ReadAllText(fullPath));
+            var declared = match.Success ? match.Groups[1].Value : string.Empty;
+
+            if (string.Equals(declared, namespaceName, StringComparison.Ordinal))
+                return null;
+
+            var declaredName = string.IsNullOrEmpty(declared) ? typeName : declared + "." + typeName;
+            return $"{filePath} already holds {declaredName} of another object. Give these bindings another name.";
         }
 
         // Without code changes there is no compilation, so DidReloadScripts will not fire either,
@@ -204,6 +243,13 @@ namespace Internal
                 return "Pending requests remain. " + HierarchyBindingsBatch.Status();
 
             return HierarchyBindingsBatch.Status();
+        }
+
+        // Requests or the awaiting mark are left (for example, the generated code failed to compile and the reload
+        // never came): only a reset (Cancel) moves on.
+        internal static bool HasPending()
+        {
+            return HierarchyBindingsQueue.HasData() || SessionState.GetBool(AwaitingReloadKey, false);
         }
 
         // Resets a stuck state (for example, the generated code failed to compile): the queue and the awaiting mark.
@@ -238,13 +284,15 @@ namespace Internal
             string namespaceName,
             string assetPath,
             bool isPrefab,
+            bool isSceneService,
+            bool isEntityComponent,
             List<string> errors)
         {
             if (ValidateLayer(root, typeName, namespaceName, assetPath, errors) == false)
                 return null;
 
             var layer = HierarchyBindingsLayer.Resolve(assetPath, isPrefab);
-            return HierarchyBindingsScanner.Scan(root, typeName, layer, errors);
+            return HierarchyBindingsScanner.Scan(root, typeName, layer, errors, isSceneService, isEntityComponent);
         }
 
         // Bindings already on the object under this name are regenerated only in the asset where they
@@ -301,18 +349,33 @@ namespace Internal
             if (EditorApplication.isCompiling || SessionState.GetBool(AwaitingReloadKey, false))
                 return;
 
-            var requests = HierarchyBindingsQueue.Take();
+            var requests = HierarchyBindingsQueue.Load();
 
             if (requests.Count == 0)
                 return;
 
             var bound = 0;
 
-            foreach (var request in requests)
+            // The queue is consumed only after the pass: a request that throws must not take the rest with it
+            // silently. An exception ends the batch and drops what is pending, loudly: the next pass would hit it
+            // again, and a batch waiting for this pass would never move on.
+            try
             {
-                if (Process(request))
-                    bound++;
+                foreach (var request in requests)
+                {
+                    if (Process(request))
+                        bound++;
+                }
             }
+            catch (Exception exception)
+            {
+                HierarchyBindingsBatch.Abort();
+                throw new InvalidOperationException(
+                    $"[{LogTag}] Binding failed, the pending bindings and the prefab batch are reset: " +
+                    exception.Message, exception);
+            }
+
+            HierarchyBindingsQueue.Clear();
 
             if (bound > 0)
             {
@@ -367,19 +430,6 @@ namespace Internal
             }
 
             return null;
-        }
-
-        private static bool HasChanged(string assetPath, string content)
-        {
-            try
-            {
-                var fullPath = CatalogPaths.ToFullPath(assetPath);
-                return File.Exists(fullPath) == false || File.ReadAllText(fullPath) != content;
-            }
-            catch (Exception)
-            {
-                return true;
-            }
         }
 
         private static void Report(List<string> errors, UnityEngine.Object context)

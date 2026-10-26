@@ -1,3 +1,4 @@
+using Common.Extensions;
 using Infrastructure.State;
 using Microsoft.Extensions.Logging;
 using Orleans.Concurrency;
@@ -26,6 +27,11 @@ public interface IGrainTransactionHandler : IGrainExtension
     [AlwaysInterleave]
     Task<TransactionHandlerResult> CollectResult(Guid transactionId);
 
+    // Called by Transactions.Process right before the database commit: fails when the transaction lost this grain
+    // to a stuck-transaction takeover, so its old snapshot never overwrites the commit of the one that took over.
+    [AlwaysInterleave]
+    Task Seal(Guid transactionId);
+
     [AlwaysInterleave]
     Task OnSuccess(Guid transactionId);
 
@@ -51,6 +57,7 @@ public interface IGrainTransactionHandler : IGrainExtension
 //   After all grain calls finish:
 //     → CollectResult() — snapshots current in-memory state for DB write
 //     → [DB write happens atomically in a single Postgres transaction]
+//     → Seal() — checks the grain still belongs to the transaction, right before the DB commit
 //     → OnSuccess() — confirms commit, releases lock
 //   On any exception:
 //     → OnFailure() — rolls back in-memory state, releases lock
@@ -79,7 +86,7 @@ public class GrainTransactionHandler : IGrainTransactionHandler
     private Guid _currentTransactionId;
 
     // Last activity time of the current transaction.
-    // Refreshed on every Join() call (including idempotent re-joins).
+    // Refreshed on every Join() call (including idempotent re-joins) and on Seal().
     // Used to detect stuck transactions eligible for takeover.
     private DateTime _currentTransactionTime;
 
@@ -112,7 +119,7 @@ public class GrainTransactionHandler : IGrainTransactionHandler
 
         // Another transaction is active. Wait for it to finish.
         // The previous transaction releases the lock in OnSuccess/OnFailure.
-        var options = _transactionConfig.Value ?? new TransactionOptions();
+        var options = _transactionConfig.Value.ThrowIfNull();
         var isAcquired = await _lock.WaitAsync(TimeSpan.FromSeconds(options.LockWaitSeconds));
 
         if (isAcquired == false)
@@ -222,6 +229,21 @@ public class GrainTransactionHandler : IGrainTransactionHandler
             Events = _eventRecords.ToList(),
             Sequence = ++_resultSequence
         });
+    }
+
+    // A transaction taken over (Join) is rejected here, before its DB commit. A sealed transaction gets a new
+    // StuckGraceSeconds: Transactions.Commit bounds the time between the seal and the commit by the
+    // idle_in_transaction_session_timeout of its DB transaction, so a takeover after that grace cannot race the commit.
+    public Task Seal(Guid transactionId)
+    {
+        if (_currentTransactionId != transactionId)
+        {
+            throw new Exception(
+                $"Transaction '{transactionId}' lost the grain before its commit. Current transaction '{_currentTransactionId}'.");
+        }
+
+        _currentTransactionTime = DateTime.UtcNow;
+        return Task.CompletedTask;
     }
 
     // Called by Transactions.Process() after the DB write succeeds.

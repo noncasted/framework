@@ -35,6 +35,10 @@ public class TaskBalancer : ITaskBalancer
     private readonly Dictionary<string, TaskEntry> _scheduled = new();
     private readonly Lock _scheduledLock = new();
 
+    // taskId → the failure penalties of a task, under _scheduledLock. A failed task comes back through the queue as
+    // a new entry: the penalty of the removed entry was lost and a failing task ran again on every tick at full score.
+    private readonly Dictionary<string, int> _penalties = new();
+
     public Task Run(IReadOnlyLifetime lifetime)
     {
         CollectLoop(lifetime).NoAwait();
@@ -82,7 +86,7 @@ public class TaskBalancer : ITaskBalancer
                         {
                             Task = task,
                             Key = task.Id,
-                            InitialScore = _priorityToScore[task.Priority]
+                            InitialScore = _priorityToScore[task.Priority] - _penalties.GetValueOrDefault(task.Id)
                         };
                         newEntry.Init();
                         _scheduled[task.Id] = newEntry;
@@ -156,10 +160,13 @@ public class TaskBalancer : ITaskBalancer
             }
         }
 
-        // Graceful drain: wait for all executing tasks to complete before returning
+        // Graceful drain: every permit back means every executing task has completed.
         _logger.LogInformation("[TaskBalancer] Draining {Count} executing tasks...", concurrentTasks - executionLock.CurrentCount);
-        await executionLock.WaitAsync();
-        executionLock.Release(concurrentTasks);
+
+        for (var i = 0; i < concurrentTasks; i++)
+            await executionLock.WaitAsync();
+
+        _logger.LogInformation("[TaskBalancer] Drained");
 
         return;
 
@@ -181,12 +188,18 @@ public class TaskBalancer : ITaskBalancer
 
                 await entry.Task.Execute();
                 success = true;
+
+                lock (_scheduledLock)
+                    _penalties.Remove(entry.Key);
             }
             catch (Exception e)
             {
                 stopwatch.Stop();
                 activity?.SetStatus(ActivityStatusCode.Error, e.Message);
-                entry.AddScore(-_config.Value.ExceptionPenalty);
+
+                lock (_scheduledLock)
+                    _penalties[entry.Key] = _penalties.GetValueOrDefault(entry.Key) + _config.Value.ExceptionPenalty;
+
                 _queue.Enqueue(entry.Task);
 
                 _logger.LogError(e,

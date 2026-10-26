@@ -46,6 +46,8 @@ namespace Global.UI
         private readonly ILifetime _innerLifetime;
         private ILifetime _outerLifetime;
         private int _childCount;
+        private bool _isParentVisible = true;
+        private int _coveringStacks;
 
         public IReadOnlyLifetime InnerLifetime => _innerLifetime;
         public IReadOnlyLifetime OuterLifetime => _outerLifetime;
@@ -54,21 +56,34 @@ namespace Global.UI
         public IUIState State { get; }
         public UniTaskCompletionSource Completion { get; }
 
+        // Visible while the parent is (a child, OnChild) and no stacked state covers it: one flag written by both
+        // showed a state under a dialog when its parent was shown again, and the end of one of two stacked states
+        // showed it under the other.
         public void OnStacked(IInternalUIStateHandle stackHead)
         {
-            _isVisible.Set(false);
+            _coveringStacks++;
+            UpdateVisible();
 
             stackHead.InnerLifetime.Listen(() => {
-                if (_innerLifetime.IsTerminated == true)
-                    return;
-
-                _isVisible.Set(true);
+                _coveringStacks--;
+                UpdateVisible();
             });
         }
 
         public void OnChild()
         {
-            _parent.IsVisible.View(InnerLifetime, _isVisible.Set);
+            _parent.IsVisible.View(InnerLifetime, isVisible => {
+                _isParentVisible = isVisible;
+                UpdateVisible();
+            });
+        }
+
+        private void UpdateVisible()
+        {
+            if (_innerLifetime.IsTerminated == true)
+                return;
+
+            _isVisible.Set(_isParentVisible == true && _coveringStacks == 0);
         }
 
         public void OnParent(IInternalUIStateHandle child)

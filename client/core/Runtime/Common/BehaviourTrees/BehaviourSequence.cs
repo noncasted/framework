@@ -14,34 +14,39 @@ namespace Internal
             _children = children;
         }
 
+        // No Running child: index 0 would mean both "idle" and "the first child is Running".
+        private const int None = -1;
+
         private readonly IBehaviourNode[] _children;
 
-        private int _current;
+        private int _running = None;
 
         public BehaviourStatus Tick(float time)
         {
-            for (var i = _current; i < _children.Length; i++)
+            var first = _running == None ? 0 : _running;
+
+            for (var i = first; i < _children.Length; i++)
             {
                 var status = _children[i].Tick(time);
 
                 if (status == BehaviourStatus.Success)
                     continue;
 
-                _current = status == BehaviourStatus.Running ? i : 0;
+                _running = status == BehaviourStatus.Running ? i : None;
                 return status;
             }
 
-            _current = 0;
+            _running = None;
             return BehaviourStatus.Success;
         }
 
         public void Reset()
         {
-            if (_current == 0)
+            if (_running == None)
                 return;
 
-            _children[_current].Reset();
-            _current = 0;
+            _children[_running].Reset();
+            _running = None;
         }
     }
 }

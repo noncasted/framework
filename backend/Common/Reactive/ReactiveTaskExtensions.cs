@@ -1,25 +1,35 @@
 namespace Internal;
 
 // The Task waits over the reactive primitives of Framework.Common (the Unity client has the UniTask ones).
+// A wait subscribes for a child lifetime of its own, ended when the wait completes: a completed wait leaves nothing on
+// a long lifetime. The awaiters run asynchronously, never inside the Invoke / Set / Terminate that completed the wait.
 public static class ReactiveTaskExtensions
 {
     // Completes on the first invoke, is cancelled when the lifetime ends first.
     public static Task WaitInvoke(this IEventSource source, IReadOnlyLifetime lifetime)
     {
-        var completion = new TaskCompletionSource();
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var waitLifetime = lifetime.Child();
+        waitLifetime.Listen(() => completion.TrySetCanceled());
 
-        lifetime.Listen(() => completion.TrySetCanceled());
-        source.Advise(lifetime, () => completion.TrySetResult());
+        source.Advise(waitLifetime, () => {
+            completion.TrySetResult();
+            waitLifetime.Terminate();
+        });
 
         return completion.Task;
     }
 
     public static Task<T> WaitInvoke<T>(this IEventSource<T> source, IReadOnlyLifetime lifetime)
     {
-        var completion = new TaskCompletionSource<T>();
+        var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var waitLifetime = lifetime.Child();
+        waitLifetime.Listen(() => completion.TrySetCanceled());
 
-        lifetime.Listen(() => completion.TrySetCanceled());
-        source.Advise(lifetime, value => completion.TrySetResult(value));
+        source.Advise(waitLifetime, value => {
+            completion.TrySetResult(value);
+            waitLifetime.Terminate();
+        });
 
         return completion.Task;
     }
@@ -39,14 +49,16 @@ public static class ReactiveTaskExtensions
         if (property.Value == expected)
             return Task.CompletedTask;
 
-        var completion = new TaskCompletionSource();
-        lifetime.Listen(() => completion.TrySetCanceled());
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var waitLifetime = lifetime.Child();
+        waitLifetime.Listen(() => completion.TrySetCanceled());
 
-        // The subscription lives on with the lifetime: a later change is not of this wait, the completed source
-        // ignores it.
-        property.Advise(lifetime, (_, value) => {
-            if (value == expected)
-                completion.TrySetResult();
+        property.Advise(waitLifetime, (_, value) => {
+            if (value != expected)
+                return;
+
+            completion.TrySetResult();
+            waitLifetime.Terminate();
         });
 
         return completion.Task;

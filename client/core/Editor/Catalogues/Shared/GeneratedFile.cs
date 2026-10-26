@@ -10,28 +10,24 @@ namespace Internal
     // the generator did not produce in this run.
     public static class GeneratedFile
     {
-        public static void WriteIfChanged(string logTag, string assetPath, string content)
+        // Returns true if the file was written. A failed read or write throws: a caller that waits for the
+        // recompilation of what it wrote would otherwise wait for a reload that never comes.
+        public static bool WriteIfChanged(string logTag, string assetPath, string content)
         {
-            try
-            {
-                var fullPath = CatalogPaths.ToFullPath(assetPath);
+            var fullPath = CatalogPaths.ToFullPath(assetPath);
 
-                if (File.Exists(fullPath) && File.ReadAllText(fullPath) == content)
-                    return;
+            if (File.Exists(fullPath) && File.ReadAllText(fullPath) == content)
+                return false;
 
-                var directory = Path.GetDirectoryName(fullPath);
+            var directory = Path.GetDirectoryName(fullPath);
 
-                if (string.IsNullOrEmpty(directory) == false && Directory.Exists(directory) == false)
-                    Directory.CreateDirectory(directory);
+            if (string.IsNullOrEmpty(directory) == false && Directory.Exists(directory) == false)
+                Directory.CreateDirectory(directory);
 
-                File.WriteAllText(fullPath, content);
-                AssetDatabase.ImportAsset(assetPath);
-                Debug.Log($"[{logTag}] Generated {assetPath}");
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError($"[{logTag}] Failed to write {assetPath}: {exception}");
-            }
+            File.WriteAllText(fullPath, content);
+            AssetDatabase.ImportAsset(assetPath);
+            Debug.Log($"[{logTag}] Generated {assetPath}");
+            return true;
         }
 
         // Several generators share the Generated folder, so foreign files are filtered out by the class name

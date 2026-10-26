@@ -15,7 +15,7 @@ namespace Global.Localization
         public void OnSetup(IReadOnlyLifetime lifetime)
         {
             var table = new LocalizationTable(_options.Table.text);
-            Localizer.Load(lifetime, table);
+            Localizer.Load(lifetime, table, _options);
         }
     }
 }

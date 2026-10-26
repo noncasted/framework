@@ -226,7 +226,7 @@ public class LobbyService : Service
         {
             IsOpen = _visibility.Value.IsOpen,
             LeaderUserId = owner?.BackendId ?? Guid.Empty,
-            PlayersCount = _users.Count,
+            PlayersCount = _users.CountPlayers(),
             MaxPlayers = _info.MaxUsers,
             IsRunning = false,
             IsJoinable = true
@@ -283,7 +283,8 @@ public class LobbyService : Service
 
         async Task Wait()
         {
-            await Task.Delay(CountdownStep, _time).ConfigureAwait(false);
+            // Cancelled with the countdown (a cancel, the end of the session): nothing waits for a dead step.
+            await Task.Delay(CountdownStep, _time, countdownLifetime.Token).ConfigureAwait(false);
             _executionQueue.Enqueue(() => OnStep(countdownLifetime));
         }
     }
@@ -320,8 +321,9 @@ public class LobbyService : Service
         _admission.Seal();
 
         // Everybody the lobby has let in: the connected users and those still on their way to it (a place
-        // reserved by the code a moment ago) - the latter read the address as soon as they connect.
-        var userIds = _users.Select(user => user.BackendId).ToList();
+        // reserved by the code a moment ago) - the latter read the address as soon as they connect. A user is listed
+        // once, whatever number of its connections are joined (a stale one is being dropped); a bot has no place.
+        var userIds = _users.GetPlayerIds().ToList();
 
         foreach (var userId in _admission.GetPendingUsers(_time.GetUtcNow().UtcDateTime))
         {

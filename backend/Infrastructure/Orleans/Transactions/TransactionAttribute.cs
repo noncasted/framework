@@ -181,7 +181,7 @@ public sealed class TransactionResponse : Response
         Response.Dispose();
     }
 
-    public override T GetResult<T>() => Response.GetResult<T>();
+    public override T GetResult<T>() => Response.GetResult<T>()!;
 
     public static TransactionResponse Create(Response response, TransactionContext context)
     {

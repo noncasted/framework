@@ -54,6 +54,10 @@ public class ServiceDiscovery : IServiceDiscovery
 
     private volatile IServiceOverview _self;
 
+    // Set by Unregister (ApplicationStopping): the refresh loop runs on until the host stops it and must not
+    // register the stopping service again.
+    private volatile bool _isUnregistered;
+
     public IServiceOverview Self => _self;
     public IReadOnlyDictionary<Guid, IServiceOverview> Entries => _entries;
 
@@ -69,7 +73,7 @@ public class ServiceDiscovery : IServiceDiscovery
         {
             _self = CreateOverview();
 
-            if (_deployContext.DeployId == Guid.Empty)
+            if (_deployContext.DeployId == Guid.Empty || _isUnregistered == true)
                 return;
 
             var grain = _orleans.GetGrain<IServiceDiscoveryStorage>(_deployContext.DeployId);
@@ -85,6 +89,8 @@ public class ServiceDiscovery : IServiceDiscovery
 
     public async Task Unregister()
     {
+        _isUnregistered = true;
+
         try
         {
             if (_deployContext.DeployId == Guid.Empty)

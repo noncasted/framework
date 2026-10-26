@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Internal;
 using FluentAssertions;
 using Game.Session;
@@ -359,5 +360,74 @@ public class SessionObjectsTests
                 EntityId = entityId
             });
         }
+    }
+
+    // The entities of a seat are forgotten with the seat: no entry is kept for a user that has left.
+    [Fact]
+    public void UserEntity_SeatEnds_ByUserForgetsTheSeat()
+    {
+        var world = new ObjectsWorld();
+        var creator = world.Join();
+        world.Join();
+        world.AddEntity(creator, propertyIds: []);
+
+        world.Session.Leave(creator);
+
+        world.Session.Entities.ByUser.Should().NotContainKey(creator.Seat);
+    }
+
+    // Two keys of one id: the second service is refused and registered nowhere, a repeated request is refused again.
+    [Fact]
+    public void ServiceFactory_IdCollision_SecondServiceIsNotRegistered()
+    {
+        const string first = "Service630118";
+        const string second = "Service818396";
+        Service.GetId(first).Should().Be(Service.GetId(second));
+
+        var world = new ObjectsWorld();
+
+        world.Session.ServiceFactory.GetOrCreate(new SharedSessionService.GetRequest
+        {
+            Key = first,
+            PropertiesIds = []
+        });
+
+        var create = () => world.Session.ServiceFactory.GetOrCreate(new SharedSessionService.GetRequest
+        {
+            Key = second,
+            PropertiesIds = []
+        });
+
+        create.Should().Throw<InvalidOperationException>().WithMessage($"*{first}*");
+        world.Session.Provider.GetRequiredService<ISessionServices>().Entries.Should().NotContainKey(second);
+        create.Should().Throw<InvalidOperationException>().WithMessage($"*{first}*");
+    }
+
+    // The services of the container are set up in the session queue (they subscribe to the users, the owner and the
+    // objects, which live there), not on the thread of the factory that creates the session.
+    [Fact]
+    public void OnSessionCreated_SetsUpTheServicesInTheQueue()
+    {
+        var options = new SessionCreateOptions
+        {
+            Type = SessionType.Match,
+            ExpectedUsers = 0,
+            MaxUsers = 4,
+            IsPrivate = false,
+            Time = new ManualTimeProvider()
+        };
+
+        var session = new TestSession(options, services => services.AddSingleton<IService>(new Service("Game")));
+        var services = session.Provider.GetRequiredService<ISessionServices>();
+
+        var created = session.ServiceFactory.OnSessionCreated(session.Lifetime);
+
+        services.Entries.Should().BeEmpty();
+        created.IsCompleted.Should().BeFalse();
+
+        session.Queue.Drain();
+
+        created.IsCompletedSuccessfully.Should().BeTrue();
+        services.Entries.Should().ContainKey("Game");
     }
 }

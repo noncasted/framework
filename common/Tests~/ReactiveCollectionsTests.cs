@@ -274,4 +274,88 @@ public class ReactiveCollectionsTests
             Modified++;
         }
     }
+
+    [Fact]
+    public void List_AddDuplicate_ThrowsWithoutChangingTheList()
+    {
+        var list = new ViewableList<string>();
+        list.Add("a");
+
+        var add = () => list.Add("a");
+
+        add.Should().Throw<ArgumentException>();
+        list.Count.Should().Be(1);
+    }
+
+    [Fact]
+    public void List_InsertDuplicate_ThrowsWithoutChangingTheList()
+    {
+        var list = new ViewableList<string>();
+        list.Add("a");
+
+        var insert = () => list.Insert(0, "a");
+
+        insert.Should().Throw<ArgumentException>();
+        list.Count.Should().Be(1);
+    }
+
+    // The base List / Dictionary mutators change the entries without their lifetimes: they must not be reachable.
+    [Fact]
+    public void List_IsNotAMutableCollection()
+    {
+        object list = new ViewableList<string>();
+
+        (list is ICollection<string>).Should().BeFalse();
+        (list is System.Collections.IList).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Dictionary_IsNotAMutableDictionary()
+    {
+        object dictionary = new ViewableDictionary<int, string>();
+
+        (dictionary is ICollection<KeyValuePair<int, string>>).Should().BeFalse();
+        (dictionary is System.Collections.IDictionary).Should().BeFalse();
+    }
+
+    [Fact]
+    public void List_KeepsTheReadMembersTheGamesUse()
+    {
+        var list = new ViewableList<string>();
+        list.Add("a");
+        list.Add("b");
+
+        list.Contains("b").Should().BeTrue();
+        list.IndexOf("b").Should().Be(1);
+        list[0].Should().Be("a");
+
+        list.RemoveAt(0);
+
+        list.Should().Equal("b");
+    }
+
+    [Fact]
+    public void Dictionary_KeepsTheReadMembersTheGamesUse()
+    {
+        var dictionary = new ViewableDictionary<int, string>();
+        dictionary.Add(1, "a");
+
+        dictionary.ContainsKey(1).Should().BeTrue();
+        dictionary.TryGetValue(1, out var value).Should().BeTrue();
+        value.Should().Be("a");
+        dictionary.Values.Should().Equal("a");
+        dictionary.Keys.Should().Equal(1);
+        dictionary[1].Should().Be("a");
+        dictionary.Count.Should().Be(1);
+    }
+
+    [Fact]
+    public void Dictionary_IndexerSetOfNewKey_ReportsOneModification()
+    {
+        var dictionary = new CountingDictionary();
+
+        dictionary[1] = "a";
+
+        dictionary.Modified.Should().Be(1);
+    }
 }

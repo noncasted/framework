@@ -24,11 +24,15 @@ public interface ISession
     IUserFactory UserFactory { get; }
     ISessionUsers Users { get; }
     IExecutionQueue ExecutionQueue { get; }
-    IViewableDelegate AllUsersConnected { get; }
+
+    // Completes once the session handles its users (all the expected ones have joined, see Run), from any thread and
+    // also for a wait that begins after it; cancelled when the session ends before that.
+    Task AllUsersConnected { get; }
 
     // Search, lobby: reserves a place for the user, false if the session is closed or full
-    // (SessionCreateOptions.MaxUsers). The user comes anew: its connections still held here are stale and are
-    // dropped (DropConnections); a session held only by them is refused (ISessionAdmission.TryReserve).
+    // (SessionCreateOptions.MaxUsers). The user that gets a place comes anew: its connections still held here are
+    // stale and are dropped (DropConnections); a session held only by them is refused (ISessionAdmission.TryReserve)
+    // and they are dropped too. Any other refusal leaves a live connection of the user alone.
     bool TryReserve(Guid userId);
 
     // Any thread: the user comes anew (a search, a reservation), so its connections still held by this session belong
@@ -113,6 +117,7 @@ public class Session : ISession
         UserFactory = userFactory;
 
         _users.View(Lifetime, OnUserAdded);
+        Lifetime.Listen(() => _allUsersConnected.TrySetCanceled());
     }
 
     private readonly ISessionUsers _users;
@@ -123,7 +128,7 @@ public class Session : ISession
     private readonly ILogger<Session> _logger;
     private readonly SessionContainerData _data;
     private readonly SessionCreateOptions _options;
-    private readonly ViewableDelegate _allUsersConnected = new();
+    private readonly TaskCompletionSource _allUsersConnected = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public Guid Id => _data.Id;
     public SessionType Type => _options.Type;
@@ -135,14 +140,22 @@ public class Session : ISession
     public IUserFactory UserFactory { get; }
     public ISessionUsers Users => _users;
     public IExecutionQueue ExecutionQueue { get; }
-    public IViewableDelegate AllUsersConnected => _allUsersConnected;
+    public Task AllUsersConnected => _allUsersConnected.Task;
 
     public bool TryReserve(Guid userId)
     {
-        DropConnections(userId);
-
         if (_admission.TryReserve(userId, _options.MaxUsers, GetNow()) == false)
+        {
+            // The stale connections of the user are all that holds the session: dropped, it closes.
+            if (_admission.IsHeldOnlyBy(userId) == true)
+                DropConnections(userId);
+
             return false;
+        }
+
+        // After the reservation, still before the user can connect with it: the drop runs before the new connection
+        // in the queue (FIFO).
+        DropConnections(userId);
 
         ScheduleEmptyCheck(_options.JoinTimeout);
         return true;
@@ -243,13 +256,13 @@ public class Session : ISession
         var waiting = Lifetime.Child();
 
         _users.View(waiting, _ => {
-            if (_users.Count < _data.ExpectedUsers)
+            if (CountConnectedSeats() < _data.ExpectedUsers)
                 return;
 
             // Not in place: the listeners of this addition run on the current list first.
             ExecutionQueue.Enqueue(() => {
                 // Already started, or a user left in between: the next join checks again.
-                if (waiting.IsTerminated == true || _users.Count < _data.ExpectedUsers)
+                if (waiting.IsTerminated == true || CountConnectedSeats() < _data.ExpectedUsers)
                     return;
 
                 waiting.Terminate();
@@ -261,7 +274,7 @@ public class Session : ISession
 
         async Task CloseIfNotJoined()
         {
-            await Task.Delay(_options.JoinTimeout, _time).ConfigureAwait(false);
+            await Task.Delay(_options.JoinTimeout, _time, waiting.Token).ConfigureAwait(false);
 
             ExecutionQueue.Enqueue(() => {
                 if (waiting.IsTerminated == true)
@@ -271,10 +284,13 @@ public class Session : ISession
 
                 _logger.LogWarning("[Session] Session {ID}: {Count} of {Expected} users joined in {Timeout}, closing",
                     Id,
-                    _users.Count,
+                    CountConnectedSeats(),
                     _data.ExpectedUsers,
                     _options.JoinTimeout);
 
+                // Closed first, as every other close: nobody reserves or enters a session that is being terminated
+                // (a live reservation or a joined user would not let the admission close it by itself).
+                _admission.Close();
                 _data.Lifetime.Terminate();
             });
         }
@@ -282,9 +298,16 @@ public class Session : ISession
         void Start()
         {
             _users.View(Lifetime, user => HandleUser(user).NoAwait());
-            _allUsersConnected.Invoke();
+            _allUsersConnected.TrySetResult();
             started.TrySetResult();
         }
+    }
+
+    // A user is expected once, whatever number of its connections are joined at the moment (a return before the start:
+    // the old connection is dropped a moment later).
+    private int CountConnectedSeats()
+    {
+        return _users.Select(user => user.Seat).Distinct().Count();
     }
 
     // Runs in the execution queue (users are added and removed only there).
@@ -372,7 +395,7 @@ public class Session : ISession
 
         async Task Check()
         {
-            await Task.Delay(delay, _time).ConfigureAwait(false);
+            await Task.Delay(delay, _time, seat.Lifetime.Token).ConfigureAwait(false);
             ExecutionQueue.Enqueue(() => ExpireAway(seat));
         }
     }
@@ -407,7 +430,8 @@ public class Session : ISession
             Close();
     }
 
-    // The connection is closed; the user is removed as after any disconnect (HandleUser).
+    // The connection is closed; the user is removed as after any disconnect (UserFactory: the end of the connection
+    // ends the user, also before the session runs the connection).
     private void Disconnect(IUser user, string reason)
     {
         _logger.LogInformation("[Session] Session {ID}: stale connection of user {Index} {UserId} dropped: {Reason}",
@@ -434,7 +458,7 @@ public class Session : ISession
 
         async Task Check()
         {
-            await Task.Delay(delay, _time).ConfigureAwait(false);
+            await Task.Delay(delay, _time, Lifetime.Token).ConfigureAwait(false);
             ExecutionQueue.Enqueue(CheckEmpty);
         }
     }
@@ -464,9 +488,22 @@ public class Session : ISession
         return _time.GetUtcNow().UtcDateTime;
     }
 
+    // The user is removed whatever its connection ends with: a run that fails (a connection terminated before it,
+    // a transport error) is a disconnect too, otherwise the user would hold the session forever.
     private async Task HandleUser(IUser user)
     {
-        await HandleUserConnect(user);
+        try
+        {
+            await HandleUserConnect(user);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "[Session] Session {ID}: connection of user {Index} {UserId} has failed",
+                Id,
+                user.Index,
+                user.BackendId);
+        }
+
         ExecutionQueue.Enqueue(() => HandleUserDisconnect(user));
     }
 
@@ -489,6 +526,11 @@ public class Session : ISession
         });
 
         _users.IterateOthers(user, other => {
+            // An older connection of a seat (this one's own or another one's, replaced by a return) is being dropped:
+            // the peers are the current connections of the other seats.
+            if (other.Seat == user.Seat || other.Seat.Connected != other)
+                return;
+
             // Peers know each other by the index and the id in this session only: the meta id of a user is its login.
             user.Send(new SharedSessionPlayer.RemoteUpdate()
             {

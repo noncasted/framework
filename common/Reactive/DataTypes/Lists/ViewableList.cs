@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 namespace Internal
@@ -7,14 +8,19 @@ namespace Internal
     {
     }
 
-    public class ViewableList<TSource, TView> : List<TSource>, IViewableList<TView> where TSource : TView
+    // The entries are kept in a private list, not inherited from List<T>: the mutators of the base (or of
+    // ICollection<T> / IList) would change the entries without their lifetimes.
+    public class ViewableList<TSource, TView> : IViewableList<TView> where TSource : TView
     {
+        private readonly List<TSource> _items = new();
         private readonly EventSource<IReadOnlyLifetime, TView> _eventSource = new();
         private readonly Dictionary<TView, ILifetime> _lifetimes = new();
 
         private bool _isDisposed;
 
-        public new TView this[int index] => base[index];
+        public int Count => _items.Count;
+
+        public TView this[int index] => _items[index];
 
         public void Advise(IReadOnlyLifetime lifetime, Action<IReadOnlyLifetime, TView> handler)
         {
@@ -26,12 +32,22 @@ namespace Internal
             return _lifetimes[value];
         }
 
+        public bool Contains(TSource value)
+        {
+            return _lifetimes.ContainsKey(value);
+        }
+
+        public int IndexOf(TSource value)
+        {
+            return _items.IndexOf(value);
+        }
+
         public void NotifyChangedAt(int index)
         {
             if (_isDisposed == true)
                 return;
 
-            var value = base[index];
+            var value = _items[index];
 
             if (_lifetimes.TryGetValue(value, out var lifetime))
             {
@@ -40,13 +56,22 @@ namespace Internal
             }
         }
 
-        public new IReadOnlyLifetime Add(TSource value)
+        public IReadOnlyLifetime Add(TSource value)
+        {
+            return Insert(_items.Count, value);
+        }
+
+        // An entry is its own key for its lifetime: a duplicate is refused before the list changes.
+        public IReadOnlyLifetime Insert(int index, TSource value)
         {
             if (_isDisposed == true)
                 return new TerminatedLifetime();
 
-            base.Add(value);
+            if (_lifetimes.ContainsKey(value) == true)
+                throw new ArgumentException($"{value} is in the list already", nameof(value));
+
             var lifetime = new Lifetime();
+            _items.Insert(index, value);
             _lifetimes.Add(value, lifetime);
 
             _eventSource.Invoke(lifetime, value);
@@ -56,23 +81,7 @@ namespace Internal
             return lifetime;
         }
 
-        public new IReadOnlyLifetime Insert(int index, TSource value)
-        {
-            if (_isDisposed == true)
-                return new TerminatedLifetime();
-
-            base.Insert(index, value);
-            var lifetime = new Lifetime();
-
-            _lifetimes.Add(value, lifetime);
-            _eventSource.Invoke(lifetime, value);
-
-            OnModified();
-
-            return lifetime;
-        }
-
-        public new void Remove(TSource value)
+        public void Remove(TSource value)
         {
             if (_isDisposed == true)
                 return;
@@ -82,13 +91,13 @@ namespace Internal
             if (_lifetimes.Remove(value, out var lifetime) == false)
                 throw new KeyNotFoundException($"{value} is not in the list");
 
-            base.Remove(value);
+            _items.Remove(value);
             lifetime.Terminate();
 
             OnModified();
         }
 
-        public new void AddRange(IEnumerable<TSource> collection)
+        public void AddRange(IEnumerable<TSource> collection)
         {
             foreach (var value in collection)
                 Add(value);
@@ -100,37 +109,40 @@ namespace Internal
                 Remove(value);
         }
 
-        public new void RemoveAt(int index)
+        public void RemoveAt(int index)
         {
-            var source = this as IList<TSource>;
-            var value = source[index];
-            Remove(value);
+            Remove(_items[index]);
         }
 
-        public new IEnumerator<TView> GetEnumerator()
+        public List<TSource>.Enumerator GetEnumerator()
         {
-            List<TSource> list = this;
+            return _items.GetEnumerator();
+        }
 
-            foreach (var source in list)
+        IEnumerator<TView> IEnumerable<TView>.GetEnumerator()
+        {
+            foreach (var source in _items)
                 yield return source;
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return ((IEnumerable<TView>)this).GetEnumerator();
         }
 
         public IEnumerable<TSource> GetEnumerable()
         {
-            List<TSource> list = this;
-
-            foreach (var source in list)
-                yield return source;
+            return _items;
         }
 
         // The entries leave the list before their lifetimes end (as in Remove): their listeners see it empty and may
         // add entries again without breaking the pass.
-        public new void Clear()
+        public void Clear()
         {
             var lifetimes = new List<ILifetime>(_lifetimes.Values);
 
             _lifetimes.Clear();
-            base.Clear();
+            _items.Clear();
 
             foreach (var lifetime in lifetimes)
                 lifetime.Terminate();

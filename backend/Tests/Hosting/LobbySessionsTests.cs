@@ -395,4 +395,17 @@ public class LobbySessionsTests
 
         world.Collection.TryGetCreatedAt(Guid.NewGuid(), out _).Should().BeFalse();
     }
+
+    // The code is registered before the session exists: a factory that fails leaves no code behind.
+    [Fact]
+    public async Task Create_FactoryFails_CodeIsReleased()
+    {
+        var world = new HostingTestWorld();
+        world.LobbyCreationFailure = new InvalidOperationException("The game has failed to build the lobby");
+
+        var create = () => world.Lobbies.Create(Guid.NewGuid());
+
+        await create.Should().ThrowAsync<InvalidOperationException>().WithMessage("The game has failed to build the lobby");
+        world.Codes.Entries.Should().BeEmpty();
+    }
 }

@@ -304,8 +304,6 @@ public class SessionCloseTests
     {
         var timeout = TimeSpan.FromSeconds(10);
         var session = TestSession.Create(expectedUsers: 2, joinTimeout: timeout);
-        var allConnected = false;
-        session.Session.AllUsersConnected.Advise(session.Session.Lifetime, () => allConnected = true);
 
         var first = session.ReserveAndEnter();
 
@@ -316,7 +314,7 @@ public class SessionCloseTests
 
         session.Lifetime.IsTerminated.Should().BeTrue();
         session.RunTask.IsCompleted.Should().BeTrue();
-        allConnected.Should().BeFalse();
+        session.Session.AllUsersConnected.IsCanceled.Should().BeTrue();
         TestSession.Sent<SharedSessionPlayer.LocalUpdate>(first).Should().BeEmpty();
     }
 
@@ -441,5 +439,83 @@ public class SessionCloseTests
                 session.Lifetime.IsTerminated.Should().BeTrue();
             }
         }
+    }
+
+    // A connection dropped before the session handles its users (nobody runs it yet, Common.Network.Connection.Run
+    // would refuse it) is removed at once: the session left with nobody is closed.
+    [Fact]
+    public void ConnectionDroppedBeforeStart_UserIsRemoved_SessionCloses()
+    {
+        var session = TestSession.Create(expectedUsers: 2);
+        var user = session.ReserveAndEnter();
+
+        session.Session.DropConnections(user.BackendId);
+        session.Queue.Drain();
+
+        user.Lifetime.IsTerminated.Should().BeTrue();
+        session.Users.Should().BeEmpty();
+        session.Session.IsClosed.Should().BeTrue();
+        session.Lifetime.IsTerminated.Should().BeTrue();
+    }
+
+    // Whatever the run of a connection ends with, its user is removed: a failed run is a disconnect.
+    [Fact]
+    public void ConnectionRunFails_UserIsRemoved_SessionCloses()
+    {
+        var session = TestSession.Create();
+        var userId = Guid.NewGuid();
+        session.Reserve(userId).Should().BeTrue();
+        session.Session.TryAccept(userId).Should().BeTrue();
+
+        var user = session.Join(userId, new TestConnection(session.Session.Lifetime)
+        {
+            RunFailure = new IOException("The socket has failed")
+        });
+
+        user.Lifetime.IsTerminated.Should().BeTrue();
+        session.Users.Should().BeEmpty();
+        session.Lifetime.IsTerminated.Should().BeTrue();
+    }
+
+    // The expected users have not all joined in time: the session is closed (no reservation, no entry) before its
+    // lifetime ends, like every other close - also while a reservation made later is still alive (no user leaves to
+    // close it on the way).
+    [Fact]
+    public void ExpectedUserNeverJoins_ClosedBeforeTerminated()
+    {
+        var session = TestSession.Create(expectedUsers: 2, joinTimeout: JoinTimeout);
+        session.Advance(TimeSpan.FromSeconds(10));
+        session.Reserve(Guid.NewGuid()).Should().BeTrue();
+
+        bool? closedAtTheEnd = null;
+        session.Lifetime.Listen(() => closedAtTheEnd = session.Session.IsClosed);
+
+        session.Advance(JoinTimeout - TimeSpan.FromSeconds(10));
+
+        session.Lifetime.IsTerminated.Should().BeTrue();
+        closedAtTheEnd.Should().BeTrue();
+        session.Session.TryReserve(Guid.NewGuid()).Should().BeFalse();
+    }
+
+    // Nothing of a session that has ended waits on the clock: its timers queue no action after its end (the join
+    // timeout, the empty checks of the reservations, the reconnect window of an away seat).
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public void SessionEnded_ItsTimersQueueNothing(int expectedUsers)
+    {
+        var session = TestSession.Create(expectedUsers: expectedUsers, reconnectWindow: TimeSpan.FromSeconds(60));
+        var user = session.ReserveAndEnter();
+        session.Reserve(Guid.NewGuid()).Should().BeTrue();
+
+        if (expectedUsers == 0)
+            session.Lose(user);
+
+        session.Lifetime.Terminate();
+        session.Queue.Drain();
+
+        session.Time.Advance(TimeSpan.FromMinutes(5));
+
+        session.Queue.Count.Should().Be(0);
     }
 }

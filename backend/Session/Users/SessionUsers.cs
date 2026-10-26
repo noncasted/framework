@@ -38,6 +38,18 @@ public static class SessionUsersExtensions
 {
     extension(ISessionUsers users)
     {
+        // The meta ids of the players: the users with a client (no bots), each once whatever number of its
+        // connections are joined (a stale one is dropped a moment after a return).
+        public IEnumerable<Guid> GetPlayerIds()
+        {
+            return users.Where(user => user.IsBot == false).Select(user => user.BackendId).Distinct();
+        }
+
+        public int CountPlayers()
+        {
+            return users.GetPlayerIds().Count();
+        }
+
         public void IterateOthers(IUser exclude, Action<IUser> action)
         {
             foreach (var user in users)

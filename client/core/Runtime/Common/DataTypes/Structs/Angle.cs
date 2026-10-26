@@ -41,15 +41,10 @@ namespace Internal
 
     public static class AngleExtensions
     {
+        // Any number of degrees into [0, 360): -400 is 320, 360 is 0.
         public static Angle ToAngle(this float value)
         {
-            if (value < 0)
-                value += 360;
-
-            if (value > 360)
-                value -= 360f * Mathf.Floor(value / 360f);
-
-            return new Angle(value);
+            return new Angle(Mathf.Repeat(value, 360f));
         }
     }
 }

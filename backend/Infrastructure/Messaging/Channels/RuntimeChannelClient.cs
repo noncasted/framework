@@ -146,6 +146,7 @@ public class RuntimeChannelClient : IRuntimeChannelClient
 
         private readonly object _gate = new();
         private readonly Dictionary<Guid, HandlerData> _handlers = new();
+        private readonly SemaphoreSlim _resubscribeLock = new(1, 1);
 
         private int _cleanupStarted;
         private int _consecutiveFailures;
@@ -186,10 +187,27 @@ public class RuntimeChannelClient : IRuntimeChannelClient
             }
         }
 
+        // One at a time: the first Listen and the resubscribe loop can run it together, and a second BeginBuffering
+        // in the middle of the first one dropped the messages the first one had buffered.
         public async Task Resubscribe()
+        {
+            await _resubscribeLock.WaitAsync();
+
+            try
+            {
+                await ResubscribeLocked();
+            }
+            finally
+            {
+                _resubscribeLock.Release();
+            }
+        }
+
+        private async Task ResubscribeLocked()
         {
             ObserverSource.BeginBuffering();
             var lastSeenSequence = ObserverSource.LastSeenSequence;
+            var lastSeenEpoch = ObserverSource.LastSeenEpoch;
 
             try
             {
@@ -200,7 +218,23 @@ public class RuntimeChannelClient : IRuntimeChannelClient
 
                 var catchUp = await Channel.CatchUp(lastSeenSequence);
 
-                if (catchUp.GapDetected)
+                if (catchUp.Epoch != lastSeenEpoch)
+                {
+                    // A new activation of the channel numbers from 1 again: everything it has is new here, and what
+                    // the previous one published after lastSeenSequence is lost.
+                    Logger.LogWarning(
+                        "[Messaging] [Channel] Channel {ChannelId} reactivated, last seen seq {LastSeq} of the previous activation, current seq {CurrentSeq}",
+                        Id.ToRaw(), lastSeenSequence, catchUp.CurrentSequence);
+
+                    ObserverSource.ResetLastSeen(catchUp.Epoch, 0);
+                    catchUp = await Channel.CatchUp(0);
+
+                    if (catchUp.Epoch != ObserverSource.LastSeenEpoch)
+                        throw new InvalidOperationException($"Channel {Id.ToRaw()} reactivated again during the catch-up");
+
+                    InvokeGapDetected();
+                }
+                else if (catchUp.GapDetected)
                 {
                     Logger.LogWarning(
                         "[Messaging] [Channel] Gap detected on {ChannelId}, last seen seq {LastSeq}, current seq {CurrentSeq}, replaying {Count} messages",

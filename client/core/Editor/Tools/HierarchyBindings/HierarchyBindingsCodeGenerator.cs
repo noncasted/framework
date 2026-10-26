@@ -14,6 +14,10 @@ namespace Internal
     {
         public const string FileSuffix = "Bindings.g.cs";
 
+        // The registration methods of the root class: no member mirrored from the hierarchy may take their names.
+        public const string SceneServiceMethod = "Create";
+        public const string EntityComponentMethod = "Register";
+
         public static string Build(
             HierarchyBindingsNode root,
             string namespaceName,
@@ -108,7 +112,8 @@ namespace Internal
             if (isSceneService)
             {
                 builder.AppendLine();
-                builder.AppendLine($"{indent}public virtual void Create(global::Internal.IScopeBuilder builder) {{");
+                builder.AppendLine(
+                    $"{indent}public virtual void {SceneServiceMethod}(global::Internal.IScopeBuilder builder) {{");
                 builder.AppendLine($"{indent}    global::Internal.BuilderExtensions.RegisterComponent(builder, this);");
                 builder.AppendLine($"{indent}}}");
             }
@@ -117,7 +122,8 @@ namespace Internal
                 return;
 
             builder.AppendLine();
-            builder.AppendLine($"{indent}public virtual void Register(global::Internal.IEntityBuilder builder) {{");
+            builder.AppendLine(
+                $"{indent}public virtual void {EntityComponentMethod}(global::Internal.IEntityBuilder builder) {{");
             builder.AppendLine($"{indent}    global::Internal.BuilderExtensions.RegisterComponent(builder, this);");
             builder.AppendLine($"{indent}}}");
         }

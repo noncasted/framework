@@ -1,3 +1,4 @@
+using System;
 using Shared;
 using UnityEngine;
 
@@ -32,6 +33,14 @@ namespace Internal
 
         public static string Get(string name)
         {
+            // "<name>.<environment>" is the key of a record of that environment (Get(name, environment)).
+            foreach (BackendEnvironment environment in Enum.GetValues(typeof(BackendEnvironment)))
+            {
+                if (name.EndsWith("." + environment, StringComparison.Ordinal) == true)
+                    throw new ArgumentException(
+                        $"The key {name} ends with an environment, it is taken by Get(name, environment)", nameof(name));
+            }
+
             return $"{name}:{Scope}";
         }
 

@@ -12,7 +12,7 @@ namespace ContainerGenerator {
             BindScenes(document, index);
         }
 
-        // Якорь сущности: компоненты ассета вьюхи вливаются вызовами их IEntityComponent.Register.
+        // Entity anchor: the components of the view asset are merged in as calls of their IEntityComponent.Register.
         private static void BindViews(GraphDocument document, EntityAssetIndex index) {
             var registers = MembersOf(document, ".Register");
 
@@ -40,8 +40,8 @@ namespace ContainerGenerator {
             }
         }
 
-        // Якорь сцены: FindOrLoadSceneWithServices(Scenes.X.Value) вливает ISceneService.Create всех
-        // сервисов SceneServicesFactory этой сцены — на месте вызова и в порядке фабрики.
+        // Scene anchor: FindOrLoadSceneWithServices(Scenes.X.Value) merges in ISceneService.Create of every
+        // service of the SceneServicesFactory of that scene, at the call site and in the order of the factory.
         private static void BindScenes(GraphDocument document, EntityAssetIndex index) {
             var creates = MembersOf(document, ".Create");
 
@@ -109,7 +109,7 @@ namespace ContainerGenerator {
             return hole.Substring(start, end - start);
         }
 
-        // Assets/GamePlay/Assets/Scenes/Game_Field.unity -> GameField (так имена пишет генератор каталога сцен)
+        // Assets/Scenes/Main_Menu.unity -> MainMenu (the scene catalogue generator writes the names this way)
         private static string SceneName(string assetPath) {
             if (string.IsNullOrEmpty(assetPath))
                 return "";

@@ -74,10 +74,7 @@ namespace Internal
             }
 
             file.groups.Add(groupName);
-
-            if (WriteFile(file) == false)
-                return false;
-
+            WriteFile(file);
             Invalidate();
             return true;
         }
@@ -109,10 +106,7 @@ namespace Internal
 
             nonAddressable.Sort(StringComparer.Ordinal);
             file.nonAddressable = nonAddressable.Count > 0 ? nonAddressable : null;
-
-            if (WriteFile(file) == false)
-                return false;
-
+            WriteFile(file);
             Invalidate();
             return true;
         }
@@ -132,48 +126,46 @@ namespace Internal
         // Groups derived from the markup of the assets themselves.
         protected abstract IEnumerable<string> DiscoverGroups();
 
+        // An unreadable file (merge conflict markers) is not an empty registry: the generators would move every
+        // Resources group to Addressables, and the next write would replace the file.
         private RegistryFile ReadFile()
         {
             var fullPath = CatalogPaths.ToFullPath(AssetPath);
 
+            if (File.Exists(fullPath) == false)
+                return new RegistryFile();
+
+            RegistryFile file;
+
             try
             {
-                if (File.Exists(fullPath) == false)
-                    return new RegistryFile();
-
-                var file = JsonConvert.DeserializeObject<RegistryFile>(File.ReadAllText(fullPath)) ?? new RegistryFile();
-                file.groups = file.groups?.FindAll(group => string.IsNullOrWhiteSpace(group) == false) ??
-                              new List<string>();
-
-                return file;
+                file = JsonConvert.DeserializeObject<RegistryFile>(File.ReadAllText(fullPath));
             }
-            catch (Exception exception)
+            catch (JsonException exception)
             {
-                Debug.LogError($"[{LogTag}] Failed to read {AssetPath}: {exception}");
-                return new RegistryFile();
+                throw new InvalidOperationException($"[{LogTag}] {AssetPath} is not valid json. Fix the file.",
+                    exception);
             }
+
+            if (file == null)
+                throw new InvalidOperationException($"[{LogTag}] {AssetPath} is empty. Fix or delete the file.");
+
+            file.groups = file.groups?.FindAll(group => string.IsNullOrWhiteSpace(group) == false) ??
+                          new List<string>();
+
+            return file;
         }
 
-        private bool WriteFile(RegistryFile file)
+        private void WriteFile(RegistryFile file)
         {
             var fullPath = CatalogPaths.ToFullPath(AssetPath);
+            var directory = Path.GetDirectoryName(fullPath);
 
-            try
-            {
-                var directory = Path.GetDirectoryName(fullPath);
+            if (string.IsNullOrEmpty(directory) == false && Directory.Exists(directory) == false)
+                Directory.CreateDirectory(directory);
 
-                if (string.IsNullOrEmpty(directory) == false && Directory.Exists(directory) == false)
-                    Directory.CreateDirectory(directory);
-
-                File.WriteAllText(fullPath, JsonConvert.SerializeObject(file, JsonSettings));
-                AssetDatabase.ImportAsset(AssetPath);
-                return true;
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError($"[{LogTag}] Failed to write {AssetPath}: {exception}");
-                return false;
-            }
+            File.WriteAllText(fullPath, JsonConvert.SerializeObject(file, JsonSettings));
+            AssetDatabase.ImportAsset(AssetPath);
         }
 
         [Serializable]

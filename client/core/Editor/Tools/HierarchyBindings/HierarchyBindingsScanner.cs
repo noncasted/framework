@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
@@ -33,11 +34,15 @@ namespace Internal
             typeof(HierarchyBindingsIgnoreChildren)
         };
 
+        // The registration flags decide which methods the root class gets (Create, Register), so they are part of
+        // the names the root members must not take.
         public static HierarchyBindingsNode Scan(
             GameObject root,
             string rootTypeName,
             HierarchyBindingsLayer layer,
-            List<string> errors)
+            List<string> errors,
+            bool isSceneService,
+            bool isEntityComponent)
         {
             if (root == null)
             {
@@ -45,8 +50,33 @@ namespace Internal
                 return null;
             }
 
-            var node = ScanNode(root, rootTypeName, root.name, 0, layer, errors);
+            var members = new IdentifierScope(rootTypeName, RootReservedMembers(isSceneService, isEntityComponent));
+            var node = ScanNode(root, rootTypeName, root.name, 0, layer, members, errors);
             return errors.Count == 0 ? node : null;
+        }
+
+        // The root class derives from ObjectBindings: its visible members would be hidden (CS0108), and its private
+        // serialized fields may not be serialized twice by a derived class.
+        private static IEnumerable<string> RootReservedMembers(bool isSceneService, bool isEntityComponent)
+        {
+            var reserved = new List<string>(CodeIdentifiers.InheritedMembers(typeof(ObjectBindings)));
+
+            foreach (var field in typeof(ObjectBindings).GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
+                reserved.Add(field.Name);
+
+            if (isSceneService)
+                reserved.Add(HierarchyBindingsCodeGenerator.SceneServiceMethod);
+
+            if (isEntityComponent)
+                reserved.Add(HierarchyBindingsCodeGenerator.EntityComponentMethod);
+
+            return reserved;
+        }
+
+        // A nested class is a plain [Serializable] class: only the members of object are its own.
+        private static IEnumerable<string> NestedReservedMembers()
+        {
+            return CodeIdentifiers.InheritedMembers(typeof(object));
         }
 
         private static HierarchyBindingsNode ScanNode(
@@ -55,18 +85,18 @@ namespace Internal
             string hierarchyPath,
             int depth,
             HierarchyBindingsLayer layer,
+            IdentifierScope used,
             List<string> errors)
         {
             var node = new HierarchyBindingsNode
             {
                 Target = target,
                 TypeName = typeName,
-                HierarchyPath = hierarchyPath
+                HierarchyPath = hierarchyPath,
+                Members = used
             };
 
             node.IgnoreChildren = target.GetComponent<HierarchyBindingsIgnoreChildren>() != null;
-
-            var used = new HashSet<string>(StringComparer.Ordinal);
 
             // A reference to an inherited object belongs to the layer of the base. The root is an exception: it
             // carries the bindings themselves and always has the property.
@@ -83,9 +113,9 @@ namespace Internal
 
         // Everyone needs the object itself: nested classes have no other path to it, and for the root
         // the property just duplicates MonoBehaviour.gameObject for uniform access.
-        private static void CollectGameObject(HierarchyBindingsNode node, HashSet<string> used)
+        private static void CollectGameObject(HierarchyBindingsNode node, IdentifierScope used)
         {
-            var propertyName = HierarchyBindingsNaming.MakeUnique("GameObject", used);
+            var propertyName = DeclareMember("GameObject", used);
 
             node.Fields.Add(new HierarchyBindingsField
             {
@@ -98,7 +128,7 @@ namespace Internal
 
         private static void CollectComponents(
             HierarchyBindingsNode node,
-            HashSet<string> used,
+            IdentifierScope used,
             int depth,
             HierarchyBindingsLayer layer,
             List<string> errors)
@@ -150,7 +180,7 @@ namespace Internal
 
         private static void CollectChildren(
             HierarchyBindingsNode node,
-            HashSet<string> used,
+            IdentifierScope used,
             int depth,
             HierarchyBindingsLayer layer,
             List<string> errors)
@@ -226,7 +256,8 @@ namespace Internal
                     layer.TryValidatePassThrough(child, childPath, errors) == false)
                     continue;
 
-                scan.Node = ScanNode(child, null, childPath, depth + 1, layer, errors);
+                scan.Node = ScanNode(child, null, childPath, depth + 1, layer,
+                    new IdentifierScope(null, NestedReservedMembers()), errors);
                 scan.Signature = ComputeSignature(scan.Node);
                 scans.Add(scan);
             }
@@ -266,14 +297,14 @@ namespace Internal
             List<ChildScan> scans,
             int start,
             int length,
-            HashSet<string> used,
+            IdentifierScope used,
             HashSet<string> siblingNames,
             List<string> errors)
         {
             var first = scans[start];
             var baseName = HierarchyBindingsNaming.ToIdentifier(first.BaseName);
 
-            if (Validate(baseName, first.BaseName, first.ChildPath, errors) == false)
+            if (Validate(baseName, first.BaseName, first.ChildPath, used, errors) == false)
                 return false;
 
             var comment = $"{first.ChildPath} .. {scans[start + length - 1].Child.name} ({length} items)";
@@ -284,12 +315,11 @@ namespace Internal
                 return true;
             }
 
-            var propertyName = HierarchyBindingsNaming.MakeUnique(
-                HierarchyBindingsNaming.ToPlural(baseName), used);
+            var propertyName = DeclareMember(HierarchyBindingsNaming.ToPlural(baseName), used);
             var fieldName = HierarchyBindingsNaming.ToFieldName(propertyName);
 
             var template = first.Node;
-            template.TypeName = HierarchyBindingsNaming.MakeUnique(baseName + "Bindings", used);
+            template.TypeName = DeclareType(baseName + "Bindings", used, template.Members);
             template.PropertyName = propertyName;
             template.FieldName = fieldName;
 
@@ -303,7 +333,7 @@ namespace Internal
         private static void AddSingle(
             HierarchyBindingsNode node,
             ChildScan scan,
-            HashSet<string> used,
+            IdentifierScope used,
             HashSet<string> siblingNames,
             List<string> errors)
         {
@@ -315,14 +345,14 @@ namespace Internal
 
             var propertyName = HierarchyBindingsNaming.ToIdentifier(scan.Child.name);
 
-            if (Validate(propertyName, scan.Child.name, scan.ChildPath, errors) == false)
+            if (Validate(propertyName, scan.Child.name, scan.ChildPath, used, errors) == false)
                 return;
 
-            propertyName = HierarchyBindingsNaming.MakeUnique(propertyName, used);
+            propertyName = DeclareMember(propertyName, used);
 
             // The nested class name lives in the same namespace as the properties,
             // so it is also deduplicated through the shared set of taken names.
-            scan.Node.TypeName = HierarchyBindingsNaming.MakeUnique(propertyName + "Bindings", used);
+            scan.Node.TypeName = DeclareType(propertyName + "Bindings", used, scan.Node.Members);
             scan.Node.PropertyName = propertyName;
             scan.Node.FieldName = HierarchyBindingsNaming.ToFieldName(propertyName);
             node.Children.Add(scan.Node);
@@ -335,7 +365,7 @@ namespace Internal
         private static void AddBoundary(
             HierarchyBindingsNode node,
             ChildScan scan,
-            HashSet<string> used,
+            IdentifierScope used,
             HashSet<string> siblingNames,
             List<string> errors)
         {
@@ -384,14 +414,17 @@ namespace Internal
         private static bool ReserveExact(
             string propertyName,
             string hierarchyPath,
-            HashSet<string> used,
+            IdentifierScope used,
             HashSet<string> siblingNames,
             List<string> errors)
         {
-            if (Validate(propertyName, propertyName, hierarchyPath, errors) == false)
+            if (Validate(propertyName, propertyName, hierarchyPath, used, errors) == false)
                 return false;
 
-            if (siblingNames.Contains(propertyName) || used.Add(propertyName) == false)
+            var fieldName = HierarchyBindingsNaming.ToFieldName(propertyName);
+
+            if (siblingNames.Contains(propertyName) || used.IsFree(propertyName) == false ||
+                used.IsFree(fieldName) == false)
             {
                 errors.Add(
                     $"'{hierarchyPath}': field '{propertyName}' for one of its bindings collides with another member. " +
@@ -399,6 +432,8 @@ namespace Internal
                 return false;
             }
 
+            used.TryDeclare(propertyName);
+            used.TryDeclare(fieldName);
             return true;
         }
 
@@ -412,7 +447,7 @@ namespace Internal
             int length,
             string baseName,
             string comment,
-            HashSet<string> used,
+            IdentifierScope used,
             HashSet<string> siblingNames,
             List<string> errors)
         {
@@ -427,7 +462,7 @@ namespace Internal
 
                 if (isSingle)
                 {
-                    propertyName = HierarchyBindingsNaming.MakeUnique(plural, used);
+                    propertyName = DeclareMember(plural, used);
                 }
                 else
                 {
@@ -572,16 +607,16 @@ namespace Internal
         private static HierarchyBindingsField MakeField(
             Component component,
             string rawName,
-            HashSet<string> used,
+            IdentifierScope used,
             List<string> errors,
             string hierarchyPath)
         {
             var propertyName = HierarchyBindingsNaming.ToIdentifier(rawName);
 
-            if (Validate(propertyName, rawName, hierarchyPath, errors) == false)
+            if (Validate(propertyName, rawName, hierarchyPath, used, errors) == false)
                 return null;
 
-            propertyName = HierarchyBindingsNaming.MakeUnique(propertyName, used);
+            propertyName = DeclareMember(propertyName, used);
 
             return new HierarchyBindingsField
             {
@@ -592,7 +627,12 @@ namespace Internal
             };
         }
 
-        private static bool Validate(string propertyName, string rawName, string hierarchyPath, List<string> errors)
+        private static bool Validate(
+            string propertyName,
+            string rawName,
+            string hierarchyPath,
+            IdentifierScope used,
+            List<string> errors)
         {
             if (string.IsNullOrEmpty(propertyName))
             {
@@ -600,14 +640,55 @@ namespace Internal
                 return false;
             }
 
-            if (HierarchyBindingsNaming.IsReservedMember(propertyName))
+            if (used.IsReserved(propertyName))
             {
                 errors.Add(
-                    $"'{hierarchyPath}': '{propertyName}' collides with a MonoBehaviour member. Rename the object.");
+                    $"'{hierarchyPath}': '{propertyName}' collides with a member the generated class inherits or " +
+                    "declares itself. Rename the object.");
                 return false;
             }
 
             return true;
+        }
+
+        // Duplicate names within one class are disambiguated with a suffix. The traversal order is deterministic,
+        // so the suffix is stable between runs as long as the hierarchy has not changed. The backing field is
+        // derived from the property and must be free too: HPBar and HpBar both give _hpBar.
+        private static string DeclareMember(string name, IdentifierScope used)
+        {
+            for (var index = 1; index < 1000; index++)
+            {
+                var candidate = index == 1 ? name : name + index;
+                var fieldName = HierarchyBindingsNaming.ToFieldName(candidate);
+
+                if (used.IsFree(candidate) == false || used.IsFree(fieldName) == false)
+                    continue;
+
+                used.TryDeclare(candidate);
+                used.TryDeclare(fieldName);
+                return candidate;
+            }
+
+            throw new InvalidOperationException($"No free name for '{name}' in {used.EnclosingTypeName}.");
+        }
+
+        // The class of a child is a member of the parent and the enclosing type of the child's own members, so its
+        // name must be free on both sides (CS0102 in the parent, CS0542 inside).
+        private static string DeclareType(string name, IdentifierScope parent, IdentifierScope own)
+        {
+            for (var index = 1; index < 1000; index++)
+            {
+                var candidate = index == 1 ? name : name + index;
+
+                if (parent.IsFree(candidate) == false || own.IsDeclared(candidate))
+                    continue;
+
+                parent.TryDeclare(candidate);
+                own.EnclosingTypeName = candidate;
+                return candidate;
+            }
+
+            throw new InvalidOperationException($"No free class name for '{name}' in {parent.EnclosingTypeName}.");
         }
 
         private static bool IsPredefinedAssembly(Type type)

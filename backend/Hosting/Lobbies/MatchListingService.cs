@@ -64,7 +64,7 @@ public class MatchListingService : Service
         {
             IsOpen = _info.IsOpen,
             LeaderUserId = owner?.BackendId ?? Guid.Empty,
-            PlayersCount = _users.Count,
+            PlayersCount = _users.CountPlayers(),
             MaxPlayers = _info.MaxUsers,
             IsRunning = true,
             IsJoinable = true

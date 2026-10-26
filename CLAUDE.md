@@ -97,7 +97,8 @@ tools/scripts/          scripts shared by the projects
   (`ContainerGraph.AssetMap.cs`), the startup preload and the root scope (`InternalScopeExtensions.Construct`, loaded
   with `RootScopeExtensions.LoadRoot`). Every project asmdef that references `Internal` references the content
   assembly too. Keys of the game's local storage live in the game (`LocalStorageKeys.Get(name)`).
-- **Project layout for the editor tools.** `ProjectSettings/Framework.json` (`FrameworkSettings`): content folder and
+- **Project layout for the editor tools.** `ProjectSettings/Framework.json` (`FrameworkSettings`, required: no game
+  defaults, `ContentAssembly` and `ContentFolder` must be set): content folder and
   assembly, module roots, scene folders, art and audio folders, favorite scenes, phases of the shared addressable
   groups, player assemblies to strip. Editor assets of the framework are loaded from `FrameworkSettings.Package(...)`.
 - **Player build steps.** A project step around the build entry points of the platforms implements `IPlayerBuildStep`
@@ -108,7 +109,9 @@ tools/scripts/          scripts shared by the projects
   label, every platform off). After a change: build it (it copies itself into `Analyzers`) and run
   `ContainerGenerator.Verify`.
 - **Updater.** The global scope calls `AddUpdater(prefab)` (core); delays without coroutines:
-  `updater.RunDelay(lifetime, time)`, ends earlier with the lifetime.
+  `updater.RunDelay(lifetime, time)`; every updater wait (RunDelay, RunUpdateAction, Progression, Tween) ends with
+  `OperationCanceledException` when its lifetime ends first. `Pause` / `Continue` are counted (Continue without Pause
+  throws); an updatable that throws does not stop the others (reported through `ReactiveExceptions`).
 - **Hierarchy bindings.** Generated `*Bindings.g.cs` (`ObjectBindings`) go to `Assets/Generated` of a module root
   (`FrameworkSettings.ModuleRoots`), to `Generated` next to any other asmdef, to
   `Runtime/Tools/PrefabHierarchy/Generated` of the content folder for an owner from the content assembly; an asset

@@ -95,15 +95,26 @@ public class LobbySessions : ILobbySessions
         var sessionId = Guid.NewGuid();
         var code = await _codes.Register(_serviceDiscovery.Self.Id, sessionId);
 
-        var session = _factory.Create(new LobbyCreation
-        {
-            Id = sessionId,
-            Code = code,
-            MaxUsers = _maxUsers
-        });
+        ISession session;
 
-        if (session.Id != sessionId || session.Type != SessionType.Lobby)
-            throw new InvalidOperationException($"The lobby factory built {session.Type} session {session.Id} for lobby {sessionId}");
+        try
+        {
+            session = _factory.Create(new LobbyCreation
+            {
+                Id = sessionId,
+                Code = code,
+                MaxUsers = _maxUsers
+            });
+
+            if (session.Id != sessionId || session.Type != SessionType.Lobby)
+                throw new InvalidOperationException($"The lobby factory built {session.Type} session {session.Id} for lobby {sessionId}");
+        }
+        catch
+        {
+            // No lobby holds the code: nothing would ever release it.
+            await _codes.Release(code, sessionId);
+            throw;
+        }
 
         // The code is released when the lobby is closed (the last user left or nobody entered in time) or,
         // if the lobby has started a match, when that match is closed.

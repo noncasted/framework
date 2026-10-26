@@ -116,7 +116,7 @@ namespace ContainerGenerator {
                 method.MethodKind != MethodKind.ReducedExtension)
                 return false;
 
-            // Сам реестр (ContainerBuilder.AttachBuilder) принимает IBuilder, но ничего не регистрирует.
+            // The registry itself (ContainerBuilder.AttachBuilder) takes an IBuilder but registers nothing.
             if (IsContainerRegistry(method.ContainingType))
                 return false;
 
@@ -902,7 +902,7 @@ namespace ContainerGenerator {
             state.LastCallIndex = -1;
         }
 
-        // builder.Injectable<T>(): тип не резолвится, скоуп только зовёт его [Inject] для экземпляров из рантайма.
+        // builder.Injectable<T>(): the type does not resolve, the scope only calls its [Inject] for runtime instances.
         private void HandleInjectable(State state, InvocationExpressionSyntax invocation, IMethodSymbol? symbol) {
             WalkReceiver(state, invocation);
             var implementation = "";
@@ -980,7 +980,7 @@ namespace ContainerGenerator {
             return null;
         }
 
-        // Ветка switch по enum пишется полным именем константы: из неё выводится тип дискриминанта.
+        // A switch arm over an enum is written with the full name of the constant: the type of the discriminant comes from it.
         private static string QualifiedPattern(State state, PatternSyntax pattern) {
             if (pattern is ConstantPatternSyntax constant &&
                 state.Model.GetSymbolInfo(constant.Expression).Symbol is IFieldSymbol field &&
@@ -1169,8 +1169,8 @@ namespace ContainerGenerator {
             return LocalSyntax(method.OriginalDefinition) != null;
         }
 
-        // IDE отдаёт соседние проекты компиляциями, и у их методов есть syntax tree чужой компиляции.
-        // Такой метод читаем как метаданные: его регистрации придут из манифеста сборки.
+        // The IDE gives neighbouring projects as compilations, and their methods have syntax trees of another compilation.
+        // Such a method is read as metadata: its registrations come from the manifest of its assembly.
         private SyntaxReference? LocalSyntax(ISymbol symbol) {
             foreach (var reference in symbol.DeclaringSyntaxReferences) {
                 if (_compilation.ContainsSyntaxTree(reference.SyntaxTree))

@@ -60,8 +60,8 @@ namespace Internal
         private readonly string _protocolHash;
 
         // A connect that hangs (a proxy that accepts TCP but has no server behind it, a stalled upgrade) is a failed
-        // one: without a bound the caller waited forever.
-        private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
+        // one: without a bound the caller waited forever. A field: a test shortens it.
+        private readonly TimeSpan _connectTimeout = TimeSpan.FromSeconds(15);
 
         public IConnectionReader Reader => _reader;
         public IConnectionWriter Writer => _writer;
@@ -70,6 +70,10 @@ namespace Internal
 
         public async UniTask Run(IReadOnlyLifetime lifetime, string url)
         {
+            // Ended when the connect fails: the timeout below only stops the wait, the socket went on connecting
+            // (and could open) for a connection that has failed.
+            var socketLifetime = lifetime.Child();
+
             _webSocket = CreateWebSocket(AppendProtocol(url));
 
             // A server of another protocol accepts the socket and closes it at once, maybe before Connect returns:
@@ -97,12 +101,13 @@ namespace Internal
                 // Connecting runs in parallel with menu loading: the span does not go on the stack, otherwise unrelated
                 // stages would nest into the socket wait.
                 using (GameProfiler.Concurrent("Socket connect"))
-                    await _webSocket.Connect().Timeout(ConnectTimeout, DelayType.Realtime);
+                    await _webSocket.Connect().Timeout(_connectTimeout, DelayType.Realtime);
             }
             // The socket never opened (refused, dropped during the upgrade): nothing is answered on this connection.
             // The end of the lifetime is not a failure: its cancellation goes up as it is.
             catch (Exception exception) when (lifetime.IsTerminated == false)
             {
+                socketLifetime.Terminate();
                 _writer.Close();
                 throw new ConnectionFailedException(url, exception);
             }
@@ -113,12 +118,12 @@ namespace Internal
             {
                 // The offline mode: a server inside this process (LocalServerUrl), on every platform.
                 if (LocalServerUrl.IsLocal(socketUrl) == true)
-                    return new LoopbackWebSocket(socketUrl, _localServers.Get(socketUrl), lifetime);
+                    return new LoopbackWebSocket(socketUrl, _localServers.Get(socketUrl), socketLifetime);
 
                 // ClientWebSocket does not work in WebGL, and referencing it pulls System.Net, TLS and Mono.Security into the build.
 #if UNITY_EDITOR || !UNITY_WEBGL
                 if (_platformOptions.IsEditor == true)
-                    return new DefaultWebSocket(socketUrl, lifetime);
+                    return new DefaultWebSocket(socketUrl, socketLifetime);
 #endif
 
                 switch (_platformOptions.PlatformType)
@@ -126,12 +131,12 @@ namespace Internal
                     case PlatformType.Website:
                     case PlatformType.ItchIO:
                     case PlatformType.Telegram:
-                        return new JsWebSocket(socketUrl, lifetime);
+                        return new JsWebSocket(socketUrl, socketLifetime);
 #if UNITY_EDITOR || !UNITY_WEBGL
                     case PlatformType.IOS:
                     case PlatformType.Android:
                     case PlatformType.Steam:
-                        return new DefaultWebSocket(socketUrl, lifetime);
+                        return new DefaultWebSocket(socketUrl, socketLifetime);
 #endif
                     default:
                         throw new ArgumentOutOfRangeException();

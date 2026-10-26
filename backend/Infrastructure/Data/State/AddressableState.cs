@@ -1,3 +1,4 @@
+using Common.Extensions;
 using Internal;
 using Infrastructure.State;
 using Microsoft.Extensions.Logging;
@@ -68,40 +69,23 @@ public class AddressableState<T> : ViewableProperty<T>, IOrleansStarted, IAddres
     private readonly AddressableStateChannelId<T> _channelId;
 
     private readonly SemaphoreSlim _writeLock = new(1, 1);
+    private readonly object _applyGate = new();
     private bool _isInitialized;
     private DateTime _updateDate;
 
     public bool IsInitialized => _isInitialized;
     public DateTime UpdateDate => _updateDate;
 
+    // No catch: a state that failed to load stays uninitialized, and ConfigsInitializer.Init would then overwrite the
+    // stored value with the seed. The failure stops the startup instead.
     public async Task OnOrleansStarted(IReadOnlyLifetime lifetime)
     {
-        try
-        {
-            var state = await _orleans.StateStorage.Read<AddressableStateValue>(_identity);
+        // Listening before the read: an update published while the read runs is not lost, and Apply keeps the newer
+        // of the two by UpdateDate. A gap of the channel (missed updates) reloads the value from the database.
+        await _messaging.ListenChannel<AddressableStateValue>(lifetime, _channelId, OnUpdate,
+            () => Reload().NoAwait());
 
-            if (state.IsInitialized == false)
-            {
-                _logger.LogDebug("[AddressableState] {Type} not yet initialized, skipping load", typeof(T).Name);
-            }
-            else
-            {
-                var value = _orleans.Serializer.Deserialize<T>(state.Value);
-                Set(value);
-
-                // A value loaded from the database is initialized just like a written one. Without this the flag
-                // stayed false until the first update on the channel, and ConfigsInitializer.Init overwrote the
-                // stored config with the seed on every start of the coordinator.
-                _isInitialized = true;
-                _updateDate = state.UpdateDate;
-            }
-
-            await _messaging.ListenChannel<AddressableStateValue>(lifetime, _channelId, OnUpdate);
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "[AddressableState] Failed to initialize {Type}", typeof(T).Name);
-        }
+        await Reload();
     }
 
     public async Task SetValue(T value)
@@ -110,19 +94,24 @@ public class AddressableState<T> : ViewableProperty<T>, IOrleansStarted, IAddres
 
         try
         {
-            _isInitialized = true;
-            _updateDate = DateTime.UtcNow;
+            // Later than every value this host has seen, whatever the clock of the host that wrote it: Apply orders
+            // the values by this date, a write must never lose to the one it replaces.
+            var updateDate = DateTime.UtcNow;
 
-            Set(value);
+            if (updateDate <= _updateDate)
+                updateDate = _updateDate.AddTicks(1);
 
             var state = new AddressableStateValue()
             {
                 IsInitialized = true,
-                UpdateDate = _updateDate,
+                UpdateDate = updateDate,
                 Value = _orleans.Serializer.Serialize(value)
             };
 
+            // The value becomes visible only once it is in the database: a failed write leaves the old one.
             await _orleans.StateStorage.Write(_identity, state);
+            Apply(state, value);
+
             await _messaging.PublishChannel(_channelId, state);
         }
         catch (Exception e)
@@ -136,19 +125,39 @@ public class AddressableState<T> : ViewableProperty<T>, IOrleansStarted, IAddres
         }
     }
 
+    private async Task Reload()
+    {
+        var state = await _orleans.StateStorage.Read<AddressableStateValue>(_identity);
+
+        if (state.IsInitialized == false)
+        {
+            _logger.LogDebug("[AddressableState] {Type} not yet initialized, skipping load", typeof(T).Name);
+            return;
+        }
+
+        // A value loaded from the database is initialized just like a written one. Without this the flag
+        // stayed false until the first update on the channel, and ConfigsInitializer.Init overwrote the
+        // stored config with the seed on every start of the coordinator.
+        Apply(state, _orleans.Serializer.Deserialize<T>(state.Value));
+    }
+
     private void OnUpdate(AddressableStateValue state)
     {
-        _isInitialized = true;
-        _updateDate = DateTime.UtcNow;
+        Apply(state, _orleans.Serializer.Deserialize<T>(state.Value));
+    }
 
-        try
+    // The database read and the channel can bring the same or an older value after a newer one (an own write comes
+    // back on the channel too): the UpdateDate of the writer orders them.
+    private void Apply(AddressableStateValue state, T value)
+    {
+        lock (_applyGate)
         {
-            var value = _orleans.Serializer.Deserialize<T>(state.Value);
+            if (_isInitialized == true && state.UpdateDate <= _updateDate)
+                return;
+
+            _isInitialized = true;
+            _updateDate = state.UpdateDate;
             Set(value);
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "[AddressableState] Failed to deserialize update for {Type}", typeof(T).Name);
         }
     }
 }

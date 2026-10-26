@@ -657,4 +657,42 @@ public class LobbyStartTests
         world.Sessions[second.SessionId].Lifetime.IsTerminated.Should().BeFalse();
         world.Enter(second.SessionId, user).Should().NotBeNull();
     }
+
+    // A guest that comes anew by the code right before zero (its old connection is not dropped yet when the last
+    // step runs) is one user of the match.
+    [Fact]
+    public async Task Start_GuestWithTwoConnectionsAtZero_IsOneUserOfTheMatch()
+    {
+        var lobby = await TestLobby.Create(guests: 1);
+        var guest = lobby.Users[1].BackendId;
+
+        lobby.WriteStart(true);
+        lobby.Advance(LobbyService.CountdownStep * (LobbyCountdownState.Seconds - 1));
+        lobby.Countdown.SecondsLeft.Should().Be(1);
+
+        // The drop of the old connection is queued, the new connection right after it, the last step after both.
+        lobby.World.Lobbies.JoinLobby(lobby.Session.Session.Id, guest).Should().Be(LobbyJoinStatus.Ok);
+        lobby.Session.Session.TryAccept(guest).Should().BeTrue();
+        lobby.Session.EnqueueJoin(guest);
+        lobby.World.Time.Advance(LobbyService.CountdownStep);
+        lobby.Session.Queue.Drain();
+
+        lobby.Game.SessionId.Should().NotBe(Guid.Empty);
+        lobby.Game.PlayersCount.Should().Be(2);
+    }
+
+    // The countdown of a lobby that has ended waits on nothing: its step queues no action after the end.
+    [Fact]
+    public async Task LobbyEndsDuringCountdown_StepQueuesNothing()
+    {
+        var lobby = await TestLobby.Create(guests: 1);
+        lobby.WriteStart(true);
+
+        lobby.Session.Lifetime.Terminate();
+        lobby.Session.Queue.Drain();
+
+        lobby.World.Time.Advance(LobbyService.CountdownStep * 2);
+
+        lobby.Session.Queue.Count.Should().Be(0);
+    }
 }

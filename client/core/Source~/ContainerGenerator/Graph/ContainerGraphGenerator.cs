@@ -68,16 +68,40 @@ namespace ContainerGenerator {
                     for (var d = 0; d < graph.Diagnostics.Count; d++)
                         production.ReportDiagnostic(graph.Diagnostics[d].ToDiagnostic());
 
-                    if (ScopeEmitter.TryEmit(graph, document, compilation, references, out var hint, out var source) == false)
-                        continue;
+                    // An exception escaping the generator drops every source of the assembly with only the CS8785
+                    // warning: the scope that failed is reported as an error, the others are still emitted.
+                    try {
+                        if (ScopeEmitter.TryEmit(graph, document, compilation, references, out var hint, out var source) == false)
+                            continue;
 
-                    production.AddSource(hint, source);
+                        production.AddSource(hint, source);
+                    }
+                    catch (System.Exception exception) {
+                        production.ReportDiagnostic(Diagnostic.Create(
+                            GraphDescriptors.UncoveredSyntax,
+                            Location.None,
+                            "generator exception while emitting the scope: " + exception,
+                            graph.RootId,
+                            "",
+                            "0"));
+                    }
                 }
 
                 if (document.Methods.Count == 0)
                     return;
 
-                production.AddSource("ContainerGraph.g.cs", GraphEmitter.Emit(document, compilation));
+                try {
+                    production.AddSource("ContainerGraph.g.cs", GraphEmitter.Emit(document, compilation));
+                }
+                catch (System.Exception exception) {
+                    production.ReportDiagnostic(Diagnostic.Create(
+                        GraphDescriptors.UncoveredSyntax,
+                        Location.None,
+                        "generator exception while emitting the manifest: " + exception,
+                        compilation.AssemblyName ?? "",
+                        "",
+                        "0"));
+                }
             });
         }
 

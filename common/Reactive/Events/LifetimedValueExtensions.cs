@@ -123,6 +123,8 @@ namespace Internal
                     return;
                 }
 
+                // Notify renews a true value: the lifetime given for the previous one ends first.
+                trueLifetime?.Terminate();
                 trueLifetime = lifetime.Child();
                 listener?.Invoke(trueLifetime);
             }

@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.InteropServices;
 using Cysharp.Threading.Tasks;
 using Global.UI;
@@ -42,10 +43,17 @@ namespace Global.Web
             throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
 #endif
 
+        // The page shows it in a fade of its own: a page that never reports it shown (a template without the
+        // loading screen script, a script error) failed the transition after the timeout instead of hanging it.
+        private static readonly TimeSpan ShowTimeout = TimeSpan.FromSeconds(10);
+
         public async UniTask Show()
         {
             WebLoadingScreenShow();
-            await UniTask.WaitUntil(() => WebLoadingScreenIsShown() == true);
+
+            await UniTask
+                  .WaitUntil(() => WebLoadingScreenIsShown() == true)
+                  .Timeout(ShowTimeout, DelayType.Realtime);
         }
 
         public void ShowInstantly()

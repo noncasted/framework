@@ -18,8 +18,9 @@ namespace Internal
 
         public static T Random<T>(this IReadOnlyList<T> list)
         {
-            if (list == null || list.Count == 0)
-                return default;
+            // An empty list has no element to pick: default would pass for a picked one.
+            if (list.Count == 0)
+                throw new InvalidOperationException("Random of an empty list");
 
             return list[UnityEngine.Random.Range(0, list.Count)];
         }

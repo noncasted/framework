@@ -211,7 +211,8 @@ namespace Internal
             List<string> problems)
         {
             var scanErrors = new List<string>();
-            var node = HierarchyBindingsScanner.Scan(bindings.gameObject, generatedType.Name, layer, scanErrors);
+            var node = HierarchyBindingsScanner.Scan(bindings.gameObject, generatedType.Name, layer, scanErrors,
+                bindings.IsSceneService, bindings.IsEntityComponent);
 
             if (node == null)
             {

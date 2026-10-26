@@ -39,6 +39,10 @@ public class SessionsCollection : ISessionsCollection
     // from any thread and must not enumerate the user list of a foreign session.
     private readonly ConcurrentDictionary<Guid, IReadOnlyList<Guid>> _userIds = new();
 
+    // The queues of many sessions push at once: a snapshot is built and handed over under one lock, so the slices
+    // reach SetSlice in the order of their state (the latest call wins there) and an older one never comes last.
+    private readonly Lock _pushLock = new();
+
     public IReadOnlyDictionary<Guid, ISession> Entries => _entries;
 
     public void Add(ISession session)
@@ -86,11 +90,14 @@ public class SessionsCollection : ISessionsCollection
 
     private void PushLiveData()
     {
-        _liveData.SetSlice(_entries.Values.Select(s => new LiveSessionEntry
+        lock (_pushLock)
         {
-            Id = s.Id,
-            UserIds = _userIds.GetValueOrDefault(s.Id, []).ToList(),
-            CreatedAt = _createdAt.GetValueOrDefault(s.Id, _time.GetUtcNow().UtcDateTime)
-        }).ToList()).NoAwait();
+            _liveData.SetSlice(_entries.Values.Select(s => new LiveSessionEntry
+            {
+                Id = s.Id,
+                UserIds = _userIds.GetValueOrDefault(s.Id, []).ToList(),
+                CreatedAt = _createdAt.GetValueOrDefault(s.Id, _time.GetUtcNow().UtcDateTime)
+            }).ToList()).NoAwait();
+        }
     }
 }

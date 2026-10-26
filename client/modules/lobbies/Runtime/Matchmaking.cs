@@ -15,8 +15,8 @@ namespace Global.Lobbies
     public interface IMatchmaking
     {
         // Every request is a meta command answered by its result: a failed command throws NetworkRequestException,
-        // no answer in 10 s - TimeoutException, a lost connection or the end of the lifetime -
-        // OperationCanceledException. An Ok result carries the ticket of the local user into the session
+        // no answer in the timeout of a request (20 s) - TimeoutException, a lost connection or the end of the
+        // lifetime - OperationCanceledException. An Ok result carries the ticket of the local user into the session
         // (SessionData.Ticket).
 
         // Public match session with a free place, or the lobby of the late players of a running one
@@ -46,10 +46,6 @@ namespace Global.Lobbies
         {
             _socket = socket;
         }
-
-        // The backend answers in tens of milliseconds; a result is awaited for less than the 20 s of a plain request:
-        // the menu shows the failure sooner.
-        private static readonly TimeSpan ResultTimeout = TimeSpan.FromSeconds(10);
 
         private readonly IMetaSocket _socket;
 
@@ -101,32 +97,15 @@ namespace Global.Lobbies
             return Request<SharedSessionRequests.Result>(lifetime, command);
         }
 
-        private async UniTask<T> Request<T>(IReadOnlyLifetime lifetime, INetworkContext command)
+        // The timeout is the one of the writer (IConnectionWriter.WriteRequest). A shorter one of its own gave up
+        // on a result the meta was still making: the lobby was created anyway, and a retry created a second one. The
+        // end of the lifetime only stops the wait: the meta still makes the result, which the writer then reports as
+        // a response to an unknown request.
+        private UniTask<T> Request<T>(IReadOnlyLifetime lifetime, INetworkContext command)
         {
-            var requestLifetime = lifetime.Child();
-
-            try
-            {
-                var response = _socket.Connection.Writer
-                                      .WriteRequest<T>(command)
-                                      .AttachExternalCancellation(requestLifetime.Token);
-
-                var timeout = UniTask.Delay(ResultTimeout, DelayType.Realtime, cancellationToken: requestLifetime.Token);
-
-                var (hasResult, result) = await UniTask.WhenAny(response, timeout);
-
-                if (hasResult == false)
-                {
-                    throw new TimeoutException(
-                        $"[Matchmaking] No {typeof(T).Name} in {ResultTimeout.TotalSeconds} s");
-                }
-
-                return result;
-            }
-            finally
-            {
-                requestLifetime.Terminate();
-            }
+            return _socket.Connection.Writer
+                          .WriteRequest<T>(command)
+                          .AttachExternalCancellation(lifetime.Token);
         }
 
         private static LobbyJoinResult ToResult(SharedSessionRequests.Result result)

@@ -21,9 +21,10 @@
     // Tag ranges of the INetworkContext union, shared by the framework and every project:
     // - 0-249 framework (one byte on the wire): 0 EmptyResponse, 1 ErrorResponse, 10-19 session auth, 20-29 entity,
     //   30-39 object, 40-49 player, 50-59 service, 60-69 latency, 100-149 backend meta, 150-179 session requests,
-    //   180-199 lobbies;
+    //   180-199 lobbies; one exception: SessionCreateSolo (a session request) took 184 in the lobbies range;
     // - 1000+ game.
-    // A removed type leaves a hole: tags are never reused. A duplicated tag fails the MemoryPack generator.
+    // A tag is never moved: shipped clients have it on the wire. A removed type leaves a hole: tags are never reused.
+    // A duplicated tag fails the MemoryPack generator.
     public static class NetworkContextTags
     {
         public const ushort EmptyResponse = 0;
@@ -52,6 +53,8 @@
 
         public const ushort ServiceGetRequest = 50;
         public const ushort ServiceGetResponse = 51;
+        // Unused: SharedSessionService.Overview is never sent on its own (GetResponse carries the properties). The
+        // tag stays reserved for the type in the unions of the projects.
         public const ushort ServiceOverview = 52;
 
         public const ushort LatencyPing = 60;
@@ -72,6 +75,8 @@
         public const ushort LobbiesUnsubscribe = 181;
         public const ushort LobbiesList = 182;
         public const ushort LobbyJoinMatch = 183;
+
+        // A session request (SharedSessionRequests.CreateSolo) in the lobbies range: added after it, kept for the wire.
         public const ushort SessionCreateSolo = 184;
 
         public const ushort GameFirst = 1000;

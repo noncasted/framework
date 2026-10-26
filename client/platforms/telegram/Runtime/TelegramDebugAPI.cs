@@ -10,16 +10,21 @@ namespace Global.Publisher.Telegram
 {
     // The Telegram platform in the editor (PlatformType.Telegram in the options, or a Telegram build profile active):
     // no page around the game, so the init data is signed here as Telegram signs it (the data check string of the Bot
-    // API), with TelegramBotToken of backend/Orchestration/Aspire/appsettings.local.json of the project - the token the
+    // API), with TelegramBotToken of the settings file the project names (TelegramEditorOptions) - the token the
     // local meta checks the signature with. A fresh auth_date on every call, so it never expires. The BackButton is a flag and a log;
     // PressBackButton presses it (Play checks through execute_code).
     public class TelegramDebugAPI : ITelegramAPI
     {
+        public TelegramDebugAPI(TelegramEditorOptions options)
+        {
+            _options = options;
+        }
+
+        private readonly TelegramEditorOptions _options;
+
         public const long UserId = 1001;
         public const string FirstName = "Editor";
         public const string LanguageCode = "ru";
-
-        private const string LocalSettingsPath = "../../backend/Orchestration/Aspire/appsettings.local.json";
 
         private int _backButtonPresses;
 
@@ -28,7 +33,7 @@ namespace Global.Publisher.Telegram
         public string GetInitData()
         {
 #if UNITY_EDITOR
-            var token = ReadBotToken();
+            var token = ReadBotToken(_options.BotTokenSettingsPath);
             var user = $"{{\"id\":{UserId},\"first_name\":\"{FirstName}\",\"language_code\":\"{LanguageCode}\"}}";
             var authDate = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
             const string queryId = "AAH_editor_debug";
@@ -78,14 +83,16 @@ namespace Global.Publisher.Telegram
         }
 
 #if UNITY_EDITOR
-        private static string ReadBotToken()
+        // The path of the project (TelegramEditorOptions) is relative to the folder of the Unity project.
+        private static string ReadBotToken(string settingsPath)
         {
-            var path = Path.GetFullPath(Path.Combine(Application.dataPath, LocalSettingsPath));
+            var projectFolder = Path.GetDirectoryName(Application.dataPath);
+            var path = Path.GetFullPath(Path.Combine(projectFolder, settingsPath));
 
             if (File.Exists(path) == false)
             {
                 throw new FileNotFoundException(
-                    "[Telegram] [Debug] No local Aspire settings: put {\"TelegramBotToken\": \"<test token>\"} there and restart the cluster",
+                    "[Telegram] [Debug] No local settings with the bot token (TelegramEditorOptions): put {\"TelegramBotToken\": \"<test token>\"} there and restart the cluster",
                     path);
             }
 

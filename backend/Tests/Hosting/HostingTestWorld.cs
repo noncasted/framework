@@ -89,6 +89,9 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     public readonly LobbySessions Lobbies;
     public readonly Dictionary<Guid, TestSession> Sessions = new();
 
+    // Not null: the lobby factory of the game fails with it.
+    public Exception? LobbyCreationFailure;
+
     public string WebSocketUrl => ServerUrl.ServerUrlToWebSocket();
 
     // The place check of the gateway path (after the ticket): null is the refusal.
@@ -132,6 +135,9 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     // ILobbyFactory: a lobby session with the lobby service of the framework.
     ISession ILobbyFactory.Create(LobbyCreation creation)
     {
+        if (LobbyCreationFailure != null)
+            throw LobbyCreationFailure;
+
         var options = new SessionCreateOptions
         {
             Id = creation.Id,
@@ -276,7 +282,9 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
             Sessions.Add(session.Session.Id, session);
 
         Collection.Add(session.Session);
-        session.ServiceFactory.OnSessionCreated(session.Lifetime).GetAwaiter().GetResult();
+        var created = session.ServiceFactory.OnSessionCreated(session.Lifetime);
+        session.Queue.Drain();
+        created.GetAwaiter().GetResult();
         session.Run();
 
         return session;

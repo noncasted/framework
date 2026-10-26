@@ -68,7 +68,12 @@ public static class StateStorageExtensions
                 var stateInfo = storage.Registry.Get(record.Value.GetType());
                 var identity = record.Id.ToIdentity(stateInfo);
 
-                identityToRecord.Add(identity, record.Value);
+                // One row twice in one upsert fails the whole write in Postgres: say which one, and why.
+                if (identityToRecord.TryAdd(identity, record.Value) == false)
+                {
+                    throw new InvalidOperationException(
+                        $"State {identity} of grain {record.Id} is written twice in one write (two activations of the grain in one transaction?)");
+                }
             }
 
             return identityToRecord;

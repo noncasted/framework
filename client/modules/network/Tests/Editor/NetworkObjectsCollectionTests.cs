@@ -276,6 +276,25 @@ namespace Internal.Tests
             Assert.DoesNotThrow(() => world.Objects.ApplyEvent(Event(1)));
         }
 
+        // A listener that returns an entity of another id: the creation fails, the id does not stay Creating forever.
+        [Test]
+        public void Factory_ListenerReturnsOtherId_Throws_IdIsDestroyed()
+        {
+            var world = new FactoryWorld();
+            var listener = new UniTaskCompletionSource<INetworkEntity>();
+
+            world.Factory.ListenRemote<TestPayload>(world.Lifetime, (_, _) => listener.Task);
+            var creation = world.Factory.CreateRemote(world.Lifetime, world.Data(ObjectId));
+
+            var entity = world.CreateEntity(ObjectId + 1);
+            listener.TrySetResult(entity);
+
+            Assert.Throws<InvalidOperationException>(() => creation.GetAwaiter().GetResult());
+            Assert.AreEqual(NetworkObjectState.Destroyed, world.Objects.GetState(ObjectId));
+            Assert.AreEqual(NetworkObjectState.Unknown, world.Objects.GetState(ObjectId + 1));
+            Assert.IsFalse(world.Entities.Entries.ContainsKey(ObjectId + 1));
+        }
+
         [Test]
         public void Factory_Return_LocalEntity_GoesToRestoreListener_CountsTheSeat()
         {

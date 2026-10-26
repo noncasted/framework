@@ -11,7 +11,14 @@ namespace Internal
     internal sealed class HierarchyBindingsRequest
     {
         public string AssetPath;
+
+        // Sibling indices from the root of the asset ("1/0"; for a scene the first one is the index among the root
+        // objects of the scene; empty - the root itself). Names are not unique and may contain '/'.
         public string ObjectPath;
+
+        // The names of the same path, for messages only.
+        public string ObjectNames;
+
         public string TypeName;
         public string Namespace;
         public bool IsPrefabAsset;
@@ -34,21 +41,25 @@ namespace Internal
 
         public static void Enqueue(HierarchyBindingsRequest request)
         {
-            var queue = Load();
+            var queue = Read();
             queue.Requests.Add(request);
             SessionState.SetString(SessionKey, JsonUtility.ToJson(queue));
         }
 
-        public static List<HierarchyBindingsRequest> Take()
+        public static List<HierarchyBindingsRequest> Load()
         {
-            var requests = Load().Requests;
-            Clear();
-            return requests;
+            return Read().Requests;
         }
 
         public static bool IsEmpty()
         {
-            return Load().Requests.Count == 0;
+            return Read().Requests.Count == 0;
+        }
+
+        // Without parsing: the menu asks it on every repaint, and a queue that cannot be read must still be resettable.
+        public static bool HasData()
+        {
+            return string.IsNullOrEmpty(SessionState.GetString(SessionKey, string.Empty)) == false;
         }
 
         public static void Clear()
@@ -56,22 +67,33 @@ namespace Internal
             SessionState.EraseString(SessionKey);
         }
 
-        private static HierarchyBindingsQueue Load()
+        // A queue that cannot be read is not an empty one: its requests would be lost without a word.
+        private static HierarchyBindingsQueue Read()
         {
             var json = SessionState.GetString(SessionKey, string.Empty);
 
             if (string.IsNullOrEmpty(json))
                 return new HierarchyBindingsQueue();
 
+            HierarchyBindingsQueue queue;
+
             try
             {
-                return JsonUtility.FromJson<HierarchyBindingsQueue>(json) ?? new HierarchyBindingsQueue();
+                queue = JsonUtility.FromJson<HierarchyBindingsQueue>(json);
             }
-            catch (Exception)
+            catch (ArgumentException exception)
             {
-                Clear();
-                return new HierarchyBindingsQueue();
+                throw new InvalidOperationException(
+                    "[HierarchyBindingsGenerator] The queue of pending bindings is unreadable. Reset it with " +
+                    "Cancel Prefab Batch and generate again.", exception);
             }
+
+            if (queue == null)
+                throw new InvalidOperationException(
+                    "[HierarchyBindingsGenerator] The queue of pending bindings is unreadable. Reset it with " +
+                    "Cancel Prefab Batch and generate again.");
+
+            return queue;
         }
     }
 }

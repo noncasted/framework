@@ -111,6 +111,24 @@ public class DeployCleanupTests(OrleansTestClusterFixture fixture) : Integration
         (await Keys<DeployState>(storage)).Should().Equal(current);
     }
 
+    // A console started before the current deploy still has the old deploy id: the cleanup must not take the rows of
+    // the deploy the cluster runs (the one the deploy id pipe answers) for stale ones.
+    [Fact]
+    public async Task Run_LocalDeployIdBehindCluster_RemovesNothing()
+    {
+        var storage = GetSiloService<IStateStorage>();
+        var local = Guid.NewGuid();
+        var cluster = Guid.NewGuid();
+
+        await WriteAllScopedStates(storage, local);
+        await WriteAllScopedStates(storage, cluster);
+
+        var run = () => CreateCleanup(storage, local, cluster).Run();
+        await run.Should().ThrowAsync<InvalidOperationException>();
+
+        (await Keys<DeployState>(storage)).Should().BeEquivalentTo(new[] { local, cluster });
+    }
+
     // Service discovery rows written before the tags became strings hold the numeric enum value.
     [Fact]
     public async Task Run_LegacyNumericServiceTagRow_IsReadAndRemoved()
@@ -152,11 +170,17 @@ public class DeployCleanupTests(OrleansTestClusterFixture fixture) : Integration
         (await Keys<ServiceDiscoveryStorageState>(storage)).Should().Equal(current);
     }
 
-    private static DeployCleanup CreateCleanup(IStateStorage storage, Guid currentDeployId)
+    private static DeployCleanup CreateCleanup(IStateStorage storage, Guid currentDeployId, Guid? clusterDeployId = null)
     {
         var deployContext = Substitute.For<IDeployContext>();
         deployContext.DeployId.Returns(currentDeployId);
-        return new DeployCleanup(deployContext, storage, NullLogger<DeployCleanup>.Instance);
+
+        // The deploy id pipe answers the deploy the cluster runs.
+        var messaging = Substitute.For<IMessaging>();
+        messaging.RuntimePipe.Send<DeployIdResponse>(DeployIdPipe.Id, Arg.Any<object>())
+                 .Returns(new DeployIdResponse { DeployId = clusterDeployId ?? currentDeployId });
+
+        return new DeployCleanup(deployContext, storage, messaging, NullLogger<DeployCleanup>.Instance);
     }
 
     private static async Task WriteAllScopedStates(IStateStorage storage, Guid deployId)

@@ -245,7 +245,7 @@ namespace Internal
             return new VariationKey(name, index);
         }
 
-        private static List<AudioGroupDefinition> BuildGroups(List<ClipSource> sources)
+        internal static List<AudioGroupDefinition> BuildGroups(List<ClipSource> sources)
         {
             sources.Sort((left, right) => string.Compare(left.Path, right.Path, StringComparison.Ordinal));
 
@@ -265,12 +265,11 @@ namespace Internal
                     usedNames.Add(source.Group, new HashSet<string>(StringComparer.Ordinal));
                 }
 
+                // Dropping one of the two would silently take a sound out of the catalogue.
                 if (usedNames[source.Group].Add(source.PropertyName) == false)
-                {
-                    Debug.LogError(
-                        $"[{LogTag}] Duplicate identifier '{source.PropertyName}' in group '{source.Group}'. Skipping {source.Path}.");
-                    continue;
-                }
+                    throw new InvalidOperationException(
+                        $"[{LogTag}] Duplicate identifier '{source.PropertyName}' in group '{source.Group}': " +
+                        $"{source.Path}. Rename one of the clips or move it to another group.");
 
                 group.Properties.Add(new AudioPropertyDefinition
                 {
@@ -458,7 +457,7 @@ namespace Internal
             public AudioCatalogMetadata Metadata { get; }
         }
 
-        private sealed class ClipSource
+        internal sealed class ClipSource
         {
             public string Path;
             public string Group;

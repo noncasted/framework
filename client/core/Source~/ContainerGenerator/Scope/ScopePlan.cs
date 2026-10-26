@@ -51,6 +51,17 @@ namespace ContainerGenerator {
             // All builder.Inject instances of the slot type: Type is the array, ElementType is the type itself.
             public bool IsInjections;
             public string ElementType = "";
+            // The occurrence-th RegisterInstance / RegisterComponent of Type: request.GetInstance<Type>(Occurrence).
+            public bool IsInstance;
+            public int Occurrence = -1;
+            // A WithParameter hole of one registration: request.GetParameter<Type>(typeof(Implementation), Occurrence).
+            public bool IsParameter;
+            public string ParameterImplementation = "";
+            public int OwnerSlot = -1;
+            // An export of a parent scope: request.GetFromParent<Type>().
+            public bool IsParentHole;
+            // The edges this parameter feeds: a hole is bound to its registration, not only to its type.
+            public List<GraphEdge> Edges = new List<GraphEdge>();
         }
 
         public sealed class Field {
@@ -113,7 +124,7 @@ namespace ContainerGenerator {
             public int Slot;
         }
 
-        // Строка таблицы Internal.RegistrationInfo; пустой тип — typeof из сборки скоупа не написать.
+        // A row of the Internal.RegistrationInfo table; an empty type: typeof cannot be written from the assembly of the scope.
         public sealed class DiagnosticRegistration {
             public string ImplementationType = "";
             public List<string> ServiceTypes = new List<string>();
@@ -153,11 +164,11 @@ namespace ContainerGenerator {
 
             var plan = new ScopePlan { RootId = graph.RootId };
             ScopeNames.ParseRoot(graph.RootId, out plan.Namespace, out var typeName, out var methodName, out plan.ClassName);
-            // Имя по внешнему методу, пока корень в нём один. Варианты и несколько корней-локальных
-            // функций одного метода называются по локальной функции, иначе совпадут класс и hint.
+            // Named by the outer method while it has one root. Variants and several roots that are local
+            // functions of one method are named by the local function, otherwise the class and the hint would collide.
             if (string.IsNullOrEmpty(graph.Variant) == false || HasSiblingRoots(document, graph.RootId)) {
                 var constructName = ConstructMethodName(graph.RootId, methodName);
-                plan.ClassName = typeName + constructName + (graph.Variant ?? "") + "Container";
+                plan.ClassName = typeName + constructName + graph.Variant + "Container";
             }
 
             plan.HintName = plan.ClassName + ".g.cs";
@@ -190,6 +201,8 @@ namespace ContainerGenerator {
             used.Add("_registrationInfos");
             used.Add("_buildOrder");
             used.Add("_disposed");
+            used.Add("_isDisposing");
+            used.Add("errors");
 
             BuildSlots(plan, graph, types, used);
             GroupAlternatives(plan, graph);
@@ -205,8 +218,8 @@ namespace ContainerGenerator {
             return plan;
         }
 
-        // Таблица для графа контейнеров: свои регистрации по слотам, затем дырки рёбер — то, что
-        // скоуп берёт у родителя или из WithParameter.
+        // The table for the container graph: the own registrations by slot, then the holes of the edges: what
+        // the scope takes from the parent or from WithParameter.
         private static void BuildDiagnostics(ScopePlan plan, Compilation compilation, TypeIndex types) {
             for (var i = 0; i < plan.Slots.Count; i++) {
                 var slot = plan.Slots[i];
@@ -326,7 +339,8 @@ namespace ContainerGenerator {
             for (var i = 0; i < graph.Diagnostics.Count; i++) {
                 var id = graph.Diagnostics[i].Descriptor.Id;
                 if (id == "CINGR003" || id == "CINGR004" || id == "CINGR001" || id == "CINGR002" ||
-                    id == "CINGR005" || id == "CINGR007")
+                    id == "CINGR005" || id == "CINGR007" || id == "CINGR010" || id == "CINGR011" ||
+                    id == "CINGR012")
                     return true;
             }
 
@@ -377,7 +391,7 @@ namespace ContainerGenerator {
                     IsHole = IsHoleOrigin(registration.Origin),
                     IsAlternative = registration.Origin == "Alternative",
                     IsSwitch = registration.Origin == "SwitchFactory",
-                    // Injectable: без поля, экспорта и конструирования — только ветка в Inject().
+                    // Injectable: no field, no export, no construction, only a case in Inject().
                     SkipEmit = registration.Origin == "SceneServices" ||
                                registration.Origin == "ExternalInstaller" ||
                                registration.Origin == "Injectable",
@@ -526,7 +540,7 @@ namespace ContainerGenerator {
                 IsParent = true,
             });
 
-            // Параметры веток switch берутся из запроса в момент построения выбранной ветки.
+            // The parameters of switch arms are taken from the request when the chosen arm is built.
             plan.NeedsRequest = HasArmParameters(graph) || plan.AlternativeGroups.Count > 0;
             if (plan.NeedsRequest) {
                 used.Add("request");
@@ -550,10 +564,13 @@ namespace ContainerGenerator {
                     preferred = preferred.Substring(0, preferred.IndexOf(';')).Trim();
 
                 slot.CtorParamName = ScopeNames.Parameter(preferred, slot.FieldType, used);
+                var isInstance = IsInstanceKind(slot.Registration.Kind);
                 plan.CtorParams.Add(new CtorParam {
                     Type = slot.FieldType,
                     Name = slot.CtorParamName,
                     Slot = slot.Index,
+                    IsInstance = isInstance,
+                    Occurrence = isInstance ? InstanceOccurrence(graph, slot.Index) : -1,
                 });
 
                 // Several instances may call builder.Inject with one type (identical scene services):
@@ -586,22 +603,41 @@ namespace ContainerGenerator {
                     var edge = registration.Dependencies[e];
                     if (edge.Kind != "Hole")
                         continue;
-                    if (HasCtorParam(plan, edge.ParameterType, edge.ParameterName))
-                        continue;
 
-                    // Дырка ребра (экспорт родителя, WithParameter) — своё поле: Construct компонента
-                    // зовётся и из конструктора, и из Inject / IProvides.
+                    // A parent export is one value for the whole scope; a WithParameter value belongs to its
+                    // registration: two registrations with a parameter of one type get their own values.
+                    var isParent = string.IsNullOrEmpty(edge.ParentRootId) == false;
+                    var isParameter = isParent == false && registration.Origin == "ParameterHole";
+                    var existing = isParent
+                        ? FindParam(plan, p => p.IsParentHole && p.Type == edge.ParameterType)
+                        : isParameter
+                            ? FindParam(plan, p => p.IsParameter && p.OwnerSlot == i && p.Type == edge.ParameterType)
+                            : FindPlainParam(plan, edge.ParameterType, edge.ParameterName);
+                    if (existing != null) {
+                        existing.Edges.Add(edge);
+                        continue;
+                    }
+
+                    // The hole of an edge has its own field: Construct of a component is called both from the
+                    // constructor and from Inject / IProvides.
                     var name = ScopeNames.Parameter(edge.ParameterName, edge.ParameterType, used);
                     var field = ScopeNames.Unique("_" + name.TrimStart('@'), used);
                     plan.Fields.Add(new Field {
                         Type = edge.ParameterType,
                         Name = field,
                     });
-                    plan.CtorParams.Add(new CtorParam {
+                    var param = new CtorParam {
                         Type = edge.ParameterType,
                         Name = name,
                         FieldName = field,
-                    });
+                        IsParentHole = isParent,
+                        IsParameter = isParameter,
+                        ParameterImplementation = isParameter ? registration.ImplementationType : "",
+                        OwnerSlot = isParameter ? i : -1,
+                        Occurrence = isParameter ? ConstructedOccurrence(graph, i) : -1,
+                    };
+                    param.Edges.Add(edge);
+                    plan.CtorParams.Add(param);
                 }
             }
 
@@ -619,16 +655,58 @@ namespace ContainerGenerator {
             return false;
         }
 
-        private static bool HasCtorParam(ScopePlan plan, string type, string name) {
+        private static CtorParam? FindParam(ScopePlan plan, Func<CtorParam, bool> match) {
             for (var i = 0; i < plan.CtorParams.Count; i++) {
-                var param = plan.CtorParams[i];
-                if (param.IsInjections)
-                    continue;
-                if (param.Type == type && (param.Name == name || param.Name == ScopeNames.Escape(name)))
-                    return true;
+                if (match(plan.CtorParams[i]))
+                    return plan.CtorParams[i];
             }
 
-            return false;
+            return null;
+        }
+
+        // A hole matched by type and name (switch arms): the parameter holes of a registration and parent exports
+        // are bound to their edges and never shared this way.
+        private static CtorParam? FindPlainParam(ScopePlan plan, string type, string name) {
+            return FindParam(plan, param => param.IsInjections == false && param.IsParameter == false &&
+                                            param.IsParentHole == false && param.Type == type &&
+                                            (param.Name == name || param.Name == ScopeNames.Escape(name)));
+        }
+
+        public static bool IsInstanceKind(string kind) {
+            return kind == "RegisterInstance" || kind == "RegisterComponent";
+        }
+
+        // The runtime counts the instances of a declared type in the order the installer wrote them:
+        // the slot takes the one at its place among the instance registrations of that type.
+        public static int InstanceOccurrence(ScopeGraph graph, int index) {
+            var registration = graph.Registrations[index];
+            var occurrence = 0;
+            for (var i = 0; i < index; i++) {
+                var other = graph.Registrations[i];
+                if (IsInstanceKind(other.Kind) && other.ImplementationType == registration.ImplementationType)
+                    occurrence++;
+            }
+
+            return occurrence;
+        }
+
+        // The same for the Register calls of one implementation (the owners of WithParameter values).
+        public static int ConstructedOccurrence(ScopeGraph graph, int index) {
+            var registration = graph.Registrations[index];
+            var occurrence = 0;
+            for (var i = 0; i < index; i++) {
+                var other = graph.Registrations[i];
+                if (IsRuntimeRegister(other) && other.ImplementationType == registration.ImplementationType)
+                    occurrence++;
+            }
+
+            return occurrence;
+        }
+
+        // A Register the installer runs (the loader services are added by the generator, not registered at runtime).
+        public static bool IsRuntimeRegister(GraphRegistration registration) {
+            return registration.Kind == "Register" && registration.Origin != LoaderServices.Origin &&
+                   registration.Origin != "Injectable" && registration.Origin != "ExternalInstaller";
         }
 
         private static void BuildMarkers(ScopePlan plan, ScopeGraph graph, HashSet<string> used) {
@@ -662,8 +740,8 @@ namespace ContainerGenerator {
                 }
             }
 
-            // Transient не лежит в _exports, поэтому даже одиночный получает список: иначе
-            // ResolveAll молча вернёт пустоту.
+            // A transient is not in _exports, so even a single one gets a list: otherwise
+            // ResolveAll would silently return nothing.
             foreach (var pair in byType) {
                 if (pair.Value.Count > 1 || HasTransientSlot(plan, pair.Value))
                     wanted.Add(pair.Key);
@@ -725,12 +803,25 @@ namespace ContainerGenerator {
             list.Add(index);
         }
 
+        // A type resolves to its last registration, as a constructor parameter binds (EdgeResolver): when the last
+        // one is a transient, the type is not exported and the transient branch of Resolve creates it.
         private static void BuildExports(ScopePlan plan, ScopeGraph graph) {
             var last = new Dictionary<string, int>(StringComparer.Ordinal);
             for (var i = 0; i < graph.Registrations.Count; i++) {
                 var slot = plan.Slots[i];
-                if (slot.SkipEmit || slot.IsTransient)
+                if (slot.SkipEmit)
                     continue;
+                if (slot.IsTransient) {
+                    var transient = graph.Registrations[i];
+                    for (var s = 0; s < transient.ServiceTypes.Count; s++) {
+                        if (string.IsNullOrEmpty(transient.ServiceTypes[s]) == false)
+                            last[transient.ServiceTypes[s]] = -1;
+                    }
+
+                    if (string.IsNullOrEmpty(transient.ImplementationType) == false)
+                        last[transient.ImplementationType] = -1;
+                    continue;
+                }
                 if (slot.IsAlternative && slot.IsGroupPrimary == false)
                     continue;
                 if (slot.HasField == false && string.IsNullOrEmpty(slot.FieldName))
@@ -755,7 +846,7 @@ namespace ContainerGenerator {
             }
 
             foreach (var pair in last) {
-                if (string.IsNullOrEmpty(pair.Key))
+                if (string.IsNullOrEmpty(pair.Key) || pair.Value < 0)
                     continue;
                 plan.Exports.Add(new Export { ServiceType = pair.Key, Slot = pair.Value });
             }

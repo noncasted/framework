@@ -16,6 +16,9 @@ namespace Internal
         public string PropertyName;
         public string FieldName;
 
+        // The names of the class: its members and nested classes; its own type name must differ from all of them.
+        public IdentifierScope Members;
+
         // The object has HierarchyBindingsIgnoreChildren: the children did not get into the mirror.
         public bool IgnoreChildren;
 

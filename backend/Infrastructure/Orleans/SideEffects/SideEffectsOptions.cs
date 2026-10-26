@@ -11,8 +11,8 @@ public class SideEffectsOptions
     public int ConcurrentExecutions { get; set; } = 50; // max parallel effects
     public int MaxRetryCount { get; set; } = 5; // max attempts
     public float IncrementalRetryDelay { get; set; } = 30; // seconds * retryCount = delay
-    public int StuckCheckIntervalSeconds { get; set; } = 60; // how often to check for stuck entries
-    public int StuckThresholdMinutes { get; set; } = 5; // entries older than this are considered stuck
+    public int StuckCheckIntervalSeconds { get; set; } = 60; // how often to touch the own entries and requeue the stuck ones; well below StuckThresholdMinutes
+    public float StuckThresholdMinutes { get; set; } = 5; // entries in processing not touched by their worker for this long are stuck
 }
 
 public interface ISideEffectsConfig : IAddressableState<SideEffectsOptions>

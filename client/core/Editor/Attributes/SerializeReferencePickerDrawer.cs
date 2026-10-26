@@ -44,19 +44,25 @@ namespace Internal
         {
             var menu = new GenericMenu();
 
-            menu.AddItem(new GUIContent(NullName), current == null, () => Assign(property, null));
+            // The callback runs after OnGUI: the property it was given is an iterator that has moved on by then,
+            // so the field is found again by its path.
+            var serializedObject = property.serializedObject;
+            var path = property.propertyPath;
+
+            menu.AddItem(new GUIContent(NullName), current == null, () => Assign(serializedObject, path, null));
 
             foreach (var type in CollectTypes(property))
-                menu.AddItem(new GUIContent(type.Name), type == current, () => Assign(property, type));
+                menu.AddItem(new GUIContent(type.Name), type == current, () => Assign(serializedObject, path, type));
 
             menu.ShowAsContext();
         }
 
-        private static void Assign(SerializedProperty property, Type type)
+        private static void Assign(SerializedObject serializedObject, string path, Type type)
         {
-            property.serializedObject.Update();
-            property.managedReferenceValue = type == null ? null : Activator.CreateInstance(type);
-            property.serializedObject.ApplyModifiedProperties();
+            serializedObject.Update();
+            serializedObject.FindProperty(path).managedReferenceValue =
+                type == null ? null : Activator.CreateInstance(type);
+            serializedObject.ApplyModifiedProperties();
         }
 
         private static List<Type> CollectTypes(SerializedProperty property)
@@ -65,7 +71,8 @@ namespace Internal
             var baseType = ResolveFieldType(property.managedReferenceFieldTypename);
 
             if (baseType == null)
-                return result;
+                throw new InvalidOperationException(
+                    $"Field type '{property.managedReferenceFieldTypename}' of {property.propertyPath} is not found.");
 
             foreach (var type in TypeCache.GetTypesDerivedFrom(baseType))
             {
@@ -82,8 +89,8 @@ namespace Internal
             return result;
         }
 
-        // Unity format: "<assembly> <full type name>".
-        private static Type ResolveFieldType(string typename)
+        // Unity format: "<assembly> <full type name>", a nested type as Outer/Inner (reflection names it Outer+Inner).
+        internal static Type ResolveFieldType(string typename)
         {
             var separator = typename.IndexOf(' ');
 
@@ -91,7 +98,7 @@ namespace Internal
                 return null;
 
             var assembly = typename.Substring(0, separator);
-            var fullName = typename.Substring(separator + 1);
+            var fullName = typename.Substring(separator + 1).Replace('/', '+');
 
             return Type.GetType($"{fullName}, {assembly}");
         }

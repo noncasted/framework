@@ -17,7 +17,7 @@ namespace Internal
         {
         }
 
-        private readonly EventSource<IReadOnlyLifetime, T> _eventSource = new();
+        private readonly ValueEventSource _eventSource = new();
 
         private T _value;
         private Lifetime _lifetime;
@@ -61,6 +61,33 @@ namespace Internal
         {
             _lifetime?.Terminate();
             _eventSource.Dispose();
+        }
+
+        // A handler may set a new value during the pass: the nested pass delivers it to everyone, and the outer one
+        // stops instead of delivering the superseded value (with its ended lifetime) to the handlers after it.
+        private sealed class ValueEventSource : EventSourceBase<Action<IReadOnlyLifetime, T>>
+        {
+            public void Invoke(IReadOnlyLifetime lifetime, T value)
+            {
+                List<Exception> exceptions = null;
+
+                foreach (var listener in Listeners)
+                {
+                    if (lifetime.IsTerminated == true)
+                        break;
+
+                    try
+                    {
+                        listener.Handler.Invoke(lifetime, value);
+                    }
+                    catch (Exception exception)
+                    {
+                        Keep(ref exceptions, exception);
+                    }
+                }
+
+                Report(exceptions);
+            }
         }
     }
 }

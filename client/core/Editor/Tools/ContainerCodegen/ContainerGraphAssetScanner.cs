@@ -366,7 +366,7 @@ namespace Internal
                 target.Add(match.Groups[1].Value);
         }
 
-        private static Dictionary<string, string> BuildPrefabMap(string assetsRoot)
+        internal static Dictionary<string, string> BuildPrefabMap(string assetsRoot)
         {
             var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             string[] metas;
@@ -387,21 +387,15 @@ namespace Internal
             {
                 string guid = null;
 
-                try
+                // A meta that cannot be read throws: skipping it would drop the entities of its prefab from the map.
+                foreach (var line in File.ReadLines(meta))
                 {
-                    foreach (var line in File.ReadLines(meta))
-                    {
-                        var match = guidLine.Match(line.Trim());
+                    var match = guidLine.Match(line.Trim());
 
-                        if (match.Success == false)
-                            continue;
-                        guid = match.Groups[1].Value;
-                        break;
-                    }
-                }
-                catch
-                {
-                    continue;
+                    if (match.Success == false)
+                        continue;
+                    guid = match.Groups[1].Value;
+                    break;
                 }
 
                 if (string.IsNullOrEmpty(guid))

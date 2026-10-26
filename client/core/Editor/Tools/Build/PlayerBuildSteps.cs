@@ -73,10 +73,11 @@ namespace Internal
             return report;
         }
 
-        private static IReadOnlyList<IPlayerBuildStep> Find()
+        internal static IReadOnlyList<IPlayerBuildStep> Find()
         {
+            // An open generic step is a base of closed steps of a project and cannot be created itself.
             return TypeCache.GetTypesDerivedFrom<IPlayerBuildStep>()
-                            .Where(type => type.IsAbstract == false)
+                            .Where(type => type.IsAbstract == false && type.ContainsGenericParameters == false)
                             .OrderBy(type => type.FullName, StringComparer.Ordinal)
                             .Select(type => (IPlayerBuildStep)Activator.CreateInstance(type))
                             .ToArray();

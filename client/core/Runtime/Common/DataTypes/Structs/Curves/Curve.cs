@@ -50,7 +50,7 @@ namespace Internal
 
         public readonly ICurveDefinition Curve;
 
-        public bool IsFinished => Mathf.Approximately(_timer / Curve.Time, 1f);
+        public bool IsFinished => Mathf.Approximately(_progress, 1f);
         public float Progress => _progress;
 
         public float StepForward(float delta)
@@ -58,10 +58,8 @@ namespace Internal
             _timer += delta;
             _timer = Mathf.Clamp(_timer, 0f, Curve.Time);
 
-            _progress = _timer / Curve.Time;
-
-            if (_progress > 1f)
-                _progress = 1f;
+            // A curve of zero time is a jump: forward is its end.
+            _progress = Curve.Time > 0f ? Mathf.Min(_timer / Curve.Time, 1f) : 1f;
 
             return Curve.Evaluate(_progress);
         }
@@ -71,10 +69,8 @@ namespace Internal
             _timer -= delta;
             _timer = Mathf.Clamp(_timer, 0f, Curve.Time);
 
-            _progress = _timer / Curve.Time;
-
-            if (_progress > 1f)
-                _progress = 1f;
+            // A curve of zero time is a jump: back is its start.
+            _progress = Curve.Time > 0f ? Mathf.Min(_timer / Curve.Time, 1f) : 0f;
 
             return Curve.Evaluate(_progress);
         }

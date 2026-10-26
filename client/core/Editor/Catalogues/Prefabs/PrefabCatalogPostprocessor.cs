@@ -15,7 +15,7 @@ namespace Internal
             if (ContainsPrefab(deletedAssets) ||
                 ContainsPrefab(movedAssets) ||
                 ContainsPrefab(movedFromAssetPaths) ||
-                ContainsIncludedPrefab(importedAssets))
+                ContainsCatalogPrefab(importedAssets))
                 PrefabCatalogGenerator.ScheduleGenerate();
         }
 
@@ -33,7 +33,7 @@ namespace Internal
             return false;
         }
 
-        private static bool ContainsIncludedPrefab(string[] paths)
+        private static bool ContainsCatalogPrefab(string[] paths)
         {
             if (paths == null)
                 return false;
@@ -50,10 +50,9 @@ namespace Internal
                 if (importer == null)
                     continue;
 
-                if (PrefabCatalogMetadata.TryRead(importer, out var metadata) == false)
-                    continue;
-
-                if (metadata.Included)
+                // Removal from the catalog also arrives as a reimport (Apply, a pulled .meta with included: false),
+                // and the group must be rebuilt.
+                if (PrefabCatalogMetadata.TryRead(importer, out _))
                     return true;
             }
 

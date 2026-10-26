@@ -106,8 +106,8 @@ namespace ContainerGenerator {
 
                 remove.Add(harvested.Id);
                 if (byId.TryGetValue(mapping.OriginalId, out var original)) {
-                    // Копия с инлайном локальных функций видит больше обхода оригинала — тогда тело метода берётся из неё
-                    // целиком. Слияние теряло повторные дженерик-вызовы (RegisterCommand<A>, <B>) и вызовы без регистраций.
+                    // The copy with inlined local functions sees more than the walk of the original: then the body is taken from it
+                    // as a whole. A merge lost repeated generic calls (RegisterCommand<A>, <B>) and calls without registrations.
                     if (Size(harvested) > Size(original))
                         ReplaceBody(original, harvested);
 
@@ -185,8 +185,8 @@ namespace ContainerGenerator {
             return false;
         }
 
-        // Копия тела резолвится в том же окружении, что оригинал: using'и файла и объемлющих
-        // namespace. Внутри namespace-блока пишутся через global::, чтобы не цеплять вложенные имена.
+        // The copy of the body binds in the same environment as the original: the usings of the file and of the
+        // enclosing namespaces. Inside a namespace block they are written with global:: to not catch nested names.
         private static void AppendUsings(MethodDeclarationSyntax method, StringBuilder block) {
             var directives = new List<UsingDirectiveSyntax>();
             if (method.SyntaxTree.GetRoot() is CompilationUnitSyntax unit)

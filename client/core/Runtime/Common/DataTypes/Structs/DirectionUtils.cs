@@ -106,7 +106,8 @@ namespace Internal
             var sourceAngle = source.ToAngle();
             var targetAngle = target.ToAngle();
 
-            var delta = targetAngle - sourceAngle;
+            // The signed shortest arc: 350 -> 10 is +20, not -340.
+            var delta = Mathf.DeltaAngle(sourceAngle, targetAngle);
             delta = Mathf.Clamp(delta, -clampAngle, clampAngle);
 
             return (sourceAngle + delta).ToAngle().ToVector2();

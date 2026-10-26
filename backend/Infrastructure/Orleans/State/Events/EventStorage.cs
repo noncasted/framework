@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Linq.Expressions;
 using Common;
+using Common.Extensions;
 using Marten;
 using Marten.Services;
 using Microsoft.Extensions.Logging;
@@ -185,10 +186,7 @@ public class EventStorage : IEventStorage
 
         foreach (var aggregate in aggregates)
         {
-            if (aggregate is not IEventStateValue esv)
-                continue;
-
-            var streamId = esv.Id;
+            var streamId = ((IEventStateValue)aggregate).Id;
             SetIdFromStream(aggregate, streamId);
             result[ParseStreamKey<TKey>(streamId)] = aggregate;
         }
@@ -245,18 +243,13 @@ public class EventStorage : IEventStorage
 
         var entries = new List<(TKey Key, TValue Value)>(aggregates.Count);
 
+        // An aggregate whose stream id does not map to the key is broken data: it throws, it is not left out of the
+        // page (the total count would still include it).
         foreach (var aggregate in aggregates)
         {
-            try
-            {
-                var id = ((IEventStateValue)aggregate).Id;
-                var key = ParseKey<TKey>(ExtractGrainKey(id), keyType);
-                entries.Add((key, aggregate));
-            }
-            catch (Exception e)
-            {
-                _logger.LogWarning(e, "[EventStorage] Failed to map aggregate {Type}, skipping", typeof(TValue).Name);
-            }
+            var id = ((IEventStateValue)aggregate).Id;
+            var key = ParseKey<TKey>(ExtractGrainKey(id), keyType);
+            entries.Add((key, aggregate));
         }
 
         return new StatePageResult<TKey, TValue>
@@ -299,9 +292,8 @@ public class EventStorage : IEventStorage
 
     private object Deserialize(EventPayload payload)
     {
-        var type = Type.GetType(payload.Type) ??
-                   throw new InvalidOperationException(
-                       $"Unable to resolve event type '{payload.Type}'. Ensure the type is available in the current AppDomain.");
+        // As the states: an event type moved to another assembly with its namespace kept is still found.
+        var type = MovedTypesBinder.Resolve(payload.Type);
 
         try
         {
@@ -328,16 +320,11 @@ public class EventStorage : IEventStorage
             esv.Id = streamId;
     }
 
-    private static async Task<T?> TryLoadAsync<T>(IQuerySession session, string streamId) where T : class, new()
+    // A snapshot that does not deserialize throws: it is not rebuilt from the events behind the caller's back (Rebuild
+    // is the explicit way after a manual recovery).
+    private static Task<T?> TryLoadAsync<T>(IQuerySession session, string streamId) where T : class, new()
     {
-        try
-        {
-            return await session.LoadAsync<T>(streamId);
-        }
-        catch (JsonException)
-        {
-            return await session.Events.AggregateStreamAsync<T>(streamId);
-        }
+        return session.LoadAsync<T>(streamId);
     }
 
     private static TKey ParseKey<TKey>(string value, GrainKeyType keyType) => keyType switch

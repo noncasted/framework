@@ -45,7 +45,7 @@ namespace ContainerGenerator {
             InjectAttribute = injectAttribute;
         }
 
-        // Сборка без Internal.IContainer контейнером не пользуется — генератору в ней делать нечего.
+        // An assembly without Internal.IContainer does not use the container: the generator has nothing to do there.
         public static ReferenceSymbols? Create(Compilation compilation) {
             var container = compilation.GetTypeByMetadataName("Internal.IContainer");
             if (container == null)

@@ -23,30 +23,49 @@ namespace Internal
         private readonly ILoadedScope _parentScope;
 
         private ILoadedScope _currentScope;
-        private UniTask _unloading;
+
+        // The end of the last started load: loads run one after another, each waits for the previous one.
+        private UniTaskCompletionSource _previous;
 
         public async UniTask<ILoadedScope> Load(Func<IServiceScopeLoader, ILoadedScope, UniTask<ILoadedScope>> action)
         {
-            // Scopes share service scene names, so the previous one is fully unloaded
-            // before the new one starts loading: otherwise SceneManager.CreateScene fails on a duplicate
-            // name, and the scenes of the old scope stay hanging over the new one.
-            await Unload();
+            var previous = _previous;
+            var current = new UniTaskCompletionSource();
+            _previous = current;
 
-            var currentScope = await action(_serviceScopeLoader, _parentScope);
-            _currentScope = currentScope;
-            return currentScope;
+            try
+            {
+                // A load that overlaps another one would build its scope next to the other's, and the scope finished
+                // first would never be disposed. The previous load completes it either way: its error went to its caller.
+                if (previous != null)
+                    await previous.Task;
+
+                // Scopes share service scene names, so the previous one is fully unloaded
+                // before the new one starts loading: otherwise SceneManager.CreateScene fails on a duplicate
+                // name, and the scenes of the old scope stay hanging over the new one.
+                await Unload();
+
+                var currentScope = await action(_serviceScopeLoader, _parentScope);
+                _currentScope = currentScope;
+                return currentScope;
+            }
+            finally
+            {
+                current.TrySetResult();
+            }
         }
 
+        // The scope is forgotten before its dispose: a failed dispose is reported to this load once, the next load
+        // does not inherit it.
         private UniTask Unload()
         {
             if (_currentScope == null)
-                return _unloading;
+                return UniTask.CompletedTask;
 
             var scope = _currentScope;
             _currentScope = null;
-            _unloading = scope.Dispose();
 
-            return _unloading;
+            return scope.Dispose();
         }
     }
 }

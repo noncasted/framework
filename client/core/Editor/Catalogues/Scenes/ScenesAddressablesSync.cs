@@ -22,6 +22,10 @@ namespace Internal
         {
             var settings = AddressableAssetSettingsDefaultObject.Settings;
 
+            // A project without scenes needs no Addressables; one whose last scene is gone still has its entries.
+            if (settings == null && scenes.Count == 0)
+                return;
+
             if (settings == null)
             {
                 Debug.LogError($"[{LogTag}] Addressable settings are missing.");

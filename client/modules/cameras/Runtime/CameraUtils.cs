@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 namespace Global.Cameras
 {
@@ -20,8 +21,9 @@ namespace Global.Cameras
         {
             var camera = _camera.Current;
 
+            // No camera, or one of an unloaded scene: a zero point here moved the aim to the origin silently.
             if (camera == null)
-                return Vector3.zero;
+                throw new InvalidOperationException("[Cameras] A screen point is converted while no camera is current");
 
             // z of the screen point is the distance from the camera. A perspective camera maps every point at zero
             // distance to its own position, so the point is taken on the near plane. An orthographic camera keeps the

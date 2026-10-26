@@ -1,6 +1,5 @@
 ﻿using System;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 
 namespace Internal
 {
@@ -35,7 +34,9 @@ namespace Internal
             return action.Process();
         }
 
-        // Waits the time of the updater: ends earlier with the lifetime, the caller checks it.
+        // The actions run until the predicate fails; the end of the lifetime cancels them (OperationCanceledException).
+
+        // Waits the time of the updater (the sum of its deltas: a paused updater does not move it).
         public static UniTask RunDelay(this IUpdater updater, IReadOnlyLifetime lifetime, float time)
         {
             var passed = 0f;
@@ -50,11 +51,17 @@ namespace Internal
             float time,
             Action<float> callback)
         {
-            var startTime = Time.time;
-            var endTime = startTime + time;
+            // The time of the updater, as RunDelay: Time.time goes on while the updater is paused or slowed down.
+            var passed = 0f;
 
-            var action = new UpdatableAction(lifetime, updater, callback, () => Time.time < endTime);
+            var action = new UpdatableAction(lifetime, updater, Callback, () => passed < time);
             return action.Process();
+
+            void Callback(float delta)
+            {
+                passed += delta;
+                callback.Invoke(delta);
+            }
         }
     }
 }

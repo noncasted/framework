@@ -2,11 +2,17 @@
 mergeInto(LibraryManager.library,
     {
         WebShellSafeAreaRevision: function () {
+            if (window.webShell === undefined)
+                throw new Error("[WebShell] web-shell.js is not loaded: the WebGL template has to load TemplateData/web-shell.js");
+
             return window.webShell.safeArea.revision();
         },
 
         // side: 0 left, 1 top, 2 right, 3 bottom; a fraction of the canvas width (left, right) or height (top, bottom).
         WebShellSafeAreaInset: function (side) {
+            if (window.webShell === undefined)
+                throw new Error("[WebShell] web-shell.js is not loaded: the WebGL template has to load TemplateData/web-shell.js");
+
             const insets = window.webShell.safeArea.normalized;
 
             switch (side) {
@@ -20,6 +26,9 @@ mergeInto(LibraryManager.library,
         },
 
         WebShellIsMobile: function () {
+            if (window.webShell === undefined)
+                throw new Error("[WebShell] web-shell.js is not loaded: the WebGL template has to load TemplateData/web-shell.js");
+
             return window.webShell.isMobile ? 1 : 0;
         }
     });

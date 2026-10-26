@@ -8,12 +8,12 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
 namespace ContainerGenerator.Verify {
-    internal static class Program {
+    internal static partial class Program {
         private static int _failed;
 
         public static int Main() {
             Run("LoadGlobal graph", TestLoadGlobal);
-            Run("CardFactory.Build graph", TestCardFactoryBuild);
+            Run("ItemFactory.Build graph", TestItemFactoryBuild);
             Run("CINGR003 missing parameter name", TestMissingRegistration);
             Run("CINGR003 missing interface in own scope", TestMissingInterface);
             Run("parent export is typed hole not error", TestParentExportHole);
@@ -37,10 +37,10 @@ namespace ContainerGenerator.Verify {
             Run("1b cross-assembly installer no CINGR002", TestCrossAssemblyManifest);
             Run("1b harvested local functions keep order", TestHarvestLocalFunctionOrder);
             Run("harvest keeps repeated generic installer calls", TestHarvestRepeatedGenericInstaller);
-            Run("1c entity Load splits CardFactory variants", TestEntityCardVariants);
-            Run("1c entity emit two classes", TestEntityCardEmit);
-            Run("1c separate local roots in one method get distinct classes", TestEntityCardSplitEmit);
-            Run("1c GamePlayer variants bind stripped Board", TestEntityPlayerStrippedBoard);
+            Run("1c entity Load splits ItemFactory variants", TestEntityItemVariants);
+            Run("1c entity emit two classes", TestEntityItemEmit);
+            Run("1c separate local roots in one method get distinct classes", TestEntityItemSplitEmit);
+            Run("1c Actor variants bind stripped Panel", TestEntityActorStrippedPanel);
             Run("1c CINGR006 duplicate view type names both paths", TestCingr006DuplicateView);
             Run("1c CINGR006 skips base view type", TestCingr006BaseViewSkipped);
             Run("1c CINGR006 skips SceneServicesFactory", TestCingr006SceneFactorySkipped);
@@ -55,6 +55,7 @@ namespace ContainerGenerator.Verify {
             Run("primitive found by attribute under any name", TestPrimitiveByAttribute);
             Run("unmarked Register is an installer call, not a primitive", TestUnmarkedRegisterIsNotPrimitive);
             Run("builder.Inject calls [Inject] on every instance", TestInjectEveryInstance);
+            RunRegressionCases();
             if (_failed == 0)
                 Console.WriteLine("ALL PASSED");
             else
@@ -89,8 +90,8 @@ namespace ContainerGenerator.Verify {
             var camera = RequireEdge(graph, "CameraUtils", "camera");
             Require(camera.Kind == "Registration", "CameraUtils.camera kind " + camera.Kind);
 
-            var language = RequireEdge(graph, "ItchLanguageProvider", "api");
-            Require(language.Kind == "Registration", "ItchLanguageProvider.api kind " + language.Kind);
+            var language = RequireEdge(graph, "PlatformLanguageProvider", "api");
+            Require(language.Kind == "Registration", "PlatformLanguageProvider.api kind " + language.Kind);
 
             var machine = RequireEdge(graph, "UIStateMachine", "lifetime");
             Require(machine.Kind == "Implicit", "UIStateMachine.lifetime kind " + machine.Kind);
@@ -104,30 +105,30 @@ namespace ContainerGenerator.Verify {
             Dump(graph);
         }
 
-        private static void TestCardFactoryBuild() {
-            var graph = ResolveRoot(CardFactorySource, "CardFactory");
+        private static void TestItemFactoryBuild() {
+            var graph = ResolveRoot(ItemFactorySource, "ItemFactory");
             Require(graph.RootId.IndexOf("Build", StringComparison.Ordinal) >= 0, "root id " + graph.RootId);
-            Require(graph.Registrations.Count >= 8, "CardFactory registrations: " + graph.Registrations.Count);
+            Require(graph.Registrations.Count >= 8, "ItemFactory registrations: " + graph.Registrations.Count);
             RequireNo(graph, "CINGR003");
             RequireNo(graph, "CINGR004");
 
             var guidIndex = graph.Registrations.FindIndex(r => r.ImplementationType.IndexOf("Guid", StringComparison.Ordinal) >= 0);
-            var detectorIndex = graph.Registrations.FindIndex(r => r.ImplementationType.IndexOf("CardDropDetector", StringComparison.Ordinal) >= 0);
+            var detectorIndex = graph.Registrations.FindIndex(r => r.ImplementationType.IndexOf("ItemDropDetector", StringComparison.Ordinal) >= 0);
             Require(guidIndex >= 0 && detectorIndex > guidIndex,
-                "flatten must keep RegisterInstance(cardId) before AddCardLocalComponents");
-            RequireOrder(graph, "CardContext", "CardDropArea");
+                "flatten must keep RegisterInstance(itemId) before AddItemLocalComponents");
+            RequireOrder(graph, "ItemContext", "ItemDropArea");
 
-            var handle = RequireEdge(graph, "HandEntryHandle", "card");
-            Require(handle.Kind == "Registration", "HandEntryHandle.card kind " + handle.Kind);
+            var handle = RequireEdge(graph, "TrayEntryHandle", "item");
+            Require(handle.Kind == "Registration", "TrayEntryHandle.item kind " + handle.Kind);
             Require(
-                graph.Registrations[handle.TargetIndex].ImplementationType.IndexOf("LocalCard", StringComparison.Ordinal) >= 0,
-                "HandEntryHandle.card target " + graph.Registrations[handle.TargetIndex].ImplementationType);
+                graph.Registrations[handle.TargetIndex].ImplementationType.IndexOf("LocalItem", StringComparison.Ordinal) >= 0,
+                "TrayEntryHandle.item target " + graph.Registrations[handle.TargetIndex].ImplementationType);
 
-            var lifetime = RequireEdge(graph, "CardStateLifetime", "lifetime");
-            Require(lifetime.Kind == "Implicit" || lifetime.Kind == "Hole", "CardStateLifetime.lifetime " + lifetime.Kind);
+            var lifetime = RequireEdge(graph, "ItemStateLifetime", "lifetime");
+            Require(lifetime.Kind == "Implicit" || lifetime.Kind == "Hole", "ItemStateLifetime.lifetime " + lifetime.Kind);
 
-            var area = RequireEdge(graph, "CardDropArea", "context");
-            Require(area.Kind == "Registration", "CardDropArea.context kind " + area.Kind);
+            var area = RequireEdge(graph, "ItemDropArea", "context");
+            Require(area.Kind == "Registration", "ItemDropArea.context kind " + area.Kind);
             Dump(graph);
         }
 
@@ -229,8 +230,8 @@ namespace ContainerGenerator.Verify {
             Console.WriteLine("      Internal→Global→Menu through ContainerGraphGenerator");
         }
 
-        // IDE (Rider) передаёт соседние проекты как компиляции: символы их инсталлеров приходят
-        // с чужими syntax tree, а не как метаданные, как у Unity.
+        // The IDE (Rider) passes neighbouring projects as compilations: the symbols of their installers come
+        // with syntax trees of another compilation, not as metadata as in Unity.
         private static void TestGeneratorDriverSourceReferences() {
             var internalRun = RunGenerator(Compile(DriverInternalSource, "Internal"), "Internal");
             var internalSource = internalRun.Output.ToMetadataReference();
@@ -295,14 +296,14 @@ namespace ContainerGenerator.Verify {
 
         private static void TestInjectableEmit() {
             var emitted = EmitRoot(InjectableSource, "InjectableRoot", out _);
-            Require(emitted.IndexOf("if (target is global::Sample.PoolCard poolCard)", StringComparison.Ordinal) >= 0,
+            Require(emitted.IndexOf("if (target is global::Sample.PoolItem poolItem)", StringComparison.Ordinal) >= 0,
                 "Injectable must get an Inject case:\n" + emitted);
-            Require(emitted.IndexOf("poolCard.Setup(", StringComparison.Ordinal) >= 0, "Inject case must call the [Inject] method");
-            Require(emitted.IndexOf("emptyCard.Init();", StringComparison.Ordinal) >= 0,
+            Require(emitted.IndexOf("poolItem.Setup(", StringComparison.Ordinal) >= 0, "Inject case must call the [Inject] method");
+            Require(emitted.IndexOf("emptyItem.Init();", StringComparison.Ordinal) >= 0,
                 "[Inject] without parameters must still be called:\n" + emitted);
-            Require(emitted.IndexOf("global::Sample.PoolCard _", StringComparison.Ordinal) < 0, "Injectable must not have a field");
-            Require(emitted.IndexOf("{ typeof(global::Sample.PoolCard),", StringComparison.Ordinal) < 0, "Injectable must not be exported");
-            Require(emitted.IndexOf("new global::Sample.PoolCard(", StringComparison.Ordinal) < 0, "Injectable must not be constructed");
+            Require(emitted.IndexOf("global::Sample.PoolItem _", StringComparison.Ordinal) < 0, "Injectable must not have a field");
+            Require(emitted.IndexOf("{ typeof(global::Sample.PoolItem),", StringComparison.Ordinal) < 0, "Injectable must not be exported");
+            Require(emitted.IndexOf("new global::Sample.PoolItem(", StringComparison.Ordinal) < 0, "Injectable must not be constructed");
             RequireCompiles(emitted, InjectableSource);
         }
 
@@ -325,9 +326,9 @@ namespace ContainerGenerator.Verify {
         private static void TestInjectableErrors() {
             var graph = ResolveRoot(InjectableErrorsSource, "InjectableErrorsRoot");
             var noInject = RequireDiagnostic(graph, "CINGR008");
-            Require(noInject.ToDiagnostic().GetMessage().IndexOf("NoInjectCard", StringComparison.Ordinal) >= 0,
+            Require(noInject.ToDiagnostic().GetMessage().IndexOf("NoInjectItem", StringComparison.Ordinal) >= 0,
                 "CINGR008 must name the type: " + noInject.ToDiagnostic().GetMessage());
-            Require(graph.Diagnostics.Count(d => d.Descriptor.Id == "CINGR008") == 1, "PoolCard has [Inject] and must not get CINGR008");
+            Require(graph.Diagnostics.Count(d => d.Descriptor.Id == "CINGR008") == 1, "PoolItem has [Inject] and must not get CINGR008");
             var missing = RequireDiagnostic(graph, "CINGR003");
             Require(missing.ToDiagnostic().GetMessage().IndexOf("Consumer", StringComparison.Ordinal) >= 0,
                 "Injectable must not be resolvable: " + missing.ToDiagnostic().GetMessage());
@@ -358,8 +359,8 @@ namespace ContainerGenerator.Verify {
             Require(emitted.IndexOf("internal sealed class GlobalScopeExtensionsLoadGlobalContainer", StringComparison.Ordinal) >= 0,
                 "expected GlobalScopeExtensionsLoadGlobalContainer:\n" + Head(emitted));
             Require(emitted.IndexOf("request.IsRegistered(typeof(", StringComparison.Ordinal) >= 0, "alternative must be chosen by the registered implementation");
-            Require(emitted.IndexOf("ItchLanguageDebugAPI", StringComparison.Ordinal) >= 0, "alternative true branch missing");
-            Require(emitted.IndexOf("ItchLanguageExternAPI", StringComparison.Ordinal) >= 0, "alternative false branch missing");
+            Require(emitted.IndexOf("PlatformLanguageDebugAPI", StringComparison.Ordinal) >= 0, "alternative true branch missing");
+            Require(emitted.IndexOf("PlatformLanguageExternAPI", StringComparison.Ordinal) >= 0, "alternative false branch missing");
             Require(emitted.IndexOf("CreatePopup", StringComparison.Ordinal) < 0, "LoadGlobal has no transients");
             Require(emitted.IndexOf("GeneratedScopes.Register", StringComparison.Ordinal) >= 0,
                 "generated class must register with GeneratedScopes:\n" + Head(emitted));
@@ -467,7 +468,7 @@ namespace ContainerGenerator.Verify {
                 "ContainerInstallerAttribute must already exist in the compilation");
         }
 
-        // IBuilder в параметрах делает метод installer'ом, но реестр контейнера сам ничего не регистрирует.
+        // An IBuilder parameter makes a method an installer, but the container registry itself registers nothing.
         private static void TestRegistryAttachIsNotInstaller() {
             var compilation = Compile(RegistryAttachSource, "InternalLib");
             var document = WalkDocument(compilation);
@@ -486,7 +487,7 @@ namespace ContainerGenerator.Verify {
 
             var consumerCompilation = Compile(
                 ManifestConsumerSource,
-                "GamePlayLib",
+                "FeatureLib",
                 extra: new[] { shared, libReference },
                 includeStubs: false);
             var consumerDocument = WalkDocument(consumerCompilation, harvest: false);
@@ -512,16 +513,16 @@ namespace ContainerGenerator.Verify {
 
             var references = ReferenceSymbols.Create(consumerCompilation);
             Require(references != null, "consumer ReferenceSymbols");
-            var graph = EdgeResolver.ResolveByHint(consumerDocument, consumerCompilation, references!, "GamePlayScopeExtensions");
+            var graph = EdgeResolver.ResolveByHint(consumerDocument, consumerCompilation, references!, "FeatureScopeExtensions");
             Require(graph != null, "consumer root missing");
             RequireNo(graph!, "CINGR002");
             FindRegistration(graph!, "NetworkConnection");
             FindRegistration(graph!, "NetworkObjectsCollection");
             FindRegistration(graph!, "SessionConnection");
-            FindRegistration(graph!, "GamePlayLoop");
-            var player = EdgeResolver.ResolveByHint(consumerDocument, consumerCompilation, references!, "GamePlayerFactory");
-            Require(player != null, "GamePlayerFactory root missing");
-            FindRegistration(player!, "NetworkEntity");
+            FindRegistration(graph!, "FeatureLoop");
+            var actor = EdgeResolver.ResolveByHint(consumerDocument, consumerCompilation, references!, "ActorFactory");
+            Require(actor != null, "ActorFactory root missing");
+            FindRegistration(actor!, "NetworkEntity");
         }
 
         private static void TestHarvestLocalFunctionOrder() {
@@ -542,8 +543,8 @@ namespace ContainerGenerator.Verify {
                 string.Join(",", session.Calls));
         }
 
-        // AddSessionServices: локальные функции зовут RegisterCommand<T> несколько раз. Слияние harvest
-        // сравнивало вызовы только по id и оставляло первый — остальные команды молча пропадали.
+        // An installer whose local functions call RegisterCommand<T> several times. The harvest merge
+        // compared the calls by id only and kept the first one: the other commands were silently lost.
         private static void TestHarvestRepeatedGenericInstaller() {
             var shared = EmitStubs("HarvestGenericStubs");
             var compilation = Compile(HarvestGenericLibSource, "HarvestGenericLib", extra: new[] { shared }, includeStubs: false);
@@ -570,43 +571,43 @@ namespace ContainerGenerator.Verify {
                 "third marker must follow registration order");
         }
 
-        private static void TestEntityCardVariants() {
-            var compilation = Compile(EntityCardSource, extraSource: EntityCardAssets);
+        private static void TestEntityItemVariants() {
+            var compilation = Compile(EntityItemSource, extraSource: EntityItemAssets);
             var document = WalkBound(compilation);
             var local = RequireRoot(document, "+Local");
             var remote = RequireRoot(document, "+Remote");
-            Require(local.ViewType.IndexOf("CardLocalScopeEntity", StringComparison.Ordinal) >= 0, "local view " + local.ViewType);
-            Require(remote.ViewType.IndexOf("CardRemoteScopeEntity", StringComparison.Ordinal) >= 0, "remote view " + remote.ViewType);
+            Require(local.ViewType.IndexOf("ItemLocalScopeEntity", StringComparison.Ordinal) >= 0, "local view " + local.ViewType);
+            Require(remote.ViewType.IndexOf("ItemRemoteScopeEntity", StringComparison.Ordinal) >= 0, "remote view " + remote.ViewType);
             for (var i = 0; i < document.Methods.Count; i++) {
-                if (document.Methods[i].Id.IndexOf("CardPointerHandler.Register", StringComparison.Ordinal) < 0)
+                if (document.Methods[i].Id.IndexOf("ItemPointerHandler.Register", StringComparison.Ordinal) < 0)
                     continue;
                 Require(document.Methods[i].IsRoot == false,
                     "IEntityComponent.Register must not be a root: " + document.Methods[i].Id);
             }
 
-            Require(local.Calls.Exists(c => c.IndexOf("CardPointerHandler.Register", StringComparison.Ordinal) >= 0),
-                "local must call CardPointerHandler.Register; calls=" + string.Join(",", local.Calls));
-            Require(remote.Calls.Exists(c => c.IndexOf("CardPointerHandler.Register", StringComparison.Ordinal) >= 0) == false,
-                "remote must not include CardPointerHandler");
-            Require(remote.Calls.Exists(c => c.IndexOf("CardRevealView.Register", StringComparison.Ordinal) >= 0),
-                "remote must call CardRevealView.Register; calls=" + string.Join(",", remote.Calls));
+            Require(local.Calls.Exists(c => c.IndexOf("ItemPointerHandler.Register", StringComparison.Ordinal) >= 0),
+                "local must call ItemPointerHandler.Register; calls=" + string.Join(",", local.Calls));
+            Require(remote.Calls.Exists(c => c.IndexOf("ItemPointerHandler.Register", StringComparison.Ordinal) >= 0) == false,
+                "remote must not include ItemPointerHandler");
+            Require(remote.Calls.Exists(c => c.IndexOf("ItemRevealView.Register", StringComparison.Ordinal) >= 0),
+                "remote must call ItemRevealView.Register; calls=" + string.Join(",", remote.Calls));
 
             var references = ReferenceSymbols.Create(compilation);
             var localGraph = EdgeResolver.ResolveRoot(document, local, compilation, references!);
             var remoteGraph = EdgeResolver.ResolveRoot(document, remote, compilation, references!);
             RequireNo(localGraph, "CINGR003");
             RequireNo(remoteGraph, "CINGR003");
-            FindRegistration(localGraph, "LocalCard");
-            FindRegistration(localGraph, "CardPointerHandler");
-            FindRegistration(remoteGraph, "RemoteCard");
-            FindRegistration(remoteGraph, "CardRevealView");
+            FindRegistration(localGraph, "LocalItem");
+            FindRegistration(localGraph, "ItemPointerHandler");
+            FindRegistration(remoteGraph, "RemoteItem");
+            FindRegistration(remoteGraph, "ItemRevealView");
             Require(
-                localGraph.Registrations.Exists(r => r.ImplementationType.IndexOf("RemoteCard", StringComparison.Ordinal) >= 0) == false,
-                "local graph must not contain RemoteCard");
+                localGraph.Registrations.Exists(r => r.ImplementationType.IndexOf("RemoteItem", StringComparison.Ordinal) >= 0) == false,
+                "local graph must not contain RemoteItem");
         }
 
-        private static void TestEntityCardEmit() {
-            var compilation = Compile(EntityCardSource, extraSource: EntityCardAssets);
+        private static void TestEntityItemEmit() {
+            var compilation = Compile(EntityItemSource, extraSource: EntityItemAssets);
             var document = WalkBound(compilation);
             var references = ReferenceSymbols.Create(compilation);
             Require(references != null, "references");
@@ -618,24 +619,24 @@ namespace ContainerGenerator.Verify {
                 if (ScopeEmitter.TryEmit(graphs[i], document, compilation, references!, out _, out var source) == false)
                     continue;
                 emitted.Add(source);
-                if (source.IndexOf("CardFactoryBuildLocalContainer", StringComparison.Ordinal) >= 0)
+                if (source.IndexOf("ItemFactoryBuildLocalContainer", StringComparison.Ordinal) >= 0)
                     localClass = source;
-                if (source.IndexOf("CardFactoryBuildRemoteContainer", StringComparison.Ordinal) >= 0)
+                if (source.IndexOf("ItemFactoryBuildRemoteContainer", StringComparison.Ordinal) >= 0)
                     remoteClass = source;
             }
 
-            Require(string.IsNullOrEmpty(localClass) == false, "missing CardFactoryBuildLocalContainer; got " + emitted.Count);
-            Require(string.IsNullOrEmpty(remoteClass) == false, "missing CardFactoryBuildRemoteContainer");
-            Require(localClass.IndexOf("CardPointerHandler", StringComparison.Ordinal) >= 0, "local class missing CardPointerHandler");
-            Require(remoteClass.IndexOf("CardRevealView", StringComparison.Ordinal) >= 0, "remote class missing CardRevealView");
+            Require(string.IsNullOrEmpty(localClass) == false, "missing ItemFactoryBuildLocalContainer; got " + emitted.Count);
+            Require(string.IsNullOrEmpty(remoteClass) == false, "missing ItemFactoryBuildRemoteContainer");
+            Require(localClass.IndexOf("ItemPointerHandler", StringComparison.Ordinal) >= 0, "local class missing ItemPointerHandler");
+            Require(remoteClass.IndexOf("ItemRevealView", StringComparison.Ordinal) >= 0, "remote class missing ItemRevealView");
             Require(localClass.IndexOf("GeneratedScopes.Register", StringComparison.Ordinal) >= 0, "local must register");
             Require(localClass.IndexOf("GeneratedScopes.RegisterVariant(", StringComparison.Ordinal) >= 0, "local must register as a variant");
             Require(ViewTypeOf(localClass).IndexOf("Local", StringComparison.Ordinal) >= 0, "local variant must key on its view type: " + ViewTypeOf(localClass));
             Require(ViewTypeOf(remoteClass).IndexOf("Remote", StringComparison.Ordinal) >= 0, "remote variant must key on its view type: " + ViewTypeOf(remoteClass));
         }
 
-        private static void TestEntityCardSplitEmit() {
-            var compilation = Compile(EntityCardSplitSource, extraSource: EntityCardAssets);
+        private static void TestEntityItemSplitEmit() {
+            var compilation = Compile(EntityItemSplitSource, extraSource: EntityItemAssets);
             var document = WalkBound(compilation);
             var references = ReferenceSymbols.Create(compilation);
             Require(references != null, "references");
@@ -648,8 +649,8 @@ namespace ContainerGenerator.Verify {
                 classes.Add(hint);
             }
 
-            Require(hints.Contains("CardFactoryBuildLocalContainer.g.cs"), "missing BuildLocal class; got " + string.Join(", ", classes));
-            Require(hints.Contains("CardFactoryBuildRemoteContainer.g.cs"), "missing BuildRemote class; got " + string.Join(", ", classes));
+            Require(hints.Contains("ItemFactoryBuildLocalContainer.g.cs"), "missing BuildLocal class; got " + string.Join(", ", classes));
+            Require(hints.Contains("ItemFactoryBuildRemoteContainer.g.cs"), "missing BuildRemote class; got " + string.Join(", ", classes));
         }
 
         private static string ViewTypeOf(string source) {
@@ -663,19 +664,19 @@ namespace ContainerGenerator.Verify {
             return end < 0 ? "" : source.Substring(start, end - start);
         }
 
-        private static void TestEntityPlayerStrippedBoard() {
-            var compilation = Compile(EntityPlayerSource, extraSource: EntityPlayerAssets);
+        private static void TestEntityActorStrippedPanel() {
+            var compilation = Compile(EntityActorSource, extraSource: EntityActorAssets);
             var document = WalkBound(compilation);
             var local = RequireRoot(document, "+Local");
-            Require(local.ViewType.IndexOf("LocalPlayerView", StringComparison.Ordinal) >= 0, "player view " + local.ViewType);
-            Require(local.Calls.Exists(c => c.IndexOf("Board.Register", StringComparison.Ordinal) >= 0),
-                "LocalPlayerView must bind stripped Board.Register; calls=" + string.Join(",", local.Calls));
-            Require(local.Calls.Exists(c => c.IndexOf("HandView.Register", StringComparison.Ordinal) >= 0),
-                "LocalPlayerView must bind HandView.Register");
+            Require(local.ViewType.IndexOf("LocalActorView", StringComparison.Ordinal) >= 0, "actor view " + local.ViewType);
+            Require(local.Calls.Exists(c => c.IndexOf("Panel.Register", StringComparison.Ordinal) >= 0),
+                "LocalActorView must bind stripped Panel.Register; calls=" + string.Join(",", local.Calls));
+            Require(local.Calls.Exists(c => c.IndexOf("TrayView.Register", StringComparison.Ordinal) >= 0),
+                "LocalActorView must bind TrayView.Register");
             var references = ReferenceSymbols.Create(compilation);
             var graph = EdgeResolver.ResolveRoot(document, local, compilation, references!);
-            FindRegistration(graph, "Board");
-            FindRegistration(graph, "HandView");
+            FindRegistration(graph, "Panel");
+            FindRegistration(graph, "TrayView");
         }
 
         private static void TestCingr006DuplicateView() {
@@ -715,7 +716,7 @@ namespace ContainerGenerator.Verify {
             var document = WalkBound(compilation);
             var diagnostic = RequireDocumentDiagnostic(document, "CINGR005");
             var message = diagnostic.ToDiagnostic().GetMessage();
-            Require(message.IndexOf("cardId", StringComparison.Ordinal) >= 0, "CINGR005 condition: " + message);
+            Require(message.IndexOf("itemId", StringComparison.Ordinal) >= 0, "CINGR005 condition: " + message);
             Require(message.IndexOf("Simplify the condition", StringComparison.Ordinal) >= 0, "CINGR005 must say what to do: " + message);
         }
 
@@ -1261,9 +1262,19 @@ namespace Internal {
         IServiceRegistration AddServiceType(System.Type serviceType);
         IServiceRegistration SetParameter(System.Type type, object value);
     }
+    // The registry returns the registration struct, as the runtime does (Runtime/Tools/Container).
+    public readonly struct ServiceRegistration : IServiceRegistration {
+        public IBuilder Builder => null;
+        public System.Type ImplementationType => null;
+        public ServiceRegistration AddServiceType(System.Type serviceType) { return this; }
+        public ServiceRegistration SetParameter(System.Type type, object value) { return this; }
+        IServiceRegistration IServiceRegistration.AddServiceType(System.Type serviceType) { return this; }
+        IServiceRegistration IServiceRegistration.SetParameter(System.Type type, object value) { return this; }
+    }
     public interface IContainerRegistry {
-        IServiceRegistration Add(System.Type implementation, ServiceLifetime lifetime);
-        IServiceRegistration AddInstance(System.Type serviceType, object instance);
+        ServiceRegistration Add(System.Type implementation, ServiceLifetime lifetime);
+        ServiceRegistration AddInstance(System.Type serviceType, object instance);
+        ServiceRegistration AddComponent(System.Type serviceType, UnityEngine.Object component, ServiceLifetime lifetime);
         void AddInjection(object target);
     }
     public interface IContainerDiagnostics {
@@ -1306,6 +1317,8 @@ namespace Internal {
         void InjectGameObject(UnityEngine.GameObject target);
     }
     public interface IBuilder {
+        IContainerRegistry Registry { get; }
+        IEventLoop Events { get; }
         IReadOnlyLifetime Lifetime { get; }
     }
     public interface IScopeBuilder : IBuilder {
@@ -1315,6 +1328,8 @@ namespace Internal {
         ILifetime ScopeLifetime { get; }
     }
     public interface IEntityComponent { void Register(IEntityBuilder builder); }
+    public interface IScopeSetup { void OnSetup(IReadOnlyLifetime lifetime); }
+    public interface IScopeDispose { void OnDispose(); }
     public interface ISceneService { void Create(IScopeBuilder builder); }
     public interface IScopeEntityView {}
     public interface IEntityScopeLoader {
@@ -1345,23 +1360,35 @@ namespace Internal {
     }
     [System.AttributeUsage(System.AttributeTargets.Method)]
     public sealed class InjectAttribute : System.Attribute {}
-    public interface IEventLoop {}
-    public class EventLoop : IEventLoop {}
+    public interface IEventLoop {
+        void AddBeforeBuild(System.Func<object> callback);
+        void AddAfterDispose(System.Func<object> callback);
+    }
+    public class EventLoop : IEventLoop {
+        public void AddBeforeBuild(System.Func<object> callback) {}
+        public void AddAfterDispose(System.Func<object> callback) {}
+    }
     public interface IViewInjector {}
     public class GeneratedViewInjector {
         public GeneratedViewInjector(IContainer container) {}
     }
-    public sealed class GeneratedScopeRequest {
-        public ILifetime Lifetime { get; }
-        public IContainer Parent { get; }
+    public readonly struct GeneratedScopeRequest {
+        public ILifetime Lifetime { get { return null; } }
+        public IContainer Parent { get { return null; } }
         public bool IsRegistered(System.Type implementation) { return false; }
         public T Get<T>() { return default(T); }
+        public T GetInstance<T>(int occurrence) { return default(T); }
+        public T GetParameter<T>(System.Type implementation, int occurrence) { return default(T); }
+        public T GetFromParent<T>() { return default(T); }
         public T[] GetInjections<T>() { return new T[0]; }
     }
     public static class GeneratedScopes {
-        public static void Register(string rootId, System.Func<GeneratedScopeRequest, IContainer> factory) {}
-        public static void RegisterVariant(string rootId, System.Type viewType, System.Func<GeneratedScopeRequest, IContainer> factory) {}
+        public static void Register(string rootId, System.Func<GeneratedScopeRequest, IContainer> factory, System.Type[] constructed, System.Type[] instances) {}
+        public static void RegisterVariant(string rootId, System.Type viewType, System.Func<GeneratedScopeRequest, IContainer> factory, System.Type[] constructed, System.Type[] instances) {}
         public static bool IsRegistered(string rootId) { return false; }
+        public static void ThrowDisposeErrors(System.Collections.Generic.List<System.Exception> errors) {}
+        public static T RequireAlternative<T>(T value, string type) where T : class { return value; }
+        public static T[] WithoutAbsent<T>(T[] values) where T : class { return values; }
     }
 
     public enum ContainerPrimitive {
@@ -1373,25 +1400,26 @@ namespace Internal {
         public ContainerPrimitiveAttribute(ContainerPrimitive kind) {}
     }
 
+    // The primitives of Runtime/Scopes/Common/Builders/BuilderExtensions.cs, with the same signatures.
     public static class BuilderExtensions {
         [ContainerPrimitive(ContainerPrimitive.Register)]
-        public static IServiceRegistration Register<T>(this IBuilder builder, ServiceLifetime lifetime = ServiceLifetime.Singleton) { return null; }
-        [ContainerPrimitive(ContainerPrimitive.Register)]
-        public static IServiceRegistration Register<TInterface, TImplementation>(this IBuilder builder, ServiceLifetime lifetime = ServiceLifetime.Singleton) { return null; }
+        public static ServiceRegistration Register<T>(this IBuilder builder, ServiceLifetime lifetime = ServiceLifetime.Singleton) { return default; }
         [ContainerPrimitive(ContainerPrimitive.RegisterInstance)]
-        public static IServiceRegistration RegisterInstance<T>(this IBuilder builder, T instance) { return null; }
+        public static ServiceRegistration RegisterInstance<T>(this IBuilder builder, T instance) { return default; }
         [ContainerPrimitive(ContainerPrimitive.RegisterComponent)]
-        public static IServiceRegistration RegisterComponent<T>(this IBuilder builder, T component, ServiceLifetime lifetime = ServiceLifetime.Singleton) { return null; }
+        public static ServiceRegistration RegisterComponent<T>(this IBuilder builder, T component, ServiceLifetime lifetime = ServiceLifetime.Singleton) { return default; }
         [ContainerPrimitive(ContainerPrimitive.As)]
-        public static IServiceRegistration As<T>(this IServiceRegistration registration) { return registration; }
+        public static ServiceRegistration As<T>(this ServiceRegistration registration) { return registration; }
+        [ContainerPrimitive(ContainerPrimitive.As)]
+        public static ServiceRegistration As(this ServiceRegistration registration, System.Type type) { return registration; }
         [ContainerPrimitive(ContainerPrimitive.AsSelf)]
-        public static IServiceRegistration AsSelf(this IServiceRegistration registration) { return registration; }
+        public static ServiceRegistration AsSelf(this ServiceRegistration registration) { return registration; }
         [ContainerPrimitive(ContainerPrimitive.AsSelfResolvable)]
-        public static IServiceRegistration AsSelfResolvable(this IServiceRegistration registration) { return registration; }
+        public static ServiceRegistration AsSelfResolvable(this ServiceRegistration registration) { return registration; }
         [ContainerPrimitive(ContainerPrimitive.WithParameter)]
-        public static IServiceRegistration WithParameter<T>(this IServiceRegistration registration, T value) { return registration; }
+        public static ServiceRegistration WithParameter<T>(this ServiceRegistration registration, T value) { return registration; }
         [ContainerPrimitive(ContainerPrimitive.WithScopeLifetime)]
-        public static IServiceRegistration WithScopeLifetime(this IServiceRegistration registration) { return registration; }
+        public static ServiceRegistration WithScopeLifetime(this ServiceRegistration registration) { return registration; }
         [ContainerPrimitive(ContainerPrimitive.Inject)]
         public static void Inject<T>(this IBuilder builder, T target) {}
         [ContainerPrimitive(ContainerPrimitive.Injectable)]
@@ -1496,7 +1524,7 @@ namespace Global.Setup {
     public interface ICameraUtils {}
     public interface IInputConstraintsStorage {}
     public interface IUIStateMachine {}
-    public interface IItchLanguageAPI {}
+    public interface IPlatformLanguageAPI {}
     public interface ISystemLanguageProvider {}
     public interface IBackendGet {}
     public interface IBackendPost {}
@@ -1520,10 +1548,10 @@ namespace Global.Setup {
         [Internal.Inject]
         public void Construct(IUpdater updater) {}
     }
-    public class ItchLanguageDebugAPI : IItchLanguageAPI {}
-    public class ItchLanguageExternAPI : IItchLanguageAPI {}
-    public class ItchLanguageProvider : ISystemLanguageProvider {
-        public ItchLanguageProvider(IItchLanguageAPI api) {}
+    public class PlatformLanguageDebugAPI : IPlatformLanguageAPI {}
+    public class PlatformLanguageExternAPI : IPlatformLanguageAPI {}
+    public class PlatformLanguageProvider : ISystemLanguageProvider {
+        public PlatformLanguageProvider(IPlatformLanguageAPI api) {}
     }
     public class BackendGet : IBackendGet {}
     public class BackendPost : IBackendPost {}
@@ -1570,10 +1598,10 @@ namespace Global.Setup {
         public static Internal.IScopeBuilder AddPublisher(this Internal.IScopeBuilder builder) {
             var isEditor = true;
             if (isEditor == true)
-                builder.Register<ItchLanguageDebugAPI>().As<IItchLanguageAPI>();
+                builder.Register<PlatformLanguageDebugAPI>().As<IPlatformLanguageAPI>();
             else
-                builder.Register<ItchLanguageExternAPI>().As<IItchLanguageAPI>();
-            builder.Register<ItchLanguageProvider>().As<ISystemLanguageProvider>();
+                builder.Register<PlatformLanguageExternAPI>().As<IPlatformLanguageAPI>();
+            builder.Register<PlatformLanguageProvider>().As<ISystemLanguageProvider>();
             return builder;
         }
 
@@ -1596,83 +1624,83 @@ namespace Global.Setup {
 }
 ";
 
-        private const string CardFactorySource = @"
+        private const string ItemFactorySource = @"
 using Internal;
 
-namespace GamePlay.Cards {
+namespace Feature.Items {
     public interface IGameContext {}
-    public interface IGamePlayer {}
-    public interface IHand {}
-    public interface ICard {}
-    public interface ICardContext {}
-    public interface ICardDropArea {}
-    public interface ICardStateLifetime {}
-    public interface ICardDropDetector {}
-    public interface IHandEntryHandle {}
-    public interface ICardConfig {}
-    public interface ICardDefinition {}
+    public interface IActor {}
+    public interface ITray {}
+    public interface IItem {}
+    public interface IItemContext {}
+    public interface IItemDropArea {}
+    public interface IItemStateLifetime {}
+    public interface IItemDropDetector {}
+    public interface ITrayEntryHandle {}
+    public interface IItemConfig {}
+    public interface IItemDefinition {}
     public interface IGameInput {}
     public interface IUpdater {}
     public class GameContext : IGameContext {}
-    public class GamePlayer : IGamePlayer {}
-    public class Hand : IHand {}
-    public class CardConfig : ICardConfig {}
-    public class CardDefinition : ICardDefinition {}
+    public class Actor : IActor {}
+    public class Tray : ITray {}
+    public class ItemConfig : IItemConfig {}
+    public class ItemDefinition : IItemDefinition {}
     public class GameInput : IGameInput {}
     public class Updater : IUpdater {}
 
-    public class CardContext : ICardContext {
-        public CardContext(IGameContext gameContext, ICardDefinition definition, ICardConfig config) {}
+    public class ItemContext : IItemContext {
+        public ItemContext(IGameContext gameContext, IItemDefinition definition, IItemConfig config) {}
     }
-    public class CardDropArea : ICardDropArea {
-        public CardDropArea(IUpdater updater, IGameInput input, IGameContext gameContext, ICardContext context) {}
+    public class ItemDropArea : IItemDropArea {
+        public ItemDropArea(IUpdater updater, IGameInput input, IGameContext gameContext, IItemContext context) {}
     }
-    public class CardStateLifetime : ICardStateLifetime {
-        public CardStateLifetime(Internal.IReadOnlyLifetime lifetime) {}
+    public class ItemStateLifetime : IItemStateLifetime {
+        public ItemStateLifetime(Internal.IReadOnlyLifetime lifetime) {}
     }
-    public class CardDropDetector : ICardDropDetector {
-        public CardDropDetector(IGameInput input, IGameContext gameContext) {}
+    public class ItemDropDetector : IItemDropDetector {
+        public ItemDropDetector(IGameInput input, IGameContext gameContext) {}
     }
-    public class LocalCard : ICard {
-        public LocalCard(System.Guid id, Internal.ILifetime containerLifetime, IHand hand, ICardDefinition definition) {}
+    public class LocalItem : IItem {
+        public LocalItem(System.Guid id, Internal.ILifetime containerLifetime, ITray tray, IItemDefinition definition) {}
     }
-    public class HandEntryHandle : IHandEntryHandle {
-        public HandEntryHandle(IHand hand, ICard card) {}
+    public class TrayEntryHandle : ITrayEntryHandle {
+        public TrayEntryHandle(ITray tray, IItem item) {}
     }
 
-    public static class CardComponentsExtensions {
-        public static Internal.IEntityBuilder AddCardLocalComponents(this Internal.IEntityBuilder builder) {
-            builder.Register<CardDropDetector>().As<ICardDropDetector>();
-            builder.Register<CardStateLifetime>().WithParameter(builder.Lifetime).As<ICardStateLifetime>();
-            builder.Register<CardDropArea>().As<ICardDropArea>();
-            builder.Register<CardContext>().As<ICardContext>();
+    public static class ItemComponentsExtensions {
+        public static Internal.IEntityBuilder AddItemLocalComponents(this Internal.IEntityBuilder builder) {
+            builder.Register<ItemDropDetector>().As<IItemDropDetector>();
+            builder.Register<ItemStateLifetime>().WithParameter(builder.Lifetime).As<IItemStateLifetime>();
+            builder.Register<ItemDropArea>().As<IItemDropArea>();
+            builder.Register<ItemContext>().As<IItemContext>();
             return builder;
         }
     }
 
-    public static class CardRootExtensions {
-        public static Internal.IEntityBuilder AddCardLocalRoot(this Internal.IEntityBuilder builder) {
-            builder.Register<LocalCard>().WithParameter(builder.ScopeLifetime).As<ICard>();
+    public static class ItemRootExtensions {
+        public static Internal.IEntityBuilder AddItemLocalRoot(this Internal.IEntityBuilder builder) {
+            builder.Register<LocalItem>().WithParameter(builder.ScopeLifetime).As<IItem>();
             return builder;
         }
     }
 
-    public class CardFactory {
-        public void Create(bool isLocal, System.Guid cardId) {
+    public class ItemFactory {
+        public void Create(bool isLocal, System.Guid itemId) {
             Build(null);
 
             void Build(Internal.IEntityBuilder builder) {
-                builder.RegisterInstance(cardId);
-                builder.AddCardLocalComponents();
-                builder.AddCardLocalRoot();
-                builder.RegisterInstance(new CardConfig()).As<ICardConfig>();
+                builder.RegisterInstance(itemId);
+                builder.AddItemLocalComponents();
+                builder.AddItemLocalRoot();
+                builder.RegisterInstance(new ItemConfig()).As<IItemConfig>();
                 builder.RegisterInstance(new GameContext()).As<IGameContext>();
-                builder.RegisterInstance(new GamePlayer()).As<IGamePlayer>();
-                builder.RegisterInstance(new Hand()).As<IHand>();
+                builder.RegisterInstance(new Actor()).As<IActor>();
+                builder.RegisterInstance(new Tray()).As<ITray>();
                 builder.RegisterInstance(new GameInput()).As<IGameInput>();
                 builder.RegisterInstance(new Updater()).As<IUpdater>();
-                builder.Register<HandEntryHandle>().As<IHandEntryHandle>();
-                builder.RegisterInstance(new CardDefinition()).As<ICardDefinition>();
+                builder.Register<TrayEntryHandle>().As<ITrayEntryHandle>();
+                builder.RegisterInstance(new ItemDefinition()).As<IItemDefinition>();
             }
         }
     }
@@ -1885,13 +1913,13 @@ using Internal;
 namespace Sample {
     public interface IDep {}
     public class Dep : IDep {}
-    public class PoolCard { [Inject] internal void Setup(IDep dep, IReadOnlyLifetime lifetime) {} }
-    public class EmptyCard { [Inject] internal void Init() {} }
+    public class PoolItem { [Inject] internal void Setup(IDep dep, IReadOnlyLifetime lifetime) {} }
+    public class EmptyItem { [Inject] internal void Init() {} }
     public static class InjectableRoot {
         public static void Construct(Internal.IScopeBuilder builder) {
             builder.Register<Dep>().As<IDep>();
-            builder.Injectable<PoolCard>();
-            builder.Injectable<EmptyCard>();
+            builder.Injectable<PoolItem>();
+            builder.Injectable<EmptyItem>();
         }
     }
 }
@@ -1918,13 +1946,13 @@ namespace Sample {
 using Internal;
 
 namespace Sample {
-    public class NoInjectCard { public void Construct() {} }
-    public class PoolCard { [Inject] internal void Setup() {} }
-    public class Consumer { public Consumer(PoolCard card) {} }
+    public class NoInjectItem { public void Construct() {} }
+    public class PoolItem { [Inject] internal void Setup() {} }
+    public class Consumer { public Consumer(PoolItem item) {} }
     public static class InjectableErrorsRoot {
         public static void Construct(Internal.IScopeBuilder builder) {
-            builder.Injectable<NoInjectCard>();
-            builder.Injectable<PoolCard>();
+            builder.Injectable<NoInjectItem>();
+            builder.Injectable<PoolItem>();
             builder.Register<Consumer>();
         }
     }
@@ -1953,8 +1981,9 @@ using Internal;
 
 namespace Sample {
     public sealed class Registry : IContainerRegistry {
-        public IServiceRegistration Add(System.Type implementation, ServiceLifetime lifetime) { return null; }
-        public IServiceRegistration AddInstance(System.Type serviceType, object instance) { return null; }
+        public ServiceRegistration Add(System.Type implementation, ServiceLifetime lifetime) { return default; }
+        public ServiceRegistration AddInstance(System.Type serviceType, object instance) { return default; }
+        public ServiceRegistration AddComponent(System.Type serviceType, UnityEngine.Object component, ServiceLifetime lifetime) { return default; }
         public void AddInjection(object target) {}
         internal void AttachBuilder(IBuilder builder) {}
     }
@@ -1970,7 +1999,7 @@ namespace Internal {
         public void Add(object command) {}
     }
     public class CommandHost {
-        public static IServiceRegistration RegisterCommand<T>(IScopeBuilder builder) {
+        public static ServiceRegistration RegisterCommand<T>(IScopeBuilder builder) {
             builder.Register<CommandResolver<T>>();
             return builder.Register<T>();
         }
@@ -1980,13 +2009,13 @@ namespace Internal {
     }
 }
 
-namespace Meta {
-    public interface IMetaConnectionAwaiter {}
+namespace Remote {
+    public interface IRemoteConnectionAwaiter {}
     public class ConnectionCompletedCommand {}
     public static class CommandRoot {
         public static void Construct(Internal.IScopeBuilder builder) {
             builder.Register<NetworkCommandsCollection>().As<INetworkCommandsCollection>();
-            CommandHost.RegisterCommand<ConnectionCompletedCommand>(builder).As<IMetaConnectionAwaiter>();
+            CommandHost.RegisterCommand<ConnectionCompletedCommand>(builder).As<IRemoteConnectionAwaiter>();
         }
     }
 }
@@ -2002,7 +2031,7 @@ namespace Shared {
     }
 }
 
-namespace Meta {
+namespace Remote {
     public class BackendProjection<T> {}
     public interface IBackendProjection<T> {}
     public interface IBackendProjection {}
@@ -2063,7 +2092,7 @@ namespace HarvestGeneric {
     public class B {}
     public class C {}
     public static class ItemInstaller {
-        public static IServiceRegistration RegisterItem<T>(this IScopeBuilder builder) {
+        public static ServiceRegistration RegisterItem<T>(this IScopeBuilder builder) {
             builder.Register<Box<T>>();
             return builder.Register<T>();
         }
@@ -2095,7 +2124,7 @@ namespace GenericLib {
         public Box(T item) {}
     }
     public static class ItemInstaller {
-        public static IServiceRegistration RegisterItem<T>(this IScopeBuilder builder) {
+        public static ServiceRegistration RegisterItem<T>(this IScopeBuilder builder) {
             builder.Register<Box<T>>();
             return builder.Register<T>();
         }
@@ -2219,17 +2248,17 @@ namespace Internal {
         private const string ManifestConsumerSource = @"
 using Internal;
 
-namespace GamePlay.Loop {
-    public class GamePlayLoop {}
-    public static class GamePlayScopeExtensions {
+namespace Feature.Loop {
+    public class FeatureLoop {}
+    public static class FeatureScopeExtensions {
         public static void Construct(Internal.IScopeBuilder builder) {
             builder.AddSessionServices();
             builder.AddNetworkConnection();
-            builder.Register<GamePlayLoop>();
+            builder.Register<FeatureLoop>();
         }
     }
 
-    public static class GamePlayerFactory {
+    public static class ActorFactory {
         public static void Build(Internal.IEntityBuilder builder, RemoteEntityData data) {
             builder.AddRemoteEntity(data);
         }
@@ -2332,120 +2361,120 @@ namespace Sample {
 }
 ";
 
-        private const string EntityCardSplitSource = @"
+        private const string EntityItemSplitSource = @"
 using Internal;
 
-namespace GamePlay.Cards {
+namespace Feature.Items {
     public class ScopeEntityView : IScopeEntityView {}
-    public class CardLocalScopeEntity : ScopeEntityView {}
-    public class CardRemoteScopeEntity : ScopeEntityView {}
-    public class LocalCard {}
-    public class RemoteCard {}
-    public class CardPointerHandler : IEntityComponent {
+    public class ItemLocalScopeEntity : ScopeEntityView {}
+    public class ItemRemoteScopeEntity : ScopeEntityView {}
+    public class LocalItem {}
+    public class RemoteItem {}
+    public class ItemPointerHandler : IEntityComponent {
         public void Register(IEntityBuilder builder) { builder.RegisterComponent(this); }
     }
-    public class CardRevealView : IEntityComponent {
+    public class ItemRevealView : IEntityComponent {
         public void Register(IEntityBuilder builder) { builder.RegisterComponent(this); }
     }
-    public static class GamePlayPrefabs {
-        public static CardLocalScopeEntity CardLocal;
-        public static CardRemoteScopeEntity CardRemote;
+    public static class FeaturePrefabs {
+        public static ItemLocalScopeEntity ItemLocal;
+        public static ItemRemoteScopeEntity ItemRemote;
     }
-    public class CardFactory {
+    public class ItemFactory {
         private readonly IEntityScopeLoader _loader = null;
         public void Create(bool isLocal) {
             if (isLocal == true)
-                _loader.Load(null, null, GamePlayPrefabs.CardLocal, BuildLocal);
+                _loader.Load(null, null, FeaturePrefabs.ItemLocal, BuildLocal);
             else
-                _loader.Load(null, null, GamePlayPrefabs.CardRemote, BuildRemote);
+                _loader.Load(null, null, FeaturePrefabs.ItemRemote, BuildRemote);
 
             void BuildLocal(IEntityBuilder builder) {
-                builder.Register<LocalCard>();
+                builder.Register<LocalItem>();
             }
 
             void BuildRemote(IEntityBuilder builder) {
-                builder.Register<RemoteCard>();
+                builder.Register<RemoteItem>();
             }
         }
     }
 }
 ";
 
-        private const string EntityCardSource = @"
+        private const string EntityItemSource = @"
 using Internal;
 
-namespace GamePlay.Cards {
+namespace Feature.Items {
     public class ScopeEntityView : IScopeEntityView {}
-    public class CardLocalScopeEntity : ScopeEntityView {}
-    public class CardRemoteScopeEntity : ScopeEntityView {}
-    public class LocalCard {}
-    public class RemoteCard {}
-    public class CardPointerHandler : IEntityComponent {
+    public class ItemLocalScopeEntity : ScopeEntityView {}
+    public class ItemRemoteScopeEntity : ScopeEntityView {}
+    public class LocalItem {}
+    public class RemoteItem {}
+    public class ItemPointerHandler : IEntityComponent {
         public void Register(IEntityBuilder builder) { builder.RegisterComponent(this); }
     }
-    public class CardRevealView : IEntityComponent {
+    public class ItemRevealView : IEntityComponent {
         public void Register(IEntityBuilder builder) { builder.RegisterComponent(this); }
     }
-    public static class GamePlayPrefabs {
-        public static CardLocalScopeEntity CardLocal;
-        public static CardRemoteScopeEntity CardRemote;
+    public static class FeaturePrefabs {
+        public static ItemLocalScopeEntity ItemLocal;
+        public static ItemRemoteScopeEntity ItemRemote;
     }
-    public class CardFactory {
+    public class ItemFactory {
         private readonly IEntityScopeLoader _loader = null;
         public void Create(bool isLocal) {
             if (isLocal == true)
-                _loader.Load(null, null, GamePlayPrefabs.CardLocal, Build);
+                _loader.Load(null, null, FeaturePrefabs.ItemLocal, Build);
             else
-                _loader.Load(null, null, GamePlayPrefabs.CardRemote, Build);
+                _loader.Load(null, null, FeaturePrefabs.ItemRemote, Build);
 
             void Build(IEntityBuilder builder) {
                 if (isLocal == true)
-                    builder.Register<LocalCard>();
+                    builder.Register<LocalItem>();
                 else
-                    builder.Register<RemoteCard>();
+                    builder.Register<RemoteItem>();
             }
         }
     }
 }
 ";
 
-        private const string EntityCardAssets = @"
+        private const string EntityItemAssets = @"
 [assembly: Internal.ContainerGraphAsset(
-    ""Assets/Card_Local.prefab"",
-    ""GamePlay.Cards.CardLocalScopeEntity"",
-    new string[] { ""GamePlay.Cards.CardPointerHandler"" })]
+    ""Assets/Item_Local.prefab"",
+    ""Feature.Items.ItemLocalScopeEntity"",
+    new string[] { ""Feature.Items.ItemPointerHandler"" })]
 [assembly: Internal.ContainerGraphAsset(
-    ""Assets/Card_Remote.prefab"",
-    ""GamePlay.Cards.CardRemoteScopeEntity"",
-    new string[] { ""GamePlay.Cards.CardRevealView"" })]
+    ""Assets/Item_Remote.prefab"",
+    ""Feature.Items.ItemRemoteScopeEntity"",
+    new string[] { ""Feature.Items.ItemRevealView"" })]
 ";
 
-        private const string EntityPlayerSource = @"
+        private const string EntityActorSource = @"
 using Internal;
 
-namespace GamePlay.Players {
+namespace Feature.Actors {
     public class ScopeEntityView : IScopeEntityView {}
-    public class LocalPlayerView : ScopeEntityView {}
-    public class RemotePlayerView : ScopeEntityView {}
+    public class LocalActorView : ScopeEntityView {}
+    public class RemoteActorView : ScopeEntityView {}
     public class NetworkUser { public bool IsLocal; }
     public class RemoteEntityData { public NetworkUser Owner; }
-    public class GamePlayer {}
+    public class Actor {}
 }
-namespace GamePlay.Boards {
-    public class Board : Internal.IEntityComponent {
+namespace Feature.Panels {
+    public class Panel : Internal.IEntityComponent {
         public void Register(Internal.IEntityBuilder builder) { builder.RegisterComponent(this); }
     }
 }
-namespace GamePlay.Cards {
-    public class HandView : Internal.IEntityComponent {
+namespace Feature.Items {
+    public class TrayView : Internal.IEntityComponent {
         public void Register(Internal.IEntityBuilder builder) { builder.RegisterComponent(this); }
     }
 }
-namespace GamePlay.Players {
-    public class GamePlayerFactory {
+namespace Feature.Actors {
+    public class ActorFactory {
         private readonly Internal.IEntityScopeLoader _loader = null;
-        private readonly LocalPlayerView _local = null;
-        private readonly RemotePlayerView _remote = null;
+        private readonly LocalActorView _local = null;
+        private readonly RemoteActorView _remote = null;
         public void Create(RemoteEntityData data) {
             if (data.Owner.IsLocal == true)
                 _loader.Load(null, null, _local, Build);
@@ -2453,22 +2482,22 @@ namespace GamePlay.Players {
                 _loader.Load(null, null, _remote, Build);
 
             void Build(Internal.IEntityBuilder builder) {
-                builder.Register<GamePlayer>();
+                builder.Register<Actor>();
             }
         }
     }
 }
 ";
 
-        private const string EntityPlayerAssets = @"
+        private const string EntityActorAssets = @"
 [assembly: Internal.ContainerGraphAsset(
     ""Assets/Game_Field.unity"",
-    ""GamePlay.Players.LocalPlayerView"",
-    new string[] { ""GamePlay.Boards.Board"", ""GamePlay.Cards.HandView"" })]
+    ""Feature.Actors.LocalActorView"",
+    new string[] { ""Feature.Panels.Panel"", ""Feature.Items.TrayView"" })]
 [assembly: Internal.ContainerGraphAsset(
     ""Assets/Game_Field.unity"",
-    ""GamePlay.Players.RemotePlayerView"",
-    new string[] { ""GamePlay.Boards.Board"", ""GamePlay.Cards.HandView"" })]
+    ""Feature.Actors.RemoteActorView"",
+    new string[] { ""Feature.Panels.Panel"", ""Feature.Items.TrayView"" })]
 ";
 
         private const string Cingr006Source = @"
@@ -2504,21 +2533,21 @@ using Internal;
         private const string Cingr005Source = @"
 using Internal;
 
-namespace GamePlay.Cards {
+namespace Feature.Items {
     public class ScopeEntityView : IScopeEntityView {}
-    public class CardLocalScopeEntity : ScopeEntityView {}
-    public class LocalCard {}
-    public class RemoteCard {}
-    public class CardFactory {
+    public class ItemLocalScopeEntity : ScopeEntityView {}
+    public class LocalItem {}
+    public class RemoteItem {}
+    public class ItemFactory {
         private readonly IEntityScopeLoader _loader = null;
-        private readonly CardLocalScopeEntity _view = null;
-        public void Create(System.Guid cardId) {
+        private readonly ItemLocalScopeEntity _view = null;
+        public void Create(System.Guid itemId) {
             _loader.Load(null, null, _view, Build);
             void Build(IEntityBuilder builder) {
-                if (cardId.ToString() == ""x"")
-                    builder.Register<LocalCard>();
+                if (itemId.ToString() == ""x"")
+                    builder.Register<LocalItem>();
                 else
-                    builder.Register<RemoteCard>();
+                    builder.Register<RemoteItem>();
             }
         }
     }

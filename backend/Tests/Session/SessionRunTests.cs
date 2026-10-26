@@ -25,14 +25,12 @@ public class SessionRunTests
     public void ExpectedUsers_NotAllJoined_NobodyIsHandled()
     {
         var session = TestSession.Create(expectedUsers: 2, run: false);
-        var allConnected = false;
-        session.Session.AllUsersConnected.Advise(session.Session.Lifetime, () => allConnected = true);
         var run = session.Run();
 
         var first = session.ReserveAndEnter();
 
         TestSession.Sent(first).Should().BeEmpty();
-        allConnected.Should().BeFalse();
+        session.Session.AllUsersConnected.IsCompleted.Should().BeFalse();
         run.IsCompleted.Should().BeFalse();
     }
 
@@ -40,8 +38,6 @@ public class SessionRunTests
     public void ExpectedUsers_LastOneJoins_EveryoneIsHandledAtOnce()
     {
         var session = TestSession.Create(expectedUsers: 2, run: false);
-        var allConnected = 0;
-        session.Session.AllUsersConnected.Advise(session.Session.Lifetime, () => allConnected++);
         var run = session.Run();
 
         var first = session.ReserveAndEnter();
@@ -49,7 +45,7 @@ public class SessionRunTests
 
         ReceivedLocalUpdate(first).Should().BeTrue();
         ReceivedLocalUpdate(second).Should().BeTrue();
-        allConnected.Should().Be(1);
+        session.Session.AllUsersConnected.IsCompletedSuccessfully.Should().BeTrue();
         run.IsCompleted.Should().BeTrue();
     }
 
@@ -100,8 +96,6 @@ public class SessionRunTests
     public void ExpectedUsers_SessionEndsBeforeJoin_RunCompletes_NobodyIsHandled()
     {
         var session = TestSession.Create(expectedUsers: 2, run: false);
-        var allConnected = false;
-        session.Session.AllUsersConnected.Advise(session.Session.Lifetime, () => allConnected = true);
         var run = session.Run();
 
         var first = session.ReserveAndEnter();
@@ -109,7 +103,7 @@ public class SessionRunTests
         session.Queue.Drain();
 
         run.IsCompleted.Should().BeTrue();
-        allConnected.Should().BeFalse();
+        session.Session.AllUsersConnected.IsCanceled.Should().BeTrue();
         TestSession.Sent(first).Should().BeEmpty();
     }
 
@@ -135,5 +129,30 @@ public class SessionRunTests
     private static bool ReceivedLocalUpdate(IUser user)
     {
         return TestSession.Sent<SharedSessionPlayer.LocalUpdate>(user).Any(update => update.Index == user.Index);
+    }
+
+    // Two connections of one seat (a return before the start, the old one not dropped yet) are one expected user.
+    [Fact]
+    public void ExpectedUsers_ReturnBeforeStart_CountsOnce()
+    {
+        var session = TestSession.Create(expectedUsers: 2, reconnectWindow: TimeSpan.FromSeconds(60));
+        var userId = Guid.NewGuid();
+        session.ReserveAndEnter(userId);
+
+        var returned = session.Enter(userId);
+
+        returned.Should().NotBeNull();
+        session.RunTask.IsCompleted.Should().BeFalse();
+        TestSession.Sent(returned!).Should().BeEmpty();
+    }
+
+    // The start is remembered: a wait that begins after it (ExpectedUsers 0 starts in the first queue action) is over
+    // at once.
+    [Fact]
+    public void AllUsersConnected_WaitAfterTheStart_IsCompleted()
+    {
+        var session = TestSession.Create();
+
+        session.Session.AllUsersConnected.IsCompletedSuccessfully.Should().BeTrue();
     }
 }

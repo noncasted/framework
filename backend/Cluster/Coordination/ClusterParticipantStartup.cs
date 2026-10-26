@@ -52,6 +52,10 @@ public class ClusterParticipantStartup : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken cancellation)
     {
+        // The background loops of the participant (messaging, task balancer, discovery) run unawaited: a crashed one
+        // is logged when it fails. A handler the host installed before stays.
+        NoAwaitExceptions.Handler ??= e => _logger.LogCritical(e, "[NoAwait] Unobserved background task failed");
+
         var lifetime = cancellation.ToLifetime();
         var serviceName = _discovery.Self.Tag.ToString();
         var isCoordinator = _discovery.Self.Tag == ServiceTag.Coordinator;
@@ -202,6 +206,10 @@ public class ClusterParticipantStartup : BackgroundService
 
         async Task WaitClusterReady()
         {
+            // Polled every 200 ms: logged when the missing set changes and every 25 polls, not on every poll.
+            var lastMissing = string.Empty;
+            var pollCount = 0;
+
             while (lifetime.IsTerminated == false)
             {
                 try
@@ -218,8 +226,16 @@ public class ClusterParticipantStartup : BackgroundService
                     if (missing.Count == 0)
                         return;
 
-                    _logger.LogWarning("[Startup] {Service} cluster not ready, missing: {Missing}",
-                        serviceName, string.Join(", ", missing));
+                    var missingText = string.Join(", ", missing);
+
+                    if (missingText != lastMissing || pollCount % 25 == 0)
+                    {
+                        _logger.LogWarning("[Startup] {Service} cluster not ready (poll {Count}), missing: {Missing}",
+                            serviceName, pollCount, missingText);
+                    }
+
+                    lastMissing = missingText;
+                    pollCount++;
                 }
                 catch (Exception e)
                 {

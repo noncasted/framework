@@ -36,6 +36,8 @@ namespace Internal
         // the first access loads it synchronously, so Retain is optional. There is no reason to unload it.
         public virtual bool IsAddressable => true;
 
+        // A retain counts from the call, not from the end of the load: its owner releases it also when the load
+        // failed or has not finished yet (a scope disposed while its groups are loading).
         public async UniTask Retain()
         {
             _retainCount++;
@@ -58,14 +60,17 @@ namespace Internal
         public void Release()
         {
             if (_retainCount == 0)
-            {
-                Debug.LogError($"[{Name}] Release called with retain count 0");
-                return;
-            }
+                throw new InvalidOperationException($"[{Name}] Release without a Retain");
 
             _retainCount--;
 
             if (_retainCount > 0 || IsAddressable == false)
+                return;
+
+            // A load in progress is not interrupted: it completes and, with nobody retaining the group, unloads what
+            // it loaded (unloading now would release a handle that is still loading, the fields are not set yet).
+            // After a failed load there is nothing to unload.
+            if (IsLoaded == false)
                 return;
 
             UnloadGroup();
@@ -88,6 +93,12 @@ namespace Internal
         protected abstract UniTask LoadGroup();
 
         protected abstract void UnloadGroup();
+
+        // Releases what a failed LoadGroup loaded before the failure (a handle, decoded clips).
+        protected virtual void UnloadFailedGroup()
+        {
+            UnloadGroup();
+        }
 
         // Only groups from Resources support synchronous loading.
         protected virtual void LoadImmediately()
@@ -119,21 +130,38 @@ namespace Internal
             try
             {
                 await LoadGroup();
-
-                // A load that outlived a reset does not mark the group as loaded.
-                if (_loading == loading)
-                    IsLoaded = true;
-
-                loading.TrySetResult();
             }
             catch (Exception exception)
             {
-                // The next Retain must retry a failed load rather than get the same error.
+                // The next Retain must retry a failed load on a clean group rather than get the same error.
                 if (_loading == loading)
+                {
                     _loading = null;
+                    UnloadFailedGroup();
+                }
 
                 loading.TrySetException(exception);
+                return;
             }
+
+            // A load that outlived a reset does not mark the group as loaded.
+            if (_loading != loading)
+            {
+                loading.TrySetResult();
+                return;
+            }
+
+            // Released to zero while it was loading: what it loaded is unloaded at once.
+            if (_retainCount == 0 && IsAddressable == true)
+            {
+                _loading = null;
+                UnloadGroup();
+                loading.TrySetResult();
+                return;
+            }
+
+            IsLoaded = true;
+            loading.TrySetResult();
         }
     }
 }

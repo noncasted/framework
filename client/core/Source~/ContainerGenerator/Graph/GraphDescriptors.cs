@@ -60,6 +60,38 @@ namespace ContainerGenerator {
             defaultSeverity: DiagnosticSeverity.Error,
             isEnabledByDefault: true);
 
+        public static readonly DiagnosticDescriptor AmbiguousRegistration = new DiagnosticDescriptor(
+            id: "CINGR009",
+            title: "Parameter takes one of several registrations",
+            messageFormat: "Parameter '{0}' of '{1}' takes the last of {2} registrations of '{3}' ({4}). Take IReadOnlyList<{3}> to get all of them, or register one. File {5} line {6}.",
+            category: Category,
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true);
+
+        public static readonly DiagnosticDescriptor NotInjectable = new DiagnosticDescriptor(
+            id: "CINGR010",
+            title: "Type cannot be injected",
+            messageFormat: "'{0}' cannot be injected: {1}. File {2} line {3}.",
+            category: Category,
+            defaultSeverity: DiagnosticSeverity.Error,
+            isEnabledByDefault: true);
+
+        public static readonly DiagnosticDescriptor NotConstructible = new DiagnosticDescriptor(
+            id: "CINGR011",
+            title: "Registered type cannot be constructed",
+            messageFormat: "'{0}' cannot be constructed by the scope: {1}. File {2} line {3}.",
+            category: Category,
+            defaultSeverity: DiagnosticSeverity.Error,
+            isEnabledByDefault: true);
+
+        public static readonly DiagnosticDescriptor TransientPhaseListener = new DiagnosticDescriptor(
+            id: "CINGR012",
+            title: "Transient registration listens to several scope phases",
+            messageFormat: "'{0}' is transient and listens to the scope phases {1}: every phase would get a new instance. Register it as a singleton or scoped. File {2} line {3}.",
+            category: Category,
+            defaultSeverity: DiagnosticSeverity.Error,
+            isEnabledByDefault: true);
+
         public static readonly DiagnosticDescriptor InjectableWithoutInject = new DiagnosticDescriptor(
             id: "CINGR008",
             title: "Injectable type has no [Inject] method",

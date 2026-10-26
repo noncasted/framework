@@ -7,14 +7,17 @@ using UnityEngine;
 namespace Internal
 {
     // The layout of the project the framework editor tools work in: where generated code and catalogue data go, which
-    // folders hold game modules and scenes. Read from ProjectSettings/Framework.json; a missing file or field takes the
-    // default, the layout of our projects.
+    // folders hold game modules and scenes. Read from ProjectSettings/Framework.json, which every project has: the
+    // framework knows no folders of a game. ContentAssembly and ContentFolder are required; a missing list is empty
+    // and a missing folder is none. The file is read again when it changes.
     public static class FrameworkSettings
     {
         public const string SettingsPath = "ProjectSettings/Framework.json";
         public const string CorePackage = "Packages/com.noncasted.framework.core";
 
         private static Data _data;
+        private static DateTime _dataWriteTime;
+        private static long _dataLength;
 
         // The project assembly that owns the generated catalogues (InternalAssets, Sprites, Scenes, ...), the asset map
         // of the container and the root scope. Namespace Internal, like the framework core.
@@ -62,33 +65,51 @@ namespace Internal
 
         private static Data Get()
         {
-            if (_data != null)
-                return _data;
-
             var projectRoot = Path.GetDirectoryName(Application.dataPath);
             var path = Path.Combine(projectRoot, SettingsPath);
-            var data = new Data();
 
-            if (File.Exists(path) == true)
-                JsonConvert.PopulateObject(File.ReadAllText(path), data, new JsonSerializerSettings
-                {
-                    ObjectCreationHandling = ObjectCreationHandling.Replace
-                });
+            if (File.Exists(path) == false)
+                throw new InvalidOperationException(
+                    $"[FrameworkSettings] {SettingsPath} is missing. It describes the layout of the project for the " +
+                    "framework editor tools: copy it from another project and adjust the folders.");
+
+            // The file is edited by hand and pulled from git: a cached layout would keep writing into old folders.
+            var info = new FileInfo(path);
+
+            if (_data != null && info.LastWriteTimeUtc == _dataWriteTime && info.Length == _dataLength)
+                return _data;
+
+            var data = new Data();
+            JsonConvert.PopulateObject(File.ReadAllText(path), data, new JsonSerializerSettings
+            {
+                ObjectCreationHandling = ObjectCreationHandling.Replace
+            });
+
+            Require(data.ContentAssembly, nameof(Data.ContentAssembly));
+            Require(data.ContentFolder, nameof(Data.ContentFolder));
 
             _data = data;
+            _dataWriteTime = info.LastWriteTimeUtc;
+            _dataLength = info.Length;
             return _data;
+        }
+
+        private static void Require(string value, string field)
+        {
+            if (string.IsNullOrEmpty(value))
+                throw new InvalidOperationException($"[FrameworkSettings] {SettingsPath} has no {field}.");
         }
 
         private sealed class Data
         {
-            public string ContentAssembly = "Internal.Content";
-            public string ContentFolder = "Assets/Common/Internal";
-            public List<string> ModuleRoots = new() { "Assets/Common/Global", "Assets/GamePlay", "Assets/Menu" };
-            public List<string> SceneFolders = new() { "Assets/Common", "Assets/GamePlay", "Assets/Menu", "Assets/Meta" };
-            public string ArtFolder = "Assets/Art";
-            public string SoundsFolder = "Assets/Art/Audio/Sounds";
-            public string MusicFolder = "Assets/Art/Audio/Music";
-            public List<string> FavoriteScenes = new() { "Startup", "Menu" };
+            public string ContentAssembly;
+            public string ContentFolder;
+            public List<string> ModuleRoots = new();
+            public List<string> SceneFolders = new();
+            public string ArtFolder = string.Empty;
+            public string SoundsFolder = string.Empty;
+            public string MusicFolder = string.Empty;
+            public List<string> FavoriteScenes = new();
             public List<string> SharedCommonPaths = new() { "Packages/", "Assets/Plugins/" };
             public Dictionary<string, string> GroupPhases = new(StringComparer.Ordinal);
             public List<string> StrippedPlayerAssemblies = new();

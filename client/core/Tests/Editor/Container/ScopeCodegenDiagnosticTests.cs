@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using NUnit.Framework;
+using UnityEditor.Compilation;
 
 namespace Internal.Tests
 {
@@ -48,11 +49,18 @@ namespace Internal.Tests
             return source.Substring(start, end - start);
         }
 
+        // The core is a package in a game and a folder linked into Assets in client/project of the framework:
+        // the root is found from the Internal asmdef, which is in Runtime/ of the core in both layouts.
         private static string GraphDescriptorsPath()
         {
-            var package = UnityEditor.PackageManager.PackageInfo.FindForAssetPath("Packages/com.noncasted.framework.core");
-            Assert.IsNotNull(package, "Package com.noncasted.framework.core not found");
-            var path = Path.Combine(package.resolvedPath, "Source~/ContainerGenerator/Graph/GraphDescriptors.cs");
+            var asmdef = CompilationPipeline.GetAssemblyDefinitionFilePathFromAssemblyName("Internal");
+            Assert.IsNotNull(asmdef, "Internal.asmdef not found");
+
+            var package = UnityEditor.PackageManager.PackageInfo.FindForAssetPath(asmdef);
+            var runtime = package != null
+                ? Path.Combine(package.resolvedPath, "Runtime")
+                : Path.GetDirectoryName(Path.GetFullPath(asmdef));
+            var path = Path.Combine(Path.GetDirectoryName(runtime), "Source~/ContainerGenerator/Graph/GraphDescriptors.cs");
             Assert.IsTrue(File.Exists(path), "GraphDescriptors.cs not found at " + path);
             return path;
         }

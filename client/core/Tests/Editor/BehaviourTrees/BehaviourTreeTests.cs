@@ -99,6 +99,56 @@ namespace Internal.Tests
         }
 
         [Test]
+        public void Sequence_ResetWhileFirstChildRunning_ResetsIt()
+        {
+            var resets = 0;
+            var sequence = Sequence(
+                Action(_ => BehaviourStatus.Running, () => resets++),
+                Action(_ => BehaviourStatus.Success));
+
+            Assert.AreEqual(BehaviourStatus.Running, sequence.Tick(0.1f));
+
+            sequence.Reset();
+
+            Assert.AreEqual(1, resets);
+
+            // Already dropped: not reset twice.
+            sequence.Reset();
+
+            Assert.AreEqual(1, resets);
+        }
+
+        [Test]
+        public void Selector_HigherChildInterruptsSequenceRunningItsFirstChild()
+        {
+            var resets = 0;
+            var isHigh = false;
+
+            var tree = new BehaviourTree(Selector(
+                Condition(() => isHigh),
+                Sequence(Action(_ => BehaviourStatus.Running, () => resets++))));
+
+            tree.Tick(0.1f);
+            isHigh = true;
+            tree.Tick(0.1f);
+
+            Assert.AreEqual(1, resets);
+        }
+
+        [Test]
+        public void Timeout_Reset_ResetsTheRunningChildOnce()
+        {
+            var resets = 0;
+            var timeout = Timeout(1f, Action(_ => BehaviourStatus.Running, () => resets++));
+
+            timeout.Tick(0f);
+            timeout.Reset();
+            timeout.Reset();
+
+            Assert.AreEqual(1, resets);
+        }
+
+        [Test]
         public void Action_FinishedByItself_IsNotReset()
         {
             var resets = 0;

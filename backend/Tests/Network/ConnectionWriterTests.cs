@@ -37,21 +37,21 @@ public class ConnectionWriterTests
                 var request = message.Should().BeOfType<RequestMessageFromServer>().Subject;
                 writer.OnRequestHandled(new SharedSessionLatency.Pong { Id = request.RequestId }, request.RequestId);
             }
-        });
+        }, TestContext.Current.CancellationToken);
 
         var requests = Enumerable.Range(0, count)
                                  .Select(_ => Task.Run(() => writer.WriteRequest<SharedSessionLatency.Pong>(
                                      new SharedSessionLatency.Ping())))
                                  .ToArray();
 
-        var responses = await Task.WhenAll(requests).WaitAsync(Wait);
-        await responder.WaitAsync(Wait);
+        var responses = await Task.WhenAll(requests).WaitAsync(Wait, TestContext.Current.CancellationToken);
+        await responder.WaitAsync(Wait, TestContext.Current.CancellationToken);
 
         responses.Select(r => r.Id).Should().OnlyHaveUniqueItems().And.HaveCount(count);
         writer.PendingRequestsCount.Should().Be(0);
 
         lifetime.Terminate();
-        await run.WaitAsync(Wait);
+        await run.WaitAsync(Wait, TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -68,14 +68,14 @@ public class ConnectionWriterTests
         var request = writer.WriteRequest<SharedSessionLatency.Pong>(new SharedSessionLatency.Ping());
         var sent = (RequestMessageFromServer)await socket.ReadSent(Wait);
 
-        await request.Invoking(r => r.WaitAsync(Wait)).Should().ThrowAsync<TimeoutException>();
+        await request.Invoking(r => r.WaitAsync(Wait, TestContext.Current.CancellationToken)).Should().ThrowAsync<TimeoutException>();
         writer.PendingRequestsCount.Should().Be(0);
 
         // The response after the timeout races with the removal: it must not throw.
         writer.Invoking(w => w.OnRequestHandled(new SharedSessionLatency.Pong(), sent.RequestId)).Should().NotThrow();
 
         lifetime.Terminate();
-        await run.WaitAsync(Wait);
+        await run.WaitAsync(Wait, TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -91,14 +91,14 @@ public class ConnectionWriterTests
             var request = writer.WriteRequest<SharedSessionLatency.Pong>(new SharedSessionLatency.Ping());
             var sent = (RequestMessageFromServer)await socket.ReadSent(Wait);
 
-            var respond = Task.Run(() => writer.OnRequestHandled(new SharedSessionLatency.Pong(), sent.RequestId));
+            var respond = Task.Run(() => writer.OnRequestHandled(new SharedSessionLatency.Pong(), sent.RequestId), TestContext.Current.CancellationToken);
             lifetime.Terminate();
 
-            await respond.WaitAsync(Wait);
-            await run.WaitAsync(Wait);
+            await respond.WaitAsync(Wait, TestContext.Current.CancellationToken);
+            await run.WaitAsync(Wait, TestContext.Current.CancellationToken);
 
             // Either the response or the close wins, never both and never a hang.
-            var completed = await Task.WhenAny(request, Task.Delay(Wait));
+            var completed = await Task.WhenAny(request, Task.Delay(Wait, TestContext.Current.CancellationToken));
             completed.Should().BeSameAs(request);
             request.IsCompletedSuccessfully.Should().Be(request.IsCanceled == false);
         }
@@ -116,9 +116,9 @@ public class ConnectionWriterTests
         await socket.ReadSent(Wait);
 
         lifetime.Terminate();
-        await run.WaitAsync(Wait);
+        await run.WaitAsync(Wait, TestContext.Current.CancellationToken);
 
-        await request.Invoking(r => r.WaitAsync(Wait)).Should().ThrowAsync<OperationCanceledException>();
+        await request.Invoking(r => r.WaitAsync(Wait, TestContext.Current.CancellationToken)).Should().ThrowAsync<OperationCanceledException>();
         writer.PendingRequestsCount.Should().Be(0);
 
         // Before the fix the loop left the queue open: producers on a full queue waited forever. A write to a closed
@@ -127,7 +127,7 @@ public class ConnectionWriterTests
         writer.Invoking(w => w.WriteResponse(new SharedSessionLatency.Pong(), 1)).Should().NotThrow();
 
         await writer.Invoking(w => w.WriteRequest<SharedSessionLatency.Pong>(new SharedSessionLatency.Ping())
-                                    .WaitAsync(Wait))
+                                    .WaitAsync(Wait, TestContext.Current.CancellationToken))
                     .Should().ThrowAsync<OperationCanceledException>();
     }
 
@@ -159,13 +159,13 @@ public class ConnectionWriterTests
         writer.Invoking(w => w.WriteOneWay(new SharedSessionLatency.Pong { Id = -1 })).Should().NotThrow();
 
         socket.State.Should().Be(WebSocketState.Aborted);
-        await run.WaitAsync(Wait);
+        await run.WaitAsync(Wait, TestContext.Current.CancellationToken);
 
         writer.Invoking(w => w.WriteOneWay(new SharedSessionLatency.Pong())).Should().NotThrow();
 
         // A request has nobody to answer it: it fails at once.
         await writer.Invoking(w => w.WriteRequest<SharedSessionLatency.Pong>(new SharedSessionLatency.Ping())
-                                    .WaitAsync(Wait))
+                                    .WaitAsync(Wait, TestContext.Current.CancellationToken))
                     .Should().ThrowAsync<ConnectionOverflowException>();
 
         lifetime.Terminate();
@@ -181,11 +181,11 @@ public class ConnectionWriterTests
 
         var request = writer.WriteRequest<SharedSessionLatency.Pong>(new SharedSessionLatency.Ping());
 
-        await request.Invoking(r => r.WaitAsync(Wait)).Should().ThrowAsync<WebSocketException>();
+        await request.Invoking(r => r.WaitAsync(Wait, TestContext.Current.CancellationToken)).Should().ThrowAsync<WebSocketException>();
         writer.PendingRequestsCount.Should().Be(0);
 
         lifetime.Terminate();
-        await run.WaitAsync(Wait);
+        await run.WaitAsync(Wait, TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -201,14 +201,14 @@ public class ConnectionWriterTests
 
         writer.OnRequestHandled(new ErrorResponse { Code = ErrorCode.Internal, Message = "boom" }, sent.RequestId);
 
-        var error = await request.Invoking(r => r.WaitAsync(Wait)).Should().ThrowAsync<NetworkRequestException>();
+        var error = await request.Invoking(r => r.WaitAsync(Wait, TestContext.Current.CancellationToken)).Should().ThrowAsync<NetworkRequestException>();
         error.Which.Code.Should().Be(ErrorCode.Internal);
         error.Which.RequestName.Should().Be("SharedSessionLatency.Ping");
         error.Which.Message.Should().Contain("boom");
         writer.PendingRequestsCount.Should().Be(0);
 
         lifetime.Terminate();
-        await run.WaitAsync(Wait);
+        await run.WaitAsync(Wait, TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -224,10 +224,10 @@ public class ConnectionWriterTests
 
         writer.OnRequestHandled(EmptyResponse.Ok, sent.RequestId);
 
-        await request.Invoking(r => r.WaitAsync(Wait)).Should().ThrowAsync<InvalidOperationException>();
+        await request.Invoking(r => r.WaitAsync(Wait, TestContext.Current.CancellationToken)).Should().ThrowAsync<InvalidOperationException>();
 
         lifetime.Terminate();
-        await run.WaitAsync(Wait);
+        await run.WaitAsync(Wait, TestContext.Current.CancellationToken);
     }
 
     private class FakeWebSocket : WebSocket

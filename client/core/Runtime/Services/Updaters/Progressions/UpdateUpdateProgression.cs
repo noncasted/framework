@@ -49,6 +49,9 @@ namespace Internal
     {
         public UpdateProgressionBase(IReadOnlyLifetime lifetime, IUpdater updater, float time, Action<float> callback)
         {
+            if (time < 0f)
+                throw new ArgumentOutOfRangeException(nameof(time), time, "The time of a progression is negative");
+
             _lifetime = lifetime.Child();
             _updater = updater;
             _targetTime = time;
@@ -76,7 +79,8 @@ namespace Internal
         {
             _currentTime += delta;
 
-            var progress = _currentTime / _targetTime;
+            // A progression of zero time is done on its first update: the division would give NaN and never reach 1.
+            var progress = _targetTime > 0f ? _currentTime / _targetTime : 1f;
             _callback?.Invoke(progress);
 
             if (progress >= 1f)

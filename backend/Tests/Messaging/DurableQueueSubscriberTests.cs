@@ -57,7 +57,7 @@ public class DurableQueueSubscriberTests
 
         var act = () => queue.Push(new TestMessage { Text = "should-retry" });
         await act.Should().ThrowAsync<InvalidOperationException>()
-                 .WithMessage("*No subscribers successfully processed*");
+                 .WithMessage("*1 of 1 observers*failed*");
 
         var subsequentAct = () => queue.Push(new TestMessage { Text = "still-no-subscriber" });
         await subsequentAct.Should().ThrowAsync<InvalidOperationException>()

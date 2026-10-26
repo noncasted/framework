@@ -1,0 +1,13 @@
+{
+  "ContentAssembly": "Internal.Content",
+  "ContentFolder": "Assets/Common/Internal",
+  "ModuleRoots": [],
+  "SceneFolders": [ "Assets/Common" ],
+  "ArtFolder": "",
+  "SoundsFolder": "",
+  "MusicFolder": "",
+  "FavoriteScenes": [],
+  "SharedCommonPaths": [ "Packages/", "Assets/Plugins/" ],
+  "GroupPhases": {},
+  "StrippedPlayerAssemblies": []
+}

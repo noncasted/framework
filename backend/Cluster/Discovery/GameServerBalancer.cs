@@ -30,8 +30,17 @@ public class GameServerBalancer : IGameServerBalancer
         var candidates = new List<GameServerOverview>();
         var fewest = int.MaxValue;
 
-        foreach (var server in _discovery.Entries.Values.OfType<GameServerOverview>())
+        // A crashed server stays a member until StaleThreshold and, with no sessions left, would be the first pick.
+        // The update times come from the clock of the discovery storage: compared with each other, not with the local
+        // clock.
+        var entries = _discovery.Entries.Values.ToArray();
+        var newest = entries.Length == 0 ? DateTime.MinValue : entries.Max(entry => entry.UpdateTime);
+
+        foreach (var server in entries.OfType<GameServerOverview>())
         {
+            if (newest - server.UpdateTime > ServiceDiscoveryStorage.GameServerHeartbeatTimeout)
+                continue;
+
             var count = slices.TryGetValue(server.Id, out var sessions) == true ? sessions.Count : 0;
 
             if (count > fewest)

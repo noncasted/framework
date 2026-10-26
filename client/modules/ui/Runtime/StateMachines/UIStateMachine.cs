@@ -25,6 +25,9 @@ namespace Global.UI
 
         private IUIState _stackHead;
 
+        // The stacked states that live, in the order they were stacked.
+        private readonly List<UIStateHandle> _stack = new();
+
         private readonly IInputConstraintsStorage _constraintsStorage;
         private readonly Dictionary<IUIState, IInternalUIStateHandle> _handles;
 
@@ -49,9 +52,16 @@ namespace Global.UI
             Add(state, childHandle);
             headHandle.OnStacked(childHandle);
 
-            var currentHead = _stackHead;
+            // The head is the newest stacked state that lives: the stacked states close in any order (one under
+            // another first, with its stacked children), and a head restored to the one captured at the start was
+            // a state already gone.
+            _stack.Add(childHandle);
             _stackHead = state;
-            childHandle.InnerLifetime.Listen(() => _stackHead = currentHead);
+
+            childHandle.InnerLifetime.Listen(() => {
+                _stack.Remove(childHandle);
+                _stackHead = _stack.Count > 0 ? _stack[_stack.Count - 1].State : Base;
+            });
 
             return childHandle;
         }

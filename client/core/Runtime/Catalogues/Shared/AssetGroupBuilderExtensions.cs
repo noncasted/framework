@@ -18,11 +18,13 @@ namespace Internal
         // Construct runs before the build events, so a group used while registering must be loaded right away.
         // The segment is concurrent: groups load in a batch via WhenAll, and a stacked
         // Scope would nest the siblings into each other instead of a flat list.
+        // The release is registered before the load: a retain counts from the call, a failed one is released too.
         public static async UniTask LoadAssetGroup(this IScopeBuilder builder, AssetGroup group, string label)
         {
+            builder.Events.AddAfterDispose(() => ReleaseAsync(group));
+
             await GameProfiler.Concurrent($"{label}: {group.Name}").Track(group.Retain());
 
-            builder.Events.AddAfterDispose(() => ReleaseAsync(group));
             ContainerRegistryDebug.RecordLoadedAsset(builder.Lifetime, label, group.Name);
         }
 

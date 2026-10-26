@@ -62,16 +62,21 @@ namespace Internal
             }
         }
 
+        // The socket of the same backend: only the scheme of Url changes (http -> ws, https -> wss), whichever
+        // environment is targeted.
         public string SocketUrl
         {
             get
             {
-                return _environment switch
-                {
-                    BackendEnvironment.Local => Url.Replace("http", "ws"),
-                    BackendEnvironment.Production => Url.Replace("https", "wss"),
-                    _ => throw new ArgumentOutOfRangeException()
-                };
+                var url = Url;
+
+                if (url.StartsWith("https://", StringComparison.Ordinal) == true)
+                    return "wss://" + url.Substring("https://".Length);
+
+                if (url.StartsWith("http://", StringComparison.Ordinal) == true)
+                    return "ws://" + url.Substring("http://".Length);
+
+                throw new InvalidOperationException("The backend url has no http or https scheme: " + url);
             }
         }
     }

@@ -14,16 +14,16 @@ public class MovedTypesBinder : DefaultSerializationBinder
 
     public override Type BindToType(string? assemblyName, string typeName)
     {
-        return Cache.GetOrAdd((assemblyName, typeName), key => Resolve(key.Assembly, key.Type));
+        return Cache.GetOrAdd((assemblyName, typeName),
+            key => Resolve(key.Assembly == null ? key.Type : $"{key.Type}, {key.Assembly}"));
     }
 
-    private static Type Resolve(string? assemblyName, string typeName)
+    // An assembly-qualified name stored outside Json.NET (the event payloads of EventStorage), resolved the same way.
+    public static Type Resolve(string qualifiedName)
     {
-        var qualified = assemblyName == null ? typeName : $"{typeName}, {assemblyName}";
-
-        return Type.GetType(qualified, LoadedAssembly, FindType, throwOnError: false)
+        return Type.GetType(qualifiedName, LoadedAssembly, FindType, throwOnError: false)
                ?? throw new Newtonsoft.Json.JsonSerializationException(
-                   $"Could not resolve type '{qualified}': it is in no loaded assembly");
+                   $"Could not resolve type '{qualifiedName}': it is in no loaded assembly");
     }
 
     private static Assembly LoadedAssembly(AssemblyName name)

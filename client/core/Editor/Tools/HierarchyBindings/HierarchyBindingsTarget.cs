@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -10,6 +11,8 @@ namespace Internal
     // A domain reload happens between writing the code and filling the references, so the object
     // has to be described with strings and found again. A prefab is opened as contents:
     // this way the edit goes into the asset itself, not into an override in the open scene.
+    // The object is found by sibling indices: names repeat among siblings (two Panel children) and may contain '/',
+    // which Transform.Find takes for a separator.
     internal sealed class HierarchyBindingsTarget : IDisposable
     {
         public GameObject Root { get; private set; }
@@ -34,7 +37,7 @@ namespace Internal
 
             if (stage != null)
             {
-                if (TryBuildPath(target.transform, stage.prefabContentsRoot.transform, out objectPath) == false)
+                if (TryBuildIndexPath(target.transform, stage.prefabContentsRoot.transform, out objectPath) == false)
                 {
                     error = "Object is outside the prefab being edited.";
                     return false;
@@ -50,7 +53,7 @@ namespace Internal
                 var root = target.transform.root;
                 assetPath = AssetDatabase.GetAssetPath(root.gameObject);
                 isPrefabAsset = true;
-                return TryBuildPath(target.transform, root, out objectPath);
+                return TryBuildIndexPath(target.transform, root, out objectPath);
             }
 
             if (target.scene.IsValid() == false || string.IsNullOrEmpty(target.scene.path))
@@ -60,7 +63,7 @@ namespace Internal
             }
 
             assetPath = target.scene.path;
-            return TryBuildPath(target.transform, null, out objectPath);
+            return TryBuildIndexPath(target.transform, null, out objectPath);
         }
 
         public static HierarchyBindingsTarget Resolve(HierarchyBindingsRequest request, out string error)
@@ -68,9 +71,50 @@ namespace Internal
             error = string.Empty;
 
             if (request.IsPrefabAsset)
-                return ResolvePrefab(request.AssetPath, request.ObjectPath, out error);
+                return ResolvePrefab(request.AssetPath, request.ObjectPath, request.ObjectNames, out error);
 
             return ResolveScene(request, out error);
+        }
+
+        // The names from the top of the hierarchy, for messages.
+        public static string NamePath(GameObject target)
+        {
+            var names = new List<string>();
+
+            for (var current = target.transform; current != null; current = current.parent)
+                names.Add(current.name);
+
+            names.Reverse();
+            return string.Join("/", names);
+        }
+
+        // Sibling indices from the root (excluded) down to the target.
+        public static string IndexPath(Transform target, Transform root)
+        {
+            if (TryBuildIndexPath(target, root, out var path) == false)
+                throw new InvalidOperationException($"'{target.name}' is not under '{root.name}'.");
+
+            return path;
+        }
+
+        public static Transform FindByIndexPath(Transform root, string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return root;
+
+            var current = root;
+
+            foreach (var segment in path.Split('/'))
+            {
+                var index = int.Parse(segment, CultureInfo.InvariantCulture);
+
+                if (index >= current.childCount)
+                    return null;
+
+                current = current.GetChild(index);
+            }
+
+            return current;
         }
 
         // The target to scan in the code generation phase. An object in a prefab stage or in a scene is
@@ -87,7 +131,7 @@ namespace Internal
             error = string.Empty;
 
             if (isPrefabAsset && PrefabUtility.IsPartOfPrefabAsset(target))
-                return ResolvePrefab(assetPath, objectPath, out error);
+                return ResolvePrefab(assetPath, objectPath, NamePath(target), out error);
 
             return new HierarchyBindingsTarget
             {
@@ -117,7 +161,11 @@ namespace Internal
             _loadedContents = null;
         }
 
-        private static HierarchyBindingsTarget ResolvePrefab(string assetPath, string objectPath, out string error)
+        private static HierarchyBindingsTarget ResolvePrefab(
+            string assetPath,
+            string objectPath,
+            string objectNames,
+            out string error)
         {
             error = string.Empty;
 
@@ -125,11 +173,11 @@ namespace Internal
 
             if (stage != null && stage.assetPath == assetPath)
             {
-                var staged = FindChild(stage.prefabContentsRoot.transform, objectPath);
+                var staged = FindByIndexPath(stage.prefabContentsRoot.transform, objectPath);
 
                 if (staged == null)
                 {
-                    error = $"'{objectPath}' is missing in the open prefab stage.";
+                    error = $"'{objectNames}' is missing in the open prefab stage.";
                     return null;
                 }
 
@@ -150,12 +198,12 @@ namespace Internal
                 return null;
             }
 
-            var found = FindChild(contents.transform, objectPath);
+            var found = FindByIndexPath(contents.transform, objectPath);
 
             if (found == null)
             {
                 PrefabUtility.UnloadPrefabContents(contents);
-                error = $"'{objectPath}' is missing in {assetPath}.";
+                error = $"'{objectNames}' is missing in {assetPath}.";
                 return null;
             }
 
@@ -180,66 +228,54 @@ namespace Internal
             }
 
             var separator = request.ObjectPath.IndexOf('/');
-            var rootName = separator < 0 ? request.ObjectPath : request.ObjectPath.Substring(0, separator);
+            var rootIndex = int.Parse(separator < 0 ? request.ObjectPath : request.ObjectPath.Substring(0, separator),
+                CultureInfo.InvariantCulture);
             var rest = separator < 0 ? string.Empty : request.ObjectPath.Substring(separator + 1);
+            var roots = scene.GetRootGameObjects();
+            var found = rootIndex < roots.Length ? FindByIndexPath(roots[rootIndex].transform, rest) : null;
 
-            foreach (var sceneRoot in scene.GetRootGameObjects())
+            if (found == null)
             {
-                if (sceneRoot.name != rootName)
-                    continue;
-
-                var found = FindChild(sceneRoot.transform, rest);
-
-                if (found == null)
-                    continue;
-
-                return new HierarchyBindingsTarget
-                {
-                    Root = found.gameObject,
-                    _assetPath = request.AssetPath,
-                    _scene = scene
-                };
+                error = $"'{request.ObjectNames}' is missing in {request.AssetPath}.";
+                return null;
             }
 
-            error = $"'{request.ObjectPath}' is missing in {request.AssetPath}.";
-            return null;
+            return new HierarchyBindingsTarget
+            {
+                Root = found.gameObject,
+                _assetPath = request.AssetPath,
+                _scene = scene
+            };
         }
 
-        // The path is built from the given root; for a scene there is no root and the path goes to the very top.
-        private static bool TryBuildPath(Transform target, Transform root, out string path)
+        // The path is built from the given root; for a scene there is no root and the path goes to the very top,
+        // where the sibling index of a root object is its index among the roots of the scene.
+        private static bool TryBuildIndexPath(Transform target, Transform root, out string path)
         {
             path = string.Empty;
 
-            var names = new List<string>();
+            var indices = new List<string>();
             var current = target;
 
             while (current != null)
             {
                 if (current == root)
                 {
-                    names.Reverse();
-                    path = string.Join("/", names);
+                    indices.Reverse();
+                    path = string.Join("/", indices);
                     return true;
                 }
 
-                names.Add(current.name);
+                indices.Add(current.GetSiblingIndex().ToString(CultureInfo.InvariantCulture));
                 current = current.parent;
             }
 
             if (root != null)
                 return false;
 
-            names.Reverse();
-            path = string.Join("/", names);
+            indices.Reverse();
+            path = string.Join("/", indices);
             return true;
-        }
-
-        private static Transform FindChild(Transform root, string path)
-        {
-            if (string.IsNullOrEmpty(path))
-                return root;
-
-            return root.Find(path);
         }
     }
 }

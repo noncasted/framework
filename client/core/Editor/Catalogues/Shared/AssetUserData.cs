@@ -2,7 +2,6 @@ using System;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
-using UnityEngine;
 
 namespace Internal
 {
@@ -22,21 +21,11 @@ namespace Internal
             if (string.IsNullOrWhiteSpace(userData))
                 return false;
 
-            try
-            {
-                var root = JObject.Parse(userData);
-
-                if (root[key] is not JObject catalog)
-                    return false;
-
-                payload = catalog;
-                return true;
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError($"[{logTag}] Failed to read userData at {importer.assetPath}: {exception}");
+            if (Parse(importer, logTag)[key] is not JObject catalog)
                 return false;
-            }
+
+            payload = catalog;
+            return true;
         }
 
         // Returns true if userData actually changed.
@@ -60,43 +49,39 @@ namespace Internal
             if (payload == null)
                 throw new ArgumentNullException(nameof(payload));
 
-            try
-            {
-                var nextUserData = Merge(importer.userData, key, payload);
+            var root = string.IsNullOrWhiteSpace(importer.userData) ? new JObject() : Parse(importer, logTag);
+            root[key] = payload;
 
-                if (importer.userData == nextUserData)
-                    return false;
+            var nextUserData = root.ToString(Formatting.Indented);
 
-                importer.userData = nextUserData;
-                return true;
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError($"[{logTag}] Failed to write userData at {importer.assetPath}: {exception}");
+            if (importer.userData == nextUserData)
                 return false;
-            }
+
+            importer.userData = nextUserData;
+            return true;
         }
 
-        private static string Merge(string userData, string key, JObject payload)
+        // userData that is not a JSON object (a merge conflict, another tool's text) cannot be read as catalog
+        // markup and must not be overwritten by it: the asset would silently leave its catalogue or lose that data.
+        private static JObject Parse(AssetImporter importer, string logTag)
         {
-            JObject root;
+            JToken parsed;
 
-            if (string.IsNullOrWhiteSpace(userData))
+            try
             {
-                root = new JObject();
+                parsed = JToken.Parse(importer.userData);
             }
-            else
+            catch (JsonException exception)
             {
-                var parsed = JToken.Parse(userData);
-
-                if (parsed is not JObject parsedObject)
-                    throw new InvalidOperationException("userData is not a JSON object");
-
-                root = parsedObject;
+                throw new InvalidOperationException(
+                    $"[{logTag}] userData of {importer.assetPath} is not valid json. Fix its .meta.", exception);
             }
 
-            root[key] = payload;
-            return root.ToString(Formatting.Indented);
+            if (parsed is not JObject root)
+                throw new InvalidOperationException(
+                    $"[{logTag}] userData of {importer.assetPath} is not a JSON object. Fix its .meta.");
+
+            return root;
         }
     }
 }

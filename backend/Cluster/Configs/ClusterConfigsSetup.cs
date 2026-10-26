@@ -54,29 +54,25 @@ public static class ConfigsInitializer
         return Init(jsonPath, storage, new T(), logger);
     }
 
+    // No catch: a config that failed to initialize stops the coordinator setup instead of running with the default.
     public static async Task Init<T>(string jsonPath, IAddressableState<T> storage, T defaultValue, ILogger logger)
         where T : class, new()
     {
-        try
+        if (storage.IsInitialized == true)
+            return;
+
+        var configPath = Path.Combine(AppContext.BaseDirectory, $"{jsonPath}.json");
+
+        if (File.Exists(configPath) == false)
         {
-            if (storage.IsInitialized == true)
-                return;
-
-            var configPath = Path.Combine(AppContext.BaseDirectory, $"{jsonPath}.json");
-
-            if (File.Exists(configPath) == false)
-            {
-                await storage.SetValue(defaultValue);
-                return;
-            }
-
-            var json = await File.ReadAllTextAsync(configPath);
-            var value = JsonUtils.Deserialize<T>(json).ThrowIfNull();
-            await storage.SetValue(value);
+            await storage.SetValue(defaultValue);
+            return;
         }
-        catch (Exception e)
-        {
-            logger.LogError(e, "[ConfigsInitializer] Failed to load config {JsonPath}", jsonPath);
-        }
+
+        logger.LogInformation("[ConfigsInitializer] Seeding config {JsonPath} from {ConfigPath}", jsonPath, configPath);
+
+        var json = await File.ReadAllTextAsync(configPath);
+        var value = JsonUtils.Deserialize<T>(json).ThrowIfNull();
+        await storage.SetValue(value);
     }
 }

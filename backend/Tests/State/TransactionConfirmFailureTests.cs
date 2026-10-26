@@ -44,7 +44,7 @@ public class TransactionConfirmFailureTests
 
         // Without the release in GrainTransactionHandler.OnSuccess the second Join waits LockWaitSeconds and throws.
         var second = transactions.Run(() => grain.Write(2));
-        var completed = await Task.WhenAny(second, Task.Delay(TimeSpan.FromSeconds(3)));
+        var completed = await Task.WhenAny(second, Task.Delay(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken));
 
         completed.Should().BeSameAs(second);
         (await second).IsSuccess.Should().BeTrue();

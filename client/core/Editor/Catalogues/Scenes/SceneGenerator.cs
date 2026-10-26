@@ -1,14 +1,21 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEngine;
 
 namespace Internal
 {
+    [NoAutoStaticsCleanup]
     public static class SceneGenerator
     {
         private static IReadOnlyList<string> SearchFolders => FrameworkSettings.SceneFolders;
+
+        // Like the other catalogues: nothing is written or imported while the domain loads, the run waits for the
+        // first editor tick and for the end of an import or a compilation.
+        private static readonly CatalogGenerationRunner Runner = new("SceneGenerator", Generate);
 
         [InitializeOnLoadMethod]
         private static void OnEditorReload()
@@ -17,28 +24,59 @@ namespace Internal
                 return;
 
             // Build Settings scenes do not go into Addressables, so their list is also a generation input.
-            EditorBuildSettings.sceneListChanged += Generate;
-            Generate();
+            EditorBuildSettings.sceneListChanged += Runner.Schedule;
+            Runner.RunDelayed();
+        }
+
+        // A scene added, deleted or moved in a scene folder (SceneCatalogPostprocessor).
+        public static void ScheduleGenerate()
+        {
+            Runner.Schedule();
+        }
+
+        public static bool IsSceneInput(string assetPath)
+        {
+            if (string.IsNullOrEmpty(assetPath) ||
+                assetPath.EndsWith(".unity", StringComparison.OrdinalIgnoreCase) == false)
+                return false;
+
+            foreach (var folder in SearchFolders)
+            {
+                if (assetPath.StartsWith(folder + "/", StringComparison.Ordinal))
+                    return true;
+            }
+
+            return false;
         }
 
         [MenuItem(FrameworkMenu.Codegen + "Scenes", priority = FrameworkMenu.TrailingPriority)]
         public static void Generate()
         {
+            Generate(SearchFolders, scenes =>
+            {
+                ScenesClassGenerator.Generate(scenes);
+                ScenesAddressablesSync.Sync(scenes);
+                Debug.Log($"[SceneGenerator] Found {scenes.Count} scene(s).");
+            });
+        }
+
+        internal static void Generate(
+            IReadOnlyList<string> searchFolders,
+            Action<List<(string sceneName, string sceneGuid)>> write)
+        {
             var folders = new List<string>();
 
-            foreach (var folder in SearchFolders)
+            foreach (var folder in searchFolders)
             {
                 if (AssetDatabase.IsValidFolder(folder))
                     folders.Add(folder);
             }
 
-            if (folders.Count == 0)
-                return;
-
-            var guids = AssetDatabase.FindAssets("t:SceneAsset", folders.ToArray());
-
-            if (guids.Length == 0)
-                return;
+            // No folder or no scene left is a catalogue too: an empty one, otherwise the members of the deleted
+            // scenes stay in Scenes.cs.
+            var guids = folders.Count > 0
+                ? AssetDatabase.FindAssets("t:SceneAsset", folders.ToArray())
+                : Array.Empty<string>();
 
             var scenes = new List<(string sceneName, string sceneGuid)>();
 
@@ -50,12 +88,7 @@ namespace Internal
                 scenes.Add((sceneName, guid));
             }
 
-            if (scenes.Count > 0)
-            {
-                ScenesClassGenerator.Generate(scenes);
-                ScenesAddressablesSync.Sync(scenes);
-                Debug.Log($"[SceneGenerator] Found {scenes.Count} scene(s).");
-            }
+            write(scenes);
         }
 
         private static string SanitizeSceneName(string fileName)
