@@ -22,6 +22,10 @@ namespace Global.Inputs
         bool IsBackPressed { get; }
         bool IsPausePressed { get; }
 
+        // The same signal as an event: once a frame of a press, at its start (the pre update), Pause when IsPausePressed
+        // is true in this frame, otherwise Back.
+        IEventSource<BackInputKind> Pressed { get; }
+
         // Something a back closes is open (a window, the pause, a panel): it holds a target while it is open.
         // The Telegram BackButton is shown while there is any. ListenBack adds one by itself.
         IViewableProperty<bool> HasTargets { get; }
@@ -41,6 +45,7 @@ namespace Global.Inputs
         private readonly IUpdater _updater;
         private readonly IGamepadReader _gamepad;
         private readonly ViewableProperty<bool> _hasTargets = new(false);
+        private readonly EventSource<BackInputKind> _pressed = new();
 
         // Pressed through Press: waits for the next pre update, then lives for the frame.
         private bool _pendingBack;
@@ -56,6 +61,7 @@ namespace Global.Inputs
             IsPausePressed == true || _pressedBack == true || _gamepad.WasPressed(GamepadButton.B) == true;
 
         public IViewableProperty<bool> HasTargets => _hasTargets;
+        public IEventSource<BackInputKind> Pressed => _pressed;
 
         public void OnSetup(IReadOnlyLifetime lifetime)
         {
@@ -88,6 +94,11 @@ namespace Global.Inputs
             _pressedPause = _pendingPause;
             _pendingBack = false;
             _pendingPause = false;
+
+            if (IsPausePressed == true)
+                _pressed.Invoke(BackInputKind.Pause);
+            else if (IsBackPressed == true)
+                _pressed.Invoke(BackInputKind.Back);
         }
     }
 }
