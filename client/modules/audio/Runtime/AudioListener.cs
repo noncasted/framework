@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Global.Audio
 {
     [DisallowMultipleComponent]
-    [RequireComponent(typeof(AudioListener))]
+    [RequireComponent(typeof(UnityEngine.AudioListener))]
     public class AudioListener :
         MonoBehaviour,
         IScopeBaseSetup
