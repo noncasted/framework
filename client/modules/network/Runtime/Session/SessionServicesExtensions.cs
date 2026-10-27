@@ -76,6 +76,10 @@
 
             void AddLatencyServices()
             {
+                // Set by the entry of a P2P match (its host, the routes of the guests), read by the monitor.
+                builder.Register<PeerMatch>()
+                       .As<IPeerMatch>();
+
                 builder.Register<NetworkLatencyMonitor>()
                        .As<INetworkLatencyMonitor>()
                        .As<IScopeSetup>();

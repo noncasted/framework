@@ -95,24 +95,32 @@ namespace Internal.Tests
                 // The host: the session of the game under the id of the server session.
                 var game = new LocalSessionServer(lifetime, "offline://game");
                 game.Create(match.Id, SessionType.Match, 3, _ => Array.Empty<IService>());
-                new PeerHost(hostControl, game, Options()).Run(lifetime);
+                var hostMatch = new PeerMatch();
+                hostMatch.SetHost(hostControl.LocalIndex);
+                new PeerHost(hostControl, game, hostMatch, Options()).Run(lifetime);
 
                 var host = new Client(lifetime, new LoopbackWebSocket("offline://game", game, lifetime));
                 await host.Connect();
                 await host.Authorize(Ticket(match.Id, hostControl));
 
-                var directSocket = new PeerHostSocket(directControl, hostControl.LocalIndex, Options(), true, lifetime);
+                var directMatch = new PeerMatch();
+                var directSocket = new PeerHostSocket(directControl, hostControl.LocalIndex, directMatch, Options(), true, lifetime);
                 var direct = new Client(lifetime, directSocket);
                 await directSocket.Connect();
                 await direct.Authorize(Ticket(match.Id, directControl));
 
-                var tunnelSocket = new PeerHostSocket(tunnelControl, hostControl.LocalIndex, Options(), false, tunnelLifetime);
+                var tunnelMatch = new PeerMatch();
+                var tunnelSocket = new PeerHostSocket(tunnelControl, hostControl.LocalIndex, tunnelMatch, Options(), false, tunnelLifetime);
                 var tunnel = new Client(tunnelLifetime, tunnelSocket);
                 await tunnelSocket.Connect();
                 await tunnel.Authorize(Ticket(match.Id, tunnelControl));
 
                 Assert.AreEqual(PeerRoute.Direct, directSocket.Route);
                 Assert.AreEqual(PeerRoute.Tunnel, tunnelSocket.Route);
+                Assert.AreEqual(PeerRoute.Direct, directMatch.Routes[2]);
+                Assert.AreEqual(PeerRoute.Tunnel, tunnelMatch.Routes[3]);
+                Assert.AreEqual(PeerRoute.Direct, hostMatch.Routes[2]);
+                Assert.AreEqual(PeerRoute.Tunnel, hostMatch.Routes[3]);
                 Assert.AreEqual(2, (await direct.WaitOneWay<SharedSessionPlayer.LocalUpdate>()).Index);
                 Assert.AreEqual(3, (await tunnel.WaitOneWay<SharedSessionPlayer.LocalUpdate>()).Index);
 

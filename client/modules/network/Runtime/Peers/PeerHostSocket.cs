@@ -12,12 +12,14 @@ namespace Internal
         public PeerHostSocket(
             ISessionControl control,
             int hostIndex,
+            IPeerMatch match,
             WebRtcPeerOptions options,
             bool isDirectAllowed,
             IReadOnlyLifetime lifetime)
         {
             _control = control;
             _hostIndex = hostIndex;
+            _match = match;
             _options = options;
             _isDirectAllowed = isDirectAllowed;
             _lifetime = lifetime.Child();
@@ -25,6 +27,7 @@ namespace Internal
 
         private readonly ISessionControl _control;
         private readonly int _hostIndex;
+        private readonly IPeerMatch _match;
         private readonly WebRtcPeerOptions _options;
         private readonly bool _isDirectAllowed;
         private readonly ILifetime _lifetime;
@@ -53,6 +56,7 @@ namespace Internal
             }
 
             Debug.Log($"[Network] [Peers] Connected to the host {_hostIndex}: {Route}");
+            _match.SetRoute(_control.LocalIndex, Route);
         }
 
         public UniTask Send(byte[] bytes)

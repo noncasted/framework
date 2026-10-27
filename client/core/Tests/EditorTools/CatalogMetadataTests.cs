@@ -136,13 +136,14 @@ namespace Internal.EditorTests
             return path;
         }
 
-        // The shortest PCM wav: one channel, 8 bits, two samples.
+        // A short PCM wav: one channel, 8 bits, 0.1 s of silence. The AudioImporter fails on a clip of a few samples.
         private static string MakeWav(string name)
         {
             EnsureFolder();
 
             var path = $"{TempFolder}/{name}.wav";
-            var data = new byte[] { 128, 128 };
+            var data = new byte[800];
+            Array.Fill(data, (byte)128);
 
             using (var writer = new BinaryWriter(File.Create(CatalogPaths.ToFullPath(path))))
             {

@@ -8,15 +8,17 @@ namespace Internal
     // frame of a guest without a direct connection).
     public class PeerHost
     {
-        public PeerHost(ISessionControl control, LocalSessionServer server, WebRtcPeerOptions options)
+        public PeerHost(ISessionControl control, LocalSessionServer server, IPeerMatch match, WebRtcPeerOptions options)
         {
             _control = control;
             _server = server;
+            _match = match;
             _options = options;
         }
 
         private readonly ISessionControl _control;
         private readonly LocalSessionServer _server;
+        private readonly IPeerMatch _match;
         private readonly WebRtcPeerOptions _options;
 
         public void Run(IReadOnlyLifetime lifetime)
@@ -44,6 +46,7 @@ namespace Internal
             }
 
             Debug.Log($"[Network] [Peers] Guest {index} connected directly");
+            _match.SetRoute(index, PeerRoute.Direct);
 
             // A lost channel ends the attempt: a returning guest negotiates anew.
             socket.Closed.Advise(attempt, _ => attempt.Terminate());
@@ -53,6 +56,7 @@ namespace Internal
         private void AcceptTunnel(IReadOnlyLifetime lifetime, int index)
         {
             Debug.Log($"[Network] [Peers] Guest {index} connects through the tunnel");
+            _match.SetRoute(index, PeerRoute.Tunnel);
             _server.AcceptSocket(lifetime, _control.Tunnels.Open(lifetime, index));
         }
     }

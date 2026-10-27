@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Text;
 using Cysharp.Threading.Tasks;
 using Shared;
@@ -22,14 +23,17 @@ namespace Internal
     /// Measures a session: the round trip to the backend (ping), the loop to every other client through the backend
     /// split into the local leg and the leg of the other client (see SharedSessionLatency), the frame time (the
     /// writer sends once a frame and a received message is applied in the frame it arrives) and the traffic.
-    /// Shown by NetworkLatencyOverlay (N) and logged every few seconds.
+    /// Shown by NetworkLatencyOverlay (N) and logged every few seconds. In a P2P match (IPeerMatch) the session is on
+    /// the client of the host: the probes go through the host, so the host shows the legs to its guests, a guest its
+    /// leg to the host and the loops to the other guests through the host.
     /// </summary>
     public class NetworkLatencyMonitor : INetworkLatencyMonitor, IScopeSetup
     {
-        public NetworkLatencyMonitor(INetworkConnection connection, INetworkSession session)
+        public NetworkLatencyMonitor(INetworkConnection connection, INetworkSession session, IPeerMatch peerMatch)
         {
             _connection = connection;
             _session = session;
+            _peerMatch = peerMatch;
         }
 
         private const float ProbeInterval = 0.5f;
@@ -45,6 +49,7 @@ namespace Internal
 
         private readonly INetworkConnection _connection;
         private readonly INetworkSession _session;
+        private readonly IPeerMatch _peerMatch;
 
         private readonly Dictionary<int, double> _pendingPings = new();
         private readonly Dictionary<int, double> _pendingProbes = new();
@@ -236,25 +241,17 @@ namespace Internal
 
         private void BuildReport()
         {
-            var now = Time.realtimeSinceStartupAsDouble;
+            var localIndex = _session.LocalIndex();
+            var hostIndex = _peerMatch.HostIndex;
 
             _builder.Clear();
-            _builder.Append($"Network (you: user {_session.LocalIndex()}), ms\n");
-            _builder.Append($"Ping to server: {_ping.Format()}, lost {_lostPings}\n");
 
-            // Not one pong yet: a backend without the latency commands drops the probes as unknown messages.
-            if (_ping.Count == 0 && _lostPings > 0)
-                _builder.Append("Server does not answer: is the backend deployed with the latency commands?\n");
-
-            foreach (var (index, peer) in _peers)
-            {
-                var silence = now - peer.LastEchoAt;
-                var stale = silence > ProbeTimeout ? $" NO ECHO {silence:0}s" : string.Empty;
-
-                _builder.Append($"User {index}: loop {peer.Loop.Format()}{stale}\n");
-                _builder.Append($"  you <-> server {peer.OurLeg.Format()}\n");
-                _builder.Append($"  server <-> user {index} {peer.TheirLeg.Format()}, their ping {peer.TheirPing:0}\n");
-            }
+            if (hostIndex == 0)
+                AppendServerReport(localIndex);
+            else if (hostIndex == localIndex)
+                AppendHostReport(localIndex);
+            else
+                AppendGuestReport(localIndex, hostIndex);
 
             if (_peers.Count == 0)
                 _builder.Append("No other users answered yet\n");
@@ -264,6 +261,75 @@ namespace Internal
             _builder.Append($"In: {_receivedPerSecond:0} msg/s, {_receivedBytesPerSecond / 1024f:0.0} KB/s");
 
             Report = _builder.ToString();
+        }
+
+        private void AppendServerReport(int localIndex)
+        {
+            _builder.Append($"Network (you: user {localIndex}), ms\n");
+            _builder.Append($"Ping to server: {_ping.Format()}, lost {_lostPings}\n");
+
+            // Not one pong yet: a backend without the latency commands drops the probes as unknown messages.
+            if (_ping.Count == 0 && _lostPings > 0)
+                _builder.Append("Server does not answer: is the backend deployed with the latency commands?\n");
+
+            foreach (var (index, peer) in _peers)
+            {
+                _builder.Append($"User {index}: loop {peer.Loop.Format()}{FormatStale(peer)}\n");
+                _builder.Append($"  you <-> server {peer.OurLeg.Format()}\n");
+                _builder.Append($"  server <-> user {index} {peer.TheirLeg.Format()}, their ping {peer.TheirPing:0}\n");
+            }
+        }
+
+        // The session is in this process: the ping and the own leg of a probe are the loopback, the leg of a guest is
+        // the connection to it.
+        private void AppendHostReport(int localIndex)
+        {
+            _builder.Append($"Network (you: user {localIndex}, P2P host), ms\n");
+
+            foreach (var (index, peer) in _peers)
+            {
+                var route = FormatRoute(_peerMatch.Routes[index]);
+                _builder.Append($"User {index}: you <-> user {index} {peer.TheirLeg.Format()}, {route}{FormatStale(peer)}\n");
+            }
+        }
+
+        // The session is on the host: the own leg of a probe is the connection to the host, the leg of the host is its
+        // loopback, the leg of another guest is the connection of the host to it.
+        private void AppendGuestReport(int localIndex, int hostIndex)
+        {
+            var route = FormatRoute(_peerMatch.Routes[localIndex]);
+
+            _builder.Append($"Network (you: user {localIndex}, P2P guest of user {hostIndex}, {route}), ms\n");
+            _builder.Append($"Ping to host: {_ping.Format()}, lost {_lostPings}\n");
+
+            foreach (var (index, peer) in _peers)
+            {
+                if (index == hostIndex)
+                {
+                    _builder.Append($"User {index} (host): you <-> user {index} {peer.OurLeg.Format()}{FormatStale(peer)}\n");
+                    continue;
+                }
+
+                _builder.Append($"User {index}: loop {peer.Loop.Format()}{FormatStale(peer)}\n");
+                _builder.Append($"  you <-> host {peer.OurLeg.Format()}\n");
+                _builder.Append($"  host <-> user {index} {peer.TheirLeg.Format()}\n");
+            }
+        }
+
+        private static string FormatRoute(PeerRoute route)
+        {
+            return route switch
+            {
+                PeerRoute.Direct => "direct",
+                PeerRoute.Tunnel => "tunnel via server",
+                _ => throw new ArgumentOutOfRangeException(nameof(route), route, "[Network] [Latency] No route")
+            };
+        }
+
+        private static string FormatStale(PeerStats peer)
+        {
+            var silence = Time.realtimeSinceStartupAsDouble - peer.LastEchoAt;
+            return silence > ProbeTimeout ? $" NO ECHO {silence:0}s" : string.Empty;
         }
 
         private static float ElapsedMs(double sentAt)
