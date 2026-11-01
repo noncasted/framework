@@ -17,13 +17,7 @@ namespace Game.Session
             _lifetime = lifetime;
             Log = log;
 
-            Data = new SessionData
-            {
-                Id = id,
-                Type = type,
-                Lifetime = lifetime,
-                ExpectedUsers = 0
-            };
+            Data = new SessionData(type, 0, id, lifetime);
 
             Users = new SessionUsers();
             Seats = new SessionSeats(Users, Data);

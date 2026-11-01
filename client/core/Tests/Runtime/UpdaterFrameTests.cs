@@ -26,13 +26,13 @@ namespace Internal.Tests
 
             _reported = new List<Exception>();
             _previousHandler = ReactiveExceptions.Handler;
-            ReactiveExceptions.Handler = _reported.Add;
+            ReactiveExceptions.SetHandler(_reported.Add);
         }
 
         [TearDown]
         public void TearDown()
         {
-            ReactiveExceptions.Handler = _previousHandler;
+            ReactiveExceptions.SetHandler(_previousHandler);
             _lifetime.Terminate();
             Object.Destroy(_object);
         }

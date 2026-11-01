@@ -59,7 +59,7 @@ namespace Internal
         [UnityEditor.InitializeOnLoadMethod]
         private static void Install()
         {
-            LifetimeTracker.Current = new Tracker();
+            LifetimeTracker.Install(new Tracker());
         }
 
         private const int MaxStackLines = 12;

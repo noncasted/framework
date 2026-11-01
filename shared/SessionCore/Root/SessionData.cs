@@ -16,9 +16,17 @@ namespace Game.Session
 
     public class SessionData : ISessionData
     {
-        public SessionType Type { get; set; }
-        public int ExpectedUsers { get; set; }
-        public Guid Id { get; set; }
-        public IReadOnlyLifetime Lifetime { get; set; }
+        public SessionData(SessionType type, int expectedUsers, Guid id, IReadOnlyLifetime lifetime)
+        {
+            Type = type;
+            ExpectedUsers = expectedUsers;
+            Id = id;
+            Lifetime = lifetime;
+        }
+
+        public SessionType Type { get; }
+        public int ExpectedUsers { get; }
+        public Guid Id { get; }
+        public IReadOnlyLifetime Lifetime { get; }
     }
 }

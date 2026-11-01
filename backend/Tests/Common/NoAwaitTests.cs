@@ -11,7 +11,7 @@ public class NoAwaitTests : IDisposable
     public NoAwaitTests()
     {
         _previous = NoAwaitExceptions.Handler;
-        NoAwaitExceptions.Handler = e => _reported.Add(e);
+        NoAwaitExceptions.SetHandler(e => _reported.Add(e));
     }
 
     private readonly Action<Exception>? _previous;
@@ -19,7 +19,7 @@ public class NoAwaitTests : IDisposable
 
     public void Dispose()
     {
-        NoAwaitExceptions.Handler = _previous;
+        NoAwaitExceptions.SetHandler(_previous);
     }
 
     [Fact]

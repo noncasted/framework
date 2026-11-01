@@ -36,18 +36,11 @@ public class DurableQueue : Grain, IDurableQueue
     {
         if (_observers.TryGetValue(id, out var data) == false)
         {
-            data = new ObserverData
-            {
-                Observer = observer,
-                UpdateDate = DateTime.UtcNow,
-                Id = id
-            };
-
+            data = new ObserverData(id, observer);
             _observers[id] = data;
         }
 
-        data.Observer = observer;
-        data.UpdateDate = DateTime.UtcNow;
+        data.Refresh(observer);
 
         // Observers live only in this activation's memory and refresh themselves periodically (resubscribe loop):
         // keep the activation between refreshes. This must happen here, DelayDeactivation called from
@@ -177,8 +170,21 @@ public class DurableQueue : Grain, IDurableQueue
 
     public class ObserverData
     {
-        public required Guid Id { get; init; }
-        public required IDurableQueueObserver Observer { get; set; }
-        public required DateTime UpdateDate { get; set; }
+        public ObserverData(Guid id, IDurableQueueObserver observer)
+        {
+            Id = id;
+            Observer = observer;
+            UpdateDate = DateTime.UtcNow;
+        }
+
+        public Guid Id { get; }
+        public IDurableQueueObserver Observer { get; private set; }
+        public DateTime UpdateDate { get; private set; }
+
+        public void Refresh(IDurableQueueObserver observer)
+        {
+            Observer = observer;
+            UpdateDate = DateTime.UtcNow;
+        }
     }
 }

@@ -5,7 +5,13 @@
 // none; without a handler the failure goes to the standard error, never only to an unobserved task.
 public static class NoAwaitExceptions
 {
-    public static Action<Exception>? Handler { get; set; }
+    public static Action<Exception>? Handler { get; private set; }
+
+    // Null removes the handler.
+    public static void SetHandler(Action<Exception>? handler)
+    {
+        Handler = handler;
+    }
 
     internal static void Report(Exception exception)
     {

@@ -160,8 +160,8 @@ public class ReactiveCollectionsTests
         var seen = new List<string>();
         dictionary.Advise(new Lifetime(), (_, _, value) => seen.Add(value));
 
-        dictionary[1] = "b";
-        dictionary[2] = "c";
+        dictionary.Set(1, "b");
+        dictionary.Set(2, "c");
 
         first.IsTerminated.Should().BeTrue();
         dictionary[1].Should().Be("b");
@@ -354,7 +354,7 @@ public class ReactiveCollectionsTests
     {
         var dictionary = new CountingDictionary();
 
-        dictionary[1] = "a";
+        dictionary.Set(1, "a");
 
         dictionary.Modified.Should().Be(1);
     }

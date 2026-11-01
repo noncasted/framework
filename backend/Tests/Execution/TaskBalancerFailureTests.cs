@@ -19,10 +19,10 @@ public class TaskBalancerFailureTests : IDisposable
     public TaskBalancerFailureTests()
     {
         _previous = NoAwaitExceptions.Handler;
-        NoAwaitExceptions.Handler = e => {
+        NoAwaitExceptions.SetHandler(e => {
             lock (_reported)
                 _reported.Add(e);
-        };
+        });
     }
 
     private readonly Action<Exception>? _previous;
@@ -30,7 +30,7 @@ public class TaskBalancerFailureTests : IDisposable
 
     public void Dispose()
     {
-        NoAwaitExceptions.Handler = _previous;
+        NoAwaitExceptions.SetHandler(_previous);
     }
 
     [Fact]

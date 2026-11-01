@@ -26,13 +26,7 @@ public static class SessionExtensions
         services.AddSingleton(data);
         services.AddSingleton(options);
 
-        services.AddSingleton<ISessionData>(new SessionData
-        {
-            Type = options.Type,
-            Id = data.Id,
-            Lifetime = data.Lifetime,
-            ExpectedUsers = data.ExpectedUsers
-        });
+        services.AddSingleton<ISessionData>(new SessionData(options.Type, data.ExpectedUsers, data.Id, data.Lifetime));
 
         services.AddSingleton<ISessionLog, SessionLog>();
         services.AddSingleton<ICommandsCollection, CommandsCollection>();

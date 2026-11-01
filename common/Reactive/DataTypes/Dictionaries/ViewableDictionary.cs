@@ -18,29 +18,7 @@ namespace Internal
 
         public int Count => _items.Count;
 
-        public TView this[TKey key]
-        {
-            get => _items[key];
-            set
-            {
-                if (_items.ContainsKey(key) == false)
-                {
-                    // Add reports the modification itself.
-                    Add(key, (TSource)value);
-                    return;
-                }
-
-                _lifetimes[key].Terminate();
-
-                var lifetime = new Lifetime();
-                _lifetimes[key] = lifetime;
-
-                _items[key] = (TSource)value;
-                _eventSource.Invoke(lifetime, key, value);
-
-                OnModified();
-            }
-        }
+        public TView this[TKey key] => _items[key];
 
         public IEnumerable<TKey> Keys => _items.Keys;
 
@@ -79,6 +57,27 @@ namespace Internal
             OnModified();
 
             return lifetime;
+        }
+
+        // Adds the key or replaces its value: the entry of a replaced value ends and a new one starts.
+        public void Set(TKey key, TSource value)
+        {
+            if (_items.ContainsKey(key) == false)
+            {
+                // Add reports the modification itself.
+                Add(key, value);
+                return;
+            }
+
+            _lifetimes[key].Terminate();
+
+            var lifetime = new Lifetime();
+            _lifetimes[key] = lifetime;
+
+            _items[key] = value;
+            _eventSource.Invoke(lifetime, key, value);
+
+            OnModified();
         }
 
         public void Remove(TKey key)

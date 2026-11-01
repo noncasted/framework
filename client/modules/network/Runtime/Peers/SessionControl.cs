@@ -154,7 +154,7 @@ namespace Internal
         private void OnRemoteUpdate(SharedSessionPlayer.RemoteUpdate update)
         {
             _tunnels.OnPeerGone(update.Index);
-            _peers[update.Index] = update.Id;
+            _peers.Set(update.Index, update.Id);
         }
 
         // The player has lost its connection to the server (its seat waits for its return): no frame of its tunnel comes

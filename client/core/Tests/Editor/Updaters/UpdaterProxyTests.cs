@@ -127,7 +127,7 @@ namespace Internal.Tests
 
             var reported = new List<Exception>();
             var previous = ReactiveExceptions.Handler;
-            ReactiveExceptions.Handler = reported.Add;
+            ReactiveExceptions.SetHandler(reported.Add);
 
             try
             {
@@ -143,7 +143,7 @@ namespace Internal.Tests
             }
             finally
             {
-                ReactiveExceptions.Handler = previous;
+                ReactiveExceptions.SetHandler(previous);
                 lifetime.Terminate();
             }
         }

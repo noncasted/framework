@@ -13,7 +13,12 @@ namespace Internal
 
     public static class LifetimeTracker
     {
-        public static ILifetimeTracker Current { get; set; }
+        public static ILifetimeTracker Current { get; private set; }
+
+        public static void Install(ILifetimeTracker tracker)
+        {
+            Current = tracker;
+        }
 
         internal static int OnCreated(IReadOnlyLifetime parent, IReadOnlyLifetime secondParent)
         {

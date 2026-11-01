@@ -12,7 +12,7 @@ namespace Internal
 #endif
         private static void Install()
         {
-            ReactiveExceptions.Handler = Debug.LogException;
+            ReactiveExceptions.SetHandler(Debug.LogException);
         }
     }
 }

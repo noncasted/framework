@@ -10,7 +10,13 @@ namespace Internal
     // the core); without a handler the exception is rethrown after the pass, several of them as an AggregateException.
     public static class ReactiveExceptions
     {
-        public static Action<Exception> Handler { get; set; }
+        public static Action<Exception> Handler { get; private set; }
+
+        // Null removes the handler.
+        public static void SetHandler(Action<Exception> handler)
+        {
+            Handler = handler;
+        }
 
         // Public for the other passes that follow the same rule (the updater of the client core).
         public static void Report(List<Exception> exceptions)

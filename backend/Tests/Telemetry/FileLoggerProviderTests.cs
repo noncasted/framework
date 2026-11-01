@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Infrastructure.Logging;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
@@ -16,6 +17,40 @@ public class FileLoggerProviderTests : IDisposable
     {
         if (Directory.Exists(_directory))
             Directory.Delete(_directory, true);
+    }
+
+    // The games read the options with ConfigurationBinder: it silently skips a private setter, so these keys prove the
+    // properties stay bindable.
+    [Fact]
+    public void Options_AreReadFromTheConfigurationSection()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["FileLogging:Enabled"] = "false",
+                ["FileLogging:Directory"] = "/logs/custom",
+                ["FileLogging:MinLevel"] = "Warning"
+            })
+            .Build();
+
+        var options = configuration.GetSection(FileLoggerOptions.SectionName).Get<FileLoggerOptions>()!;
+
+        options.Enabled.Should().BeFalse();
+        options.Directory.Should().Be("/logs/custom");
+        options.MinLevel.Should().Be(LogLevel.Warning);
+    }
+
+    [Fact]
+    public void Options_KeepDefaults_ForMissingKeys()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["FileLogging:Directory"] = "/logs/custom" })
+            .Build();
+
+        var options = configuration.GetSection(FileLoggerOptions.SectionName).Get<FileLoggerOptions>()!;
+
+        options.Enabled.Should().BeTrue();
+        options.MinLevel.Should().Be(LogLevel.Trace);
     }
 
     [Fact]

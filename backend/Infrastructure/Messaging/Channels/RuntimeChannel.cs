@@ -108,27 +108,22 @@ public class RuntimeChannel : Grain, IRuntimeChannel
     {
         if (_observers.TryGetValue(id, out var data) == false)
         {
-            data = new ObserverData
+            var queue = Channel.CreateBounded<SequencedMessage>(new BoundedChannelOptions(_bufferSize)
             {
-                Observer = observer,
-                UpdateDate = DateTime.UtcNow,
-                Id = id,
-                Queue = Channel.CreateBounded<SequencedMessage>(new BoundedChannelOptions(_bufferSize)
-                {
-                    SingleReader = true,
-                    SingleWriter = false,
-                    FullMode = BoundedChannelFullMode.Wait
-                })
-            };
+                SingleReader = true,
+                SingleWriter = false,
+                FullMode = BoundedChannelFullMode.Wait
+            });
+
+            data = new ObserverData(id, observer, queue);
 
             _observers[id] = data;
 
-            data.DeliveryTask = Task.Factory.StartNew(() => DeliverTo(data), CancellationToken.None,
-                TaskCreationOptions.None, TaskScheduler.Current).Unwrap();
+            data.SetDelivery(Task.Factory.StartNew(() => DeliverTo(data), CancellationToken.None,
+                TaskCreationOptions.None, TaskScheduler.Current).Unwrap());
         }
 
-        data.Observer = observer;
-        data.UpdateDate = DateTime.UtcNow;
+        data.Refresh(observer);
 
         // Observers refresh themselves periodically (resubscribe loop); keep the activation and its
         // catch-up buffer alive between refreshes.
@@ -318,10 +313,29 @@ public class RuntimeChannel : Grain, IRuntimeChannel
 
     public class ObserverData
     {
-        public required Guid Id { get; init; }
-        public required IRuntimeChannelObserver Observer { get; set; }
-        public required DateTime UpdateDate { get; set; }
-        public required Channel<SequencedMessage> Queue { get; init; }
-        public Task DeliveryTask { get; set; } = Task.CompletedTask;
+        public ObserverData(Guid id, IRuntimeChannelObserver observer, Channel<SequencedMessage> queue)
+        {
+            Id = id;
+            Observer = observer;
+            UpdateDate = DateTime.UtcNow;
+            Queue = queue;
+        }
+
+        public Guid Id { get; }
+        public IRuntimeChannelObserver Observer { get; private set; }
+        public DateTime UpdateDate { get; private set; }
+        public Channel<SequencedMessage> Queue { get; }
+        public Task DeliveryTask { get; private set; } = Task.CompletedTask;
+
+        public void Refresh(IRuntimeChannelObserver observer)
+        {
+            Observer = observer;
+            UpdateDate = DateTime.UtcNow;
+        }
+
+        public void SetDelivery(Task task)
+        {
+            DeliveryTask = task;
+        }
     }
 }

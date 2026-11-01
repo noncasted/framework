@@ -12,12 +12,12 @@ public class ReactiveExceptionsTests : IDisposable
 
     public ReactiveExceptionsTests()
     {
-        ReactiveExceptions.Handler = _reported.Add;
+        ReactiveExceptions.SetHandler(_reported.Add);
     }
 
     public void Dispose()
     {
-        ReactiveExceptions.Handler = null;
+        ReactiveExceptions.SetHandler(null);
     }
 
     [Fact]

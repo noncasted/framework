@@ -54,7 +54,8 @@ public class ClusterParticipantStartup : BackgroundService
     {
         // The background loops of the participant (messaging, task balancer, discovery) run unawaited: a crashed one
         // is logged when it fails. A handler the host installed before stays.
-        NoAwaitExceptions.Handler ??= e => _logger.LogCritical(e, "[NoAwait] Unobserved background task failed");
+        if (NoAwaitExceptions.Handler == null)
+            NoAwaitExceptions.SetHandler(e => _logger.LogCritical(e, "[NoAwait] Unobserved background task failed"));
 
         var lifetime = cancellation.ToLifetime();
         var serviceName = _discovery.Self.Tag.ToString();
