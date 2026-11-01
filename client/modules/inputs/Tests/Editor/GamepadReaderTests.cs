@@ -70,6 +70,99 @@ namespace Global.Inputs.Tests
         }
 
         [Test]
+        public void Layout_OtherPlatform_Throws()
+        {
+            Assert.Throws<NotSupportedException>(() => GamepadLayout.ForPlatform(RuntimePlatform.Android));
+        }
+
+        [TestCase(RuntimePlatform.WebGLPlayer, 1, 2, 4, 5, 9, 10, 6, 7, 1f)]
+        [TestCase(RuntimePlatform.WindowsPlayer, 1, 2, 4, 5, 9, 10, 6, 7, 1f)]
+        [TestCase(RuntimePlatform.WindowsEditor, 1, 2, 4, 5, 9, 10, 6, 7, 1f)]
+        [TestCase(RuntimePlatform.LinuxPlayer, 1, 2, 4, 5, 3, 6, 7, 8, -1f)]
+        [TestCase(RuntimePlatform.LinuxEditor, 1, 2, 4, 5, 3, 6, 7, 8, -1f)]
+        public void Layout_Axes(RuntimePlatform platform, int leftX, int leftY, int rightX, int rightY, int leftTrigger,
+            int rightTrigger, int dpadX, int dpadY, float dpadYUp)
+        {
+            var layout = GamepadLayout.ForPlatform(platform);
+
+            Assert.AreEqual(leftX, layout.LeftX);
+            Assert.AreEqual(leftY, layout.LeftY);
+            Assert.AreEqual(rightX, layout.RightX);
+            Assert.AreEqual(rightY, layout.RightY);
+            Assert.AreEqual(leftTrigger, layout.LeftTrigger);
+            Assert.AreEqual(rightTrigger, layout.RightTrigger);
+            Assert.AreEqual(dpadX, layout.DpadX);
+            Assert.AreEqual(dpadY, layout.DpadY);
+            Assert.AreEqual(dpadYUp, layout.DpadYUp);
+        }
+
+        [TestCase(RuntimePlatform.WebGLPlayer, 8, 9)]
+        [TestCase(RuntimePlatform.WindowsPlayer, 8, 9)]
+        [TestCase(RuntimePlatform.WindowsEditor, 8, 9)]
+        [TestCase(RuntimePlatform.LinuxPlayer, 9, 10)]
+        [TestCase(RuntimePlatform.LinuxEditor, 9, 10)]
+        public void Layout_Buttons(RuntimePlatform platform, int leftStick, int rightStick)
+        {
+            var layout = GamepadLayout.ForPlatform(platform);
+
+            Assert.AreEqual(KeyCode.JoystickButton0, layout.GetKey(GamepadButton.A));
+            Assert.AreEqual(KeyCode.JoystickButton1, layout.GetKey(GamepadButton.B));
+            Assert.AreEqual(KeyCode.JoystickButton2, layout.GetKey(GamepadButton.X));
+            Assert.AreEqual(KeyCode.JoystickButton3, layout.GetKey(GamepadButton.Y));
+            Assert.AreEqual(KeyCode.JoystickButton4, layout.GetKey(GamepadButton.LeftBumper));
+            Assert.AreEqual(KeyCode.JoystickButton5, layout.GetKey(GamepadButton.RightBumper));
+            Assert.AreEqual(KeyCode.JoystickButton6, layout.GetKey(GamepadButton.View));
+            Assert.AreEqual(KeyCode.JoystickButton7, layout.GetKey(GamepadButton.Menu));
+            Assert.AreEqual(KeyCode.JoystickButton0 + leftStick, layout.GetKey(GamepadButton.LeftStick));
+            Assert.AreEqual(KeyCode.JoystickButton0 + rightStick, layout.GetKey(GamepadButton.RightStick));
+        }
+
+        [TestCase(GamepadButton.LeftTrigger)]
+        [TestCase(GamepadButton.RightTrigger)]
+        [TestCase(GamepadButton.DpadUp)]
+        [TestCase(GamepadButton.DpadDown)]
+        [TestCase(GamepadButton.DpadLeft)]
+        [TestCase(GamepadButton.DpadRight)]
+        public void Layout_TriggersAndDpad_AreNotJoystickButtons(GamepadButton button)
+        {
+            var layout = GamepadLayout.ForPlatform(RuntimePlatform.WebGLPlayer);
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => layout.GetKey(button));
+        }
+
+        // The bit of a button is its position in the enum: a sample built by a substitute of a game depends on it.
+        [Test]
+        public void Button_Order()
+        {
+            var expected = new[]
+            {
+                "A", "B", "X", "Y", "LeftBumper", "RightBumper", "LeftTrigger", "RightTrigger", "View", "Menu",
+                "LeftStick", "RightStick", "DpadUp", "DpadDown", "DpadLeft", "DpadRight"
+            };
+
+            CollectionAssert.AreEqual(expected, Enum.GetNames(typeof(GamepadButton)));
+        }
+
+        [Test]
+        public void State_ButtonsAreBits()
+        {
+            var state = new GamepadState();
+
+            state.SetPressed(GamepadButton.X, true);
+            state.SetPressed(GamepadButton.DpadRight, true);
+
+            Assert.AreEqual((1 << 2) | (1 << 15), state.Buttons);
+            Assert.IsTrue(state.IsPressed(GamepadButton.X));
+            Assert.IsTrue(state.IsPressed(GamepadButton.DpadRight));
+            Assert.IsFalse(state.IsPressed(GamepadButton.A));
+
+            state.SetPressed(GamepadButton.X, false);
+
+            Assert.AreEqual(1 << 15, state.Buttons);
+            Assert.IsFalse(state.IsPressed(GamepadButton.X));
+        }
+
+        [Test]
         public void NoGamepad_NothingPressed()
         {
             var reader = new NoGamepadReader();
