@@ -37,7 +37,7 @@ through `InternalsVisibleTo`.
 1. **Roots.** A root is a method marked `[ContainerGraphRoot]`, or a `Construct` / `Build` method with an
    `IScopeBuilder` / `IEntityBuilder` / `IBuilder` parameter. `[ContainerScopeParent(typeof(T), nameof(T.Method))]`
    names the parent scope (can sit on the root or on its containing method).
-2. **Walk** (`Graph/GraphWalker`). Follows installer calls from each root into one graph: registrations, `.As<>()`,
+2. **Walk** (`Graph/Walker`, composed by `GraphWalker`). Follows installer calls from each root into one graph: registrations, `.As<>()`,
    `WithParameter`, markers, alternative `if/else` pairs, entity variants. Builder primitives are recognized by
    `[Internal.ContainerPrimitive(kind)]` on the method (`Graph/PrimitiveKind.cs` mirrors the runtime enum by value);
    an unbound call (code that does not compile yet) falls back to the method name. An `if` around a call into another
@@ -45,7 +45,8 @@ through `InternalsVisibleTo`.
    `ServiceLifetime` parameter; a value that is not a constant is CINGR001, as is a transient `Register` in an arm of a
    switch expression. The id of a method is `Type.Method`; overloads of an installer also carry their parameter types.
    A root keeps the bare name, the runtime finds it by that: an overloaded root is CINGR013.
-3. **Manifests** (`Graph/GraphEmitter`, `Scope/ManifestReader`, `Scope/ManifestHarvest`). Every assembly emits
+3. **Manifests** (`Graph/GraphEmitter`, `Graph/ManifestBlobFormat`, `Graph/ManifestBlobWriter`, `Scope/ManifestReader`,
+   `Scope/ManifestBlobParser`, `Scope/ManifestHarvest`). Every assembly emits
    `ContainerGraph.g.cs` with `[assembly: Internal.ContainerInstaller(...)]` per installer method; consumer
    assemblies read them to resolve installers and parent scopes from other assemblies. A manifest of another
    `BlobVersion` or a broken one is CINGR001 naming the assembly: rebuild it with this generator.
@@ -53,9 +54,9 @@ through `InternalsVisibleTo`.
    `[assembly: Internal.ContainerGraphAsset(...)]` in
    `<content folder>/Runtime/Tools/Container/ContainerGraph.AssetMap.cs` of the project (`FrameworkSettings`), written by the editor
    `ContainerGraphPostprocessor` (also scene services of `SceneServicesFactory`).
-5. **Resolve** (`Scope/EdgeResolver`, `Scope/ScopePlan`). Binds every constructor / `[Inject]` parameter to a
+5. **Resolve** (`Scope/Resolve`, composed by `EdgeResolver`; `Scope/Plan`: the model `ScopePlan` and `ScopePlanBuilder`). Binds every constructor / `[Inject]` parameter to a
    registration, a parent export (typed hole), a collection, or a builder parameter; reports CINGR diagnostics.
-6. **Emit** (`Scope/ScopeEmitter`). One `{Type}{Method}Container.g.cs` per root (and per entity variant):
+6. **Emit** (`Scope/Emit`, composed by `ScopeEmitter`). One `{Type}{Method}Container.g.cs` per root (and per entity variant):
    `internal sealed class {Type}{Method}Container : Internal.IContainer, Internal.IProvides<T>...` with a field per
    registration, ctor-time construction in dependency order, a static export table for `Resolve` / `TryResolve`
    (falls back to the parent), `Dispose`, and

@@ -1,0 +1,9 @@
+<Project>
+  <!-- Isolates the harness from the props of the framework; build output stays outside the repository. -->
+  <PropertyGroup>
+    <HarnessBuildDir>$([System.IO.Path]::GetTempPath())game_snapshot/</HarnessBuildDir>
+    <BaseIntermediateOutputPath>$(HarnessBuildDir)obj/</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
+    <BaseOutputPath>$(HarnessBuildDir)bin/</BaseOutputPath>
+  </PropertyGroup>
+</Project>
