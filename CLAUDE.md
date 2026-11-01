@@ -36,6 +36,8 @@ backend/
   Hosting/              the sessions of a game server and the requests of the meta to it: sessions collection, lobby
                         sessions and codes, lobby service, session requester (assembly Framework.Hosting, namespaces
                         Game.Hosting and Game.Lobbies)
+.claude/docs/           docs of the patterns shared by the games, for Claude Code (INDEX.md: principles, keyword table)
+.claude/skills/         skills shared by the games, linked from `.claude/skills` of each project
 tools/scripts/          scripts shared by the projects
 ```
 
@@ -55,9 +57,28 @@ tools/scripts/          scripts shared by the projects
 5. **Keep `.meta` files.** Assemblies reference each other by asmdef GUID; plugin importer settings (`RoslynAnalyzer`
    label, disabled platforms) live in `.meta`. Never regenerate them when moving files.
 6. **Comments in English.** Prose with the user in Russian.
-7. **Fail fast.** No silent fallbacks, no defensive null checks; unexpected state throws.
+7. **Fail fast.** No silent fallbacks, no defensive null checks; unexpected state throws; `catch` only at a boundary that reacts.
 8. **A change here affects every project.** After a change, build at least the project you are working in; mention in
    the commit message when a change is breaking (`BREAKING:`).
+
+## Docs
+
+A game imports the index in its `CLAUDE.md`: `@tools/framework/.claude/docs/INDEX.md` from the root of the project,
+`@../tools/framework/.claude/docs/INDEX.md` from `.claude/CLAUDE.md`. A nested `CLAUDE.md` like this one loads only when
+files of its folder are touched; the import makes the index visible from the first message. It is loaded in every
+session, so the index and the principles stay short and the other docs are read by keyword. A pattern true for every
+game goes here, a pattern tied to the assets or rules of one game stays in that game.
+
+@.claude/docs/INDEX.md
+
+## Skills
+
+A game links each shared skill it uses: `ln -s ../../tools/framework/.claude/skills/<name> .claude/skills/<name>` (one link
+per skill: a folder of skills nested under the project would load late and under a prefixed name). The name of the skill
+and its `.claude/skills/<name>/...` paths stay as they are; its own skills sit next to the links. Edit a skill at its target
+here, the tools do not write through a link. No values of a game in a skill: `.claude/project-skills.md` (targets, urls,
+look), `.claude/code-audit.json` (folders of the dependency check, namespaces of the game), `.claude/override-packages` (registry and
+patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
 
 ## Extension points
 
