@@ -61,20 +61,15 @@ namespace Internal
         // Grows on every change of the set of live lifetimes: the graph compares it with its own version.
         public static int Version { get; private set; }
 
-        public static bool IsTrackingEnabled
-        {
-            get => EditorPrefs.GetBool(EnabledPrefsKey, true);
-            set
-            {
-                EditorPrefs.SetBool(EnabledPrefsKey, value);
-                LifetimeAnalytics.SetEnabled(value && EditorApplication.isPlaying);
-            }
-        }
+        public static bool IsTrackingEnabled => EditorPrefs.GetBool(EnabledPrefsKey, true);
 
         [MenuItem(ToggleMenuPath, priority = FrameworkMenu.GroupPriority + 1)]
         private static void ToggleTracking()
         {
-            IsTrackingEnabled = IsTrackingEnabled == false;
+            var enabled = IsTrackingEnabled == false;
+
+            EditorPrefs.SetBool(EnabledPrefsKey, enabled);
+            LifetimeAnalytics.SetEnabled(enabled && EditorApplication.isPlaying);
         }
 
         [MenuItem(ToggleMenuPath, true)]

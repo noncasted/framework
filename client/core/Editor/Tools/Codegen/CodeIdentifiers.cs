@@ -94,7 +94,12 @@ namespace Internal
         private readonly HashSet<string> _reserved;
         private readonly HashSet<string> _declared = new(StringComparer.Ordinal);
 
-        public string EnclosingTypeName { get; set; }
+        public string EnclosingTypeName { get; private set; }
+
+        public void SetEnclosingTypeName(string name)
+        {
+            EnclosingTypeName = name;
+        }
 
         // A keyword or a member the class has anyway: renaming with a digit would hide the problem, the source
         // has to be renamed.

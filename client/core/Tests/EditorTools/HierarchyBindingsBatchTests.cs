@@ -252,18 +252,18 @@ namespace Internal.EditorTests
 
         private static HierarchyBindingsBatch.PrefabItem Item(string assetPath, string namespaceName)
         {
-            return new HierarchyBindingsBatch.PrefabItem
-            {
-                FullTypeName = namespaceName + ".ShopBindings",
-                Request = new HierarchyBindingsRequest
+            return new HierarchyBindingsBatch.PrefabItem(
+                0,
+                0,
+                namespaceName + ".ShopBindings",
+                new HierarchyBindingsRequest
                 {
                     AssetPath = assetPath,
                     ObjectPath = string.Empty,
                     TypeName = "ShopBindings",
                     Namespace = namespaceName,
                     IsPrefabAsset = true
-                }
-            };
+                });
         }
 
         private static string MakePrefab(string path, Action<GameObject> build)

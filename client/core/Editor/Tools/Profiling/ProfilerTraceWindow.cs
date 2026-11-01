@@ -136,7 +136,7 @@ namespace Internal
             // so it is off until requested here, for this editor session.
             var frames = new ToolbarToggle { text = "Frames", value = ProfilerFrameCapture.Enabled };
             frames.tooltip = "Снимать сэмплы Unity-профайлера по кадрам трассы. Включает запись профайлера до закрытия редактора";
-            frames.RegisterValueChangedCallback(evt => ProfilerFrameCapture.Enabled = evt.newValue);
+            frames.RegisterValueChangedCallback(evt => ProfilerFrameCapture.SetEnabled(evt.newValue));
             toolbar.Add(frames);
 
             toolbar.Add(new ToolbarButton(ExpandAll) { text = "Expand all" });

@@ -66,17 +66,15 @@ namespace Internal
         /// requested. The request lives in the session: it survives a domain reload and ends with the editor.
         /// Turning it off stops the recording and releases the buffer.
         /// </summary>
-        public static bool Enabled
-        {
-            get => SessionState.GetBool(EnabledKey, false);
-            set
-            {
-                SessionState.SetBool(EnabledKey, value);
-                ProfilerDriver.enabled = value;
+        public static bool Enabled => SessionState.GetBool(EnabledKey, false);
 
-                if (value == false)
-                    ProfilerDriver.ClearAllFrames();
-            }
+        public static void SetEnabled(bool enabled)
+        {
+            SessionState.SetBool(EnabledKey, enabled);
+            ProfilerDriver.enabled = enabled;
+
+            if (enabled == false)
+                ProfilerDriver.ClearAllFrames();
         }
 
         private static void OnPlayModeChanged(PlayModeStateChange state)

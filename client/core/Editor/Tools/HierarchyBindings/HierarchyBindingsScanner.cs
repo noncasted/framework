@@ -88,15 +88,8 @@ namespace Internal
             IdentifierScope used,
             List<string> errors)
         {
-            var node = new HierarchyBindingsNode
-            {
-                Target = target,
-                TypeName = typeName,
-                HierarchyPath = hierarchyPath,
-                Members = used
-            };
-
-            node.IgnoreChildren = target.GetComponent<HierarchyBindingsIgnoreChildren>() != null;
+            var ignoreChildren = target.GetComponent<HierarchyBindingsIgnoreChildren>() != null;
+            var node = new HierarchyBindingsNode(target, typeName, hierarchyPath, used, ignoreChildren);
 
             // A reference to an inherited object belongs to the layer of the base. The root is an exception: it
             // carries the bindings themselves and always has the property.
@@ -117,13 +110,11 @@ namespace Internal
         {
             var propertyName = DeclareMember("GameObject", used);
 
-            node.Fields.Add(new HierarchyBindingsField
-            {
-                Target = node.Target,
-                PropertyName = propertyName,
-                FieldName = HierarchyBindingsNaming.ToFieldName(propertyName),
-                CodeTypeName = "global::UnityEngine.GameObject"
-            });
+            node.Fields.Add(new HierarchyBindingsField(
+                node.Target,
+                propertyName,
+                HierarchyBindingsNaming.ToFieldName(propertyName),
+                "global::UnityEngine.GameObject"));
         }
 
         private static void CollectComponents(
@@ -319,9 +310,7 @@ namespace Internal
             var fieldName = HierarchyBindingsNaming.ToFieldName(propertyName);
 
             var template = first.Node;
-            template.TypeName = DeclareType(baseName + "Bindings", used, template.Members);
-            template.PropertyName = propertyName;
-            template.FieldName = fieldName;
+            template.SetNames(DeclareType(baseName + "Bindings", used, template.Members), propertyName, fieldName);
 
             for (var index = start; index < start + length; index++)
                 template.Elements.Add(scans[index].Node);
@@ -352,9 +341,10 @@ namespace Internal
 
             // The nested class name lives in the same namespace as the properties,
             // so it is also deduplicated through the shared set of taken names.
-            scan.Node.TypeName = DeclareType(propertyName + "Bindings", used, scan.Node.Members);
-            scan.Node.PropertyName = propertyName;
-            scan.Node.FieldName = HierarchyBindingsNaming.ToFieldName(propertyName);
+            scan.Node.SetNames(
+                DeclareType(propertyName + "Bindings", used, scan.Node.Members),
+                propertyName,
+                HierarchyBindingsNaming.ToFieldName(propertyName));
             node.Children.Add(scan.Node);
         }
 
@@ -376,7 +366,7 @@ namespace Internal
                 if (single == null)
                     return;
 
-                single.Comment = scan.ChildPath + " (own bindings)";
+                single.SetComment(scan.ChildPath + " (own bindings)");
                 node.Fields.Add(single);
                 return;
             }
@@ -388,14 +378,12 @@ namespace Internal
                 if (ReserveExact(propertyName, scan.ChildPath, used, siblingNames, errors) == false)
                     continue;
 
-                node.Fields.Add(new HierarchyBindingsField
-                {
-                    Target = boundary,
-                    PropertyName = propertyName,
-                    FieldName = HierarchyBindingsNaming.ToFieldName(propertyName),
-                    CodeTypeName = ToCodeTypeName(boundary),
-                    Comment = scan.ChildPath + " (own bindings)"
-                });
+                node.Fields.Add(new HierarchyBindingsField(
+                    boundary,
+                    propertyName,
+                    HierarchyBindingsNaming.ToFieldName(propertyName),
+                    ToCodeTypeName(boundary),
+                    scan.ChildPath + " (own bindings)"));
             }
         }
 
@@ -472,14 +460,12 @@ namespace Internal
                         return;
                 }
 
-                var field = new HierarchyBindingsField
-                {
-                    Target = template,
-                    PropertyName = propertyName,
-                    FieldName = HierarchyBindingsNaming.ToFieldName(propertyName),
-                    CodeTypeName = ToCodeTypeName(template),
-                    Comment = comment + " (own bindings)"
-                };
+                var field = new HierarchyBindingsField(
+                    template,
+                    propertyName,
+                    HierarchyBindingsNaming.ToFieldName(propertyName),
+                    ToCodeTypeName(template),
+                    comment + " (own bindings)");
 
                 for (var index = start; index < start + length; index++)
                 {
@@ -618,13 +604,11 @@ namespace Internal
 
             propertyName = DeclareMember(propertyName, used);
 
-            return new HierarchyBindingsField
-            {
-                Target = component,
-                PropertyName = propertyName,
-                FieldName = HierarchyBindingsNaming.ToFieldName(propertyName),
-                CodeTypeName = ToCodeTypeName(component)
-            };
+            return new HierarchyBindingsField(
+                component,
+                propertyName,
+                HierarchyBindingsNaming.ToFieldName(propertyName),
+                ToCodeTypeName(component));
         }
 
         private static bool Validate(
@@ -684,7 +668,7 @@ namespace Internal
                     continue;
 
                 parent.TryDeclare(candidate);
-                own.EnclosingTypeName = candidate;
+                own.SetEnclosingTypeName(candidate);
                 return candidate;
             }
 

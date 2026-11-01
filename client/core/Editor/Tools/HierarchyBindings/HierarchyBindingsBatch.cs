@@ -409,12 +409,11 @@ namespace Internal
                         throw new InvalidOperationException(
                             $"{bindings.GetType().Name} in {assetPath} does not derive from a generated class.");
 
-                    items.Add(new PrefabItem
-                    {
-                        VariantDepth = variantDepth,
-                        HierarchyDepth = Depth(bindings.transform),
-                        FullTypeName = type.FullName,
-                        Request = new HierarchyBindingsRequest
+                    items.Add(new PrefabItem(
+                        variantDepth,
+                        Depth(bindings.transform),
+                        type.FullName,
+                        new HierarchyBindingsRequest
                         {
                             AssetPath = assetPath,
                             ObjectPath = HierarchyBindingsTarget.IndexPath(bindings.transform, contents.transform),
@@ -424,8 +423,7 @@ namespace Internal
                             IsPrefabAsset = true,
                             IsSceneService = bindings.IsSceneService,
                             IsEntityComponent = bindings.IsEntityComponent
-                        }
-                    });
+                        }));
                 }
             }
             finally
@@ -597,10 +595,22 @@ namespace Internal
 
         internal sealed class PrefabItem
         {
-            public int VariantDepth;
-            public int HierarchyDepth;
-            public string FullTypeName;
-            public HierarchyBindingsRequest Request;
+            public PrefabItem(
+                int variantDepth,
+                int hierarchyDepth,
+                string fullTypeName,
+                HierarchyBindingsRequest request)
+            {
+                VariantDepth = variantDepth;
+                HierarchyDepth = hierarchyDepth;
+                FullTypeName = fullTypeName;
+                Request = request;
+            }
+
+            public int VariantDepth { get; }
+            public int HierarchyDepth { get; }
+            public string FullTypeName { get; }
+            public HierarchyBindingsRequest Request { get; }
         }
 
         [Serializable]
