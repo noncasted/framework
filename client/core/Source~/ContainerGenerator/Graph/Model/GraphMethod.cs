@@ -1,86 +1,6 @@
 using System.Collections.Generic;
 
 namespace ContainerGenerator {
-    internal sealed class GraphRegistration {
-        public string Kind = "Register";
-        public string ImplementationType = "";
-        public List<string> ServiceTypes = new List<string>();
-        public string Lifetime = "Singleton";
-        public string Origin = "ConstructedType";
-        public string Source = "";
-        public string Hole = "";
-        public string File = "";
-        public int Line;
-        public int Ordinal;
-        public string TypeMap = "";
-        public List<string> ServiceMaps = new List<string>();
-        public LocationInfo? Location;
-        public List<GraphSwitchArm> Arms = new List<GraphSwitchArm>();
-        public List<GraphEdge> Dependencies = new List<GraphEdge>();
-        // The name of the [Inject] method; EdgeResolver sets it together with the edges, so Clone does not copy it.
-        public string InjectMethod = "";
-        // Where the registration stands among the if / switch statements of its method: "statement.arm" per level.
-        // Two registrations exclude each other when they took different arms of one statement (BranchGroups).
-        public string BranchPath = "";
-        // The types given by WithParameter: a constructor / [Inject] parameter of such a type takes that value first.
-        public List<string> ParameterTypes = new List<string>();
-
-        public GraphRegistration Clone() {
-            var copy = new GraphRegistration {
-                Kind = Kind,
-                ImplementationType = ImplementationType,
-                Lifetime = Lifetime,
-                Origin = Origin,
-                Source = Source,
-                Hole = Hole,
-                File = File,
-                Line = Line,
-                Ordinal = Ordinal,
-                TypeMap = TypeMap,
-                Location = Location,
-                BranchPath = BranchPath,
-            };
-            copy.ParameterTypes.AddRange(ParameterTypes);
-            copy.ServiceTypes.AddRange(ServiceTypes);
-            copy.ServiceMaps.AddRange(ServiceMaps);
-            for (var i = 0; i < Arms.Count; i++)
-                copy.Arms.Add(Arms[i].Clone());
-            return copy;
-        }
-    }
-
-    internal sealed class GraphSwitchArm {
-        public string Discriminant = "";
-        public string ImplementationType = "";
-        public string ParameterExpression = "";
-        public string ParameterType = "";
-
-        public GraphSwitchArm Clone() {
-            return new GraphSwitchArm {
-                Discriminant = Discriminant,
-                ImplementationType = ImplementationType,
-                ParameterExpression = ParameterExpression,
-                ParameterType = ParameterType,
-            };
-        }
-    }
-
-    internal sealed class GraphEdge {
-        public string ParameterName = "";
-        public string ParameterType = "";
-        public string Source = "Constructor";
-        // The name of the [Inject] method for the edges with Source == "Construct".
-        public string Method = "";
-        public string Kind = "Registration";
-        public int Arm = -1;
-        public int TargetIndex = -1;
-        public string ParentRootId = "";
-        public List<int> CollectionIndices = new List<int>();
-        // A target that is an alternative may stay null: what the value may come from instead (the other members of
-        // its group, the earlier registrations of the type). They are built before the owner of the edge.
-        public List<int> Fallbacks = new List<int>();
-    }
-
     internal sealed class GraphMethod {
         public string Id = "";
         public string OriginId = "";
@@ -198,22 +118,5 @@ namespace ContainerGenerator {
 
             CallHoles[index] = CallHoles[index] + "; " + hole;
         }
-    }
-
-    internal sealed class GraphDocument {
-        public string AssemblyName = "";
-        public List<GraphMethod> Methods = new List<GraphMethod>();
-        public List<DiagnosticInfo> Diagnostics = new List<DiagnosticInfo>();
-    }
-
-    internal sealed class ScopeGraph {
-        public string RootId = "";
-        public string ParentId = "";
-        public bool ParentMissing;
-        public string Variant = "";
-        public string ViewType = "";
-        public List<GraphRegistration> Registrations = new List<GraphRegistration>();
-        public List<int> ConstructionOrder = new List<int>();
-        public List<DiagnosticInfo> Diagnostics = new List<DiagnosticInfo>();
     }
 }

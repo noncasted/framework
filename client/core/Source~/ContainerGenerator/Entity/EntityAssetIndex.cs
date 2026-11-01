@@ -5,12 +5,6 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ContainerGenerator {
-    internal sealed class EntityAsset {
-        public string AssetPath = "";
-        public string HolderType = "";
-        public List<string> ComponentTypes = new List<string>();
-    }
-
     internal sealed class EntityAssetIndex {
         public List<EntityAsset> Assets = new List<EntityAsset>();
         public List<DiagnosticInfo> Diagnostics = new List<DiagnosticInfo>();
