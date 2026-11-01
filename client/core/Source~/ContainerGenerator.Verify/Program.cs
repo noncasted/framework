@@ -176,7 +176,7 @@ namespace ContainerGenerator.Verify {
             var shared = EmitStubs("ParentHoleStubs");
             var parentCompilation = Compile(ParentManifestLibSource, "ParentLib", extra: new[] { shared }, includeStubs: false);
             var parentDocument = WalkDocument(parentCompilation, harvest: false);
-            EdgeResolver.BindParents(parentDocument);
+            ParentBinding.BindParents(parentDocument);
             var parentEmit = GraphEmitter.Emit(parentDocument, parentCompilation);
             var parentReference = EmitAssembly(parentCompilation, parentEmit, "ParentLib");
 
