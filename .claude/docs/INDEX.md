@@ -16,6 +16,9 @@ A doc of a game wins where it states a local exception; a rule true for every ga
 
 @ARCHITECTURE_PRINCIPLES.md
 
+The cluster and the Unity editor are tools of the agent: start, restart, rebuild and recover them with the `control` skill, without
+asking the user. Agents testing in parallel take their own copy of the project with its own editor (`control copy create`).
+
 ## Keyword -> doc
 
 | Keywords | Doc |

@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+# Control of the Unity editor, its copies and the backend cluster for agents. Prints JSON, exit code 1 on a failure.
+#   control editor status|start|stop|restart|wait [--copy NAME] [--force] [--no-save] [--hung-after S] [--timeout S]
+#   control editor all
+#   control editor watch|crash [--copy NAME]
+#   control editor dialog [--copy NAME] | control editor answer --button N [--address A] [--copy NAME]
+#   control copy create|start|stop|sync|remove NAME [--all] | control copy list
+#   control cluster status|start|stop|restart|rebuild|logs [--lines N] [--timeout S]
+import argparse
+import json
+import sys
+
+import cluster
+import copies
+import editor
+from common import ControlError, Project
+
+
+def parse():
+    parser = argparse.ArgumentParser(prog="control")
+    groups = parser.add_subparsers(dest="group", required=True)
+
+    edit = groups.add_parser("editor")
+    edit.add_argument("action", choices=["status", "start", "stop", "restart", "wait", "all", "dialog", "answer", "crash", "watch"])
+    edit.add_argument("--copy", help="a copy made by `control copy create`, not the editor of the project")
+    edit.add_argument("--force", action="store_true", help="restart an editor that is ready or still busy")
+    edit.add_argument("--no-save", action="store_true", help="do not ask a responsive editor to save before the stop")
+    edit.add_argument("--hung-after", type=int, default=editor.HUNG_AFTER)
+    edit.add_argument("--timeout", type=int, default=editor.WAIT_TIMEOUT)
+    edit.add_argument("--headless", action="store_true", help="start with -batchmode: no window, MCP works")
+    edit.add_argument("--button", type=int, help="answer: 1 is the button focused at the start, 2 the next by Tab, 0 is Escape")
+    edit.add_argument("--address", help="answer: the window, from `editor dialog`, when there are several")
+
+    copy = groups.add_parser("copy")
+    copy.add_argument("action", choices=["create", "start", "stop", "sync", "remove", "list"])
+    copy.add_argument("name", nargs="?")
+    copy.add_argument("--all", action="store_true", help="sync: all files of the assets, not only the code")
+    copy.add_argument("--no-save", action="store_true")
+    copy.add_argument("--no-wait", action="store_true", help="create: return before the editor is ready")
+    copy.add_argument("--no-editor", action="store_true", help="create: only the files")
+    copy.add_argument("--window", action="store_true", help="start with a window: by default a copy has none and takes no focus")
+    copy.add_argument("--force", action="store_true", help="start with little free memory")
+    copy.add_argument("--hung-after", type=int, default=editor.HUNG_AFTER)
+    copy.add_argument("--timeout", type=int, default=editor.WAIT_TIMEOUT)
+
+    back = groups.add_parser("cluster")
+    back.add_argument("action", choices=["status", "start", "stop", "restart", "rebuild", "logs"])
+    back.add_argument("--lines", type=int, default=100)
+    back.add_argument("--timeout", type=int, default=cluster.WAIT_TIMEOUT)
+    return parser.parse_args()
+
+
+def main():
+    args = parse()
+    project = Project.detect()
+    if args.group == "editor":
+        return editor.run(project, args)
+    if args.group == "copy":
+        return copies.run(project, args)
+    return cluster.run(project, args)
+
+
+if __name__ == "__main__":
+    try:
+        result = main()
+    except ControlError as error:
+        print(json.dumps({"error": str(error)}, indent=2, ensure_ascii=False))
+        sys.exit(1)
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    sys.exit(1 if isinstance(result, dict) and result.get("error") else 0)

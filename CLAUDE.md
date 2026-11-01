@@ -77,7 +77,7 @@ A game links each shared skill it uses: `ln -s ../../tools/framework/.claude/ski
 per skill: a folder of skills nested under the project would load late and under a prefixed name). The name of the skill
 and its `.claude/skills/<name>/...` paths stay as they are; its own skills sit next to the links. Edit a skill at its target
 here, the tools do not write through a link. No values of a game in a skill: `.claude/project-skills.md` (targets, urls,
-look), `.claude/code-audit.json` (folders of the dependency check, namespaces of the game), `.claude/override-packages` (registry and
+look), `.claude/code-audit.json` (folders of the dependency check, namespaces of the game), `.claude/control.json` (cluster, editor), `.claude/override-packages` (registry and
 patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
 
 ## Extension points

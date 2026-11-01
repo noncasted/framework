@@ -94,23 +94,14 @@ Signs of trouble (check them before restarting, `.claude/docs/UNITY_EDITOR_WORKF
   `TickCompilationPipeline` workaround before a restart.
 
 Restart procedure:
-1. Save the evidence: `tail -200 client/Logs/Editor.log > <scratchpad>/editor_crash_<time>.log`.
-2. If the editor still answers `execute_code`: leave Play, save open scenes
-   (`EditorSceneManager.SaveOpenScenes()`), `AssetDatabase.SaveAssets()`.
-3. Kill: `kill <pid>`, wait 20 s, then `kill -9 <pid>` and its `AssetImportWorker` children
-   (`pgrep -f "parentPid <pid>"`). If the process is stopped (`State: T` in `/proc/<pid>/status`, a leftover `gdb`),
-   `kill -CONT <pid>` first.
-4. Wait 30 s - Unity Hub often relaunches the editor by itself. If not, launch it detached:
-   `setsid nohup /tools/unity/<version>/Editor/Unity -projectPath ${CLAUDE_PROJECT_DIR}/client >/dev/null 2>&1 &`
-   (`<version>` from `client/ProjectSettings/ProjectVersion.txt`).
-5. Wait for readiness with `Monitor` on `Editor.log` (until the MCP bridge line / `mcpforunity://editor/state`
-   `data.advice.ready_for_tools`), up to 15 min. A startup hang - the "Editor Startup Hangs" section of
-   `UNITY_EDITOR_WORKFLOW.md` (read-only folders, stray `.tmp.*.meta`).
-6. Record the incident (signs, actions, result). Redo the step that was running, but not the operation that
+1. `.claude/skills/control/control editor status`; on `hung`, `stopped` or `down`: `control editor restart`. It saves what a responsive
+   editor can save, keeps the log (`evidence`), kills the process with its workers, starts it and waits for the bridge.
+2. On a startup hang read the "Editor Startup Hangs" section of `UNITY_EDITOR_WORKFLOW.md` (read-only folders, stray `.tmp.*.meta`).
+3. Record the incident (signs, actions, result). Redo the step that was running, but not the operation that
    crashed in the same form: if it is in the "Operations That Crash the CoreCLR Editor" table, use the documented
    alternative; if it crashed twice in the same way, find another route and add the case to
    `UNITY_EDITOR_WORKFLOW.md` / `.claude/docs/CLAUDE_MISTAKES.md`.
-7. Three restarts within an hour without progress - stop using the editor: continue with what does not need it (code
+4. Three restarts within an hour without progress - stop using the editor: continue with what does not need it (code
    that must compile, backend, docs), and put the rest under "Требуют внимания".
 
 The MPPM clone (two clients) is restarted through its scenario `Stop()` / `Start()` from the main editor, not killed
@@ -118,9 +109,8 @@ The MPPM clone (two clients) is restarted through its scenario `Stop()` / `Start
 
 ### Other processes
 
-- Backend cluster (`start-cluster` skill): health endpoint / `backend/.telemetry/logs` silent and requests time out -
-  stop the `dotnet` processes of `backend/Orchestration/Aspire`, start again with the skill. Free ports with
-  `ss -tlnp` before restart.
+- Backend cluster: health endpoint / `backend/.telemetry/logs` silent and requests time out - `control cluster restart`, after a
+  backend change `control cluster rebuild`.
 - `dotnet test`, builds, scripts: run with a `timeout` matched to the expected time (x3), kill on expiry, look at the
   output for the hanging test, rerun once; a repeatable hang - record it and continue with other steps.
 - Kill only processes this session started or the processes named above. Never kill the user's other programs.
@@ -152,12 +142,11 @@ When the task is done or nothing more can move:
 ```
 Пользователь недоступен. Не задавай вопросов: выбирай обратимый вариант, ближайший к существующим паттернам, и
 перечисляй принятые решения в итоговом отчёте (вопрос / решение / альтернативы / почему). Не делай push, deploy,
-reset --hard и удалений чужих файлов. Unity editor трогай только если он закреплён за тобой в брифе; если он упал или
-завис - не перезапускай сам, верни отчёт "EDITOR DOWN" с признаками.
+reset --hard и удалений чужих файлов. Для работы в редакторе бери свою копию (`control copy create <name>`, скилл `control`) и
+передавай её `unity_instance` в каждый вызов MCP. Упавший или зависший редактор и кластер перезапускай сам через `control`.
 ```
 
-The session (or the orchestrator) copies the agents' decisions into the decisions file and handles "EDITOR DOWN" with
-the watchdog above.
+The session (or the orchestrator) copies the agents' decisions and incidents into the decisions file.
 
 ## Rules
 
