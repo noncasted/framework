@@ -62,13 +62,21 @@ namespace Internal
         }
 
         /// <summary>
-        /// Frame capture costs an enabled profiler for the whole run, so it can be turned off:
-        /// when only the scope waterfall is needed, there is no point paying for sample recording.
+        /// Frame capture keeps the profiler recording, and its buffer takes gigabytes, so it is off until
+        /// requested. The request lives in the session: it survives a domain reload and ends with the editor.
+        /// Turning it off stops the recording and releases the buffer.
         /// </summary>
         public static bool Enabled
         {
-            get => EditorPrefs.GetBool(EnabledKey, true);
-            set => EditorPrefs.SetBool(EnabledKey, value);
+            get => SessionState.GetBool(EnabledKey, false);
+            set
+            {
+                SessionState.SetBool(EnabledKey, value);
+                ProfilerDriver.enabled = value;
+
+                if (value == false)
+                    ProfilerDriver.ClearAllFrames();
+            }
         }
 
         private static void OnPlayModeChanged(PlayModeStateChange state)
@@ -82,9 +90,9 @@ namespace Internal
         }
 
         /// <summary>
-        /// Profiler recording is kept on in advance, already in Edit Mode: if it is enabled on
+        /// While requested, recording is kept on in advance, already in Edit Mode: if it is enabled on
         /// entering Play Mode, the first frames of the run - the heaviest ones - do not get into the buffer,
-        /// the profiler takes a couple of frames to start. This is the cost of the enabled Frames toggle.
+        /// the profiler takes a couple of frames to start.
         /// </summary>
         private static void StartRecording()
         {

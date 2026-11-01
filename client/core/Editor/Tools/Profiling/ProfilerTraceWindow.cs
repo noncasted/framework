@@ -147,10 +147,10 @@ namespace Internal
             _tracesMenu = new ToolbarMenu { text = "Traces" };
             toolbar.Add(_tracesMenu);
 
-            // Frame capture keeps profiler recording on for the whole run - a noticeable cost,
-            // so it is visible and can be turned off right here.
+            // Frame capture keeps profiler recording on and its buffer takes gigabytes,
+            // so it is off until requested here, for this editor session.
             var frames = new ToolbarToggle { text = "Frames", value = ProfilerFrameCapture.Enabled };
-            frames.tooltip = "Снимать сэмплы Unity-профайлера по кадрам трассы";
+            frames.tooltip = "Снимать сэмплы Unity-профайлера по кадрам трассы. Включает запись профайлера до закрытия редактора";
             frames.RegisterValueChangedCallback(evt => ProfilerFrameCapture.Enabled = evt.newValue);
             toolbar.Add(frames);
 
