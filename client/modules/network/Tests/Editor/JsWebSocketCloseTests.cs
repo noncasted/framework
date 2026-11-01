@@ -18,12 +18,15 @@ namespace Internal.Tests
         private const BindingFlags Flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.NonPublic;
         private const int Id = 987654;
 
+        // Internal to the runtime assembly: the type of the socket names its assembly.
+        private static readonly Type Callbacks = typeof(JsWebSocket).Assembly.GetType("Internal.JsWebSocketCallbacks");
+
         [UnityTest]
         public IEnumerator OpenAndCloseBetweenFrames_ConnectSucceeds_CloseDelivered() => UniTask.ToCoroutine(async () =>
         {
             var lifetime = new Lifetime();
             var socket = Create(lifetime);
-            var instances = (Dictionary<int, JsWebSocket>)typeof(JsWebSocket).GetField("Instances", Flags).GetValue(null);
+            var instances = (Dictionary<int, JsWebSocket>)Callbacks.GetField("Instances", Flags).GetValue(null);
             instances[Id] = socket;
 
             try
@@ -32,8 +35,8 @@ namespace Internal.Tests
                 socket.Closed.Advise(lifetime, closed.Add);
                 SocketPump.Run(lifetime, () => Call(socket, "Deliver")).NoAwait();
 
-                Call(null, "OnOpen", Id);
-                Call(null, "OnClose", Id, 4001);
+                CallBrowser("OnOpen", Id);
+                CallBrowser("OnClose", Id, 4001);
 
                 await (UniTask)Call(socket, "WaitOpened");
 
@@ -53,12 +56,12 @@ namespace Internal.Tests
         {
             var lifetime = new Lifetime();
             var socket = Create(lifetime);
-            var instances = (Dictionary<int, JsWebSocket>)typeof(JsWebSocket).GetField("Instances", Flags).GetValue(null);
+            var instances = (Dictionary<int, JsWebSocket>)Callbacks.GetField("Instances", Flags).GetValue(null);
             instances[Id] = socket;
 
             try
             {
-                Call(null, "OnClose", Id, 1006);
+                CallBrowser("OnClose", Id, 1006);
 
                 try
                 {
@@ -98,6 +101,11 @@ namespace Internal.Tests
         private static object Call(object target, string method, params object[] arguments)
         {
             return typeof(JsWebSocket).GetMethod(method, Flags).Invoke(target, arguments);
+        }
+
+        private static void CallBrowser(string method, params object[] arguments)
+        {
+            Callbacks.GetMethod(method, Flags).Invoke(null, arguments);
         }
     }
 }

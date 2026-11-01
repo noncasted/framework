@@ -1,9 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using AOT;
 using Cysharp.Threading.Tasks;
-using Unity.Scripting.LifecycleManagement;
 using UnityEngine;
 
 namespace Internal
@@ -12,13 +9,8 @@ namespace Internal
     /// WebSocket implementation for WebGL platform using JavaScript interop.
     /// Uses handler-based architecture with unique IDs for each connection.
     /// </summary>
-    [AutoStaticsCleanup]
-    public partial class JsWebSocket : IWebSocket
+    public class JsWebSocket : IWebSocket
     {
-        // Static dictionary to map handler IDs to C# instances for callbacks
-        private static readonly Dictionary<int, JsWebSocket> Instances = new();
-        private static bool _callbacksInitialized;
-
         private readonly ViewableDelegate<byte[]> _received = new();
         private readonly ViewableDelegate<SocketCloseInfo> _closed = new();
         private readonly IReadOnlyLifetime _lifetime;
@@ -52,17 +44,13 @@ namespace Internal
             _inbox = new SocketInbox<byte[]>(_lifetime, bytes => _received.Invoke(bytes));
 
             // Initialize global callbacks once
-            if (!_callbacksInitialized)
-            {
-                InitializeCallbacks();
-                _callbacksInitialized = true;
-            }
+            JsWebSocketCallbacks.Initialize();
 
             // Create handler and get unique ID
-            _handlerId = JsWebSocketCreate(url);
+            _handlerId = JsWebSocketInterop.JsWebSocketCreate(url);
 
             // Register this instance for callbacks
-            Instances[_handlerId] = this;
+            JsWebSocketCallbacks.Register(_handlerId, this);
 
             // Setup cleanup on lifetime termination
             _lifetime.Listen(Dispose);
@@ -85,7 +73,7 @@ namespace Internal
 
             Debug.Log($"[Network] [JsWebSocket] Connecting: id={_handlerId}");
 
-            var result = JsWebSocketConnect(_handlerId);
+            var result = JsWebSocketInterop.JsWebSocketConnect(_handlerId);
 
             if (result != 0)
             {
@@ -131,7 +119,7 @@ namespace Internal
             try
             {
                 var ptr = handle.AddrOfPinnedObject();
-                var result = JsWebSocketSend(_handlerId, ptr, bytes.Length);
+                var result = JsWebSocketInterop.JsWebSocketSend(_handlerId, ptr, bytes.Length);
 
                 // CLOSING: the server Close frame has arrived, onclose with its code follows. Reporting the loss
                 // from the send would race it, as the 1006 of DefaultWebSocket.Send hid the 4001 of an outdated client.
@@ -164,7 +152,7 @@ namespace Internal
             Debug.LogWarning($"[Network] [JsWebSocket] Dropped: id={_handlerId}, {reason}");
             _closed.Invoke(new SocketCloseInfo(SocketCloseInfo.AbnormalClosure, $"dropped: {reason}"));
 
-            JsWebSocketClose(_handlerId, 4000, "Dropped");
+            JsWebSocketInterop.JsWebSocketClose(_handlerId, 4000, "Dropped");
         }
 
         private void Dispose()
@@ -179,14 +167,14 @@ namespace Internal
             // Close connection if still open
             if (_isConnected)
             {
-                JsWebSocketClose(_handlerId, 1000, "Normal closure");
+                JsWebSocketInterop.JsWebSocketClose(_handlerId, 1000, "Normal closure");
             }
 
             // Free handler resources
-            JsWebSocketFree(_handlerId);
+            JsWebSocketInterop.JsWebSocketFree(_handlerId);
 
             // Remove from instances
-            Instances.Remove(_handlerId);
+            JsWebSocketCallbacks.Unregister(_handlerId);
 
             // Clear event listeners
             _received.Dispose();
@@ -207,155 +195,33 @@ namespace Internal
             }
         }
 
-        #region JavaScript Interop
-
-        // The functions of the .jslib exist only in a WebGL player: an IL2CPP standalone build fails to link them.
-#if UNITY_WEBGL && !UNITY_EDITOR
-        [DllImport("__Internal")]
-        private static extern void JsWebSocketSetOnOpen(Action<int> callback);
-
-        [DllImport("__Internal")]
-        private static extern void JsWebSocketSetOnMessage(Action<int, IntPtr, int> callback);
-
-        [DllImport("__Internal")]
-        private static extern void JsWebSocketSetOnError(Action<int, IntPtr> callback);
-
-        [DllImport("__Internal")]
-        private static extern void JsWebSocketSetOnClose(Action<int, int> callback);
-
-        [DllImport("__Internal")]
-        private static extern int JsWebSocketCreate(string url);
-
-        [DllImport("__Internal")]
-        private static extern int JsWebSocketConnect(int id);
-
-        [DllImport("__Internal")]
-        private static extern int JsWebSocketSend(int id, IntPtr buffer, int length);
-
-        [DllImport("__Internal")]
-        private static extern int JsWebSocketClose(int id, int code, string reason);
-
-        [DllImport("__Internal")]
-        private static extern int JsWebSocketFree(int id);
-
-#else
-        private static void JsWebSocketSetOnOpen(Action<int> callback) =>
-            throw Internal.JsLibStub.Missing();
-
-        private static void JsWebSocketSetOnMessage(Action<int, IntPtr, int> callback) =>
-            throw Internal.JsLibStub.Missing();
-
-        private static void JsWebSocketSetOnError(Action<int, IntPtr> callback) =>
-            throw Internal.JsLibStub.Missing();
-
-        private static void JsWebSocketSetOnClose(Action<int, int> callback) =>
-            throw Internal.JsLibStub.Missing();
-
-        private static int JsWebSocketCreate(string url) =>
-            throw Internal.JsLibStub.Missing();
-
-        private static int JsWebSocketConnect(int id) =>
-            throw Internal.JsLibStub.Missing();
-
-        private static int JsWebSocketSend(int id, IntPtr buffer, int length) =>
-            throw Internal.JsLibStub.Missing();
-
-        private static int JsWebSocketClose(int id, int code, string reason) =>
-            throw Internal.JsLibStub.Missing();
-
-        private static int JsWebSocketFree(int id) =>
-            throw Internal.JsLibStub.Missing();
-
-#endif
-
-        #endregion
-
-        #region Callbacks (must be static for AOT)
-
-        private static void InitializeCallbacks()
+        // The socket is open in the browser: OnOpen of JsWebSocketCallbacks.
+        internal void OnBrowserOpen()
         {
-            JsWebSocketSetOnOpen(OnOpen);
-            JsWebSocketSetOnMessage(OnMessage);
-            JsWebSocketSetOnError(OnError);
-            JsWebSocketSetOnClose(OnClose);
-
-            Debug.Log("[Network] [JsWebSocket] Global callbacks initialized");
+            _isConnected = true;
+            _isOpened = true;
         }
 
-        [MonoPInvokeCallback(typeof(Action<int>))]
-        private static void OnOpen(int handlerId)
+        // A frame from the browser: OnMessage of JsWebSocketCallbacks.
+        internal void OnBrowserMessage(byte[] data)
         {
-            if (Instances.TryGetValue(handlerId, out var instance))
-            {
-                Debug.Log($"[Network] [JsWebSocket] OnOpen: id={handlerId}");
-                instance._isConnected = true;
-                instance._isOpened = true;
-            }
-            else
-            {
-                Debug.LogError($"[Network] [JsWebSocket] OnOpen: instance not found for id={handlerId}");
-            }
+            _inbox.Enqueue(data);
         }
 
-        [MonoPInvokeCallback(typeof(Action<int, IntPtr, int>))]
-        private static void OnMessage(int handlerId, IntPtr bufferPtr, int length)
+        // The socket is closed in the browser: OnClose of JsWebSocketCallbacks.
+        internal void OnBrowserClose(int code)
         {
-            if (Instances.TryGetValue(handlerId, out var instance))
-            {
-                // Copy data from unmanaged memory to managed byte array: the buffer is freed after the callback.
-                var data = new byte[length];
-                Marshal.Copy(bufferPtr, data, 0, length);
+            var wasConnected = _isConnected;
+            _isConnected = false;
+            _isClosed = true;
+            _closeCode = code;
 
-                instance._inbox.Enqueue(data);
-            }
-            else
-            {
-                Debug.LogError($"[Network] [JsWebSocket] OnMessage: instance not found for id={handlerId}");
-            }
+            // The browser sends onclose after onerror too, so the loss is reported only from here.
+            // Dispose removes the instance from Instances before JsWebSocketClose, so a local
+            // close does not get here.
+            // Reported after the frames received before it, in the player loop.
+            if (wasConnected == true && _isDisposed == false)
+                _pendingClose = new SocketCloseInfo(code, "closed by browser");
         }
-
-        [MonoPInvokeCallback(typeof(Action<int, IntPtr>))]
-        private static void OnError(int handlerId, IntPtr errorPtr)
-        {
-            if (Instances.TryGetValue(handlerId, out var instance))
-            {
-                var errorMessage = Marshal.PtrToStringAnsi(errorPtr);
-                Debug.LogError($"[Network] [JsWebSocket] OnError: id={handlerId}, error={errorMessage}");
-
-                // The connection state is left to OnClose, which the browser always sends after onerror: clearing
-                // _isConnected here made OnClose take an open socket for a never opened one and swallow the loss.
-            }
-            else
-            {
-                Debug.LogError($"[Network] [JsWebSocket] OnError: instance not found for id={handlerId}");
-            }
-        }
-
-        [MonoPInvokeCallback(typeof(Action<int, int>))]
-        private static void OnClose(int handlerId, int code)
-        {
-            if (Instances.TryGetValue(handlerId, out var instance))
-            {
-                Debug.Log($"[Network] [JsWebSocket] OnClose: id={handlerId}, code={code}");
-
-                var wasConnected = instance._isConnected;
-                instance._isConnected = false;
-                instance._isClosed = true;
-                instance._closeCode = code;
-
-                // The browser sends onclose after onerror too, so the loss is reported only from here.
-                // Dispose removes the instance from Instances before JsWebSocketClose, so a local
-                // close does not get here.
-                // Reported after the frames received before it, in the player loop.
-                if (wasConnected == true && instance._isDisposed == false)
-                    instance._pendingClose = new SocketCloseInfo(code, "closed by browser");
-            }
-            else
-            {
-                Debug.LogError($"[Network] [JsWebSocket] OnClose: instance not found for id={handlerId}");
-            }
-        }
-
-        #endregion
     }
 }
