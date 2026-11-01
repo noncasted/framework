@@ -19,7 +19,8 @@ namespace Internal.EditorTests
     {
         private const BindingFlags Flags = BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
         private const string LockedRoot = "Assets/CatalogFailureTests";
-        private const string ArtFolder = "Assets/Art";
+        // A folder of the test: TearDown deletes every locked root, so never the real art of the project.
+        private const string ArtFolder = "Assets/CatalogFailureTestsLockedArt";
 
         private static string SettingsFile =>
             Path.Combine(Path.GetDirectoryName(Application.dataPath), FrameworkSettings.SettingsPath);
