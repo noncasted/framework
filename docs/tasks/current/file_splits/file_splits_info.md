@@ -5,7 +5,7 @@ phase: implementation
 created: 2026-11-02
 updated: 2026-11-02
 total_steps: 9
-completed_steps: [1]
+completed_steps: [1, 3]
 blocked_steps: []
 ---
 
@@ -56,7 +56,7 @@ blocked_steps: []
 - **Зависит от:** 1
 
 #### [3] U7, I6, I7
-- **Статус:** [ ] pending
+- **Статус:** [x] completed
 - **Что:** `UINavigation`, `AudioPlayer`, `GamepadReader`
 - **Зависит от:** 1
 
