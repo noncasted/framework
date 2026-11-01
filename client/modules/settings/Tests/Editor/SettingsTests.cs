@@ -34,10 +34,10 @@ namespace Global.Settings.Tests
                 await settings.OnSetup(lifetime);
 
                 var save = settings.Copy();
-                save.MasterVolume = 0.5f;
+                save.SetMasterVolume(0.5f);
                 await settings.Apply(save);
 
-                save.MasterVolume = 0.1f;
+                save.SetMasterVolume(0.1f);
 
                 Assert.AreEqual(0.5f, settings.Copy().MasterVolume);
                 Assert.AreEqual(0.5f, settings.MasterVolume.Value);

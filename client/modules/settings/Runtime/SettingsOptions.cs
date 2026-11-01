@@ -8,14 +8,18 @@ namespace Global.Settings
     // the field of the defaults is serialized as before.
     public abstract class SettingsOptions<TSave> : EnvAsset where TSave : SettingsSave, new()
     {
-        [SerializeField] private TSave _defaultValues = new TSave
-        {
-            MasterVolume = 1f,
-            SoundsVolume = 1f,
-            MusicVolume = 1f
-        };
+        [SerializeField] private TSave _defaultValues = CreateDefaultValues();
 
         public TSave DefaultValues => _defaultValues;
+
+        private static TSave CreateDefaultValues()
+        {
+            var values = new TSave();
+            values.SetMasterVolume(1f);
+            values.SetSoundsVolume(1f);
+            values.SetMusicVolume(1f);
+            return values;
+        }
     }
 
     // The options of a game without settings of its own.

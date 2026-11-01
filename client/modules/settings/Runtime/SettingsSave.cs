@@ -10,13 +10,33 @@ namespace Global.Settings
     [Serializable]
     public class SettingsSave
     {
-        [field: SerializeField] public float MasterVolume { get; set; }
-        [field: SerializeField] public float SoundsVolume { get; set; }
-        [field: SerializeField] public float MusicVolume { get; set; }
+        [field: SerializeField] public float MasterVolume { get; private set; }
+        [field: SerializeField] public float SoundsVolume { get; private set; }
+        [field: SerializeField] public float MusicVolume { get; private set; }
 
         // The player applied the settings at least once: a save that was never applied takes the defaults of the
         // options asset at every start (so a changed default reaches the players who never touched the settings).
-        [field: SerializeField] public bool WasChanged { get; set; }
+        [field: SerializeField] public bool WasChanged { get; private set; }
+
+        public void SetMasterVolume(float value)
+        {
+            MasterVolume = value;
+        }
+
+        public void SetSoundsVolume(float value)
+        {
+            SoundsVolume = value;
+        }
+
+        public void SetMusicVolume(float value)
+        {
+            MusicVolume = value;
+        }
+
+        internal void MarkChanged()
+        {
+            WasChanged = true;
+        }
 
         // A copy of the same type with the same fields; WasChanged is not copied (Apply sets it).
         public static TSave Copy<TSave>(TSave source) where TSave : SettingsSave, new()

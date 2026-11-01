@@ -70,7 +70,7 @@ namespace Global.Settings
         public async UniTask Apply(TSave save)
         {
             var applied = SettingsSave.Copy(save);
-            applied.WasChanged = true;
+            applied.MarkChanged();
 
             await _saves.Save(applied);
             _save = applied;
