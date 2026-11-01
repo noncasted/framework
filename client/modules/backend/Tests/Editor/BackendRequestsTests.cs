@@ -22,7 +22,7 @@ namespace Global.Backend.Tests
         public IEnumerator Get_SilentServer_FailsInOptionsTimeout() => UniTask.ToCoroutine(async () =>
         {
             using var server = new Server(_ => Thread.Sleep(TimeSpan.FromSeconds(10)));
-            var options = new BackendOptions { TimeoutSeconds = 1 };
+            var options = JsonUtility.FromJson<BackendOptions>("{\"_timeoutSeconds\":1}");
             var get = new BackendGet(options);
             var lifetime = new Lifetime();
 

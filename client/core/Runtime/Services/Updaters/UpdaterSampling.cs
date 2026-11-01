@@ -32,8 +32,7 @@ namespace Internal
         {
             foreach (var sample in _samples.Values)
             {
-                sample.Ticks = 0;
-                sample.Calls = 0;
+                sample.Reset();
             }
         }
 
@@ -65,14 +64,25 @@ namespace Internal
                 _samples.Add(type, sample);
             }
 
-            sample.Ticks += ticks;
-            sample.Calls++;
+            sample.Add(ticks);
         }
     }
 
     public class UpdaterSample
     {
-        public long Ticks;
-        public int Calls;
+        public long Ticks { get; private set; }
+        public int Calls { get; private set; }
+
+        internal void Add(long ticks)
+        {
+            Ticks += ticks;
+            Calls++;
+        }
+
+        internal void Reset()
+        {
+            Ticks = 0;
+            Calls = 0;
+        }
     }
 }

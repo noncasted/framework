@@ -83,7 +83,12 @@ namespace Internal
         private static int _lastId;
 
         // Set by the editor (LifetimeTracking): stack capture is expensive, so it is enabled only by the flag.
-        public static bool IsEnabled { get; set; }
+        public static bool IsEnabled { get; private set; }
+
+        public static void SetEnabled(bool enabled)
+        {
+            IsEnabled = enabled;
+        }
 
         public static bool TryDequeue(out LifetimeEvent lifetimeEvent)
         {

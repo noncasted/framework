@@ -52,7 +52,7 @@ namespace Internal
             if (EditorApplication.isPlayingOrWillChangePlaymode == true)
             {
                 _playStartedAt = (float)EditorApplication.timeSinceStartup;
-                LifetimeAnalytics.IsEnabled = IsTrackingEnabled;
+                LifetimeAnalytics.SetEnabled(IsTrackingEnabled);
             }
         }
 
@@ -67,7 +67,7 @@ namespace Internal
             set
             {
                 EditorPrefs.SetBool(EnabledPrefsKey, value);
-                LifetimeAnalytics.IsEnabled = value && EditorApplication.isPlaying;
+                LifetimeAnalytics.SetEnabled(value && EditorApplication.isPlaying);
             }
         }
 
@@ -98,13 +98,13 @@ namespace Internal
                 case PlayModeStateChange.ExitingEditMode:
                     Clear();
                     _playStartedAt = (float)EditorApplication.timeSinceStartup;
-                    LifetimeAnalytics.IsEnabled = IsTrackingEnabled;
+                    LifetimeAnalytics.SetEnabled(IsTrackingEnabled);
                     break;
 
                 // Those that survived exiting Play stay in the model: these are the leak candidates.
                 case PlayModeStateChange.EnteredEditMode:
                     Drain();
-                    LifetimeAnalytics.IsEnabled = false;
+                    LifetimeAnalytics.SetEnabled(false);
                     break;
             }
         }

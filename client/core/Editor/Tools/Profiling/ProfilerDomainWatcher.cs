@@ -13,7 +13,7 @@ namespace Internal
     {
         static ProfilerDomainWatcher()
         {
-            ProfilerTraceStorage.ColdDomain = true;
+            ProfilerTraceStorage.SetColdDomain(true);
         }
     }
 }

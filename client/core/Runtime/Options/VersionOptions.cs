@@ -8,10 +8,6 @@ namespace Internal
     {
         [SerializeField] private string _value = "1.0.0";
 
-        public string Value
-        {
-            get => _value;
-            set => _value = value;
-        }
+        public string Value => _value;
     }
 }

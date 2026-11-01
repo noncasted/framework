@@ -7,6 +7,16 @@ namespace Internal
     [ProjectToolsTab(300)]
     public class OptionsTab : ProjectToolsTab
     {
+        // The fields of the asset: the options have no setters, the tab writes what the serializer stores.
+        internal const string EnableGizmosPath = "_debug._enableGizmos";
+        internal const string EnableLogsPath = "_debug._enableLogs";
+        internal const string VersionPath = "_version._value";
+        internal const string EnvironmentPath = "_backend._environment";
+        internal const string ProductionApiUrlPath = "_backend._productionApiUrl";
+        internal const string LocalApiUrlPath = "_backend._localApiUrl";
+        internal const string TimeoutSecondsPath = "_backend._timeoutSeconds";
+        internal const string PlatformPath = "_platform._platform";
+
         public override string Title => "Options";
 
         protected override void BuildContent(VisualElement parent)
@@ -21,17 +31,17 @@ namespace Internal
 
             var debugSection = BuildSubSection("Debug Options");
             var gizmos = new Toggle("Enable Gizmos") { value = options.DebugOptions.EnableGizmos };
-            gizmos.RegisterValueChangedCallback(e => Apply(() => options.DebugOptions.EnableGizmos = e.newValue));
+            gizmos.RegisterValueChangedCallback(e => Write(options, EnableGizmosPath, p => p.boolValue = e.newValue));
             debugSection.Add(gizmos);
 
             var logs = new Toggle("Enable Logs") { value = options.DebugOptions.EnableLogs };
-            logs.RegisterValueChangedCallback(e => Apply(() => options.DebugOptions.EnableLogs = e.newValue));
+            logs.RegisterValueChangedCallback(e => Write(options, EnableLogsPath, p => p.boolValue = e.newValue));
             debugSection.Add(logs);
             parent.Add(debugSection);
 
             var versionSection = BuildSubSection("Version Options");
             var field = new TextField("Version") { value = options.VersionOptions.Value };
-            field.RegisterValueChangedCallback(e => Apply(() => options.VersionOptions.Value = e.newValue));
+            field.RegisterValueChangedCallback(e => Write(options, VersionPath, p => p.stringValue = e.newValue));
             versionSection.Add(field);
             parent.Add(versionSection);
 
@@ -39,21 +49,21 @@ namespace Internal
             var envField = new EnumField("Environment", options.BackendOptions.Environment);
 
             envField.RegisterValueChangedCallback(e =>
-                Apply(() => options.BackendOptions.Environment = (BackendEnvironment)e.newValue));
+                Write(options, EnvironmentPath, p => p.intValue = (int)(BackendEnvironment)e.newValue));
             backendSection.Add(envField);
 
             var prodUrl = new TextField("Production URL") { value = options.BackendOptions.ProductionApiUrl };
 
             prodUrl.RegisterValueChangedCallback(e =>
-                Apply(() => options.BackendOptions.ProductionApiUrl = e.newValue));
+                Write(options, ProductionApiUrlPath, p => p.stringValue = e.newValue));
             backendSection.Add(prodUrl);
 
             var localUrl = new TextField("Local URL") { value = options.BackendOptions.LocalApiUrl };
-            localUrl.RegisterValueChangedCallback(e => Apply(() => options.BackendOptions.LocalApiUrl = e.newValue));
+            localUrl.RegisterValueChangedCallback(e => Write(options, LocalApiUrlPath, p => p.stringValue = e.newValue));
             backendSection.Add(localUrl);
 
             var timeout = new IntegerField("Timeout (sec)") { value = options.BackendOptions.TimeoutSeconds };
-            timeout.RegisterValueChangedCallback(e => Apply(() => options.BackendOptions.TimeoutSeconds = e.newValue));
+            timeout.RegisterValueChangedCallback(e => Write(options, TimeoutSecondsPath, p => p.intValue = e.newValue));
             backendSection.Add(timeout);
             parent.Add(backendSection);
 
@@ -61,19 +71,19 @@ namespace Internal
             var platformField = new EnumField("Platform Type", options.PlatformOptions.PlatformType);
 
             platformField.RegisterValueChangedCallback(e =>
-                Apply(() => options.PlatformOptions.PlatformType = (PlatformType)e.newValue));
+                Write(options, PlatformPath, p => p.intValue = (int)(PlatformType)e.newValue));
             platformSection.Add(platformField);
             parent.Add(platformSection);
         }
 
-        // Options now live in an asset, so an edit must mark it dirty:
+        // Options now live in an asset, so an edit must mark it dirty (the apply does, with the undo step):
         // otherwise the domain reload rolls it back before Save is pressed.
-        private void Apply(Action mutate)
+        internal static void Write(OptionsContainer options, string path, Action<SerializedProperty> write)
         {
-            var options = Host.Options;
-            Undo.RecordObject(options, "Project Options");
-            mutate();
-            EditorUtility.SetDirty(options);
+            using var serialized = new SerializedObject(options);
+            write(serialized.FindProperty(path));
+            serialized.ApplyModifiedProperties();
+            Undo.SetCurrentGroupName("Project Options");
         }
     }
 }

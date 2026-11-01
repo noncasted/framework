@@ -11,8 +11,20 @@ namespace Internal
     [AutoStaticsCleanup]
     public static partial class ButtonSounds
     {
-        public static Action Clicked { get; set; }
-        public static Action Hovered { get; set; }
+        public static Action Clicked { get; private set; }
+        public static Action Hovered { get; private set; }
+
+        public static void Bind(IReadOnlyLifetime lifetime, Action clicked, Action hovered)
+        {
+            Clicked = clicked;
+            Hovered = hovered;
+
+            lifetime.Listen(() =>
+            {
+                Clicked = null;
+                Hovered = null;
+            });
+        }
 
         public static void Attach(Button button)
         {

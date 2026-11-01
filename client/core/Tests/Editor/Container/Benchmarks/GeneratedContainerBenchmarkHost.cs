@@ -333,14 +333,14 @@ namespace Internal.Tests
             public DiagnosticsSwitch(bool enabled)
             {
                 _previous = ContainerRegistryDebug.IsEnabled;
-                ContainerRegistryDebug.IsEnabled = enabled;
+                ContainerRegistryDebug.SetEnabled(enabled);
             }
 
             private readonly bool _previous;
 
             public void Dispose()
             {
-                ContainerRegistryDebug.IsEnabled = _previous;
+                ContainerRegistryDebug.SetEnabled(_previous);
             }
         }
 

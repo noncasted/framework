@@ -9,16 +9,8 @@ namespace Internal
         [SerializeField] private bool _enableGizmos;
         [SerializeField] private bool _enableLogs;
 
-        public bool EnableGizmos
-        {
-            get => _enableGizmos;
-            set => _enableGizmos = value;
-        }
+        public bool EnableGizmos => _enableGizmos;
 
-        public bool EnableLogs
-        {
-            get => _enableLogs;
-            set => _enableLogs = value;
-        }
+        public bool EnableLogs => _enableLogs;
     }
 }

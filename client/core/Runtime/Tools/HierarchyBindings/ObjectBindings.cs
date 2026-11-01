@@ -39,18 +39,23 @@ namespace Internal
 #if UNITY_EDITOR
         // The runtime assembly cannot reference the editor one, so the link is one-way:
         // the generator assigns itself here on domain load.
-        public static Action<ObjectBindings> RegenerateHandler;
+        private static Action<ObjectBindings> _regenerateHandler;
+
+        public static void SetRegenerateHandler(Action<ObjectBindings> handler)
+        {
+            _regenerateHandler = handler;
+        }
 
         [Button("Regenerate")]
         private void Regenerate()
         {
-            if (RegenerateHandler == null)
+            if (_regenerateHandler == null)
             {
                 Debug.LogError("[HierarchyBindingsGenerator] Generator is not loaded.", this);
                 return;
             }
 
-            RegenerateHandler.Invoke(this);
+            _regenerateHandler.Invoke(this);
         }
 #endif
     }

@@ -17,13 +17,18 @@ namespace Internal
 
         // New containers do not create diagnostics while the flag is cleared (benchmark). In a release build
         // (without UNITY_EDITOR and DEBUG) generated classes do not create it at all.
-        public static bool IsEnabled { get; set; } = true;
+        public static bool IsEnabled { get; private set; } = true;
 
         private static readonly List<IContainerDiagnostics> _roots = new();
         private static readonly ViewableDelegate _changed = new();
         private static readonly Dictionary<IReadOnlyLifetime, List<LoadedAssetInfo>> _pendingAssets = new();
         private static readonly List<ContainerClassAllocations> _classAllocations = new();
         private static readonly Dictionary<string, int> _classAllocationIndices = new();
+
+        public static void SetEnabled(bool enabled)
+        {
+            IsEnabled = enabled;
+        }
 
         // A container with a parent sits in its Children; only tree roots go into Roots.
         internal static void Add(IContainerDiagnostics diagnostics)

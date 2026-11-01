@@ -10,7 +10,7 @@ namespace Global.Web
         // Called by a project whose template loads web-shell.js, before the root scope.
         public static void UseMobileCheck()
         {
-            PlatformOptions.MobileCheck = WebShellIsMobile;
+            PlatformOptions.SetMobileCheck(WebShellIsMobile);
         }
 
         // The functions of the .jslib exist only in a WebGL player: an IL2CPP standalone build fails to link them.

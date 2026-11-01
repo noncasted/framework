@@ -27,7 +27,7 @@ namespace Internal
         /// The run happens on freshly recompiled assemblies and a reset asset cache.
         /// Set by an editor hook, cleared after the first saved trace.
         /// </summary>
-        public static bool ColdDomain { get; set; }
+        public static bool ColdDomain { get; private set; }
 
         /// <summary>
         /// Traces are stored next to the project, in client/traces: it is more convenient to view them where
@@ -65,6 +65,11 @@ namespace Internal
                 return new[] { Directory };
 #endif
             }
+        }
+
+        public static void SetColdDomain(bool isCold)
+        {
+            ColdDomain = isCold;
         }
 
         public static void Save(ProfilerTraceData trace)

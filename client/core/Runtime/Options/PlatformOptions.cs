@@ -8,6 +8,8 @@ namespace Internal
     {
         [SerializeField] private PlatformType _platform = PlatformType.Website;
 
+        private static Func<bool> _mobileCheck;
+
         // A build gets Telegram or Steam from the define of its profile (web_telegram, steam_*), not from this shared
         // asset: the builds would overwrite one field. The serialized Telegram or Steam is for the editor only (a
         // debug run of the platform: the debug API of Telegram, a running Steam client for Steam).
@@ -31,14 +33,16 @@ namespace Internal
                 return _platform;
 #endif
             }
-            set => _platform = value;
         }
 
         // Unity's own check (it misses iPadOS, which reports itself as a Mac); a platform module with a better check of
-        // its own sets MobileCheck.
-        public bool IsMobile => MobileCheck?.Invoke() ?? Application.isMobilePlatform;
+        // its own calls SetMobileCheck.
+        public bool IsMobile => _mobileCheck?.Invoke() ?? Application.isMobilePlatform;
 
-        public static Func<bool> MobileCheck { get; set; }
+        public static void SetMobileCheck(Func<bool> check)
+        {
+            _mobileCheck = check;
+        }
 
         public bool IsEditor
         {

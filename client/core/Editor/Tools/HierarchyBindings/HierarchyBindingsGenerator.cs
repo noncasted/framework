@@ -275,7 +275,7 @@ namespace Internal
         [InitializeOnLoadMethod]
         private static void InstallRegenerateHandler()
         {
-            ObjectBindings.RegenerateHandler = Regenerate;
+            ObjectBindings.SetRegenerateHandler(Regenerate);
         }
 
         private static HierarchyBindingsNode Scan(

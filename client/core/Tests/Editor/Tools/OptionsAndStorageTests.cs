@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Internal.Tests
 {
@@ -9,30 +10,25 @@ namespace Internal.Tests
         [Test]
         public void SocketUrl_ReplacesOnlyTheScheme()
         {
-            var options = new BackendOptions
-            {
-                Environment = BackendEnvironment.Local,
-                LocalApiUrl = "http://localhost:5003/http",
-                ProductionApiUrl = "https://api.example.com/https"
-            };
+            const string local = "http://localhost:5003/http";
+            const string production = "https://api.example.com/https";
 
-            Assert.AreEqual("ws://localhost:5003/http", options.SocketUrl);
-
-            options.Environment = BackendEnvironment.Production;
-
-            Assert.AreEqual("wss://api.example.com/https", options.SocketUrl);
+            Assert.AreEqual("ws://localhost:5003/http", Backend(BackendEnvironment.Local, local, production).SocketUrl);
+            Assert.AreEqual("wss://api.example.com/https", Backend(BackendEnvironment.Production, local, production).SocketUrl);
         }
 
         [Test]
         public void SocketUrl_UnknownScheme_Throws()
         {
-            var options = new BackendOptions
-            {
-                Environment = BackendEnvironment.Local,
-                LocalApiUrl = "localhost:5003"
-            };
+            var options = Backend(BackendEnvironment.Local, "localhost:5003", "");
 
             Assert.Throws<InvalidOperationException>(() => _ = options.SocketUrl);
+        }
+
+        private static BackendOptions Backend(BackendEnvironment environment, string local, string production)
+        {
+            return JsonUtility.FromJson<BackendOptions>(
+                $"{{\"_environment\":{(int)environment},\"_localApiUrl\":\"{local}\",\"_productionApiUrl\":\"{production}\"}}");
         }
 
         [Test]
