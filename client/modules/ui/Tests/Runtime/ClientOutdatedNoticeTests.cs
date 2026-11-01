@@ -64,7 +64,7 @@ namespace Global.UI.Tests
 
         private static ClientOutdatedNotice CreateNotice(IReadOnlyLifetime lifetime, IUINavigation navigation)
         {
-            var style = new ClientOutdatedNoticeStyle { Font = TMP_Settings.defaultFontAsset };
+            var style = new ClientOutdatedNoticeStyle(TMP_Settings.defaultFontAsset);
             return new ClientOutdatedNotice(lifetime, new NoLoadingScreen(), navigation, style);
         }
 

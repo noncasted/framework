@@ -31,11 +31,31 @@ namespace Global.Inputs
     // a bit per GamepadButton. A gamepad that is not connected reads as all zero.
     public struct GamepadState
     {
-        public Vector2 LeftStick { get; set; }
-        public Vector2 RightStick { get; set; }
-        public float LeftTrigger { get; set; }
-        public float RightTrigger { get; set; }
-        public int Buttons { get; set; }
+        public Vector2 LeftStick { get; private set; }
+        public Vector2 RightStick { get; private set; }
+        public float LeftTrigger { get; private set; }
+        public float RightTrigger { get; private set; }
+        public int Buttons { get; private set; }
+
+        public void SetLeftStick(Vector2 value)
+        {
+            LeftStick = value;
+        }
+
+        public void SetRightStick(Vector2 value)
+        {
+            RightStick = value;
+        }
+
+        public void SetLeftTrigger(float value)
+        {
+            LeftTrigger = value;
+        }
+
+        public void SetRightTrigger(float value)
+        {
+            RightTrigger = value;
+        }
 
         public bool IsPressed(GamepadButton button)
         {
@@ -177,13 +197,11 @@ namespace Global.Inputs
 
         private GamepadState ReadInput()
         {
-            var state = new GamepadState
-            {
-                LeftStick = new Vector2(ReadAxis(_layout.LeftX), -ReadAxis(_layout.LeftY)),
-                RightStick = new Vector2(ReadAxis(_layout.RightX), -ReadAxis(_layout.RightY)),
-                LeftTrigger = Mathf.Clamp01(ReadAxis(_layout.LeftTrigger)),
-                RightTrigger = Mathf.Clamp01(ReadAxis(_layout.RightTrigger))
-            };
+            var state = new GamepadState();
+            state.SetLeftStick(new Vector2(ReadAxis(_layout.LeftX), -ReadAxis(_layout.LeftY)));
+            state.SetRightStick(new Vector2(ReadAxis(_layout.RightX), -ReadAxis(_layout.RightY)));
+            state.SetLeftTrigger(Mathf.Clamp01(ReadAxis(_layout.LeftTrigger)));
+            state.SetRightTrigger(Mathf.Clamp01(ReadAxis(_layout.RightTrigger)));
 
             var threshold = _options.TriggerPressThreshold;
             var dpadX = ReadAxis(_layout.DpadX);
