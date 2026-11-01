@@ -41,10 +41,14 @@ through `InternalsVisibleTo`.
    `WithParameter`, markers, alternative `if/else` pairs, entity variants. Builder primitives are recognized by
    `[Internal.ContainerPrimitive(kind)]` on the method (`Graph/PrimitiveKind.cs` mirrors the runtime enum by value);
    an unbound call (code that does not compile yet) falls back to the method name. An `if` around a call into another
-   installer is not carried inside that installer (both branches are built).
+   installer is not carried inside that installer (both branches are built). A lifetime is the constant value of the
+   `ServiceLifetime` parameter; a value that is not a constant is CINGR001, as is a transient `Register` in an arm of a
+   switch expression. The id of a method is `Type.Method`; overloads of an installer also carry their parameter types.
+   A root keeps the bare name, the runtime finds it by that: an overloaded root is CINGR013.
 3. **Manifests** (`Graph/GraphEmitter`, `Scope/ManifestReader`, `Scope/ManifestHarvest`). Every assembly emits
    `ContainerGraph.g.cs` with `[assembly: Internal.ContainerInstaller(...)]` per installer method; consumer
-   assemblies read them to resolve installers and parent scopes from other assemblies.
+   assemblies read them to resolve installers and parent scopes from other assemblies. A manifest of another
+   `BlobVersion` or a broken one is CINGR001 naming the assembly: rebuild it with this generator.
 4. **Entity assets** (`Entity/`). Prefab views and their bindings come from
    `[assembly: Internal.ContainerGraphAsset(...)]` in
    `<content folder>/Runtime/Tools/Container/ContainerGraph.AssetMap.cs` of the project (`FrameworkSettings`), written by the editor
@@ -65,9 +69,16 @@ through `InternalsVisibleTo`.
    `constructed` / `instances` list what the class has slots for; before building, the builder is checked against
    them: a registration the generator did not see (a call through an interface or a virtual method, a stale asset
    map) or more instances of a type than slots (a loop, a repeated installer call) throws.
+   A parameter that can hold the `WithParameter` value of its own registration (the exact type first) takes that value before any registration
+   of the type and before what the scope gives by itself (`IContainer`, the lifetimes); any other parameter must be
+   registered in the scope or its parents.
    A type resolves to its last registration, the same one a constructor parameter takes (CINGR009 warns).
-   An alternative (`if` / `switch` branch) whose branch did not run leaves its field null: the scope builds, a
-   dependent throws (`RequireAlternative`), `Resolve` goes to the parent, lists leave it out.
+   Singleton alternatives that exclude each other (different arms of one `if` / `switch`) and share a service are one
+   group with one field; two separate `if`s are two fields, both are built when both ran. The arm that got into the
+   builder is built with its own `[Inject]`, `Dispose` checks the value at runtime, every service of every member is
+   exported (a member that does not give the type gives nothing). A transient alternative keeps `IsRegistered` in a field.
+   A branch that did not run gives nothing: the type takes the last of its registrations that ran; when none did, the
+   scope still builds, a dependent throws (`RequireAlternative`), `Resolve` goes to the parent, lists leave it out.
    `Dispose` terminates the lifetime first (its listeners still see live services), then disposes the services in
    reverse construction order; a throwing step does not skip the rest, the errors are rethrown at the end; after it
    `Resolve` throws `ObjectDisposedException`. Transients are not tracked: whoever resolves one disposes it.
@@ -98,9 +109,12 @@ All are errors.
 | CINGR007 | Declared parent scope manifest not found |
 | CINGR008 | `builder.Injectable<T>` type has no visible `[Inject]` method |
 | CINGR009 | Warning: a parameter takes the last of several registrations of its type |
-| CINGR010 | The `[Inject]` method cannot be called: several of them (the type and its base classes), generic, not accessible |
+| CINGR010 | The `[Inject]` method cannot be called: several of them (the type and its base classes), generic, not accessible, internal or private in another assembly |
 | CINGR011 | The registered type cannot be constructed: struct, interface, abstract, static, not accessible, no accessible constructor, several constructors with the longest parameter count |
 | CINGR012 | A transient registration listens to several scope phases (each phase would get a new instance) |
+| CINGR013 | A scope root is overloaded: the runtime finds a root by its name only |
+| CINGR014 | Several `WithParameter` values of a registration fit one parameter and none has exactly its type |
+| CINGR015 | Warning: a `WithParameter` value of a registration that no parameter can take |
 
 An exception inside the generator is reported as CINGR001 for the scope it happened in; the other scopes of the
 assembly are still emitted.

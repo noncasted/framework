@@ -10,6 +10,7 @@ namespace ContainerGenerator {
         private readonly ReferenceSymbols _references;
         private readonly GraphDocument _document;
         private readonly Dictionary<string, GraphMethod> _methods;
+        private readonly Dictionary<string, IMethodSymbol> _symbols = new Dictionary<string, IMethodSymbol>(StringComparer.Ordinal);
 
         public GraphWalker(Compilation compilation, ReferenceSymbols references) {
             _compilation = compilation;
@@ -169,15 +170,19 @@ namespace ContainerGenerator {
             return false;
         }
 
-        private GraphMethod WalkMethod(IMethodSymbol method, bool isRoot) {
+        // linkToContainer: false for a call of a local function, the call itself keeps its place in the caller.
+        private GraphMethod WalkMethod(IMethodSymbol method, bool isRoot, bool linkToContainer = true) {
             if (method.MethodKind != MethodKind.LocalFunction)
                 method = Normalize(method);
             var id = MethodIds.Of(method);
             if (_methods.TryGetValue(id, out var existing)) {
+                ReportIfOverloaded(id, method);
                 if (isRoot)
                     existing.IsRoot = true;
                 return existing;
             }
+
+            _symbols[id] = method;
 
             var result = new GraphMethod {
                 Id = id,
@@ -187,8 +192,27 @@ namespace ContainerGenerator {
             };
             _methods[id] = result;
             FillMethod(result, method, null, false);
-            LinkContainingMethod(method, result);
+            if (linkToContainer)
+                LinkContainingMethod(method, result);
             return result;
+        }
+
+        // Only roots share an id over different methods (MethodIds).
+        private void ReportIfOverloaded(string id, IMethodSymbol method) {
+            if (_symbols.TryGetValue(id, out var first) == false || SymbolEqualityComparer.Default.Equals(first, method))
+                return;
+
+            ReportOverloadedRoot(id, method);
+        }
+
+        private void ReportOverloadedRoot(string id, IMethodSymbol method) {
+            var location = method.Locations.Length > 0 ? method.Locations[0] : Location.None;
+            _document.Diagnostics.Add(new DiagnosticInfo(
+                GraphDescriptors.OverloadedRoot,
+                LocationInfo.CreateFrom(location),
+                id,
+                location.SourceTree?.FilePath ?? "",
+                (location.GetLineSpan().StartLinePosition.Line + 1).ToString()));
         }
 
         private void LinkContainingMethod(IMethodSymbol method, GraphMethod result) {
@@ -399,22 +423,26 @@ namespace ContainerGenerator {
                     GraphDescriptors.UnenumerableVariant);
             }
 
-            state.BranchDepth++;
+            var branch = state.NextBranch++;
+            state.Branches.Add(branch + ".0");
             WalkStatement(state, syntax.Statement);
-            if (syntax.Else != null)
+            state.Branches.RemoveAt(state.Branches.Count - 1);
+            if (syntax.Else != null) {
+                state.Branches.Add(branch + ".1");
                 WalkStatement(state, syntax.Else.Statement);
-            state.BranchDepth--;
+                state.Branches.RemoveAt(state.Branches.Count - 1);
+            }
         }
 
         private void WalkSwitchStatement(State state, SwitchStatementSyntax syntax) {
             WalkExpression(state, syntax.Expression, allowUnknown: true);
-            state.BranchDepth++;
-            foreach (var section in syntax.Sections) {
-                foreach (var statement in section.Statements)
+            var branch = state.NextBranch++;
+            for (var i = 0; i < syntax.Sections.Count; i++) {
+                state.Branches.Add(branch + "." + i);
+                foreach (var statement in syntax.Sections[i].Statements)
                     WalkStatement(state, statement);
+                state.Branches.RemoveAt(state.Branches.Count - 1);
             }
-
-            state.BranchDepth--;
         }
 
         private void WalkUsing(State state, UsingStatementSyntax syntax) {
@@ -483,10 +511,12 @@ namespace ContainerGenerator {
                 case SyntaxKind.ConditionalExpression:
                     var conditional = (ConditionalExpressionSyntax)expression;
                     WalkExpression(state, conditional.Condition, true);
-                    state.BranchDepth++;
+                    var conditionalBranch = state.NextBranch++;
+                    state.Branches.Add(conditionalBranch + ".0");
                     WalkExpression(state, conditional.WhenTrue);
+                    state.Branches[state.Branches.Count - 1] = conditionalBranch + ".1";
                     WalkExpression(state, conditional.WhenFalse);
-                    state.BranchDepth--;
+                    state.Branches.RemoveAt(state.Branches.Count - 1);
                     return;
                 case SyntaxKind.SimpleLambdaExpression:
                 case SyntaxKind.ParenthesizedLambdaExpression:
@@ -648,10 +678,12 @@ namespace ContainerGenerator {
                 return;
 
             WalkExpression(state, syntax.GoverningExpression, true);
-            state.BranchDepth++;
-            foreach (var arm in syntax.Arms)
-                WalkExpression(state, arm.Expression);
-            state.BranchDepth--;
+            var branch = state.NextBranch++;
+            for (var i = 0; i < syntax.Arms.Count; i++) {
+                state.Branches.Add(branch + "." + i);
+                WalkExpression(state, syntax.Arms[i].Expression);
+                state.Branches.RemoveAt(state.Branches.Count - 1);
+            }
         }
 
         private void WalkInvocation(State state, InvocationExpressionSyntax invocation) {
@@ -733,11 +765,6 @@ namespace ContainerGenerator {
                 return;
             }
 
-            if (name == "AddSnapshotHandler" || name == "AddCardActionSyncResolver") {
-                HandleKnownGenericInstaller(state, invocation, symbol);
-                return;
-            }
-
             if (IsBenign(name)) {
                 WalkReceiver(state, invocation);
                 foreach (var argument in invocation.ArgumentList.Arguments)
@@ -754,7 +781,7 @@ namespace ContainerGenerator {
             if (symbol != null && IsPrimitiveBuilder(symbol) == false &&
                 (IsInstaller(symbol) || IsAddInstaller(name, state, invocation))) {
                 WalkReceiver(state, invocation);
-                var callee = WalkMethod(symbol, false);
+                var callee = WalkMethod(symbol, false, linkToContainer: false);
                 AddCall(state, callee.Id, symbol);
                 state.LastRegistration = null;
                 return;
@@ -803,7 +830,7 @@ namespace ContainerGenerator {
 
             var registration = NewRegistration(state, invocation, "Register", implementation, "ConstructedType");
             registration.TypeMap = implementationMap;
-            registration.Lifetime = ParseLifetime(invocation, 0);
+            registration.Lifetime = ReadLifetime(state, invocation, symbol);
             if (string.IsNullOrEmpty(implementation) == false && string.IsNullOrEmpty(service))
                 AddService(registration, implementation, implementationMap);
             if (string.IsNullOrEmpty(service) == false)
@@ -840,7 +867,7 @@ namespace ContainerGenerator {
             if (origin == "InstanceHole" && argument != null && LooksLikePrefabAsset(argument))
                 origin = "PrefabAsset";
             var registration = NewRegistration(state, invocation, "RegisterComponent", implementation, origin);
-            registration.Lifetime = ParseLifetime(invocation, 1);
+            registration.Lifetime = ReadLifetime(state, invocation, symbol);
             registration.Hole = argument != null ? argument.ToString() : "";
             if (string.IsNullOrEmpty(implementation) == false)
                 AddService(registration, implementation);
@@ -883,16 +910,23 @@ namespace ContainerGenerator {
             WalkReceiver(state, invocation);
             var argument = invocation.ArgumentList.Arguments.Count > 0 ? invocation.ArgumentList.Arguments[0].Expression : null;
             var hole = argument != null ? argument.ToString() : "";
+            var type = symbol != null && symbol.TypeArguments.Length > 0
+                ? Format(state, symbol.TypeArguments[0])
+                : argument != null ? Format(state, state.Model.GetTypeInfo(argument).Type) : "";
             var target = CurrentRegistration(state, invocation);
             if (target != null) {
                 target.Hole = CombineHole(target.Hole, hole);
+                if (string.IsNullOrEmpty(type) == false && target.ParameterTypes.Contains(type) == false)
+                    target.ParameterTypes.Add(type);
                 if (target.Arms.Count == 0 && target.Origin == "ConstructedType")
                     target.Origin = "ParameterHole";
                 return;
             }
 
-            if (state.LastCallIndex >= 0)
+            if (state.LastCallIndex >= 0) {
                 state.Result.AddHoleToCall(state.LastCallIndex, hole);
+                state.Result.AddParameterToCall(state.LastCallIndex, type);
+            }
         }
 
         private void HandleInject(State state, InvocationExpressionSyntax invocation) {
@@ -940,28 +974,6 @@ namespace ContainerGenerator {
             state.Result.Registrations.Add(registration);
         }
 
-        private void HandleKnownGenericInstaller(State state, InvocationExpressionSyntax invocation, IMethodSymbol? symbol) {
-            WalkReceiver(state, invocation);
-            if (symbol != null && HasSyntax(symbol.OriginalDefinition)) {
-                var callee = WalkMethod(symbol, false);
-                AddCall(state, callee.Id, symbol);
-                state.LastRegistration = null;
-                return;
-            }
-
-            if (symbol == null || symbol.TypeArguments.Length == 0)
-                return;
-
-            var implementation = Format(state, symbol.TypeArguments[0]);
-            var registration = NewRegistration(state, invocation, "Register", implementation, "ConstructedType");
-            registration.TypeMap = Map(state, symbol.TypeArguments[0]);
-            if (symbol.TypeArguments.Length > 1)
-                AddService(registration, "ISnapshotHandler<" + Format(state, symbol.TypeArguments[1]) + ">");
-            state.Result.Registrations.Add(registration);
-            state.LastRegistration = registration;
-            state.LastCallIndex = -1;
-        }
-
         private void HandleCurrent(State state, InvocationExpressionSyntax invocation, Action<GraphRegistration> apply) {
             WalkReceiver(state, invocation);
             var target = CurrentRegistration(state, invocation);
@@ -969,19 +981,26 @@ namespace ContainerGenerator {
                 apply(target);
         }
 
-        private GraphRegistration? CurrentRegistration(State state, InvocationExpressionSyntax invocation) {
-            if (state.LastRegistration != null)
-                return state.LastRegistration;
-
+        // A local names its registration or its installer call; LastRegistration is only for a chain without one.
+        private static GraphRegistration? CurrentRegistration(State state, InvocationExpressionSyntax invocation) {
             var receiver = GetReceiver(invocation);
-            if (receiver is IdentifierNameSyntax identifier && state.Locals.TryGetValue(identifier.Identifier.Text, out var local)) {
-                if (local.Registration != null)
+            if (receiver != null &&
+                Unwrap(receiver) is IdentifierNameSyntax identifier &&
+                state.Locals.TryGetValue(identifier.Identifier.Text, out var local)) {
+                if (local.Registration != null) {
+                    state.LastRegistration = local.Registration;
+                    state.LastCallIndex = -1;
                     return local.Registration;
-                if (local.ReturnedCallIndex >= 0)
+                }
+
+                if (local.ReturnedCallIndex >= 0) {
+                    state.LastRegistration = null;
                     state.LastCallIndex = local.ReturnedCallIndex;
+                    return null;
+                }
             }
 
-            return null;
+            return state.LastRegistration;
         }
 
         // A switch arm over an enum is written with the full name of the constant: the type of the discriminant comes from it.
@@ -1017,6 +1036,15 @@ namespace ContainerGenerator {
 
             if (any == false)
                 return false;
+
+            // A switch is one field built once: a transient arm would silently become a singleton.
+            foreach (var arm in syntax.Arms) {
+                if (Unwrap(arm.Expression) is not InvocationExpressionSyntax invocation)
+                    continue;
+                var symbol = state.Model.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+                if (ReadLifetime(state, invocation, symbol) == "Transient")
+                    Error(state, invocation, "a transient Register in a switch arm, a switch arm is built once");
+            }
 
             state.LastRegistration = registration;
             return true;
@@ -1112,7 +1140,7 @@ namespace ContainerGenerator {
             string implementation,
             string origin) {
             var span = node.GetLocation().GetLineSpan();
-            if (state.BranchDepth > 0 && origin == "ConstructedType")
+            if (state.Branches.Count > 0 && origin == "ConstructedType")
                 origin = "Alternative";
 
             return new GraphRegistration {
@@ -1125,6 +1153,7 @@ namespace ContainerGenerator {
                 Line = span.StartLinePosition.Line + 1,
                 Ordinal = state.NextOrdinal++,
                 Location = LocationInfo.CreateFrom(node.GetLocation()),
+                BranchPath = string.Join("/", state.Branches),
             };
         }
 
@@ -1248,15 +1277,52 @@ namespace ContainerGenerator {
             return TypeSubstitution.Map(state.Method, type);
         }
 
-        private static string ParseLifetime(InvocationExpressionSyntax invocation, int argumentIndex) {
-            if (invocation.ArgumentList.Arguments.Count <= argumentIndex)
+        // The graph is built at compile time: the value of the ServiceLifetime parameter must be a constant. The
+        // generated class knows the lifetime, the runtime does not store it, so a variable has no way to act.
+        private string ReadLifetime(State state, InvocationExpressionSyntax invocation, IMethodSymbol? symbol) {
+            if (symbol == null)
                 return "Singleton";
 
-            var text = invocation.ArgumentList.Arguments[argumentIndex].Expression.ToString();
-            if (text.IndexOf("Transient", StringComparison.Ordinal) >= 0)
-                return "Transient";
-            if (text.IndexOf("Scoped", StringComparison.Ordinal) >= 0)
-                return "Scoped";
+            IParameterSymbol? parameter = null;
+            foreach (var candidate in symbol.Parameters) {
+                if (candidate.Type.Name == "ServiceLifetime")
+                    parameter = candidate;
+            }
+
+            if (parameter == null)
+                return "Singleton";
+
+            var argument = FindArgument(invocation, parameter, symbol);
+            if (argument == null)
+                return LifetimeName(parameter.Type, parameter.HasExplicitDefaultValue ? parameter.ExplicitDefaultValue : null);
+
+            var value = state.Model.GetConstantValue(argument.Expression);
+            if (value.HasValue)
+                return LifetimeName(parameter.Type, value.Value);
+
+            Error(state, argument, "the lifetime '" + argument.Expression + "', a ServiceLifetime must be a constant");
+            return "Singleton";
+        }
+
+        private static ArgumentSyntax? FindArgument(InvocationExpressionSyntax invocation, IParameterSymbol parameter, IMethodSymbol symbol) {
+            var arguments = invocation.ArgumentList.Arguments;
+            for (var i = 0; i < arguments.Count; i++) {
+                if (arguments[i].NameColon != null && arguments[i].NameColon!.Name.Identifier.ValueText == parameter.Name)
+                    return arguments[i];
+            }
+
+            var position = symbol.Parameters.IndexOf(parameter);
+            if (position < arguments.Count && arguments[position].NameColon == null)
+                return arguments[position];
+            return null;
+        }
+
+        private static string LifetimeName(ITypeSymbol enumType, object? value) {
+            foreach (var member in enumType.GetMembers()) {
+                if (member is IFieldSymbol field && field.HasConstantValue && Equals(field.ConstantValue, value))
+                    return field.Name;
+            }
+
             return "Singleton";
         }
 
@@ -1400,6 +1466,10 @@ namespace ContainerGenerator {
             foreach (var pair in groups) {
                 ReportUnenumerableVariants(pair.Value[0].Construct);
                 var distinct = DistinctViewTypes(pair.Value);
+                // The loader finds the class by the bare name of the method (GeneratedScopes.RootId).
+                if (MethodIds.HasOverloadSuffix(pair.Key))
+                    ReportOverloadedRoot(pair.Key, pair.Value[0].Construct);
+
                 var origin = WalkMethod(pair.Value[0].Construct, distinct.Count <= 1);
                 if (distinct.Count <= 1) {
                     origin.ViewType = pair.Value[0].ViewType;
@@ -1408,14 +1478,13 @@ namespace ContainerGenerator {
                 }
 
                 origin.IsRoot = false;
-                var used = new HashSet<string>(StringComparer.Ordinal);
+                var names = VariantNames(distinct);
+                var built = new HashSet<string>(StringComparer.Ordinal);
                 for (var i = 0; i < pair.Value.Count; i++) {
                     var site = pair.Value[i];
-                    if (string.IsNullOrEmpty(site.ViewType))
+                    if (string.IsNullOrEmpty(site.ViewType) || built.Add(site.ViewType) == false)
                         continue;
-                    var variant = VariantName(site.ViewType);
-                    if (used.Add(variant) == false)
-                        continue;
+                    var variant = names[site.ViewType];
                     WalkVariant(site.Construct, origin.Id + "+" + variant, variant, site.ViewType, site.Bools);
                 }
             }
@@ -1432,6 +1501,29 @@ namespace ContainerGenerator {
             }
 
             return types;
+        }
+
+        // One name per view type: Local / Remote while they name one type, the name of the type when they do not.
+        private static Dictionary<string, string> VariantNames(List<string> viewTypes) {
+            var names = new Dictionary<string, string>(StringComparer.Ordinal);
+            for (var i = 0; i < viewTypes.Count; i++)
+                names[viewTypes[i]] = VariantName(viewTypes[i]);
+            RenameCollisions(names, ScopeNames.Short);
+            RenameCollisions(names, TypeNames.SafeHint);
+            return names;
+        }
+
+        private static void RenameCollisions(Dictionary<string, string> names, Func<string, string> rename) {
+            var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var pair in names) {
+                counts.TryGetValue(pair.Value, out var count);
+                counts[pair.Value] = count + 1;
+            }
+
+            foreach (var viewType in new List<string>(names.Keys)) {
+                if (counts[names[viewType]] > 1)
+                    names[viewType] = rename(viewType);
+            }
         }
 
         private static string VariantName(string viewType) {
@@ -1690,7 +1782,8 @@ namespace ContainerGenerator {
             public GraphRegistration? LastRegistration;
             public InvocationExpressionSyntax? LastInstantiate;
             public int LastCallIndex = -1;
-            public int BranchDepth;
+            public List<string> Branches = new List<string>();
+            public int NextBranch;
             public int NextOrdinal;
             public bool EntityRoot;
 

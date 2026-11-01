@@ -165,11 +165,13 @@ namespace ContainerGenerator {
             target.CallTypeArguments.Clear();
             target.CallAsServices.Clear();
             target.CallHoles.Clear();
+            target.CallParameters.Clear();
             target.Calls.AddRange(harvested.Calls);
             target.CallOrdinals.AddRange(harvested.CallOrdinals);
             target.CallTypeArguments.AddRange(harvested.CallTypeArguments);
             target.CallAsServices.AddRange(harvested.CallAsServices);
             target.CallHoles.AddRange(harvested.CallHoles);
+            target.CallParameters.AddRange(harvested.CallParameters);
             target.ReturnedOrdinal = harvested.ReturnedOrdinal;
         }
 

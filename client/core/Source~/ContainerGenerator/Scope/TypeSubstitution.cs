@@ -133,6 +133,13 @@ namespace ContainerGenerator {
 
             copy.ServiceMaps.Clear();
             copy.TypeMap = "";
+            for (var i = 0; i < copy.ParameterTypes.Count; i++)
+                copy.ParameterTypes[i] = ReplacePlaceholders(copy.ParameterTypes[i], typeArgs);
+            for (var i = 0; i < copy.Arms.Count; i++) {
+                copy.Arms[i].ImplementationType = ReplacePlaceholders(copy.Arms[i].ImplementationType, typeArgs);
+                copy.Arms[i].ParameterType = ReplacePlaceholders(copy.Arms[i].ParameterType, typeArgs);
+            }
+
             return copy;
         }
 

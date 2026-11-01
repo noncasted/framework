@@ -19,6 +19,11 @@ namespace ContainerGenerator {
         public List<GraphEdge> Dependencies = new List<GraphEdge>();
         // The name of the [Inject] method; EdgeResolver sets it together with the edges, so Clone does not copy it.
         public string InjectMethod = "";
+        // Where the registration stands among the if / switch statements of its method: "statement.arm" per level.
+        // Two registrations exclude each other when they took different arms of one statement (BranchGroups).
+        public string BranchPath = "";
+        // The types given by WithParameter: a constructor / [Inject] parameter of such a type takes that value first.
+        public List<string> ParameterTypes = new List<string>();
 
         public GraphRegistration Clone() {
             var copy = new GraphRegistration {
@@ -33,7 +38,9 @@ namespace ContainerGenerator {
                 Ordinal = Ordinal,
                 TypeMap = TypeMap,
                 Location = Location,
+                BranchPath = BranchPath,
             };
+            copy.ParameterTypes.AddRange(ParameterTypes);
             copy.ServiceTypes.AddRange(ServiceTypes);
             copy.ServiceMaps.AddRange(ServiceMaps);
             for (var i = 0; i < Arms.Count; i++)
@@ -69,6 +76,9 @@ namespace ContainerGenerator {
         public int TargetIndex = -1;
         public string ParentRootId = "";
         public List<int> CollectionIndices = new List<int>();
+        // A target that is an alternative may stay null: what the value may come from instead (the other members of
+        // its group, the earlier registrations of the type). They are built before the owner of the edge.
+        public List<int> Fallbacks = new List<int>();
     }
 
     internal sealed class GraphMethod {
@@ -90,6 +100,8 @@ namespace ContainerGenerator {
         public List<string> CallTypeArguments = new List<string>();
         public List<string> CallAsServices = new List<string>();
         public List<string> CallHoles = new List<string>();
+        // The types of the WithParameter chained on the call, joined with ';' (see GraphRegistration.ParameterTypes).
+        public List<string> CallParameters = new List<string>();
         public int ReturnedOrdinal = -1;
 
         public void AddCall(
@@ -106,6 +118,7 @@ namespace ContainerGenerator {
             CallTypeArguments.Add(typeArguments ?? "");
             CallAsServices.Add(asServices ?? "");
             CallHoles.Add(hole ?? "");
+            CallParameters.Add("");
         }
 
         public void PadCallLists() {
@@ -117,6 +130,8 @@ namespace ContainerGenerator {
                 CallAsServices.Add("");
             while (CallHoles.Count < Calls.Count)
                 CallHoles.Add("");
+            while (CallParameters.Count < Calls.Count)
+                CallParameters.Add("");
         }
 
         public string CallTypesAt(int index) {
@@ -138,6 +153,20 @@ namespace ContainerGenerator {
             if (index < 0 || index >= CallHoles.Count)
                 return "";
             return CallHoles[index];
+        }
+
+        public string CallParametersAt(int index) {
+            PadCallLists();
+            if (index < 0 || index >= CallParameters.Count)
+                return "";
+            return CallParameters[index];
+        }
+
+        public void AddParameterToCall(int index, string type) {
+            PadCallLists();
+            if (index < 0 || index >= CallParameters.Count || string.IsNullOrEmpty(type))
+                return;
+            CallParameters[index] = string.IsNullOrEmpty(CallParameters[index]) ? type : CallParameters[index] + ";" + type;
         }
 
         public void AddAsToCall(int index, string service) {

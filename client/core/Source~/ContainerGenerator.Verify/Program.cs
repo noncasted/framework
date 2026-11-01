@@ -57,6 +57,7 @@ namespace ContainerGenerator.Verify {
             Run("unmarked Register is an installer call, not a primitive", TestUnmarkedRegisterIsNotPrimitive);
             Run("builder.Inject calls [Inject] on every instance", TestInjectEveryInstance);
             RunRegressionCases();
+            RunAuditCases();
             if (_failed == 0)
                 Console.WriteLine("ALL PASSED");
             else

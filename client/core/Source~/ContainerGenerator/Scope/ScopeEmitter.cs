@@ -97,6 +97,12 @@ namespace ContainerGenerator {
                 }
             }
 
+            for (var i = 0; i < plan.Slots.Count; i++) {
+                var slot = plan.Slots[i];
+                if (string.IsNullOrEmpty(slot.RegisteredField) == false)
+                    writer.AppendLine(body + slot.RegisteredField + " = request.IsRegistered(typeof(" + slot.ImplementationType + "));");
+            }
+
             var constructed = new HashSet<int>();
             for (var o = 0; o < graph.ConstructionOrder.Count; o++) {
                 var index = graph.ConstructionOrder[o];
@@ -166,11 +172,6 @@ namespace ContainerGenerator {
 
             if (slot.IsAlternative && slot.IsGroupPrimary) {
                 WriteAlternative(writer, plan, graph, slot, indent);
-                if (Arguments(plan, graph, slot.Registration, "Construct") == null)
-                    return;
-                writer.AppendLine(indent + "if (" + slot.FieldName + " != null) {");
-                WriteConstructCall(writer, plan, graph, slot, slot.FieldName, indent + "    ");
-                writer.AppendLine(indent + "}");
                 return;
             }
 
@@ -209,20 +210,18 @@ namespace ContainerGenerator {
             ScopeGraph graph,
             ScopePlan.Slot slot,
             string indent) {
-            // One if / switch branch of the installer ran: the implementation that got into the builder is built.
-            var members = slot.GroupMembers.Count == 0 ? new List<int> { slot.Index } : slot.GroupMembers;
-            writer.AppendLine(indent + slot.FieldName + " =");
-            for (var m = 0; m < members.Count; m++) {
-                var member = plan.Slots[members[m]];
-                writer.AppendLine(indent + "    request.IsRegistered(typeof(" + member.ImplementationType + "))");
-                writer.AppendLine(indent + "        ? (" + slot.FieldType + ")" +
-                                  NewExpression(plan, graph, member.ImplementationType, member.Registration, "Constructor"));
-                writer.AppendLine(indent + "        :");
+            // One if / switch branch of the installer ran: the implementation that got into the builder is built, with
+            // its own [Inject]. An if without else registers nothing when its branch does not run: the field stays
+            // null, the scope still builds, and only what depends on it fails (RequireAlternative).
+            for (var m = 0; m < slot.GroupMembers.Count; m++) {
+                var member = plan.Slots[slot.GroupMembers[m]];
+                writer.AppendLine(indent + (m == 0 ? "" : "else ") + "if (request.IsRegistered(typeof(" + member.ImplementationType + "))) {");
+                writer.AppendLine(indent + "    var alternative = " +
+                                  NewExpression(plan, graph, member.ImplementationType, member.Registration, "Constructor") + ";");
+                WriteConstructCall(writer, plan, graph, member, "alternative", indent + "    ");
+                writer.AppendLine(indent + "    " + slot.FieldName + " = alternative;");
+                writer.AppendLine(indent + "}");
             }
-
-            // An if without else registers nothing when its branch does not run: the field stays null, the scope
-            // still builds, and only what depends on it fails (RequireAlternative).
-            writer.AppendLine(indent + "    null;");
         }
 
         private static void WriteConstructCall(
@@ -305,7 +304,7 @@ namespace ContainerGenerator {
             }
 
             if (edge.Kind == "ArmParameter")
-                return "request.Get<" + edge.ParameterType + ">()";
+                return ArmParameter(graph, edge);
 
             if (edge.Kind == "Hole")
                 return HoleParam(plan, edge);
@@ -315,11 +314,10 @@ namespace ContainerGenerator {
 
             if (edge.Kind == "Registration" && edge.TargetIndex >= 0 && edge.TargetIndex < plan.Slots.Count) {
                 var target = plan.Slots[edge.TargetIndex];
+                if (target.IsAlternative)
+                    return AlternativeExpressions.Required(plan, edge.ParameterType, Literal(ScopeNames.StripGlobal(edge.ParameterType)));
                 if (target.IsTransient && string.IsNullOrEmpty(target.CreateMethod) == false)
                     return target.CreateMethod + "()";
-                if (string.IsNullOrEmpty(target.FieldName) == false && target.IsAlternative)
-                    return "global::Internal.GeneratedScopes.RequireAlternative(" + target.FieldName + ", " +
-                           Literal(ScopeNames.StripGlobal(target.FieldType)) + ")";
                 if (string.IsNullOrEmpty(target.FieldName) == false)
                     return target.FieldName;
             }
@@ -328,12 +326,25 @@ namespace ContainerGenerator {
                 "Generator cannot emit argument for '" + edge.ParameterName + "' of type '" + edge.ParameterType + "'.");
         }
 
+        // The value of the registration of the chosen arm: by type only it would be the last registration of the type.
+        private static string ArmParameter(ScopeGraph graph, GraphEdge edge) {
+            for (var i = 0; i < graph.Registrations.Count; i++) {
+                var registration = graph.Registrations[i];
+                if (registration.Dependencies.Contains(edge) == false)
+                    continue;
+
+                var implementation = registration.Arms[edge.Arm].ImplementationType;
+                return "request.GetParameter<" + edge.ParameterType + ">(typeof(" + implementation + "), " +
+                       ScopePlan.ArmOccurrence(graph, i, implementation).ToString() + ")";
+            }
+
+            throw new InvalidOperationException(
+                "Generator parameter '" + edge.ParameterName + "' of a switch arm has no registration.");
+        }
+
         private static string CollectionExpression(ScopePlan plan, ScopeGraph graph, GraphEdge edge) {
-            var element = edge.ParameterType;
-            if (element.EndsWith("[]", StringComparison.Ordinal))
-                element = element.Substring(0, element.Length - 2);
-            else
-                TryUnwrapList(edge.ParameterType, out element);
+            if (CollectionTypes.TryElement(edge.ParameterType, out var element) == false)
+                throw new InvalidOperationException("Generator has no list for the type '" + edge.ParameterType + "'.");
 
             var items = new List<string>();
             var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -343,10 +354,12 @@ namespace ContainerGenerator {
                 if (index < 0 || index >= plan.Slots.Count)
                     continue;
                 var slot = plan.Slots[index];
-                if (slot.IsTransient && string.IsNullOrEmpty(slot.CreateMethod) == false)
-                    items.Add(slot.CreateMethod + "()");
+                if (slot.IsTransient && string.IsNullOrEmpty(slot.CreateMethod) == false) {
+                    items.Add(AlternativeExpressions.Item(slot, element));
+                    hasAlternative |= slot.IsAlternative;
+                }
                 else if (string.IsNullOrEmpty(slot.FieldName) == false && (slot.IsAlternative == false || seen.Add(slot.FieldName))) {
-                    items.Add(slot.FieldName);
+                    items.Add(AlternativeExpressions.Item(slot, element));
                     hasAlternative |= slot.IsAlternative;
                 }
             }
@@ -365,32 +378,9 @@ namespace ContainerGenerator {
                     return HoleValue(plan, plan.CtorParams[i]);
             }
 
-            for (var i = 0; i < plan.CtorParams.Count; i++) {
-                var param = plan.CtorParams[i];
-                if (IsBoundParam(param))
-                    continue;
-                if (param.Type == edge.ParameterType &&
-                    (param.Name == edge.ParameterName || param.Name == ScopeNames.Escape(edge.ParameterName)))
-                    return HoleValue(plan, param);
-            }
-
-            for (var i = 0; i < plan.CtorParams.Count; i++) {
-                var param = plan.CtorParams[i];
-                if (IsBoundParam(param))
-                    continue;
-                if (param.Type == edge.ParameterType)
-                    return HoleValue(plan, param);
-            }
-
             throw new InvalidOperationException(
                 "Generator hole '" + edge.ParameterName + "' of type '" + edge.ParameterType +
                 "' has no constructor parameter.");
-        }
-
-        // Loader parameters and the holes owned by their edges are never taken by type.
-        private static bool IsBoundParam(ScopePlan.CtorParam param) {
-            return param.IsLifetime || param.IsParent || param.IsRequest || param.IsAlternative || param.IsInjections ||
-                   param.IsParameter || param.IsParentHole;
         }
 
         // The value of a hole is available everywhere in the class: the field of the edge or of the slot, not the ctor parameter.
@@ -431,8 +421,11 @@ namespace ContainerGenerator {
             for (var s = 0; s < marker.Slots.Count; s++) {
                 var slot = plan.Slots[marker.Slots[s]];
                 if (slot.IsTransient) {
-                    if (string.IsNullOrEmpty(slot.CreateMethod) == false)
-                        items.Add(slot.CreateMethod + "()");
+                    if (string.IsNullOrEmpty(slot.CreateMethod) == false) {
+                        items.Add(AlternativeExpressions.Item(slot, marker.ElementType));
+                        hasAlternative |= slot.IsAlternative;
+                    }
+
                     continue;
                 }
 
@@ -440,7 +433,7 @@ namespace ContainerGenerator {
                     continue;
                 if (seen.Add(slot.FieldName) == false)
                     continue;
-                items.Add(slot.FieldName);
+                items.Add(AlternativeExpressions.Item(slot, marker.ElementType));
                 hasAlternative |= slot.IsAlternative;
             }
 
@@ -456,7 +449,7 @@ namespace ContainerGenerator {
                               plan.Exports.Count.ToString() + ") {");
             for (var i = 0; i < plan.Exports.Count; i++) {
                 var export = plan.Exports[i];
-                var index = values.IndexOf(ExportValue(plan, export.Slot));
+                var index = values.IndexOf(ExportValue(export));
                 var comma = i + 1 < plan.Exports.Count ? "," : "";
                 writer.AppendLine(indent + "        { typeof(" + export.ServiceType + "), " + index.ToString() + " }" + comma);
             }
@@ -480,7 +473,7 @@ namespace ContainerGenerator {
         private static List<string> ExportValues(ScopePlan plan) {
             var values = new List<string>();
             for (var i = 0; i < plan.Exports.Count; i++) {
-                var value = ExportValue(plan, plan.Exports[i].Slot);
+                var value = ExportValue(plan.Exports[i]);
                 if (values.Contains(value) == false)
                     values.Add(value);
             }
@@ -488,9 +481,8 @@ namespace ContainerGenerator {
             return values;
         }
 
-        private static string ExportValue(ScopePlan plan, int slotIndex) {
-            var slot = plan.Slots[slotIndex];
-            return string.IsNullOrEmpty(slot.FieldName) ? "this" : slot.FieldName;
+        private static string ExportValue(ScopePlan.Export export) {
+            return string.IsNullOrEmpty(export.Value) ? "this" : export.Value;
         }
 
         private static void WriteFields(CodeWriter writer, ScopePlan plan, string indent) {
@@ -600,8 +592,9 @@ namespace ContainerGenerator {
                 var slot = plan.Slots[plan.DisposeOrder[i]];
                 if (string.IsNullOrEmpty(slot.FieldName))
                     continue;
-                var call = "((global::System.IDisposable)" + slot.FieldName + ").Dispose();";
-                WriteDisposeStep(writer, body, slot.IsAlternative ? "if (" + slot.FieldName + " != null) " + call : call);
+                WriteDisposeStep(writer, body, slot.IsAlternative
+                    ? "(" + slot.FieldName + " as global::System.IDisposable)?.Dispose();"
+                    : "((global::System.IDisposable)" + slot.FieldName + ").Dispose();");
             }
 
             writer.AppendLine(body + "global::Internal.GeneratedScopes.ThrowDisposeErrors(errors);");
@@ -646,7 +639,20 @@ namespace ContainerGenerator {
                     if (owners.TryGetValue(types[t], out var owner) == false || owner != i)
                         continue;
                     writer.AppendLine(indent + "if (type == typeof(" + types[t] + ")) {");
-                    if (assign) {
+                    if (slot.IsAlternative || AlternativeExpressions.Chain(plan, types[t]).Count > 1) {
+                        var value = AlternativeExpressions.ForResolve(plan, types[t]);
+                        if (assign) {
+                            writer.AppendLine(indent + "    instance = " + value + ";");
+                            writer.AppendLine(indent + "    if (instance != null)");
+                            writer.AppendLine(indent + "        return true;");
+                        }
+                        else {
+                            writer.AppendLine(indent + "    var created = " + value + ";");
+                            writer.AppendLine(indent + "    if (created != null)");
+                            writer.AppendLine(indent + "        return created;");
+                        }
+                    }
+                    else if (assign) {
                         writer.AppendLine(indent + "    instance = " + slot.CreateMethod + "();");
                         writer.AppendLine(indent + "    return true;");
                     }
@@ -794,8 +800,7 @@ namespace ContainerGenerator {
                                 : param.IsInstance
                                     ? "request.GetInstance<" + param.Type + ">(" + param.Occurrence.ToString() + ")"
                                     : param.IsParameter
-                                        ? "request.GetParameter<" + param.Type + ">(typeof(" + param.ParameterImplementation +
-                                          "), " + param.Occurrence.ToString() + ")"
+                                        ? ParameterArgument(param)
                                         : param.IsParentHole
                                             ? "request.GetFromParent<" + param.Type + ">()"
                                             : "request.Get<" + param.Type + ">()";
@@ -808,6 +813,13 @@ namespace ContainerGenerator {
             writer.AppendLine(body + "    " + TypeArray(ShapeInstances(graph)) + ");");
             writer.AppendLine(indent + "}");
             writer.AppendLine();
+        }
+
+        private static string ParameterArgument(ScopePlan.CtorParam param) {
+            var value = "request.GetParameter<" + param.Type + ">(typeof(" + param.ParameterImplementation + "), " + param.Occurrence.ToString() + ")";
+            return param.IsAlternativeParameter
+                ? "request.IsRegistered(typeof(" + param.ParameterImplementation + ")) ? " + value + " : default(" + param.Type + ")"
+                : value;
         }
 
         private static string Literal(string value) {
@@ -958,15 +970,5 @@ namespace ContainerGenerator {
             return type == "global::Internal.IContainer" || type == "Internal.IContainer";
         }
 
-        private static bool TryUnwrapList(string typeFullName, out string elementType) {
-            elementType = "";
-            const string prefix = "global::System.Collections.Generic.IReadOnlyList<";
-            if (typeFullName.StartsWith(prefix, StringComparison.Ordinal) == false)
-                return false;
-            if (typeFullName.Length <= prefix.Length || typeFullName[typeFullName.Length - 1] != '>')
-                return false;
-            elementType = typeFullName.Substring(prefix.Length, typeFullName.Length - prefix.Length - 1);
-            return true;
-        }
     }
 }

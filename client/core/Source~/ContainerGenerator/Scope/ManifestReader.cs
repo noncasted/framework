@@ -32,6 +32,7 @@ namespace ContainerGenerator {
                             local.CallTypeArguments.AddRange(method.CallTypeArguments);
                             local.CallAsServices.AddRange(method.CallAsServices);
                             local.CallHoles.AddRange(method.CallHoles);
+                            local.CallParameters.AddRange(method.CallParameters);
                             if (local.ReturnedOrdinal < 0)
                                 local.ReturnedOrdinal = method.ReturnedOrdinal;
                             if (string.IsNullOrEmpty(local.File))
@@ -104,6 +105,7 @@ namespace ContainerGenerator {
         }
 
         private static GraphMethod? Read(AttributeData attribute, Compilation compilation, string assemblyName) {
+            // The arguments did not bind: a neighbouring project of the IDE that does not compile yet reports its own errors.
             if (attribute.ConstructorArguments.Length < 8)
                 return null;
 
@@ -124,7 +126,7 @@ namespace ContainerGenerator {
                 AssemblyName = assemblyName ?? "",
             };
             method.Calls.AddRange(calls);
-            ParseBlob(method, blob, implementations, services);
+            ParseBlob(method, blob, implementations, services, assemblyName ?? "");
             return method;
         }
 
@@ -132,14 +134,17 @@ namespace ContainerGenerator {
             GraphMethod method,
             string blob,
             List<string> implementations,
-            List<string> services) {
+            List<string> services,
+            string assemblyName) {
             var lines = (blob ?? "").Replace("\r", "").Split('\n');
-            var index = 0;
-            if (lines.Length == 0)
-                return;
+
+            // A manifest that is not read loses the registrations of the installer without a word.
             if (lines[0] != GraphEmitter.BlobVersion)
-                return;
-            index = 1;
+                throw new InvalidOperationException(
+                    "The manifest of '" + method.Id + "' in assembly '" + assemblyName + "' has version '" + lines[0] +
+                    "', this generator reads '" + GraphEmitter.BlobVersion + "': rebuild that assembly with this generator.");
+
+            var index = 1;
             if (index < lines.Length && lines[index].StartsWith("parent:", StringComparison.Ordinal)) {
                 method.ParentId = lines[index].Substring("parent:".Length);
                 method.ParentHint = method.ParentId;
@@ -179,6 +184,11 @@ namespace ContainerGenerator {
                 index++;
             }
 
+            if (index < lines.Length && lines[index].StartsWith("callparams:", StringComparison.Ordinal)) {
+                SplitCallField(method.CallParameters, lines[index].Substring("callparams:".Length));
+                index++;
+            }
+
             var serviceCursor = 0;
             var implementationCursor = 0;
             while (index < lines.Length) {
@@ -188,15 +198,17 @@ namespace ContainerGenerator {
                     continue;
 
                 var fields = GraphEmitter.SplitFields(line);
-                if (fields.Length < 11)
-                    continue;
+                if (fields.Length != 15)
+                    throw new InvalidOperationException(
+                        "The manifest of '" + method.Id + "' in assembly '" + assemblyName + "' has a broken registration: " + line);
 
                 var serviceCount = ParseInt(fields[4]);
                 var armCount = ParseInt(fields[5]);
                 var implementation = GraphEmitter.Unescape(fields[10]);
                 if (string.IsNullOrEmpty(implementation) && implementationCursor < implementations.Count)
                     implementation = implementations[implementationCursor];
-                if (implementation == GraphEmitter.VoidSentinel)
+                // The array has typeof(void) for what typeof cannot write (a switch has no implementation of its own).
+                if (implementation == GraphEmitter.VoidSentinel || implementation == "void")
                     implementation = "";
                 implementationCursor++;
 
@@ -210,14 +222,17 @@ namespace ContainerGenerator {
                     File = GraphEmitter.Unescape(fields[8]),
                     Line = ParseInt(fields[9]),
                     ImplementationType = implementation,
-                    TypeMap = fields.Length > 11 ? GraphEmitter.Unescape(fields[11]) : "",
+                    TypeMap = GraphEmitter.Unescape(fields[11]),
+                    BranchPath = GraphEmitter.Unescape(fields[13]),
                 };
 
-                if (fields.Length > 12) {
-                    var maps = GraphEmitter.Unescape(fields[12]).Split(';');
-                    for (var m = 0; m < maps.Length; m++)
-                        registration.ServiceMaps.Add(maps[m]);
-                }
+                var maps = GraphEmitter.Unescape(fields[12]).Split(';');
+                for (var m = 0; m < maps.Length; m++)
+                    registration.ServiceMaps.Add(maps[m]);
+
+                var parameterTypes = GraphEmitter.Unescape(fields[14]);
+                if (string.IsNullOrEmpty(parameterTypes) == false)
+                    registration.ParameterTypes.AddRange(parameterTypes.Split(';'));
 
                 for (var s = 0; s < serviceCount; s++) {
                     var service = "";
@@ -240,6 +255,8 @@ namespace ContainerGenerator {
                         arm.ImplementationType = GraphEmitter.Unescape(armFields[1]);
                     if (armFields.Length > 2)
                         arm.ParameterExpression = GraphEmitter.Unescape(armFields[2]);
+                    if (armFields.Length > 3)
+                        arm.ParameterType = GraphEmitter.Unescape(armFields[3]);
                     registration.Arms.Add(arm);
                 }
 

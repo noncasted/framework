@@ -36,6 +36,8 @@ namespace ContainerGenerator {
         public List<Factory> Factories = new List<Factory>();
         public List<Provide> Provides = new List<Provide>();
         public List<int> DisposeOrder = new List<int>();
+        // The slots that give a type (its services and the implementation), in the order of registration.
+        public Dictionary<string, List<int>> Providers = new Dictionary<string, List<int>>(StringComparer.Ordinal);
         public HashSet<int> DisposableSlots = new HashSet<int>();
 
         public sealed class CtorParam {
@@ -54,8 +56,10 @@ namespace ContainerGenerator {
             // The occurrence-th RegisterInstance / RegisterComponent of Type: request.GetInstance<Type>(Occurrence).
             public bool IsInstance;
             public int Occurrence = -1;
-            // A WithParameter hole of one registration: request.GetParameter<Type>(typeof(Implementation), Occurrence).
+            // A WithParameter hole of one registration: request.GetParameter<Type>(typeof(Implementation), Occurrence);
+            // of an alternative: only when its branch ran.
             public bool IsParameter;
+            public bool IsAlternativeParameter;
             public string ParameterImplementation = "";
             public int OwnerSlot = -1;
             // An export of a parent scope: request.GetFromParent<Type>().
@@ -76,6 +80,8 @@ namespace ContainerGenerator {
 
         public sealed class Slot {
             public int Index;
+            // A transient alternative: whether its branch ran, kept for the factories that run after the build.
+            public string RegisteredField = "";
             public GraphRegistration Registration = null!;
             public string ImplementationType = "";
             public string FieldName = "";
@@ -109,6 +115,7 @@ namespace ContainerGenerator {
         public sealed class Export {
             public string ServiceType = "";
             public int Slot;
+            public string Value = "";
         }
 
         public sealed class Factory {
@@ -151,7 +158,7 @@ namespace ContainerGenerator {
             }
 
             if (root == null)
-                return null;
+                throw new InvalidOperationException("Scope root '" + graph.RootId + "' is not in the graph document.");
             if (IsHarvest(graph.RootId))
                 return null;
             if (HasEmitBlockingDiagnostic(graph, document, root))
@@ -160,7 +167,8 @@ namespace ContainerGenerator {
             var lookupId = string.IsNullOrEmpty(root.OriginId) ? graph.RootId : root.OriginId;
             var method = MethodIds.Find(compilation, lookupId) ?? MethodIds.Find(compilation, graph.RootId);
             if (method == null)
-                return null;
+                throw new InvalidOperationException(
+                    "Scope root '" + graph.RootId + "' has no source in this assembly: the assembly that declares it has to build the scope.");
 
             var plan = new ScopePlan { RootId = graph.RootId };
             ScopeNames.ParseRoot(graph.RootId, out plan.Namespace, out var typeName, out var methodName, out plan.ClassName);
@@ -203,6 +211,8 @@ namespace ContainerGenerator {
             used.Add("_disposed");
             used.Add("_isDisposing");
             used.Add("errors");
+            used.Add("alternative");
+            used.Add("created");
 
             BuildSlots(plan, graph, types, used);
             GroupAlternatives(plan, graph);
@@ -351,6 +361,8 @@ namespace ContainerGenerator {
                 var id = diagnostic.Descriptor.Id;
                 if (id == "CINGR007")
                     return true;
+                if (id == "CINGR013" && (diagnostic.MessageArgs[0] == root.Id || diagnostic.MessageArgs[0] == root.OriginId))
+                    return true;
                 if (id != "CINGR001" && id != "CINGR002" && id != "CINGR005")
                     continue;
                 if (diagnostic.MessageArgs.Count < 2)
@@ -414,36 +426,19 @@ namespace ContainerGenerator {
                 if (slot.IsTransient && slot.SkipEmit == false)
                     slot.CreateMethod = ScopeNames.CreateMethod(registration.ImplementationType, used);
 
+                if (slot.IsTransient && slot.IsAlternative) {
+                    slot.RegisteredField = ScopeNames.Unique("_is" + ScopeNames.Short(registration.ImplementationType) + "Registered", used);
+                    plan.Fields.Add(new Field { Type = "bool", Name = slot.RegisteredField });
+                }
+
                 plan.Slots.Add(slot);
             }
         }
 
         private static void GroupAlternatives(ScopePlan plan, ScopeGraph graph) {
-            var groups = new List<List<int>>();
-            for (var i = 0; i < plan.Slots.Count; i++) {
-                var slot = plan.Slots[i];
-                if (slot.IsAlternative == false)
-                    continue;
-
-                var groupIndex = -1;
-                for (var g = 0; g < groups.Count; g++) {
-                    if (SharesService(graph, groups[g], slot.Registration)) {
-                        groupIndex = g;
-                        break;
-                    }
-                }
-
-                if (groupIndex < 0) {
-                    groupIndex = groups.Count;
-                    groups.Add(new List<int>());
-                    plan.AlternativeGroups.Add(groupIndex);
-                }
-
-                groups[groupIndex].Add(i);
-                slot.AlternativeGroup = groupIndex;
-            }
-
+            var groups = BranchGroups.Build(graph.Registrations);
             for (var g = 0; g < groups.Count; g++) {
+                plan.AlternativeGroups.Add(g);
                 var members = groups[g];
                 var primary = members[members.Count - 1];
                 for (var i = 0; i < members.Count; i++) {
@@ -454,27 +449,6 @@ namespace ContainerGenerator {
                     slot.AlternativeGroup = g;
                 }
             }
-        }
-
-        private static bool SharesService(ScopeGraph graph, List<int> group, GraphRegistration candidate) {
-            for (var i = 0; i < group.Count; i++) {
-                var existing = graph.Registrations[group[i]];
-                if (SharesService(existing, candidate))
-                    return true;
-            }
-
-            return false;
-        }
-
-        private static bool SharesService(GraphRegistration left, GraphRegistration right) {
-            for (var i = 0; i < left.ServiceTypes.Count; i++) {
-                for (var j = 0; j < right.ServiceTypes.Count; j++) {
-                    if (left.ServiceTypes[i] == right.ServiceTypes[j])
-                        return true;
-                }
-            }
-
-            return false;
         }
 
         private static void AssignFields(ScopePlan plan, ScopeGraph graph, HashSet<string> used) {
@@ -497,9 +471,12 @@ namespace ContainerGenerator {
 
                 slot.HasField = true;
                 if (slot.IsAlternative && slot.IsGroupPrimary) {
-                    slot.FieldType = CommonService(graph, slot.GroupMembers);
+                    // One member: its own type (its [Inject] and every service are reachable). Several: what they share.
+                    slot.FieldType = slot.GroupMembers.Count == 1
+                        ? slot.ImplementationType
+                        : CommonService(graph, slot.GroupMembers);
                     if (string.IsNullOrEmpty(slot.FieldType))
-                        slot.FieldType = slot.ImplementationType;
+                        slot.FieldType = "object";
                 }
                 else {
                     slot.FieldType = string.IsNullOrEmpty(slot.ImplementationType)
@@ -541,7 +518,7 @@ namespace ContainerGenerator {
             });
 
             // The parameters of switch arms are taken from the request when the chosen arm is built.
-            plan.NeedsRequest = HasArmParameters(graph) || plan.AlternativeGroups.Count > 0;
+            plan.NeedsRequest = HasArmParameters(graph) || plan.AlternativeGroups.Count > 0 || HasTransientAlternative(plan);
             if (plan.NeedsRequest) {
                 used.Add("request");
                 plan.CtorParams.Add(new CtorParam {
@@ -607,12 +584,10 @@ namespace ContainerGenerator {
                     // A parent export is one value for the whole scope; a WithParameter value belongs to its
                     // registration: two registrations with a parameter of one type get their own values.
                     var isParent = string.IsNullOrEmpty(edge.ParentRootId) == false;
-                    var isParameter = isParent == false && registration.Origin == "ParameterHole";
+                    var isParameter = isParent == false;
                     var existing = isParent
                         ? FindParam(plan, p => p.IsParentHole && p.Type == edge.ParameterType)
-                        : isParameter
-                            ? FindParam(plan, p => p.IsParameter && p.OwnerSlot == i && p.Type == edge.ParameterType)
-                            : FindPlainParam(plan, edge.ParameterType, edge.ParameterName);
+                        : FindParam(plan, p => p.IsParameter && p.OwnerSlot == i && p.Type == edge.ParameterType);
                     if (existing != null) {
                         existing.Edges.Add(edge);
                         continue;
@@ -632,6 +607,7 @@ namespace ContainerGenerator {
                         FieldName = field,
                         IsParentHole = isParent,
                         IsParameter = isParameter,
+                        IsAlternativeParameter = isParameter && slot.IsAlternative,
                         ParameterImplementation = isParameter ? registration.ImplementationType : "",
                         OwnerSlot = isParameter ? i : -1,
                         Occurrence = isParameter ? ConstructedOccurrence(graph, i) : -1,
@@ -664,12 +640,13 @@ namespace ContainerGenerator {
             return null;
         }
 
-        // A hole matched by type and name (switch arms): the parameter holes of a registration and parent exports
-        // are bound to their edges and never shared this way.
-        private static CtorParam? FindPlainParam(ScopePlan plan, string type, string name) {
-            return FindParam(plan, param => param.IsInjections == false && param.IsParameter == false &&
-                                            param.IsParentHole == false && param.Type == type &&
-                                            (param.Name == name || param.Name == ScopeNames.Escape(name)));
+        private static bool HasTransientAlternative(ScopePlan plan) {
+            for (var i = 0; i < plan.Slots.Count; i++) {
+                if (plan.Slots[i].IsAlternative && plan.Slots[i].IsTransient)
+                    return true;
+            }
+
+            return false;
         }
 
         public static bool IsInstanceKind(string kind) {
@@ -690,13 +667,29 @@ namespace ContainerGenerator {
             return occurrence;
         }
 
+        // The same for an arm of a switch: its implementation is not the one of the registration.
+        public static int ArmOccurrence(ScopeGraph graph, int index, string implementation) {
+            var registration = graph.Registrations[index];
+            var occurrence = 0;
+            for (var i = 0; i < index; i++) {
+                var other = graph.Registrations[i];
+                if (IsRuntimeRegister(other) && other.ImplementationType == implementation &&
+                    BranchGroups.Exclude(other, registration) == false)
+                    occurrence++;
+            }
+
+            return occurrence;
+        }
+
         // The same for the Register calls of one implementation (the owners of WithParameter values).
         public static int ConstructedOccurrence(ScopeGraph graph, int index) {
             var registration = graph.Registrations[index];
             var occurrence = 0;
             for (var i = 0; i < index; i++) {
                 var other = graph.Registrations[i];
-                if (IsRuntimeRegister(other) && other.ImplementationType == registration.ImplementationType)
+                // Another arm of the same statement does not get into the builder together with this one.
+                if (IsRuntimeRegister(other) && other.ImplementationType == registration.ImplementationType &&
+                    BranchGroups.Exclude(other, registration) == false)
                     occurrence++;
             }
 
@@ -735,7 +728,7 @@ namespace ContainerGenerator {
                     var edge = registration.Dependencies[e];
                     if (edge.Kind != "Collection")
                         continue;
-                    if (TryCollectionElement(edge.ParameterType, out var element))
+                    if (CollectionTypes.TryElement(edge.ParameterType, out var element))
                         wanted.Add(element);
                 }
             }
@@ -803,53 +796,45 @@ namespace ContainerGenerator {
             list.Add(index);
         }
 
-        // A type resolves to its last registration, as a constructor parameter binds (EdgeResolver): when the last
-        // one is a transient, the type is not exported and the transient branch of Resolve creates it.
+        // A type resolves to its last registration that ran, as a constructor parameter binds (EdgeResolver): when
+        // a transient is among them, the type is not exported and the transient branch of Resolve creates it.
         private static void BuildExports(ScopePlan plan, ScopeGraph graph) {
-            var last = new Dictionary<string, int>(StringComparer.Ordinal);
             for (var i = 0; i < graph.Registrations.Count; i++) {
                 var slot = plan.Slots[i];
                 if (slot.SkipEmit)
                     continue;
-                if (slot.IsTransient) {
-                    var transient = graph.Registrations[i];
-                    for (var s = 0; s < transient.ServiceTypes.Count; s++) {
-                        if (string.IsNullOrEmpty(transient.ServiceTypes[s]) == false)
-                            last[transient.ServiceTypes[s]] = -1;
-                    }
-
-                    if (string.IsNullOrEmpty(transient.ImplementationType) == false)
-                        last[transient.ImplementationType] = -1;
-                    continue;
-                }
-                if (slot.IsAlternative && slot.IsGroupPrimary == false)
-                    continue;
-                if (slot.HasField == false && string.IsNullOrEmpty(slot.FieldName))
+                if (slot.IsTransient == false && slot.HasField == false && string.IsNullOrEmpty(slot.FieldName))
                     continue;
 
                 var registration = graph.Registrations[i];
-                if (slot.IsAlternative) {
-                    last[slot.FieldType] = i;
-                    var shared = CommonService(graph, slot.GroupMembers);
-                    if (string.IsNullOrEmpty(shared) == false)
-                        last[shared] = i;
-                    continue;
-                }
-
-                for (var s = 0; s < registration.ServiceTypes.Count; s++) {
-                    if (string.IsNullOrEmpty(registration.ServiceTypes[s]) == false)
-                        last[registration.ServiceTypes[s]] = i;
-                }
-
-                if (string.IsNullOrEmpty(registration.ImplementationType) == false)
-                    last[registration.ImplementationType] = i;
+                for (var s = 0; s < registration.ServiceTypes.Count; s++)
+                    AddProvider(plan, registration.ServiceTypes[s], i);
+                AddProvider(plan, registration.ImplementationType, i);
             }
 
-            foreach (var pair in last) {
-                if (string.IsNullOrEmpty(pair.Key) || pair.Value < 0)
+            foreach (var pair in plan.Providers) {
+                var chain = AlternativeExpressions.Chain(plan, pair.Key);
+                if (HasTransientSlot(plan, chain))
                     continue;
-                plan.Exports.Add(new Export { ServiceType = pair.Key, Slot = pair.Value });
+
+                plan.Exports.Add(new Export {
+                    ServiceType = pair.Key,
+                    Slot = chain[0],
+                    Value = AlternativeExpressions.ForResolve(plan, pair.Key),
+                });
             }
+        }
+
+        private static void AddProvider(ScopePlan plan, string type, int slot) {
+            if (string.IsNullOrEmpty(type))
+                return;
+            if (plan.Providers.TryGetValue(type, out var slots) == false) {
+                slots = new List<int>();
+                plan.Providers[type] = slots;
+            }
+
+            if (slots.Contains(slot) == false)
+                slots.Add(slot);
         }
 
         private static void BuildFactories(ScopePlan plan, ScopeGraph graph, HashSet<string> used) {
@@ -949,15 +934,24 @@ namespace ContainerGenerator {
                     continue;
                 if (slot.IsTransient || slot.IsSwitch || slot.SkipEmit)
                     continue;
-
-                var symbol = types.Find(slot.ImplementationType);
-                if (symbol == null)
-                    symbol = types.Find(slot.FieldType);
-                if (IsDisposable(symbol, disposable) == false)
-                    continue;
-
                 if (slot.IsAlternative && slot.IsGroupPrimary == false)
                     continue;
+
+                if (slot.IsAlternative) {
+                    // The field holds the member that ran: the emitter checks it at runtime.
+                    var anyDisposable = false;
+                    for (var m = 0; m < slot.GroupMembers.Count; m++)
+                        anyDisposable |= IsDisposable(types.Find(plan.Slots[slot.GroupMembers[m]].ImplementationType), disposable);
+                    if (anyDisposable == false)
+                        continue;
+                }
+                else {
+                    var symbol = types.Find(slot.ImplementationType);
+                    if (symbol == null)
+                        symbol = types.Find(slot.FieldType);
+                    if (IsDisposable(symbol, disposable) == false)
+                        continue;
+                }
 
                 plan.DisposeOrder.Add(index);
                 plan.DisposableSlots.Add(index);
@@ -1038,29 +1032,5 @@ namespace ContainerGenerator {
             return "";
         }
 
-        private static bool TryCollectionElement(string typeFullName, out string elementType) {
-            elementType = "";
-            if (string.IsNullOrEmpty(typeFullName))
-                return false;
-            if (typeFullName.EndsWith("[]", StringComparison.Ordinal)) {
-                elementType = typeFullName.Substring(0, typeFullName.Length - 2);
-                return true;
-            }
-
-            return TryUnwrap(typeFullName, "global::System.Collections.Generic.IReadOnlyList<", out elementType) ||
-                   TryUnwrap(typeFullName, "global::System.Collections.Generic.IEnumerable<", out elementType) ||
-                   TryUnwrap(typeFullName, "global::System.Collections.Generic.IReadOnlyCollection<", out elementType);
-        }
-
-        private static bool TryUnwrap(string typeFullName, string prefix, out string elementType) {
-            elementType = "";
-            if (typeFullName.StartsWith(prefix, StringComparison.Ordinal) == false)
-                return false;
-            if (typeFullName.Length <= prefix.Length || typeFullName[typeFullName.Length - 1] != '>')
-                return false;
-
-            elementType = typeFullName.Substring(prefix.Length, typeFullName.Length - prefix.Length - 1);
-            return true;
-        }
     }
 }

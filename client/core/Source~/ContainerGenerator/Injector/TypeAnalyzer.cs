@@ -93,7 +93,10 @@ namespace ContainerGenerator {
 
         // Why the generated scope cannot call the [Inject] method of the type: an empty list when it can.
         public static List<string> InjectProblems(INamedTypeSymbol type, ReferenceSymbols references, Compilation compilation) {
-            var problems = new List<string>();
+            var problems = HiddenInject.Problems(type, compilation);
+            if (problems.Count > 0)
+                return problems;
+
             var methods = InjectMethods(type, references);
             if (methods.Count > 1) {
                 var names = new List<string>();
@@ -166,8 +169,7 @@ namespace ContainerGenerator {
                 if (references.InjectAttribute != null &&
                     SymbolEqualityComparer.Default.Equals(attributeClass, references.InjectAttribute))
                     return true;
-                if (attributeClass.Name == "InjectAttribute" &&
-                    attributeClass.ContainingNamespace?.ToDisplayString() == "Internal")
+                if (HiddenInject.IsInjectAttribute(attributeClass))
                     return true;
             }
 

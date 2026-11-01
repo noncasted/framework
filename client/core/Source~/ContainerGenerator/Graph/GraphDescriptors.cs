@@ -92,6 +92,30 @@ namespace ContainerGenerator {
             defaultSeverity: DiagnosticSeverity.Error,
             isEnabledByDefault: true);
 
+        public static readonly DiagnosticDescriptor AmbiguousParameter = new DiagnosticDescriptor(
+            id: "CINGR014",
+            title: "Several WithParameter fit one parameter",
+            messageFormat: "Parameter '{0}' of type '{1}' of '{2}' can take several WithParameter values of its registration. Pass one, or one of exactly its type. File {3} line {4}.",
+            category: Category,
+            defaultSeverity: DiagnosticSeverity.Error,
+            isEnabledByDefault: true);
+
+        public static readonly DiagnosticDescriptor UnusedParameter = new DiagnosticDescriptor(
+            id: "CINGR015",
+            title: "WithParameter is not used",
+            messageFormat: "WithParameter of type '{0}' is not used: no parameter of '{1}' can take it. File {2} line {3}.",
+            category: Category,
+            defaultSeverity: DiagnosticSeverity.Warning,
+            isEnabledByDefault: true);
+
+        public static readonly DiagnosticDescriptor OverloadedRoot = new DiagnosticDescriptor(
+            id: "CINGR013",
+            title: "Scope root is overloaded",
+            messageFormat: "Scope root '{0}' is overloaded: the runtime finds a root by its name only. Rename one of the methods. File {1} line {2}.",
+            category: Category,
+            defaultSeverity: DiagnosticSeverity.Error,
+            isEnabledByDefault: true);
+
         public static readonly DiagnosticDescriptor InjectableWithoutInject = new DiagnosticDescriptor(
             id: "CINGR008",
             title: "Injectable type has no [Inject] method",

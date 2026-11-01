@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace ContainerGenerator {
     internal sealed class TypeIndex {
@@ -22,6 +24,45 @@ namespace ContainerGenerator {
                 _byFullyQualified[fullyQualified] = symbol;
 
             return symbol;
+        }
+
+        // A value of the first type can be passed as the second as it is: what Type.IsAssignableFrom says at runtime.
+        public bool IsAssignable(string from, string to) {
+            if (from == to)
+                return true;
+
+            var source = FindAny(from);
+            var target = FindAny(to);
+            if (source == null || target == null)
+                return false;
+
+            var conversion = _compilation.ClassifyConversion(source, target);
+            return conversion.IsImplicit && (conversion.IsIdentity || conversion.IsReference || conversion.IsBoxing);
+        }
+
+        public bool IsKnown(string type) {
+            return FindAny(type) != null;
+        }
+
+        private ITypeSymbol? FindAny(string name) {
+            if (name.EndsWith("[]", StringComparison.Ordinal) == false)
+                return Find(name) ?? FindKeyword(name);
+
+            var element = FindAny(name.Substring(0, name.Length - 2));
+            return element == null ? null : _compilation.CreateArrayTypeSymbol(element);
+        }
+
+        private ITypeSymbol? FindKeyword(string name) {
+            switch (name) {
+                case "string": return _compilation.GetSpecialType(SpecialType.System_String);
+                case "object": return _compilation.GetSpecialType(SpecialType.System_Object);
+                case "bool": return _compilation.GetSpecialType(SpecialType.System_Boolean);
+                case "int": return _compilation.GetSpecialType(SpecialType.System_Int32);
+                case "long": return _compilation.GetSpecialType(SpecialType.System_Int64);
+                case "float": return _compilation.GetSpecialType(SpecialType.System_Single);
+                case "double": return _compilation.GetSpecialType(SpecialType.System_Double);
+                default: return null;
+            }
         }
 
         public string Format(ITypeSymbol? type) {

@@ -7,7 +7,7 @@ using Microsoft.CodeAnalysis;
 namespace ContainerGenerator {
     internal static class GraphEmitter {
         public const string AttributeMetadataName = "Internal.ContainerInstallerAttribute";
-        public const string BlobVersion = "v1";
+        public const string BlobVersion = "v2";
         public const string VoidSentinel = "global::System.Void";
 
         public static string Emit(GraphDocument document) {
@@ -181,6 +181,14 @@ namespace ContainerGenerator {
             }
 
             builder.Append('\n');
+            builder.Append("callparams:");
+            for (var i = 0; i < method.Calls.Count; i++) {
+                if (i > 0)
+                    builder.Append('|');
+                builder.Append(Escape(method.CallParameters[i]));
+            }
+
+            builder.Append('\n');
             for (var i = 0; i < method.Registrations.Count; i++) {
                 var registration = method.Registrations[i];
                 builder.Append(Escape(registration.Kind));
@@ -208,6 +216,10 @@ namespace ContainerGenerator {
                 builder.Append(Escape(registration.TypeMap));
                 builder.Append('|');
                 builder.Append(Escape(string.Join(";", registration.ServiceMaps.ToArray())));
+                builder.Append('|');
+                builder.Append(Escape(registration.BranchPath));
+                builder.Append('|');
+                builder.Append(Escape(string.Join(";", registration.ParameterTypes.ToArray())));
                 builder.Append('\n');
                 for (var a = 0; a < registration.Arms.Count; a++) {
                     var arm = registration.Arms[a];
@@ -216,6 +228,8 @@ namespace ContainerGenerator {
                     builder.Append(Escape(arm.ImplementationType));
                     builder.Append('|');
                     builder.Append(Escape(arm.ParameterExpression));
+                    builder.Append('|');
+                    builder.Append(Escape(arm.ParameterType));
                     builder.Append('\n');
                 }
             }

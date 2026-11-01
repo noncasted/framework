@@ -5,6 +5,11 @@ using Microsoft.CodeAnalysis.CSharp;
 namespace ContainerGenerator {
     [Generator]
     public sealed class ContainerGraphGenerator : IIncrementalGenerator {
+        // A name or a dotted prefix of it: a game assembly may well start with one of these words (Systems.Battle).
+        private static readonly string[] SkippedAssemblies = {
+            "Unity", "UnityEngine", "UnityEditor", "System", "Microsoft", "VContainer", "mscorlib", "netstandard", "ContainerGenerator",
+        };
+
         public void Initialize(IncrementalGeneratorInitializationContext context) {
             context.RegisterSourceOutput(context.CompilationProvider, static (production, compilation) => {
                 if (ShouldSkip(compilation.AssemblyName))
@@ -119,14 +124,11 @@ namespace ContainerGenerator {
                 return true;
 
             var assemblyName = name ?? "";
-            if (assemblyName.StartsWith("Unity") ||
-                assemblyName.StartsWith("System") ||
-                assemblyName.StartsWith("Microsoft") ||
-                assemblyName.StartsWith("VContainer") ||
-                assemblyName == "mscorlib" ||
-                assemblyName == "netstandard" ||
-                assemblyName == "ContainerGenerator")
-                return true;
+            for (var i = 0; i < SkippedAssemblies.Length; i++) {
+                var skipped = SkippedAssemblies[i];
+                if (assemblyName == skipped || assemblyName.StartsWith(skipped + ".", System.StringComparison.Ordinal))
+                    return true;
+            }
 
             return false;
         }

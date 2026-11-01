@@ -124,6 +124,7 @@ namespace ContainerGenerator {
             for (var i = 0; i < graph.Registrations.Count; i++)
                 Bind(graph, i, index, compilation, references, implicitTypes, lastByType, allByType, parentExports);
 
+            LinkAlternatives(graph, allByType);
             ReportTransientPhaseListeners(graph);
             DetectCycles(graph);
             graph.ConstructionOrder.AddRange(SortTopologically(graph));
@@ -149,9 +150,11 @@ namespace ContainerGenerator {
 
             var visited = new HashSet<string>(StringComparer.Ordinal);
             var stack = new HashSet<string>(StringComparer.Ordinal);
+            var walks = 0;
             Walk(root, new List<string>(), "", "");
 
-            void Walk(GraphMethod method, List<string> typeArgs, string asServices, string hole) {
+            void Walk(GraphMethod method, List<string> typeArgs, string asServices, string hole, string parameters = "") {
+                var walk = walks++;
                 var substitution = typeArgs ?? new List<string>();
                 var generic = substitution.Count > 0;
                 if (stack.Contains(method.Id))
@@ -166,6 +169,9 @@ namespace ContainerGenerator {
                     var step = steps[i];
                     if (step.Registration != null) {
                         var clone = TypeSubstitution.Instantiate(step.Registration, substitution);
+                        // The statements of a method are numbered inside it, a generic method is walked per call.
+                        if (string.IsNullOrEmpty(clone.BranchPath) == false)
+                            clone.BranchPath = walk + "/" + clone.BranchPath;
                         if (method.ReturnedOrdinal == step.Registration.Ordinal)
                             returned = clone;
                         output.Add(clone);
@@ -182,12 +188,15 @@ namespace ContainerGenerator {
                             callee,
                             callArgs,
                             TypeSubstitution.ReplacePlaceholders(method.CallAsAt(step.CallIndex), substitution),
-                            TypeSubstitution.ReplacePlaceholders(method.CallHoleAt(step.CallIndex), substitution));
+                            TypeSubstitution.ReplacePlaceholders(method.CallHoleAt(step.CallIndex), substitution),
+                            TypeSubstitution.ReplacePlaceholders(method.CallParametersAt(step.CallIndex), substitution));
                     }
                 }
 
                 if (returned != null) {
                     ApplyCallAs(returned, asServices);
+                    if (string.IsNullOrEmpty(parameters) == false)
+                        returned.ParameterTypes.AddRange(parameters.Split(';'));
                     if (string.IsNullOrEmpty(hole) == false) {
                         returned.Hole = string.IsNullOrEmpty(returned.Hole) ? hole : returned.Hole + "; " + hole;
                         if (returned.Arms.Count == 0 && returned.Origin == "ConstructedType")
@@ -464,7 +473,6 @@ namespace ContainerGenerator {
                         lastByType,
                         allByType,
                         parentExports,
-                        false,
                         i,
                         registration.Arms[i].ParameterType);
                 }
@@ -496,8 +504,7 @@ namespace ContainerGenerator {
                 implicitTypes,
                 lastByType,
                 allByType,
-                parentExports,
-                AllowsUnresolvedHole(registration));
+                parentExports);
         }
 
         private static void BindType(
@@ -511,7 +518,6 @@ namespace ContainerGenerator {
             Dictionary<string, int> lastByType,
             Dictionary<string, List<int>> allByType,
             Dictionary<string, string> parentExports,
-            bool allowsHole,
             int arm = -1,
             string armParameterType = "") {
             var registration = graph.Registrations[ownerIndex];
@@ -536,6 +542,8 @@ namespace ContainerGenerator {
             if (model == null)
                 return;
 
+            WarnUnusedParameters(graph, registration, implementation, model, constructs, types, armParameterType);
+
             // An [Inject] without parameters gives no edges: the emitter needs the method name separately.
             if (arm < 0)
                 registration.InjectMethod = model.ConstructName;
@@ -551,7 +559,6 @@ namespace ContainerGenerator {
                     lastByType,
                     allByType,
                     parentExports,
-                    allowsHole,
                     arm,
                     armParameterType);
 
@@ -565,7 +572,6 @@ namespace ContainerGenerator {
                 lastByType,
                 allByType,
                 parentExports,
-                allowsHole,
                 arm,
                 armParameterType,
                 model.ConstructName);
@@ -610,7 +616,6 @@ namespace ContainerGenerator {
             Dictionary<string, int> lastByType,
             Dictionary<string, List<int>> allByType,
             Dictionary<string, string> parentExports,
-            bool allowsHole,
             int arm,
             string armParameterType,
             string method = "") {
@@ -625,16 +630,21 @@ namespace ContainerGenerator {
                     Arm = arm,
                 };
 
-                if (string.IsNullOrEmpty(armParameterType) == false && parameter.TypeFullName == armParameterType) {
+                if (string.IsNullOrEmpty(armParameterType) == false && types.IsAssignable(armParameterType, parameter.TypeFullName)) {
                     // WithParameter of its own arm: at runtime the builder holds only the value of the chosen arm.
                     edge.Kind = "ArmParameter";
+                }
+                else if (TakesOwnParameter(graph, registration, parameter, types)) {
+                    // The value of its own WithParameter wins over any registration of the type and over what the
+                    // scope gives by itself (the container, the lifetimes).
+                    edge.Kind = arm >= 0 ? "ArmParameter" : "Hole";
                 }
                 else if (lastByType.TryGetValue(parameter.TypeFullName, out var target)) {
                     edge.Kind = "Registration";
                     edge.TargetIndex = target;
                     WarnIfAmbiguous(graph, registration, parameter, target, allByType);
                 }
-                else if (TryGetCollectionElement(parameter.TypeFullName, out var element) &&
+                else if (CollectionTypes.TryElement(parameter.TypeFullName, out var element) &&
                          allByType.TryGetValue(element, out var indices)) {
                     edge.Kind = "Collection";
                     edge.CollectionIndices.AddRange(indices);
@@ -644,20 +654,16 @@ namespace ContainerGenerator {
                 else if (implicitTypes.Contains(parameter.TypeFullName)) {
                     edge.Kind = "Implicit";
                 }
-                else if (TryGetCollectionElement(parameter.TypeFullName, out _) &&
+                else if (CollectionTypes.TryElement(parameter.TypeFullName, out _) &&
                          parentExports.ContainsKey(parameter.TypeFullName) == false) {
-                    // A collection is always ResolveAll of its own scope (like ContainerLocal<IReadOnlyList<T>>),
-                    // even for a registration with WithParameter: an empty list, not a hole.
+                    // A collection is always ResolveAll of its own scope (like ContainerLocal<IReadOnlyList<T>>): an empty list.
                     edge.Kind = "Collection";
-                }
-                else if (allowsHole) {
-                    edge.Kind = "Hole";
                 }
                 else if (parentExports.TryGetValue(parameter.TypeFullName, out var parentId)) {
                     edge.Kind = "Hole";
                     edge.ParentRootId = parentId;
                 }
-                else if (TryGetCollectionElement(parameter.TypeFullName, out _)) {
+                else if (CollectionTypes.TryElement(parameter.TypeFullName, out _)) {
                     // No registration of the element in the scope: an empty array, as ResolveAll gives.
                     edge.Kind = "Collection";
                 }
@@ -670,6 +676,133 @@ namespace ContainerGenerator {
                 }
 
                 registration.Dependencies.Add(edge);
+            }
+        }
+
+        // At runtime a value of WithParameter belongs to a constructed registration (ContainerBuilder.TryGetParameter).
+        // A WithParameter value no parameter can hold goes nowhere: usually a leftover of a removed parameter.
+        private static void WarnUnusedParameters(
+            ScopeGraph graph,
+            GraphRegistration registration,
+            INamedTypeSymbol implementation,
+            InjectorModel model,
+            bool constructs,
+            TypeIndex types,
+            string armParameterType) {
+            // A switch holds the values of all its arms: each arm answers for its own value only.
+            if (registration.Origin == "SwitchFactory") {
+                if (string.IsNullOrEmpty(armParameterType) == false)
+                    WarnIfUnused(graph, registration, implementation, model, constructs, types, armParameterType);
+                return;
+            }
+
+            if (registration.Kind != "Register")
+                return;
+
+            for (var i = 0; i < registration.ParameterTypes.Count; i++)
+                WarnIfUnused(graph, registration, implementation, model, constructs, types, registration.ParameterTypes[i]);
+        }
+
+        private static void WarnIfUnused(
+            ScopeGraph graph,
+            GraphRegistration registration,
+            INamedTypeSymbol implementation,
+            InjectorModel model,
+            bool constructs,
+            TypeIndex types,
+            string type) {
+            // A type the index cannot read (an open generic of an installer) says nothing about the parameters.
+            if (types.IsKnown(type) == false)
+                return;
+
+            if (constructs && CanTake(model.ConstructorParameters, type, types))
+                return;
+
+            if (CanTake(model.ConstructParameters, type, types))
+                return;
+
+            graph.Diagnostics.Add(new DiagnosticInfo(
+                GraphDescriptors.UnusedParameter,
+                registration.Location,
+                type,
+                types.Format(implementation),
+                registration.File ?? "",
+                registration.Line.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        private static bool CanTake(EquatableArray<ParameterModel> parameters, string type, TypeIndex types) {
+            for (var i = 0; i < parameters.Count; i++) {
+                if (types.IsAssignable(type, parameters[i].TypeFullName))
+                    return true;
+            }
+
+            return false;
+        }
+
+        // The exact type first, then a value the parameter can hold (ILifetime for IReadOnlyLifetime, a class for its
+        // interface), as ContainerBuilder.TryGetParameter takes it. Two such values: nothing tells which one is meant.
+        private static bool TakesOwnParameter(
+            ScopeGraph graph,
+            GraphRegistration registration,
+            ParameterModel parameter,
+            TypeIndex types) {
+            if (registration.Kind != "Register" && registration.Kind != "SwitchFactory")
+                return false;
+
+            if (registration.ParameterTypes.Contains(parameter.TypeFullName))
+                return true;
+
+            var assignable = 0;
+            for (var i = 0; i < registration.ParameterTypes.Count; i++) {
+                if (types.IsAssignable(registration.ParameterTypes[i], parameter.TypeFullName))
+                    assignable++;
+            }
+
+            if (assignable > 1) {
+                graph.Diagnostics.Add(new DiagnosticInfo(
+                    GraphDescriptors.AmbiguousParameter,
+                    registration.Location,
+                    parameter.Name,
+                    parameter.TypeFullName,
+                    registration.ImplementationType,
+                    registration.File ?? "",
+                    registration.Line.ToString(CultureInfo.InvariantCulture)));
+            }
+
+            return assignable > 0;
+        }
+
+        // The field of an alternative may stay null: the value comes from the last registration of the type that ran.
+        // Everything it may come from has to be built before the owner of the edge.
+        private static void LinkAlternatives(ScopeGraph graph, Dictionary<string, List<int>> allByType) {
+            var groups = BranchGroups.Build(graph.Registrations);
+            for (var i = 0; i < graph.Registrations.Count; i++) {
+                var dependencies = graph.Registrations[i].Dependencies;
+                for (var e = 0; e < dependencies.Count; e++) {
+                    var edge = dependencies[e];
+                    if (edge.Kind != "Registration" || graph.Registrations[edge.TargetIndex].Origin != "Alternative" ||
+                        allByType.TryGetValue(edge.ParameterType, out var providers) == false)
+                        continue;
+
+                    for (var p = providers.Count - 1; p >= 0; p--) {
+                        AddWithGroup(edge, providers[p], groups);
+                        if (graph.Registrations[providers[p]].Origin != "Alternative")
+                            break;
+                    }
+                }
+            }
+        }
+
+        private static void AddWithGroup(GraphEdge edge, int index, List<List<int>> groups) {
+            if (edge.Fallbacks.Contains(index) == false)
+                edge.Fallbacks.Add(index);
+            var group = groups.Find(members => members.Contains(index));
+            if (group == null)
+                return;
+
+            for (var m = 0; m < group.Count; m++) {
+                if (edge.Fallbacks.Contains(group[m]) == false)
+                    edge.Fallbacks.Add(group[m]);
             }
         }
 
@@ -829,44 +962,6 @@ namespace ContainerGenerator {
                    origin == LoaderServices.Origin;
         }
 
-        private static bool AllowsUnresolvedHole(GraphRegistration registration) {
-            if (registration.Origin == "ParameterHole")
-                return true;
-            if (registration.Origin == "SwitchFactory") {
-                for (var i = 0; i < registration.Arms.Count; i++) {
-                    if (string.IsNullOrEmpty(registration.Arms[i].ParameterExpression) == false)
-                        return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static bool TryGetCollectionElement(string typeFullName, out string elementType) {
-            elementType = "";
-            if (string.IsNullOrEmpty(typeFullName))
-                return false;
-            if (typeFullName.EndsWith("[]", StringComparison.Ordinal)) {
-                elementType = typeFullName.Substring(0, typeFullName.Length - 2);
-                return true;
-            }
-
-            return TryUnwrap(typeFullName, "global::System.Collections.Generic.IReadOnlyList<", out elementType) ||
-                   TryUnwrap(typeFullName, "global::System.Collections.Generic.IEnumerable<", out elementType) ||
-                   TryUnwrap(typeFullName, "global::System.Collections.Generic.IReadOnlyCollection<", out elementType);
-        }
-
-        private static bool TryUnwrap(string typeFullName, string prefix, out string elementType) {
-            elementType = "";
-            if (typeFullName.StartsWith(prefix, StringComparison.Ordinal) == false)
-                return false;
-            if (typeFullName.Length <= prefix.Length || typeFullName[typeFullName.Length - 1] != '>')
-                return false;
-
-            elementType = typeFullName.Substring(prefix.Length, typeFullName.Length - prefix.Length - 1);
-            return true;
-        }
-
         private static void DetectCycles(ScopeGraph graph) {
             var count = graph.Registrations.Count;
             var state = new int[count];
@@ -930,23 +1025,30 @@ namespace ContainerGenerator {
             var count = graph.Registrations.Count;
             var order = new List<int>(count);
             var visited = new bool[count];
+            var groups = BranchGroups.Build(graph.Registrations);
 
             for (var i = 0; i < count; i++)
                 Visit(i);
 
             return order;
 
+            // The members of a group are built together, by one field: every dependency of each of them goes first.
             void Visit(int slot) {
                 if (visited[slot])
                     return;
 
-                visited[slot] = true;
-                foreach (var dependency in Neighbors(graph.Registrations[slot])) {
-                    if (dependency >= 0 && dependency < count && dependency != slot)
-                        Visit(dependency);
+                var members = groups.Find(group => group.Contains(slot)) ?? new List<int> { slot };
+                for (var m = 0; m < members.Count; m++)
+                    visited[members[m]] = true;
+
+                for (var m = 0; m < members.Count; m++) {
+                    foreach (var dependency in Neighbors(graph.Registrations[members[m]])) {
+                        if (dependency >= 0 && dependency < count && dependency != members[m])
+                            Visit(dependency);
+                    }
                 }
 
-                order.Add(slot);
+                order.AddRange(members);
             }
         }
 
@@ -959,8 +1061,11 @@ namespace ContainerGenerator {
                     continue;
                 }
 
-                if (edge.Kind == "Registration")
+                if (edge.Kind == "Registration") {
                     yield return edge.TargetIndex;
+                    for (var f = 0; f < edge.Fallbacks.Count; f++)
+                        yield return edge.Fallbacks[f];
+                }
             }
         }
 
