@@ -1,7 +1,5 @@
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using Microsoft.CodeAnalysis;
 
 namespace ContainerGenerator {
     internal static class ParameterBinder {

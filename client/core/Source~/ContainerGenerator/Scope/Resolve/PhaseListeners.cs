@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using Microsoft.CodeAnalysis;
 
 namespace ContainerGenerator {
     internal static class PhaseListeners {
