@@ -74,7 +74,7 @@ namespace ContainerGenerator {
                     var call = method.Calls[c];
                     if (ids.Contains(call))
                         continue;
-                    if (ScopePlan.IsHarvest(call))
+                    if (ManifestHarvest.IsHarvest(call))
                         continue;
 
                     document.Diagnostics.Add(new DiagnosticInfo(

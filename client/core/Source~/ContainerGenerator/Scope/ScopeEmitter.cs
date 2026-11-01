@@ -13,7 +13,7 @@ namespace ContainerGenerator {
             out string source) {
             hintName = "";
             source = "";
-            var plan = ScopePlan.Build(graph, document, compilation, references);
+            var plan = ScopePlanBuilder.Build(graph, document, compilation, references);
             if (plan == null)
                 return false;
 
@@ -335,7 +335,7 @@ namespace ContainerGenerator {
 
                 var implementation = registration.Arms[edge.Arm].ImplementationType;
                 return "request.GetParameter<" + edge.ParameterType + ">(typeof(" + implementation + "), " +
-                       ScopePlan.ArmOccurrence(graph, i, implementation).ToString() + ")";
+                       PlanHoles.ArmOccurrence(graph, i, implementation).ToString() + ")";
             }
 
             throw new InvalidOperationException(
@@ -406,7 +406,7 @@ namespace ContainerGenerator {
             for (var i = 0; i < plan.Markers.Count; i++) {
                 var marker = plan.Markers[i];
                 // A list with transients is built on every ResolveAll: a field would keep the same instances.
-                if (ScopePlan.HasTransientSlot(plan, marker.Slots))
+                if (PlanMarkers.HasTransientSlot(plan, marker.Slots))
                     continue;
 
                 writer.AppendLine(indent + marker.FieldName + " = " + MarkerArray(plan, i) + ";");
@@ -686,7 +686,7 @@ namespace ContainerGenerator {
             WriteThrowIfDisposed(writer, plan, body);
             for (var i = 0; i < plan.Markers.Count; i++) {
                 var marker = plan.Markers[i];
-                var list = ScopePlan.HasTransientSlot(plan, marker.Slots) ? MarkerArray(plan, i) : marker.FieldName;
+                var list = PlanMarkers.HasTransientSlot(plan, marker.Slots) ? MarkerArray(plan, i) : marker.FieldName;
                 writer.AppendLine(body + "if (typeof(T) == typeof(" + marker.ElementType + "))");
                 writer.AppendLine(body + "    return (global::System.Collections.Generic.IReadOnlyList<T>)(object)" + list + ";");
             }
@@ -742,7 +742,7 @@ namespace ContainerGenerator {
                     continue;
                 }
 
-                if (ScopePlan.IsRuntimeRegister(registration))
+                if (PlanHoles.IsRuntimeRegister(registration))
                     AddType(types, registration.ImplementationType);
             }
 
@@ -753,7 +753,7 @@ namespace ContainerGenerator {
             var types = new List<string>();
             for (var i = 0; i < graph.Registrations.Count; i++) {
                 var registration = graph.Registrations[i];
-                if (ScopePlan.IsInstanceKind(registration.Kind) && string.IsNullOrEmpty(registration.ImplementationType) == false)
+                if (PlanHoles.IsInstanceKind(registration.Kind) && string.IsNullOrEmpty(registration.ImplementationType) == false)
                     types.Add(registration.ImplementationType);
             }
 

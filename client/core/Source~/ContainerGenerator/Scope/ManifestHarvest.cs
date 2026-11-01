@@ -15,6 +15,11 @@ namespace ContainerGenerator {
             public string OriginalId = "";
         }
 
+        public static bool IsHarvest(string rootId) {
+            return string.IsNullOrEmpty(rootId) == false &&
+                   rootId.IndexOf("ContainerInstallerHarvest", StringComparison.Ordinal) >= 0;
+        }
+
         public static ManifestHarvest? TryBuild(Compilation compilation, ReferenceSymbols references) {
             if (references.GraphRootAttribute == null)
                 return null;
@@ -129,14 +134,14 @@ namespace ContainerGenerator {
             if (remove.Count == 0)
                 return;
 
-            document.Methods.RemoveAll(method => remove.Contains(method.Id) || ScopePlan.IsHarvest(method.Id));
+            document.Methods.RemoveAll(method => remove.Contains(method.Id) || ManifestHarvest.IsHarvest(method.Id));
         }
 
         private static GraphMethod? FindHarvest(GraphDocument document, string harvestName) {
             var suffix = "." + harvestName;
             for (var i = 0; i < document.Methods.Count; i++) {
                 var method = document.Methods[i];
-                if (ScopePlan.IsHarvest(method.Id) == false)
+                if (ManifestHarvest.IsHarvest(method.Id) == false)
                     continue;
                 if (method.Id.EndsWith(suffix, StringComparison.Ordinal))
                     return method;

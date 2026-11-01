@@ -23,7 +23,7 @@ namespace ContainerGenerator {
             var types = compilation != null ? new TypeIndex(compilation) : null;
             for (var i = 0; i < document.Methods.Count; i++) {
                 var method = document.Methods[i];
-                if (ScopePlan.IsHarvest(method.Id))
+                if (ManifestHarvest.IsHarvest(method.Id))
                     continue;
                 if (string.IsNullOrEmpty(method.Variant) == false)
                     continue;

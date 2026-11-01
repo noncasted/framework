@@ -197,7 +197,7 @@ namespace ContainerGenerator.Verify {
             var document = new GraphWalker(compilation, references).Walk();
             var thrown = false;
             try {
-                ScopePlan.Build(new ScopeGraph { RootId = "Sample.Unknown.Construct" }, document, compilation, references);
+                ScopePlanBuilder.Build(new ScopeGraph { RootId = "Sample.Unknown.Construct" }, document, compilation, references);
             }
             catch (InvalidOperationException) {
                 thrown = true;

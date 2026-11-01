@@ -583,7 +583,7 @@ namespace ContainerGenerator {
             GraphRegistration registration,
             Dictionary<string, int> lastByType,
             Dictionary<string, string> parentExports) {
-            var type = ScopePlan.InferDiscriminantType(registration);
+            var type = PlanFactories.InferDiscriminantType(registration);
             var edge = new GraphEdge {
                 ParameterName = "discriminant",
                 ParameterType = type,
