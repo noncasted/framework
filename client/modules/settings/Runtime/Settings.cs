@@ -1,6 +1,5 @@
 using System;
 using Cysharp.Threading.Tasks;
-using Global.Localization;
 using Global.Publisher;
 using Internal;
 
@@ -39,16 +38,14 @@ namespace Global.Settings
         // The save in force: what Copy copies and the last Apply kept.
         protected TSave Current => _save;
 
-        public UniTask OnSetupAsync(IReadOnlyLifetime lifetime)
+        public UniTask OnSetup(IReadOnlyLifetime lifetime)
         {
             _save = _saves.Get<TSave>();
 
             if (_save.WasChanged == false)
                 _save.CopyFrom(_options.DefaultValues);
 
-            if (_save.IsLanguagePicked == false)
-                _save.Language = Localizer.FromSystem();
-
+            OnLoad(_save);
             Push(_save);
 
             return UniTask.CompletedTask;
@@ -65,8 +62,6 @@ namespace Global.Settings
             _soundsVolume.Set(save.SoundsVolume);
             _musicVolume.Set(save.MusicVolume);
 
-            Localizer.SetLanguage(save.Language);
-
             OnPush(save);
         }
 
@@ -80,6 +75,12 @@ namespace Global.Settings
             await _saves.Save(applied);
             _save = applied;
             Push(applied);
+        }
+
+        // The save is read and has its defaults, before the first Push: the fields of the game that follow something at
+        // every start (the language of the system until the player picks one).
+        protected virtual void OnLoad(TSave save)
+        {
         }
 
         // The fields of the game go to its properties; called on every Push, the base values are already set.
@@ -111,7 +112,7 @@ namespace Global.Settings
         }
     }
 
-    // The settings of a game without settings of its own: the volumes and the language.
+    // The settings of a game without settings of its own: the volumes.
     public sealed class Settings : Settings<SettingsSave>
     {
         public Settings(ISaves saves, SettingsOptions<SettingsSave> options) : base(saves, options)

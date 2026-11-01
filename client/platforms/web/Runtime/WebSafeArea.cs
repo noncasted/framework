@@ -38,10 +38,10 @@ namespace Global.Web
         private static extern float WebShellSafeAreaInset(int side);
 #else
         private static int WebShellSafeAreaRevision() =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 
         private static float WebShellSafeAreaInset(int side) =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 #endif
 
         public void OnBaseSetup(IReadOnlyLifetime lifetime)

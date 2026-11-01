@@ -9,7 +9,7 @@ namespace Internal
 
     public interface IScopeBaseSetupAsync
     {
-        UniTask OnBaseSetupAsync(IReadOnlyLifetime lifetime);
+        UniTask OnBaseSetup(IReadOnlyLifetime lifetime);
     }
 
     public interface IScopeSetup
@@ -19,7 +19,7 @@ namespace Internal
 
     public interface IScopeSetupAsync
     {
-        UniTask OnSetupAsync(IReadOnlyLifetime lifetime);
+        UniTask OnSetup(IReadOnlyLifetime lifetime);
     }
 
     public interface IScopeSetupCompletion
@@ -29,7 +29,7 @@ namespace Internal
 
     public interface IScopeSetupCompletionAsync
     {
-        UniTask OnSetupCompletionAsync(IReadOnlyLifetime lifetime);
+        UniTask OnSetupCompletion(IReadOnlyLifetime lifetime);
     }
 
     public interface IScopeLoaded
@@ -39,7 +39,7 @@ namespace Internal
 
     public interface IScopeLoadedAsync
     {
-        UniTask OnLoadedAsync(IReadOnlyLifetime lifetime);
+        UniTask OnLoaded(IReadOnlyLifetime lifetime);
     }
 
     public interface IScopeDispose
@@ -49,6 +49,6 @@ namespace Internal
 
     public interface IScopeDisposeAsync
     {
-        UniTask OnDisposeAsync();
+        UniTask OnDispose();
     }
 }

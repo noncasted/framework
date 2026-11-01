@@ -55,11 +55,6 @@ namespace Global.Publisher.Telegram
 #endif
         }
 
-        public string GetLanguageCode()
-        {
-            return LanguageCode;
-        }
-
         public void SetBackButtonVisible(bool isVisible)
         {
             if (IsBackButtonVisible == isVisible)

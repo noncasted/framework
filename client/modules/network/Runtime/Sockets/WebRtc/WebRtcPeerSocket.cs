@@ -22,13 +22,14 @@ namespace Internal
             _signaling = signaling;
             _options = options;
             _lifetime = lifetime.Child();
+            _inbox = new SocketInbox<PeerEvent>(_lifetime, Handle);
 
             _peer = WebRtcPeers.Create(options, this);
             _lifetime.Listen(Dispose);
 
             // From the start: the offer of the peer may come before Connect.
             _signaling.Received.Advise(_lifetime, OnSignal);
-            Pump().Forget();
+            SocketPump.Run(_lifetime, _inbox.Drain).NoAwait();
         }
 
         private const string ChannelLabel = "session";
@@ -43,7 +44,7 @@ namespace Internal
         private readonly WebRtcFrameAssembler _assembler = new();
 
         // The events of the peer, from the threads of the platform, in their order.
-        private readonly ConcurrentQueue<PeerEvent> _inbox = new();
+        private readonly SocketInbox<PeerEvent> _inbox;
 
         // Candidates of the peer that came before its description: applied once it is set.
         private readonly List<WebRtcSignal> _pendingCandidates = new();
@@ -160,23 +161,6 @@ namespace Internal
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(signal), signal.Kind, null);
-            }
-        }
-
-        // The events of the peer handed over on the main thread once a frame, as DefaultWebSocket delivers its frames.
-        private async UniTaskVoid Pump()
-        {
-            while (true)
-            {
-                var isCanceled = await UniTask
-                                       .Yield(PlayerLoopTiming.Update, _lifetime.Token)
-                                       .SuppressCancellationThrow();
-
-                if (isCanceled == true)
-                    return;
-
-                while (_lifetime.IsTerminated == false && _inbox.TryDequeue(out var peerEvent) == true)
-                    Handle(peerEvent);
             }
         }
 

@@ -30,7 +30,7 @@ namespace Internal.Tests
             {
                 var closed = new List<SocketCloseInfo>();
                 socket.Closed.Advise(lifetime, closed.Add);
-                Call(socket, "Deliver");
+                SocketPump.Run(lifetime, () => Call(socket, "Deliver")).NoAwait();
 
                 Call(null, "OnOpen", Id);
                 Call(null, "OnClose", Id, 4001);
@@ -82,9 +82,10 @@ namespace Internal.Tests
 
             Set(socket, "_lifetime", lifetime);
             Set(socket, "_handlerId", Id);
-            Set(socket, "_received", new ViewableDelegate<byte[]>());
+            var received = new ViewableDelegate<byte[]>();
+            Set(socket, "_received", received);
             Set(socket, "_closed", new ViewableDelegate<SocketCloseInfo>());
-            Set(socket, "_inbox", new Queue<byte[]>());
+            Set(socket, "_inbox", new SocketInbox<byte[]>(lifetime, bytes => received.Invoke(bytes)));
 
             return socket;
         }

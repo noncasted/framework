@@ -62,7 +62,7 @@ namespace Internal.Tests
             var caught = await Catch(() => scope.Dispose());
 
             Assert.AreEqual(1, ScopeLoaderProbe.Count("second.dispose"), "a throwing OnDispose stopped the next OnDispose");
-            Assert.AreEqual(1, ScopeLoaderProbe.Count("async.dispose"), "a throwing OnDispose stopped OnDisposeAsync");
+            Assert.AreEqual(1, ScopeLoaderProbe.Count("async.dispose"), "a throwing OnDispose stopped OnDispose");
             StringAssert.Contains("dispose failed", caught.ToString());
             StringAssert.Contains("async dispose failed", caught.ToString());
         });

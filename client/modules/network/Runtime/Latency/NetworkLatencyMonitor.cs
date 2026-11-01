@@ -81,7 +81,7 @@ namespace Internal
 
         public void OnSetup(IReadOnlyLifetime lifetime)
         {
-            Run(lifetime).Forget();
+            Run(lifetime).NoAwait();
         }
 
         public void OnPong(int id)

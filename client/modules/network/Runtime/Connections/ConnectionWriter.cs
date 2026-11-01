@@ -67,7 +67,7 @@ namespace Internal
 
             webSocket.Closed.Advise(lifetime, OnClosed);
 
-            Loop(run).Forget();
+            Loop(run).NoAwait();
         }
 
         /// <summary>
@@ -165,7 +165,7 @@ namespace Internal
                 await run.Socket.Send(payload);
                 _traffic.OnSent(payload.Length);
             }
-            catch (Exception) when (run.IsClosed == true)
+            catch (Exception exception) when (run.IsClosed == true && exception is OperationCanceledException or ObjectDisposedException)
             {
                 // The connection is closed during the send (the lifetime ended: OperationCanceledException, the socket
                 // is disposed: ObjectDisposedException): the message goes as every other one left in the queue of a
@@ -222,7 +222,7 @@ namespace Internal
 
             // The response may never arrive: the server handler crashed, the packet was lost. Cancelled by the response.
             var timeout = new CancellationTokenSource();
-            LimitTime().Forget();
+            LimitTime().NoAwait();
 
             INetworkContext context;
 

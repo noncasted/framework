@@ -1,3 +1,4 @@
+#if UNITY_WEBGL && !UNITY_EDITOR
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -160,3 +161,4 @@ namespace Internal
         private static extern void JsWebRtcFree(int id);
     }
 }
+#endif

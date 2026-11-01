@@ -5,7 +5,7 @@ namespace Global.Publisher
 {
     public enum PlatformAuthType
     {
-        // The guest saved between runs (Meta.IAuthentication: its id and secret): web, itch.
+        // The guest saved between runs (its id and secret): web, itch.
         Guest,
 
         // The signed Telegram.WebApp.initData: nothing of the guest is sent or saved.
@@ -15,15 +15,18 @@ namespace Global.Publisher
         Steam
     }
 
-    // A ticket of the Steam user for the server (hex, checked by the Steam Web API) and the name the user has in Steam.
-    public readonly struct SteamAuthTicket
+    // What the platform says about the user. Ticket: nothing for a guest (the game has its own id and secret), the signed
+    // initData for Telegram, the hex ticket of the Web API for Steam. Name: the name the user has in the platform, if any.
+    public readonly struct PlatformCredentials
     {
-        public SteamAuthTicket(string ticket, string name)
+        public PlatformCredentials(PlatformAuthType type, string ticket, string name)
         {
+            Type = type;
             Ticket = ticket;
             Name = name;
         }
 
+        public PlatformAuthType Type { get; }
         public string Ticket { get; }
         public string Name { get; }
     }
@@ -33,10 +36,7 @@ namespace Global.Publisher
     {
         PlatformAuthType Type { get; }
 
-        // Telegram.WebApp.initData as is (url-encoded fields). Only for PlatformAuthType.Telegram.
-        string GetTelegramInitData();
-
-        // A new ticket for each connect. Only for PlatformAuthType.Steam.
-        UniTask<SteamAuthTicket> GetSteamTicket(IReadOnlyLifetime lifetime);
+        // New credentials for each connect.
+        UniTask<PlatformCredentials> GetCredentials(IReadOnlyLifetime lifetime);
     }
 }

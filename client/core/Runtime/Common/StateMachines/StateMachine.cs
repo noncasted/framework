@@ -139,7 +139,7 @@ namespace Internal
             var completionSource = new UniTaskCompletionSource<bool>();
 
             if (_priorityQueue.Count == 0)
-                ProcessPriorityQueue().Forget();
+                ProcessPriorityQueue().NoAwait();
 
             if (_priorityQueue.TryAdd(state, completionSource) == false)
                 return (false, null);

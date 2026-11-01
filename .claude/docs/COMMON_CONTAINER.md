@@ -122,7 +122,7 @@ Interfaces in `tools/framework/client/core/Runtime/Scopes/Common/Events/ScopeDef
 | `IScopeLoaded.OnLoaded(lifetime)` | `IScopeLoadedAsync` | `ILoadedScope.Initialize()` (service scopes only) |
 | `IScopeDispose.OnDispose()` | `IScopeDisposeAsync` | `ILoadedScope.Dispose()`, before the lifetime terminates |
 
-Sync listeners of a phase run one by one, async listeners start together (`UniTask.WhenAll`). Do not depend on the order of services inside one phase: if B needs A initialized, move A to an earlier phase. Resolving the phase list also constructs those services. `RunCustom<T>` / `RunCustomAsync<T>` on `IEventLoop` run the same kind of phase for a custom interface.
+Sync listeners of a phase run one by one, async listeners start together (`UniTask.WhenAll`). Do not depend on the order of services inside one phase: if B needs A initialized, move A to an earlier phase. Resolving the phase list also constructs those services. `RunCustom<T>` / `RunCustomAwaited<T>` on `IEventLoop` run the same kind of phase for a custom interface.
 
 The lifetime passed to every callback is the scope lifetime: every `Advise` / `View` / `Listen` made there ends with the scope (see `COMMON_LIFETIMES.md`).
 

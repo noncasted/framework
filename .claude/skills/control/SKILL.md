@@ -43,8 +43,8 @@ $C editor all
   nothing to a `ready` editor and waits for a `busy` one, `--force` restarts anyway.
 - The stop of a `ready` editor leaves Play, or saves scenes and assets when it is not in Play. `--no-save` skips that. A hung one cannot save: unsaved
   changes of its scenes are lost. The log goes to `Logs/Editor-before-restart-<time>.log` (`evidence`).
-- An editor started here ignores compile errors: there is no Safe Mode dialog, the bridge comes up on the last good assemblies, so errors are
-  read through MCP and fixed. An editor started by the Unity Hub has no such flag. `restart` starts the editor itself, without waiting for the Hub.
+- A compile error at the start stops the editor on the dialog `Enter Safe Mode?`, with or without `-ignoreCompilerErrors`. `start`, `restart` and `wait` press `Ignore` there: the
+  bridge comes up on the last good assemblies, `note` says so, the errors are read through MCP and fixed. An editor nobody waits for stays on the dialog: `$C editor wait`.
 
 ## When the editor falls
 

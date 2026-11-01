@@ -8,8 +8,6 @@ namespace Internal
     [ProjectToolsTab(400)]
     public class AssetsTab : ProjectToolsTab
     {
-        private ProgressBar _progressBar;
-
         public override string Title => "Assets";
 
         protected override void BuildContent(VisualElement parent)
@@ -38,10 +36,6 @@ namespace Internal
                 parent.Add(projectRow);
             }
 
-            _progressBar = new ProgressBar { lowValue = 0, highValue = 100, value = 0 };
-            _progressBar.AddToClassList("assets-progress");
-            parent.Add(_progressBar);
-
             var runAllButton = new Button(OnRunAllClicked) { text = "Run All" };
             runAllButton.AddToClassList("assets-run-all-button");
             parent.Add(runAllButton);
@@ -56,16 +50,16 @@ namespace Internal
         }
 
         private void OnGeneratePrefabsClicked() => Run("Generating prefabs...", "Prefabs generated",
-            "Prefab generation failed", PrefabCatalogGenerator.Generate);
+            "Prefab generation failed", PrefabCatalogGenerator.GenerateNow);
 
         private void OnGenerateScenesClicked() => Run("Generating scenes...", "Scenes generated",
             "Scene generation failed", SceneGenerator.Generate);
 
         private void OnGenerateSpritesClicked() => Run("Generating sprites...", "Sprites generated",
-            "Sprite generation failed", SpriteGenerator.Generate);
+            "Sprite generation failed", SpriteGenerator.GenerateNow);
 
         private void OnGenerateAudioClicked() => Run("Generating audio...", "Audio generated",
-            "Audio generation failed", AudioCatalogGenerator.Generate);
+            "Audio generation failed", AudioCatalogGenerator.GenerateNow);
 
         private void OnProjectStepClicked(RegenerateAll.ProjectStep step) => Run($"Running {step.Name}...",
             $"{step.Name} completed", $"{step.Name} failed", () => {
@@ -74,38 +68,8 @@ namespace Internal
                 AssetDatabase.Refresh();
             });
 
-        private void OnRunAllClicked()
-        {
-            Run("Running all generators...", "All generators completed", "Run All failed", () => {
-                _progressBar.value = 0;
-
-                _progressBar.value = 20;
-                PrefabCatalogGenerator.Generate();
-
-                _progressBar.value = 40;
-                SceneGenerator.Generate();
-
-                _progressBar.value = 60;
-                SpriteGenerator.Generate();
-
-                _progressBar.value = 80;
-                AudioCatalogGenerator.Generate();
-
-                var projectSteps = RegenerateAll.ProjectSteps();
-
-                if (projectSteps.Count > 0)
-                {
-                    _progressBar.value = 90;
-
-                    foreach (var step in projectSteps)
-                        step.Run();
-
-                    AssetDatabase.Refresh();
-                }
-
-                _progressBar.value = 100;
-            });
-        }
+        private void OnRunAllClicked() => Run("Running all generators...", "All generators completed", "Run All failed",
+            RegenerateAll.Run);
 
         private void Run(string startedMessage, string finishedMessage, string failedMessage, Action action)
         {

@@ -195,9 +195,6 @@ namespace Internal
                    .AsSelfResolvable()
                    .As<INetworkCommandsCollection>();
 
-            builder.Register<NetworkCommandsDispatcher>()
-                   .As<INetworkCommandsDispatcher>();
-
             return builder;
         }
 

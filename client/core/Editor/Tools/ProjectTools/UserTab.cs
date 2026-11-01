@@ -108,8 +108,18 @@ namespace Internal
             if (string.IsNullOrEmpty(raw) == true)
                 return Empty;
 
-            var record = JsonUtility.FromJson<GuestIdRecord>(raw);
-            return record == null || string.IsNullOrEmpty(record.Id) == true ? $"<malformed: {raw.Length} chars>" : record.Id;
+            var malformed = $"<malformed: {raw.Length} chars>";
+
+            try
+            {
+                var record = JsonUtility.FromJson<GuestIdRecord>(raw);
+                return record == null || string.IsNullOrEmpty(record.Id) == true ? malformed : record.Id;
+            }
+            // Not a json at all: the tab shows what lies in the prefs of the player, whatever it is.
+            catch (ArgumentException)
+            {
+                return malformed;
+            }
         }
 
         // The id field of the guest record (the game stores {Id, Secret}).

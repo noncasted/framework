@@ -1,6 +1,6 @@
 using System.Collections;
+using System.Linq;
 using Cysharp.Threading.Tasks;
-using Global.Localization;
 using Global.Publisher;
 using Internal;
 using NUnit.Framework;
@@ -13,21 +13,25 @@ namespace Global.Settings.Tests
     // settings window editing the same object) does not change the settings in force behind their back.
     public class SettingsTests
     {
-        private const string Table = "{\"entries\":[{\"key\":\"Menu.Play\",\"ru\":\"ИГРАТЬ\",\"en\":\"PLAY\"}]}";
+        // A game without texts takes the settings without the localization and TextMeshPro.
+        [Test]
+        public void Assembly_DoesNotReferenceLocalization()
+        {
+            var references = typeof(SettingsSave).Assembly.GetReferencedAssemblies().Select(reference => reference.Name).ToArray();
+
+            CollectionAssert.DoesNotContain(references, "Internal.Localization");
+        }
 
         [UnityTest]
         public IEnumerator Apply_CallerChangesItsSaveAfter_CurrentStays() => UniTask.ToCoroutine(async () =>
         {
-            var localization = ScriptableObject.CreateInstance<LocalizationOptions>();
             var options = ScriptableObject.CreateInstance<SettingsOptions>();
             var lifetime = new Lifetime();
 
             try
             {
-                Localizer.Load(lifetime, new LocalizationTable(Table), localization);
-
                 var settings = new Settings(new MemorySaves(), options);
-                await settings.OnSetupAsync(lifetime);
+                await settings.OnSetup(lifetime);
 
                 var save = settings.Copy();
                 save.MasterVolume = 0.5f;
@@ -42,7 +46,6 @@ namespace Global.Settings.Tests
             {
                 lifetime.Terminate();
                 Object.DestroyImmediate(options);
-                Object.DestroyImmediate(localization);
             }
         });
 

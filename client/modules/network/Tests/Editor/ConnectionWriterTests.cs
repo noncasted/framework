@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using Shared;
@@ -311,6 +312,26 @@ namespace Internal.Tests
             return UniTask.Delay(200, DelayType.Realtime);
         }
 
+        // Only the failures of a closing connection are quiet: any other one is a mistake, also while the connection closes.
+        [UnityTest]
+        public IEnumerator SendFails_WhileClosing_OtherErrorIsLogged() => UniTask.ToCoroutine(async () =>
+        {
+            var writer = new ConnectionWriter(new NetworkTraffic());
+            var lifetime = new Lifetime();
+            writer.Run(lifetime, new ThrowingSocket(lifetime));
+
+            LogAssert.Expect(LogType.Error, new Regex("Failed to send message to server.*the encoder broke"));
+            writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.Ok });
+            await Frames();
+        });
+
+        // The browser peer exists only in a WebGL player: its __Internal imports do not link anywhere else.
+        [Test]
+        public void JsWebRtcPeer_IsNotCompiledOutsideOfWebGL()
+        {
+            Assert.IsNull(typeof(IWebRtcPeer).Assembly.GetType("Internal.JsWebRtcPeer"));
+        }
+
         private class UnknownContext : INetworkContext
         {
         }
@@ -374,6 +395,34 @@ namespace Internal.Tests
             public void Drop(string reason)
             {
                 _closed.Invoke(new SocketCloseInfo(SocketCloseInfo.AbnormalClosure, reason));
+            }
+        }
+
+        private class ThrowingSocket : IWebSocket
+        {
+            public ThrowingSocket(Lifetime lifetime)
+            {
+                _lifetime = lifetime;
+            }
+
+            private readonly Lifetime _lifetime;
+
+            public IViewableDelegate<byte[]> Received { get; } = new ViewableDelegate<byte[]>();
+            public IViewableDelegate<SocketCloseInfo> Closed { get; } = new ViewableDelegate<SocketCloseInfo>();
+
+            public UniTask Connect()
+            {
+                return UniTask.CompletedTask;
+            }
+
+            public UniTask Send(byte[] bytes)
+            {
+                _lifetime.Terminate();
+                throw new InvalidOperationException("the encoder broke");
+            }
+
+            public void Drop(string reason)
+            {
             }
         }
 

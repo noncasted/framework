@@ -10,25 +10,15 @@ namespace Global.Publisher.Steam
 {
     // The achievements of the Steamworks app. Steam loads the stats and the achievements of the user by itself after
     // the start of the API (UserStatsReceived_t): an unlock that comes before them waits and is set when they arrive.
-    // Every set achievement is stored at once (StoreStats shows the notification of the overlay). Registered on every
-    // platform, works only where Steam is started.
+    // Every set achievement is stored at once (StoreStats shows the notification of the overlay).
     public class SteamPlatformAchievements : IPlatformAchievements, IScopeSetup
     {
-        public SteamPlatformAchievements(ISteamClient client)
-        {
-            _client = client;
-        }
-
-        private readonly ISteamClient _client;
         private readonly List<string> _pending = new();
 
-        public bool IsSupported => _client.IsStarted;
+        public bool IsSupported => true;
 
         public void OnSetup(IReadOnlyLifetime lifetime)
         {
-            if (_client.IsStarted == false)
-                return;
-
 #if UNITY_STANDALONE
             var callback = Callback<UserStatsReceived_t>.Create(OnStatsReceived);
             lifetime.Listen(callback.Dispose);
@@ -37,9 +27,6 @@ namespace Global.Publisher.Steam
 
         public void Unlock(string name)
         {
-            if (_client.IsStarted == false)
-                throw new InvalidOperationException($"[Steam] Achievement {name} is unlocked without Steam");
-
 #if UNITY_STANDALONE
             if (IsLoaded() == false)
             {

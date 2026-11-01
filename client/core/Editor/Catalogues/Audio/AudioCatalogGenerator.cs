@@ -344,7 +344,7 @@ namespace Internal
                 WriteGroupAsset(path, group);
             }
 
-            DeleteStaleAssets(writtenPaths);
+            CatalogGroupAssets.DeleteStale<AudioGroupAsset>(GroupsFolder, writtenPaths, LogTag);
         }
 
         private static void WriteGroupAsset(string path, AudioGroupDefinition group)
@@ -417,24 +417,6 @@ namespace Internal
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void DeleteStaleAssets(HashSet<string> writtenPaths)
-        {
-            if (AssetDatabase.IsValidFolder(GroupsFolder) == false)
-                return;
-
-            var guids = AssetDatabase.FindAssets("t:AudioGroupAsset", new[] { GroupsFolder });
-
-            foreach (var guid in guids)
-            {
-                var path = AssetDatabase.GUIDToAssetPath(guid);
-
-                if (writtenPaths.Contains(path))
-                    continue;
-
-                AssetDatabase.DeleteAsset(path);
-                Debug.Log($"[{LogTag}] Deleted stale group asset: {path}");
-            }
-        }
 
         internal readonly struct MarkedSource
         {

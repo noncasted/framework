@@ -151,10 +151,14 @@ def _round(value):
 
 def wait(client, hung_after, timeout):
     deadline = time.time() + timeout
+    ignored = False
     while True:
+        proc = find_editor(client)
+        if proc is not None and dialogs.ignore_safe_mode(proc.pid):
+            ignored = True
         result = status(client, hung_after)
         if result["state"] == "ready":
-            return result
+            return {**result, "note": "started with compile errors, Safe Mode ignored: read them in the log"} if ignored else result
         if result["state"] in ("down", "hung", "stopped", "dialog", "crashed"):
             return {**result, "error": f"the editor is {result['state']}; log: {result['log']}"}
         if time.time() >= deadline:

@@ -221,7 +221,7 @@ namespace Internal.Tests
                 return listener.Task;
             });
 
-            world.Factory.CreateRemote(world.Lifetime, world.Data(ObjectId)).Forget();
+            world.Factory.CreateRemote(world.Lifetime, world.Data(ObjectId)).NoAwait();
 
             Assert.AreEqual(NetworkObjectState.Creating, world.Objects.GetState(ObjectId));
             world.Objects.ApplyUpdate(Update(5, version: 1));
@@ -248,7 +248,7 @@ namespace Internal.Tests
             var listener = new UniTaskCompletionSource<INetworkEntity>();
 
             world.Factory.ListenRemote<TestPayload>(world.Lifetime, (_, _) => listener.Task);
-            world.Factory.CreateRemote(world.Lifetime, world.Data(ObjectId)).Forget();
+            world.Factory.CreateRemote(world.Lifetime, world.Data(ObjectId)).NoAwait();
 
             world.Objects.ApplyUpdate(Update(5, version: 1));
 
@@ -318,7 +318,7 @@ namespace Internal.Tests
             Assert.AreEqual(UniTaskStatus.Pending, received.Status);
 
             var id = SharedEntityIds.Create(world.LocalIndex, 1);
-            world.Factory.CreateRemote(world.Lifetime, world.LocalData(id)).Forget();
+            world.Factory.CreateRemote(world.Lifetime, world.LocalData(id)).NoAwait();
 
             Assert.AreEqual(1, restored);
             Assert.AreEqual(0, remote);
@@ -366,7 +366,7 @@ namespace Internal.Tests
             world.Factory.ExpectRestored(false, 0);
 
             var id = SharedEntityIds.CreateBackend(1);
-            world.Factory.CreateRemote(world.Lifetime, world.LocalData(id)).Forget();
+            world.Factory.CreateRemote(world.Lifetime, world.LocalData(id)).NoAwait();
 
             Assert.AreEqual(0, restored);
             Assert.AreEqual(1, remote);

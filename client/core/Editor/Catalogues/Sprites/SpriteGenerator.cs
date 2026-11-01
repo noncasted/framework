@@ -115,7 +115,10 @@ namespace Internal
                 var groupName = CatalogNaming.ToGroupPath(metadata.Group);
 
                 if (string.IsNullOrEmpty(groupName))
+                {
+                    Debug.LogError($"[SpriteGenerator] {path} is included and has no group: it is left out of the catalogue");
                     continue;
+                }
 
                 var propertyName = CatalogNaming.ToGroupName(Path.GetFileNameWithoutExtension(path));
 
@@ -179,7 +182,10 @@ namespace Internal
             metadata.Group = SpriteCatalogMetadata.GetDefaultGroup(importer.assetPath);
 
             if (string.IsNullOrEmpty(metadata.Group))
+            {
+                Debug.LogError($"[SpriteGenerator] {importer.assetPath} is included and has no group: it is left out of the catalogue");
                 return null;
+            }
 
             SpriteCatalogMetadata.Write(importer, metadata);
             return metadata;
@@ -319,7 +325,7 @@ namespace Internal
                 WriteGroupAsset(path, group);
             }
 
-            DeleteStaleAssets(writtenPaths);
+            CatalogGroupAssets.DeleteStale<SpriteGroupAsset>(GroupsFolder, writtenPaths, "SpriteGenerator");
         }
 
         private static void WriteGroupAsset(string path, SpriteGroupDefinition group)
@@ -412,24 +418,6 @@ namespace Internal
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void DeleteStaleAssets(HashSet<string> writtenPaths)
-        {
-            if (AssetDatabase.IsValidFolder(GroupsFolder) == false)
-                return;
-
-            var guids = AssetDatabase.FindAssets("t:SpriteGroupAsset", new[] { GroupsFolder });
-
-            foreach (var guid in guids)
-            {
-                var path = AssetDatabase.GUIDToAssetPath(guid);
-
-                if (writtenPaths.Contains(path))
-                    continue;
-
-                AssetDatabase.DeleteAsset(path);
-                Debug.Log($"[SpriteGenerator] Deleted stale group asset: {path}");
-            }
-        }
 
         private static Sprite[] CollectSprites(string assetPath, SpriteKind kind)
         {
@@ -541,7 +529,7 @@ namespace Internal
             return array;
         }
 
-        private static bool IsSourceFile(string path)
+        internal static bool IsSourceFile(string path)
         {
             var extension = Path.GetExtension(path);
 

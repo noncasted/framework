@@ -25,7 +25,7 @@ namespace Internal
             return list[UnityEngine.Random.Range(0, list.Count)];
         }
 
-        public static UniTask InvokeAsync<T>(this IReadOnlyList<T> listeners, Func<T, UniTask> invoker)
+        public static UniTask InvokeAwaited<T>(this IReadOnlyList<T> listeners, Func<T, UniTask> invoker)
         {
             var count = listeners.Count;
             var tasks = new UniTask[count];

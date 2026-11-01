@@ -10,13 +10,11 @@ namespace Global.Publisher.Steam
     // Invites through Steam without a Steam lobby: the lobby of the game travels as a connect string. The user in a
     // lobby has it in the rich presence ("connect"), so the friends list offers "Join game"; the overlay dialog sends
     // invites with it. A friend that accepts gets GameRichPresenceJoinRequested_t while the game runs, or Steam starts
-    // the game with the connect string on its command line. Registered on every platform, works only where Steam is
-    // started.
+    // the game with the connect string on its command line.
     public class SteamInvites : IPlatformInvites, IScopeSetup
     {
-        public SteamInvites(ISteamClient client, SteamOptions options)
+        public SteamInvites(SteamOptions options)
         {
-            _client = client;
             _connectKey = options.InviteConnectKey;
         }
 
@@ -24,17 +22,13 @@ namespace Global.Publisher.Steam
         // Steam starts the game.
         private readonly string _connectKey;
 
-        private readonly ISteamClient _client;
         private readonly ViewableProperty<string> _joinRequest = new(null);
 
-        public bool IsSupported => _client.IsStarted;
+        public bool IsSupported => true;
         public IViewableProperty<string> JoinRequest => _joinRequest;
 
         public void OnSetup(IReadOnlyLifetime lifetime)
         {
-            if (_client.IsStarted == false)
-                return;
-
             var launchCode = FindCode(Environment.GetCommandLineArgs(), _connectKey);
 
             if (launchCode != null)
@@ -48,9 +42,6 @@ namespace Global.Publisher.Steam
 
         public void ConsumeJoinRequest()
         {
-            if (_client.IsStarted == false)
-                throw new InvalidOperationException("[Steam] A join request is consumed without Steam");
-
             if (_joinRequest.Value == null)
                 throw new InvalidOperationException("[Steam] There is no join request to consume");
 
@@ -59,9 +50,6 @@ namespace Global.Publisher.Steam
 
         public void ShowInLobby(IReadOnlyLifetime lifetime, string lobbyCode)
         {
-            if (_client.IsStarted == false)
-                throw new InvalidOperationException("[Steam] A lobby is shown without Steam");
-
 #if UNITY_STANDALONE
             if (SteamFriends.SetRichPresence("connect", $"{_connectKey} {lobbyCode}") == false)
                 throw new InvalidOperationException("[Steam] The rich presence is not set");
@@ -74,9 +62,6 @@ namespace Global.Publisher.Steam
 
         public void OpenInviteDialog(string lobbyCode)
         {
-            if (_client.IsStarted == false)
-                throw new InvalidOperationException("[Steam] An invite dialog is opened without Steam");
-
             if (string.IsNullOrEmpty(lobbyCode) == true)
                 throw new InvalidOperationException($"[Steam] An invite into a lobby without a code: '{lobbyCode}'");
 

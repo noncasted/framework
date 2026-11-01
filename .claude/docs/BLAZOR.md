@@ -121,7 +121,7 @@ lifetime in `Dispose`). Example below is `backend/Console/Home/FeaturesStatusWid
         ClusterFeatures.View(lifetime, state =>
         {
             _state = state;
-            InvokeAsync(StateHasChanged).NoAwait();
+            InvokeAwaited(StateHasChanged).NoAwait();
         });
 
         return Task.CompletedTask;

@@ -18,27 +18,7 @@ namespace Internal
 
         internal static void Generate(IReadOnlyList<AssetGroupDefinition> groups)
         {
-            var byFolder = new Dictionary<string, List<AssetGroupDefinition>>(StringComparer.Ordinal);
-
-            foreach (var group in groups)
-            {
-                if (group.SkipCodegen)
-                    continue;
-
-                if (string.IsNullOrEmpty(group.GeneratedFolder))
-                {
-                    Debug.LogError($"[{LogTag}] Missing generated folder for group '{group.Name}'");
-                    continue;
-                }
-
-                if (byFolder.TryGetValue(group.GeneratedFolder, out var list) == false)
-                {
-                    list = new List<AssetGroupDefinition>();
-                    byFolder.Add(group.GeneratedFolder, list);
-                }
-
-                list.Add(group);
-            }
+            var byFolder = GeneratedFile.GroupByFolder(LogTag, groups, static group => group.SkipCodegen, static group => group.GeneratedFolder);
 
             var writtenFolders = new HashSet<string>(StringComparer.Ordinal);
 
@@ -48,7 +28,7 @@ namespace Internal
                 WriteFolder(pair.Key, pair.Value);
             }
 
-            CleanUnusedGeneratedFolders(writtenFolders);
+            GeneratedFile.DeleteFromUnusedFolders(LogTag, InternalGeneratedFolder, OwnedSuffix, writtenFolders);
         }
 
         public static string GetAssemblyGeneratedFolder(string assemblyName)
@@ -176,30 +156,5 @@ namespace Internal
                     $"                {property.FieldName} = Asset.Get<global::{property.TypeFullName}>(\"{property.PropertyName}\");");
         }
 
-        private static void CleanUnusedGeneratedFolders(HashSet<string> writtenFolders)
-        {
-            if (writtenFolders.Contains(InternalGeneratedFolder) == false)
-                GeneratedFile.DeleteFolderScripts(LogTag, InternalGeneratedFolder, OwnedSuffix);
-
-            var assetsRoot = Application.dataPath;
-
-            if (Directory.Exists(assetsRoot) == false)
-                return;
-
-            // A failure to read throws: taken for an empty result, it would delete what the generator did not see.
-            var folders = Directory.GetDirectories(assetsRoot, "Generated", SearchOption.AllDirectories);
-
-            var projectRoot = Path.GetDirectoryName(Application.dataPath);
-
-            foreach (var directory in folders)
-            {
-                var folder = CatalogPaths.ToAssetPath(projectRoot, directory);
-
-                if (writtenFolders.Contains(folder))
-                    continue;
-
-                GeneratedFile.DeleteFolderScripts(LogTag, folder, OwnedSuffix);
-            }
-        }
     }
 }

@@ -4,12 +4,7 @@ using UnityEngine;
 
 namespace Internal
 {
-    public interface INetworkCommandsDispatcher
-    {
-        void Run(IReadOnlyLifetime lifetime);
-    }
-
-    public class NetworkCommandsDispatcher : INetworkCommandsDispatcher
+    public class NetworkCommandsDispatcher
     {
         public NetworkCommandsDispatcher(
             INetworkCommandsCollection commands,

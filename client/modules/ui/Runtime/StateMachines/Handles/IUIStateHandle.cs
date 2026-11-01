@@ -7,7 +7,6 @@ namespace Global.UI
     public interface IUIStateHandle
     {
         IReadOnlyLifetime InnerLifetime { get; }
-        IReadOnlyLifetime OuterLifetime { get; }
         IViewableProperty<bool> IsVisible { get; }
 
         // The children of the state (CreateChild) that live now. A child does not hide its parent: a parent that

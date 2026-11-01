@@ -40,7 +40,7 @@ namespace Internal
         // loss are handed to the listeners in the player loop, in their order, as DefaultWebSocket and
         // LoopbackWebSocket do. Run inside the browser event, the whole command pipeline ran between two frames of
         // Unity (and its exceptions reached the browser).
-        private readonly Queue<byte[]> _inbox = new();
+        private readonly SocketInbox<byte[]> _inbox;
         private SocketCloseInfo? _pendingClose;
 
         public IViewableDelegate<byte[]> Received => _received;
@@ -49,6 +49,7 @@ namespace Internal
         public JsWebSocket(string url, IReadOnlyLifetime lifetime)
         {
             _lifetime = lifetime.Child();
+            _inbox = new SocketInbox<byte[]>(_lifetime, bytes => _received.Invoke(bytes));
 
             // Initialize global callbacks once
             if (!_callbacksInitialized)
@@ -66,7 +67,7 @@ namespace Internal
             // Setup cleanup on lifetime termination
             _lifetime.Listen(Dispose);
 
-            Deliver().Forget();
+            SocketPump.Run(_lifetime, Deliver).NoAwait();
 
             Debug.Log($"[Network] [JsWebSocket] Created: id={_handlerId}, url={url}");
         }
@@ -194,39 +195,15 @@ namespace Internal
             Debug.Log($"[Network] [JsWebSocket] Disposed: id={_handlerId}");
         }
 
-        private async UniTaskVoid Deliver()
+        private void Deliver()
         {
-            while (true)
+            _inbox.Drain();
+
+            if (_pendingClose.HasValue == true && _isDisposed == false)
             {
-                var isCanceled = await UniTask
-                                       .Yield(PlayerLoopTiming.Update, _lifetime.Token)
-                                       .SuppressCancellationThrow();
-
-                if (isCanceled == true)
-                    return;
-
-                while (_inbox.Count > 0 && _isDisposed == false)
-                {
-                    var data = _inbox.Dequeue();
-
-                    try
-                    {
-                        _received.Invoke(data);
-                    }
-                    catch (Exception exception)
-                    {
-                        // The next frames go on, as the receive loop of DefaultWebSocket does not stop on an error of
-                        // the code above it.
-                        Debug.LogException(exception);
-                    }
-                }
-
-                if (_pendingClose.HasValue == true && _isDisposed == false)
-                {
-                    var info = _pendingClose.Value;
-                    _pendingClose = null;
-                    _closed.Invoke(info);
-                }
+                var info = _pendingClose.Value;
+                _pendingClose = null;
+                _closed.Invoke(info);
             }
         }
 
@@ -261,38 +238,34 @@ namespace Internal
         [DllImport("__Internal")]
         private static extern int JsWebSocketFree(int id);
 
-        [DllImport("__Internal")]
-        private static extern int JsWebSocketGetState(int id);
 #else
         private static void JsWebSocketSetOnOpen(Action<int> callback) =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 
         private static void JsWebSocketSetOnMessage(Action<int, IntPtr, int> callback) =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 
         private static void JsWebSocketSetOnError(Action<int, IntPtr> callback) =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 
         private static void JsWebSocketSetOnClose(Action<int, int> callback) =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 
         private static int JsWebSocketCreate(string url) =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 
         private static int JsWebSocketConnect(int id) =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 
         private static int JsWebSocketSend(int id, IntPtr buffer, int length) =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 
         private static int JsWebSocketClose(int id, int code, string reason) =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 
         private static int JsWebSocketFree(int id) =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 
-        private static int JsWebSocketGetState(int id) =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
 #endif
 
         #endregion

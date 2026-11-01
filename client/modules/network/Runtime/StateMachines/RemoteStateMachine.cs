@@ -38,7 +38,7 @@ namespace Internal
             _currentState = state;
             _currentLifetime = _entityLifetime.Child();
 
-            state.Enter(_currentLifetime, payload).Forget();
+            state.Enter(_currentLifetime, payload).NoAwait();
         }
 
         private IRemoteState Find(IStateDefinition definition)

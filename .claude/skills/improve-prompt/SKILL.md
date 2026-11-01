@@ -26,7 +26,7 @@ Read the original prompt carefully. Then apply these techniques in order of impa
 Vague prompts are the #1 source of bad results. Turn implicit expectations into explicit instructions.
 
 - Bad: "fix the login bug"
-- Good: "`TelegramPlatformAuth.GetTelegramInitData()` in `tools/framework/client/platforms/telegram/Runtime/TelegramPlatformAuth.cs` throws when init data is empty. Find the caller that picks the `IPlatformAuth` and make a `?tgDebug=1` run use `GuestPlatformAuth` (`tools/framework/client/modules/publish/Runtime/Abstract/Auth/GuestPlatformAuth.cs`) instead"
+- Good: "`TelegramPlatformAuth.GetCredentials()` in `tools/framework/client/platforms/telegram/Runtime/TelegramPlatformAuth.cs` throws when init data is empty. Find the caller that picks the `IPlatformAuth` and make a `?tgDebug=1` run use `GuestPlatformAuth` (`tools/framework/client/modules/publish/Runtime/Abstract/Auth/GuestPlatformAuth.cs`) instead"
 
 If the user's prompt references something in the project but doesn't specify where — add likely file paths, class names, or grep hints based on what you know about the codebase.
 

@@ -39,7 +39,7 @@ namespace Internal
             _lifetime = new Lifetime();
 
             if (_isAwake == false)
-                WatchNeverShown(_lifetime).Forget();
+                WatchNeverShown(_lifetime).NoAwait();
 
             return _lifetime;
         }

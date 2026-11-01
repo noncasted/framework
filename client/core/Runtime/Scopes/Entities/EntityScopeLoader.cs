@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Reflection;
 using Cysharp.Threading.Tasks;
 
@@ -139,48 +138,23 @@ namespace Internal
 
             public void Run()
             {
-                RunAsync().Forget();
+                Process().NoAwait();
             }
 
             // A failing step does not stop the teardown; the errors go to the UniTask unobserved exception handler.
-            private async UniTaskVoid RunAsync()
+            private async UniTaskVoid Process()
             {
-                List<Exception> errors = null;
+                var teardown = new ScopeTeardown();
 
                 if (IsConstructed == true)
-                {
-                    try
-                    {
-                        await _events.RunDispose();
-                    }
-                    catch (Exception exception)
-                    {
-                        (errors ??= new List<Exception>()).Add(exception);
-                    }
-                }
+                    await teardown.StepAwaited(_events.RunDispose);
 
                 if (Container != null)
-                {
-                    try
-                    {
-                        Container.Dispose();
-                    }
-                    catch (Exception exception)
-                    {
-                        (errors ??= new List<Exception>()).Add(exception);
-                    }
-                }
+                    teardown.Step(Container.Dispose);
 
-                try
-                {
-                    await _events.InvokeAfterDispose();
-                }
-                catch (Exception exception)
-                {
-                    (errors ??= new List<Exception>()).Add(exception);
-                }
+                await teardown.StepAwaited(_events.InvokeAfterDispose);
 
-                GeneratedScopes.ThrowDisposeErrors(errors);
+                teardown.ThrowErrors();
             }
         }
     }

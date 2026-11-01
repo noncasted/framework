@@ -51,15 +51,9 @@ namespace Internal
 
         private SpriteEntry FindEntry(string name, SpriteKind kind)
         {
-            if (_entries == null)
-                return null;
-
             for (var i = 0; i < _entries.Length; i++)
             {
                 var entry = _entries[i];
-
-                if (entry == null)
-                    continue;
 
                 if (entry.Kind != kind)
                     continue;

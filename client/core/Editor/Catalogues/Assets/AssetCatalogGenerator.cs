@@ -233,19 +233,12 @@ namespace Internal
 
         private static void WriteGroupAssets(IReadOnlyList<AssetGroupDefinition> groups)
         {
-            CatalogPaths.EnsureFolder(GroupsFolder);
-
             var writtenPaths = new HashSet<string>(StringComparer.Ordinal);
 
-            foreach (var group in groups)
-            {
-                var path = GetGroupAssetPath(group, group.IsAddressable);
-                writtenPaths.Add(path);
-                WriteGroupAsset(path, group);
-            }
+            CatalogGroupAssets.WriteAll(groups, GroupsFolder, static group => GetGroupAssetPath(group, group.IsAddressable), WriteGroupAsset, writtenPaths);
 
             // Resources lives inside GroupsFolder, so the search for stale assets covers it too.
-            DeleteStaleAssets(writtenPaths);
+            CatalogGroupAssets.DeleteStale<EnvAssetGroupAsset>(GroupsFolder, writtenPaths, LogTag);
         }
 
         private static string GetGroupAssetPath(AssetGroupDefinition group, bool isAddressable)
@@ -255,28 +248,16 @@ namespace Internal
                 : $"{ResourcesFolder}/{group.Name}.asset";
         }
 
-        // The group asset is moved, not recreated: its GUID and references to it are preserved.
         private static void MoveGroupAssets(IReadOnlyList<AssetGroupDefinition> groups)
         {
             foreach (var group in groups)
             {
-                var path = GetGroupAssetPath(group, group.IsAddressable);
-                var previousPath = GetGroupAssetPath(group, group.IsAddressable == false);
-
-                if (AssetDatabase.LoadAssetAtPath<EnvAssetGroupAsset>(previousPath) == null)
-                    continue;
-
-                CatalogPaths.EnsureFolder(group.IsAddressable ? GroupsFolder : ResourcesFolder);
-
-                // An Addressables entry on an asset in Resources would produce a second copy in the bundle.
-                if (group.IsAddressable == false)
-                    AddressableAssetSettingsDefaultObject.Settings?.RemoveAssetEntry(
-                        AssetDatabase.AssetPathToGUID(previousPath), false);
-
-                var error = AssetDatabase.MoveAsset(previousPath, path);
-
-                if (string.IsNullOrEmpty(error) == false)
-                    Debug.LogError($"[{LogTag}] Failed to move {previousPath} to {path}: {error}");
+                CatalogGroupAssets.Move<EnvAssetGroupAsset>(
+                    GetGroupAssetPath(group, group.IsAddressable == false),
+                    GetGroupAssetPath(group, group.IsAddressable),
+                    group.IsAddressable ? GroupsFolder : ResourcesFolder,
+                    group.IsAddressable,
+                    LogTag);
             }
         }
 
@@ -328,25 +309,6 @@ namespace Internal
             }
 
             return true;
-        }
-
-        private static void DeleteStaleAssets(HashSet<string> writtenPaths)
-        {
-            if (AssetDatabase.IsValidFolder(GroupsFolder) == false)
-                return;
-
-            var guids = AssetDatabase.FindAssets($"t:{nameof(EnvAssetGroupAsset)}", new[] { GroupsFolder });
-
-            foreach (var guid in guids)
-            {
-                var path = AssetDatabase.GUIDToAssetPath(guid);
-
-                if (writtenPaths.Contains(path))
-                    continue;
-
-                AssetDatabase.DeleteAsset(path);
-                Debug.Log($"[{LogTag}] Deleted stale group asset: {path}");
-            }
         }
 
         internal sealed class AssetSource

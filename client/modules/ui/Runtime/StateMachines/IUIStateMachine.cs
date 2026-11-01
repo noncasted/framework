@@ -11,7 +11,6 @@ namespace Global.UI
         // exits when either it or the parent state ends.
         IUIStateHandle CreateChild(IReadOnlyLifetime lifetime, IUIState parent, IUIState state);
         IUIStateHandle CreateStackChild(IReadOnlyLifetime lifetime, IUIState parent, IUIState state);
-        void ClearStack(IUIState state);
         void Exit(IUIState state);
     }
 }

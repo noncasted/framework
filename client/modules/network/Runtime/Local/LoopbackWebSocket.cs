@@ -15,6 +15,8 @@ namespace Internal
             _url = url;
             _server = server;
             _lifetime = lifetime.Child();
+            _toServer = new SocketInbox<byte[]>(_lifetime, bytes => _connection.OnReceived(bytes));
+            _toClient = new SocketInbox<byte[]>(_lifetime, bytes => _received.Invoke(bytes));
         }
 
         private readonly string _url;
@@ -22,8 +24,8 @@ namespace Internal
         private readonly ILifetime _lifetime;
         private readonly ViewableDelegate<byte[]> _received = new();
         private readonly ViewableDelegate<SocketCloseInfo> _closed = new();
-        private readonly Queue<byte[]> _toServer = new();
-        private readonly Queue<byte[]> _toClient = new();
+        private readonly SocketInbox<byte[]> _toServer;
+        private readonly SocketInbox<byte[]> _toClient;
 
         private ILocalServerConnection _connection;
         private bool _isClosedNotified;
@@ -40,7 +42,7 @@ namespace Internal
             Debug.Log($"[Network] [Loopback] Connected: {_url}");
 
             _connection = _server.Accept(_lifetime, this);
-            Pump().Forget();
+            SocketPump.Run(_lifetime, Pump).NoAwait();
         }
 
         public UniTask Send(byte[] bytes)
@@ -69,44 +71,13 @@ namespace Internal
             _serverClose ??= info;
         }
 
-        private async UniTaskVoid Pump()
+        private void Pump()
         {
-            while (true)
-            {
-                var isCanceled = await UniTask
-                                       .Yield(PlayerLoopTiming.Update, _lifetime.Token)
-                                       .SuppressCancellationThrow();
+            _toServer.Drain();
+            _toClient.Drain();
 
-                if (isCanceled == true)
-                    return;
-
-                // A frame a handler adds while the queue is drained goes in the same frame, as a batch of a socket.
-                while (_toServer.Count > 0 && _lifetime.IsTerminated == false)
-                    Deliver(_toServer.Dequeue(), _connection.OnReceived);
-
-                while (_toClient.Count > 0 && _lifetime.IsTerminated == false)
-                    Deliver(_toClient.Dequeue(), _received.Invoke);
-
-                if (_serverClose.HasValue == true)
-                {
-                    NotifyClosed(_serverClose.Value);
-                    return;
-                }
-            }
-        }
-
-        // A failed handler is reported and the next frames go on, as the receive loop of a network socket does not
-        // stop on an error of the code above it.
-        private static void Deliver(byte[] bytes, Action<byte[]> handler)
-        {
-            try
-            {
-                handler(bytes);
-            }
-            catch (Exception exception)
-            {
-                Debug.LogException(exception);
-            }
+            if (_serverClose.HasValue == true)
+                NotifyClosed(_serverClose.Value);
         }
 
         private void NotifyClosed(SocketCloseInfo info)

@@ -25,61 +25,34 @@ namespace Global.UI
             return stateMachine.CreateChild(lifetime, stateMachine.Base, state);
         }
 
-        public static async UniTask ProcessChild(
+        // Every Process* gives the caller no handle, so the state ends with the call, also when it has no enter handler.
+        public static UniTask ProcessChild(
             this IUIStateMachine stateMachine,
             IReadOnlyLifetime lifetime,
             IUIState parent,
             IUIState state)
         {
-            var handle = stateMachine.CreateChild(lifetime, parent, state);
-
-            try
-            {
-                await handle.TryProcess();
-            }
-            finally
-            {
-                handle.Exit();
-            }
+            return ExitAfter(stateMachine.CreateChild(lifetime, parent, state), static handle => handle.TryProcess());
         }
 
-        public static async UniTask ProcessChild(
+        public static UniTask ProcessChild(
             this IUIStateMachine stateMachine,
             IReadOnlyLifetime lifetime,
             IUIState parent,
             IUIState state,
             Func<IUIStateHandle, UniTask> action)
         {
-            var handle = stateMachine.CreateChild(lifetime, parent, state);
-
-            // In finally: a window whose action throws would keep its constraints (the game input off) forever.
-            try
-            {
-                await action.Invoke(handle);
-            }
-            finally
-            {
-                handle.Exit();
-            }
+            return ExitAfter(stateMachine.CreateChild(lifetime, parent, state), action);
         }
 
-        public static async UniTask<T> ProcessChild<T>(
+        public static UniTask<T> ProcessChild<T>(
             this IUIStateMachine stateMachine,
             IReadOnlyLifetime lifetime,
             IUIState parent,
             IUIState state,
             Func<IUIStateHandle, UniTask<T>> action)
         {
-            var handle = stateMachine.CreateChild(lifetime, parent, state);
-
-            try
-            {
-                return await action.Invoke(handle);
-            }
-            finally
-            {
-                handle.Exit();
-            }
+            return ExitAfter(stateMachine.CreateChild(lifetime, parent, state), action);
         }
 
         public static UniTask ProcessStack(
@@ -88,19 +61,41 @@ namespace Global.UI
             IUIState parent,
             IUIState state)
         {
-            return stateMachine.CreateStackChild(lifetime, parent, state).TryProcess();
+            return ExitAfter(stateMachine.CreateStackChild(lifetime, parent, state), static handle => handle.TryProcess());
         }
 
-        public static async UniTask ProcessStack(
+        public static UniTask ProcessStack(
             this IUIStateMachine stateMachine,
             IReadOnlyLifetime lifetime,
             IUIState parent,
             IUIState state,
             Func<IUIStateHandle, UniTask> action)
         {
-            var handle = stateMachine.CreateStackChild(lifetime, parent, state);
+            return ExitAfter(stateMachine.CreateStackChild(lifetime, parent, state), action);
+        }
 
-            // In finally: a window whose action throws would keep its constraints (the game input off) forever.
+        public static UniTask<T> ProcessStack<T>(
+            this IUIStateMachine stateMachine,
+            IReadOnlyLifetime lifetime,
+            IUIState parent,
+            IUIState state,
+            Func<IUIStateHandle, UniTask<T>> action)
+        {
+            return ExitAfter(stateMachine.CreateStackChild(lifetime, parent, state), action);
+        }
+
+        public static UniTask Process(
+            this IUIStateMachine stateMachine,
+            IReadOnlyLifetime lifetime,
+            IUIState parent,
+            IUIState state)
+        {
+            return stateMachine.ProcessChild(lifetime, parent, state);
+        }
+
+        // In finally: a window whose action throws would keep its constraints (the game input off) forever.
+        private static async UniTask ExitAfter(IUIStateHandle handle, Func<IUIStateHandle, UniTask> action)
+        {
             try
             {
                 await action.Invoke(handle);
@@ -111,15 +106,8 @@ namespace Global.UI
             }
         }
 
-        public static async UniTask<T> ProcessStack<T>(
-            this IUIStateMachine stateMachine,
-            IReadOnlyLifetime lifetime,
-            IUIState parent,
-            IUIState state,
-            Func<IUIStateHandle, UniTask<T>> action)
+        private static async UniTask<T> ExitAfter<T>(IUIStateHandle handle, Func<IUIStateHandle, UniTask<T>> action)
         {
-            var handle = stateMachine.CreateStackChild(lifetime, parent, state);
-
             try
             {
                 return await action.Invoke(handle);
@@ -128,16 +116,6 @@ namespace Global.UI
             {
                 handle.Exit();
             }
-        }
-
-        public static UniTask Process(
-            this IUIStateMachine stateMachine,
-            IReadOnlyLifetime lifetime,
-            IUIState parent,
-            IUIState state)
-        {
-            var handle = stateMachine.CreateChild(lifetime, parent, state);
-            return handle.TryProcess();
         }
 
         public static async UniTask TryProcess(this IUIStateHandle handle)
@@ -171,7 +149,7 @@ namespace Global.UI
                     handler.OnEntered(handle);
                     break;
                 case IUIStateAsyncEnterHandler handler:
-                    EnterAsync(handler, handle).NoAwait();
+                    RunEntered(handler, handle).NoAwait();
                     break;
             }
 
@@ -179,7 +157,7 @@ namespace Global.UI
         }
 
         // Nobody awaits the enter: the state with its constraints does not stay after an error, and the error is reported.
-        private static async UniTask EnterAsync(IUIStateAsyncEnterHandler handler, IUIStateHandle handle)
+        private static async UniTask RunEntered(IUIStateAsyncEnterHandler handler, IUIStateHandle handle)
         {
             try
             {

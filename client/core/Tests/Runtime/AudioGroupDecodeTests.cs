@@ -21,7 +21,8 @@ namespace Internal.Tests
 
             var group = ScriptableObject.CreateInstance<AudioGroupAsset>();
             var broken = CreateAsset(new byte[] { 1, 2, 3, 4 });
-            var good = CreateAsset(SilentMp3(200));
+            // Long enough to end after the broken one has failed.
+            var good = CreateAsset(SilentMp3(40000));
 
             try
             {
@@ -44,7 +45,7 @@ namespace Internal.Tests
 
                 group.ReleaseDecoded();
 
-                await UniTask.Delay(TimeSpan.FromSeconds(1.5f), DelayType.Realtime);
+                await UniTask.Delay(TimeSpan.FromSeconds(3f), DelayType.Realtime);
 
                 var left = Resources.FindObjectsOfTypeAll<AudioClip>()
                                     .Where(clip => clip.name == "AuditBroken" || clip.name == "AuditGood")

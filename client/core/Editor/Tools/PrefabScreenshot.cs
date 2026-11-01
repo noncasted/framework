@@ -295,7 +295,9 @@ namespace Internal
                 case SerializedPropertyType.Float: return prop.floatValue.ToString("F2");
                 case SerializedPropertyType.String:
                     return string.IsNullOrEmpty(prop.stringValue) ? null : $"\"{prop.stringValue}\"";
-                case SerializedPropertyType.Enum: return prop.enumDisplayNames[prop.enumValueIndex];
+                // A mixed value of a [Flags] enum has no index.
+                case SerializedPropertyType.Enum:
+                    return prop.enumValueIndex >= 0 ? prop.enumDisplayNames[prop.enumValueIndex] : prop.intValue.ToString();
                 case SerializedPropertyType.ObjectReference:
                     return prop.objectReferenceValue != null ? prop.objectReferenceValue.name : "None";
                 case SerializedPropertyType.Color:

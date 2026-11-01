@@ -19,7 +19,7 @@ namespace Internal
         private readonly ILifetime _lifetime;
         private readonly CancellationToken _cancellation;
 
-        private readonly ConcurrentQueue<byte[]> _inbox = new();
+        private readonly SocketInbox<byte[]> _inbox;
 
         private bool _isClosedNotified;
         private bool _isSendFailed;
@@ -40,6 +40,7 @@ namespace Internal
             _uri = new Uri(url);
             _lifetime = lifetime.Child();
             _cancellation = _lifetime.Token;
+            _inbox = new SocketInbox<byte[]>(_lifetime, bytes => _received.Invoke(bytes));
 
             var protocol = _uri.Scheme;
 
@@ -61,7 +62,7 @@ namespace Internal
             // Before the connect: a lifetime that ends while it runs (NetworkConnection: the connect timed out)
             // cancels it and disposes the socket, and one that ends between the connect and the switch below closes
             // the open socket. Registered after it, the socket of a cancelled connect was never disposed.
-            _lifetime.Listen(() => Shutdown().Forget());
+            _lifetime.Listen(() => Shutdown().NoAwait());
 
             await _socket.ConnectAsync(_uri, _cancellation);
 
@@ -69,8 +70,8 @@ namespace Internal
             // works with Unity objects.
             await UniTask.SwitchToMainThread(_cancellation);
 
-            Deliver(_lifetime).Forget();
-            Receive(_lifetime).Forget();
+            SocketPump.Run(_lifetime, _inbox.Drain).NoAwait();
+            Receive(_lifetime).NoAwait();
         }
 
         public async UniTask Send(byte[] bytes)
@@ -93,7 +94,7 @@ namespace Internal
                 // reported by the receive loop: it carries the code of the Close frame of the server (4001 of an
                 // outdated client), while the send, racing it, sees only InvalidState. Reporting from here
                 // replaced the real code with 1006.
-                OnSendFailed(exception).Forget();
+                OnSendFailed(exception).NoAwait();
             }
 
             await UniTask.SwitchToMainThread();
@@ -225,28 +226,6 @@ namespace Internal
             }
         }
 
-        // The frames received by the loop, handed to the listeners on the main thread once a frame.
-        private async UniTaskVoid Deliver(IReadOnlyLifetime lifetime)
-        {
-            while (true)
-            {
-                var isCanceled = await UniTask
-                                       .Yield(PlayerLoopTiming.Update, lifetime.Token)
-                                       .SuppressCancellationThrow();
-
-                if (isCanceled == true)
-                    return;
-
-                DeliverInbox();
-            }
-        }
-
-        private void DeliverInbox()
-        {
-            while (_lifetime.IsTerminated == false && _inbox.TryDequeue(out var rawValue) == true)
-                _received.Invoke(rawValue);
-        }
-
         private async UniTask NotifyClosed(SocketCloseInfo info)
         {
             await UniTask.SwitchToMainThread();
@@ -255,7 +234,7 @@ namespace Internal
                 return;
 
             // The frames the server sent before the loss reach the listeners first, as they did before the loss.
-            DeliverInbox();
+            _inbox.Drain();
 
             if (_lifetime.IsTerminated == true)
                 return;
@@ -294,16 +273,10 @@ namespace Internal
 
         public void Drop(string reason)
         {
-            NotifyClosed(new SocketCloseInfo(SocketCloseInfo.AbnormalClosure, $"dropped: {reason}")).Forget();
+            NotifyClosed(new SocketCloseInfo(SocketCloseInfo.AbnormalClosure, $"dropped: {reason}")).NoAwait();
 
             // The receive loop ends with an error and finds the loss already reported.
             _socket.Abort();
-        }
-
-        public UniTask Close()
-        {
-            _lifetime.Terminate();
-            return UniTask.CompletedTask;
         }
     }
 }

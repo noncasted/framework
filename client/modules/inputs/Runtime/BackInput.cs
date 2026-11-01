@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Internal;
 using UnityEngine;
 
@@ -32,6 +34,10 @@ namespace Global.Inputs
 
         void Press(BackInputKind kind);
         void AddTarget(IReadOnlyLifetime lifetime);
+
+        // Calls the action on a back while the lifetime lives, for a window that closes on a back and has no update of its
+        // own. Only the listener added last is called: one press closes one window. It is a back target for the same lifetime.
+        void ListenBack(IReadOnlyLifetime lifetime, Action onBack);
     }
 
     public class BackInput : IBackInput, IScopeSetup, IPreUpdatable
@@ -52,6 +58,7 @@ namespace Global.Inputs
         private bool _pendingPause;
         private bool _pressedBack;
         private bool _pressedPause;
+        private readonly List<Action> _listeners = new();
         private int _targets;
 
         public bool IsPausePressed =>
@@ -88,6 +95,13 @@ namespace Global.Inputs
             });
         }
 
+        public void ListenBack(IReadOnlyLifetime lifetime, Action onBack)
+        {
+            AddTarget(lifetime);
+            _listeners.Add(onBack);
+            lifetime.Listen(() => _listeners.Remove(onBack));
+        }
+
         public void OnPreUpdate(float delta)
         {
             _pressedBack = _pendingBack;
@@ -99,6 +113,11 @@ namespace Global.Inputs
                 _pressed.Invoke(BackInputKind.Pause);
             else if (IsBackPressed == true)
                 _pressed.Invoke(BackInputKind.Back);
+            else
+                return;
+
+            if (_listeners.Count > 0)
+                _listeners[_listeners.Count - 1]();
         }
     }
 }

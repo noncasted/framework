@@ -117,7 +117,7 @@ namespace Internal
 
             public void Send(byte[] bytes)
             {
-                _socket.Send(bytes).Forget();
+                _socket.Send(bytes).NoAwait();
             }
 
             // The frames sent before the close are queued on the socket already; the peer sees the loss of the

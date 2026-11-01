@@ -68,54 +68,29 @@ namespace Internal
         {
             _parent?._children.Remove(this);
 
-            List<Exception> errors = null;
+            var teardown = new ScopeTeardown();
 
             // The last loaded child goes first. A child removes itself from the list, so the list is copied.
             var children = _children.ToArray();
 
             for (var i = children.Length - 1; i >= 0; i--)
-                await StepAsync(children[i].Dispose);
+                await teardown.StepAwaited(children[i].Dispose);
 
-            await StepAsync(EventLoop.RunDispose);
-            Step(_scopeLifetime.Terminate);
+            await teardown.StepAwaited(EventLoop.RunDispose);
+            teardown.Step(_scopeLifetime.Terminate);
 
             // On quit Unity unloads the scenes itself, and Addressables no longer knows their handles.
             if (ApplicationQuit.IsQuitting == false)
-                await StepAsync(() => _scenes.InvokeAsync(scene => scene.Unload()));
+                await teardown.StepAwaited(() => _scenes.InvokeAwaited(scene => scene.Unload()));
 
-            Step(Container.Dispose);
+            teardown.Step(Container.Dispose);
 
             // Asset groups go last: terminating the lifetime tears down entities and views in an order that is
             // not tied to their assets (session entities die before remote users, a weapon resets the arms of its
             // still alive holder), and every such listener may read the catalogues of the scope.
-            await StepAsync(EventLoop.InvokeAfterDispose);
+            await teardown.StepAwaited(EventLoop.InvokeAfterDispose);
 
-            GeneratedScopes.ThrowDisposeErrors(errors);
-
-            // A failing step does not stop the teardown: the rest still runs, the errors are rethrown at the end.
-            void Step(Action action)
-            {
-                try
-                {
-                    action();
-                }
-                catch (Exception exception)
-                {
-                    (errors ??= new List<Exception>()).Add(exception);
-                }
-            }
-
-            async UniTask StepAsync(Func<UniTask> step)
-            {
-                try
-                {
-                    await step();
-                }
-                catch (Exception exception)
-                {
-                    (errors ??= new List<Exception>()).Add(exception);
-                }
-            }
+            teardown.ThrowErrors();
         }
     }
 

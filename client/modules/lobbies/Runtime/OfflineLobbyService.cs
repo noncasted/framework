@@ -110,7 +110,7 @@ namespace Global.Lobbies
                 SecondsLeft = LobbyCountdownState.Seconds
             });
 
-            Countdown(countdownLifetime).Forget();
+            Countdown(countdownLifetime).NoAwait();
         }
 
         private void StopCountdown()

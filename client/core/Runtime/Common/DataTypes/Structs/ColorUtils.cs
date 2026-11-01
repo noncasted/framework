@@ -10,19 +10,5 @@ namespace Internal
             color.a = alpha;
             image.color = color;
         }
-
-        public static void SetAlphaZero(this Image image)
-        {
-            var color = image.color;
-            color.a = 0f;
-            image.color = color;
-        }
-
-        public static void SetAlphaOne(this Image image)
-        {
-            var color = image.color;
-            color.a = 1f;
-            image.color = color;
-        }
     }
 }
