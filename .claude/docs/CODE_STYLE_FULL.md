@@ -77,7 +77,18 @@ tests and benchmarks. State is changed by intent methods (`Init`, `Tick(delta)`,
 `{ get; private set; }`; a value fixed after creation is `readonly`, `{ get; }` or `{ get; init; }`. A Unity field shown in
 the inspector is `[SerializeField] private`.
 
-The exception is a `[MemoryPackable]` type (network payloads and contexts): its public setters are allowed.
+The rule counts a `public` member of an `internal` type too: it is visible to the whole assembly.
+
+`init` needs `IsExternalInit`, which Unity's profile does not have: code compiled by Unity takes the values in a
+constructor (optional named arguments for a style of many values) and does not add a polyfill.
+
+The exceptions, the only ones:
+- a `[MemoryPackable]` type (network payloads and contexts): its public setters are allowed;
+- a `[Serializable]` type without logic that only `JsonUtility` reads and writes (a trace file, `SessionState` data): the
+  names of its public fields are the format of the file, and `JsonUtility` sees neither properties nor `init`;
+- a Blazor `[Parameter]`: the framework throws on a non-public setter (`[Inject]` needs none, it stays non-public);
+- a named argument of an attribute: C# requires a public setter;
+- an `override` of a public property of a foreign type.
 
 A stored Orleans state needs `[JsonProperty]` on every `{ get; private set; }` property: Newtonsoft does not write a
 private setter without it, so the value is saved but silently comes back as the default on load. `{ get; init; }` needs
