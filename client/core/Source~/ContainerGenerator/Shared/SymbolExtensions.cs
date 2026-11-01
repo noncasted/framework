@@ -14,10 +14,6 @@ namespace ContainerGenerator {
             }
         }
 
-        public static bool IsOpenGeneric(this INamedTypeSymbol type) {
-            return type.IsGenericType && type.IsUnboundGenericType == false && type.TypeArguments.Length > 0 && HasUnbound(type);
-        }
-
         public static bool InheritsFrom(this INamedTypeSymbol type, INamedTypeSymbol? baseType) {
             if (baseType == null)
                 return false;
@@ -68,18 +64,6 @@ namespace ContainerGenerator {
                 foreach (var inner in GetNested(nested))
                     yield return inner;
             }
-        }
-
-        private static bool HasUnbound(INamedTypeSymbol type) {
-            foreach (var argument in type.TypeArguments) {
-                if (argument.TypeKind == TypeKind.TypeParameter)
-                    return true;
-
-                if (argument is INamedTypeSymbol named && HasUnbound(named))
-                    return true;
-            }
-
-            return false;
         }
     }
 }

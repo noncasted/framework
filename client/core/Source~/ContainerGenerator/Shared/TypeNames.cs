@@ -38,22 +38,5 @@ namespace ContainerGenerator {
                    .Replace(" ", "")
                    .Replace("+", "_");
         }
-
-        public static string SafeAssembly(string? assemblyName) {
-            if (string.IsNullOrEmpty(assemblyName))
-                return "Assembly";
-
-            var value = assemblyName ?? "Assembly";
-            var chars = value.ToCharArray();
-            for (var i = 0; i < chars.Length; i++) {
-                if (char.IsLetterOrDigit(chars[i]) == false)
-                    chars[i] = '_';
-            }
-
-            if (char.IsDigit(chars[0]))
-                return "_" + new string(chars);
-
-            return new string(chars);
-        }
     }
 }

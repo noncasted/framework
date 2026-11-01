@@ -73,9 +73,7 @@ namespace ContainerGenerator {
             public string Name = "";
             public int Slot = -1;
             public bool IsMarker;
-            public bool IsExports;
             public bool IsLifetime;
-            public bool IsDiagnostics;
         }
 
         public sealed class Slot {
