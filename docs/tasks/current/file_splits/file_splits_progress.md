@@ -8,7 +8,7 @@ updated: 2026-11-02
 | Шаг | Статус | Evidence | Блокер |
 |-----|--------|----------|--------|
 | [1] | [x] | `baseline.md`: Verify 149/149, EditMode 361 passed + 4 skipped, PlayMode 12/12, md5 `4924df6a...` | — |
-| [2] | [ ] | — | — |
+| [2] | [x] | `file_splits_gen` @ `ca6cc23`: Verify 149/149, снимок и вывод кейсов равны эталону (перепроверено оркестратором), 4 игры без отличий (со слов агента) | — |
 | [3] | [x] | `93b20e9`: EditMode 406 + 4 skipped, PlayMode 56/56; проверено по `final.*.xml`, файлы до 165 строк | — |
 | [4] | [ ] | — | — |
 | [5] | [ ] | — | — |
@@ -18,6 +18,12 @@ updated: 2026-11-02
 | [9] | [ ] | — | — |
 
 ## Заметки
+
+### [2026-11-02] Находки шага 2
+- Ветка `file_splits_gen` вливается в `file_splits` после шага 4: Unity этого worktree занят, смена dll вызвала бы перекомпиляцию посреди прогона.
+- Тела методов перенесены скриптом, границы выбраны по графу ссылок между членами. Агент читал не все классы, поэтому на шаге 9 границы смотрит независимый агент.
+- `client/core/Runtime/Tools/Container/Runtime/ServiceRegistration.cs:8` называет `GraphWalker.IsRegistrationLike`, теперь это `InstallerClassifier`. Исправит шаг 8.
+- Обобщённый корень даёт hint name с `<`: `Scope/Plan/ScopePlanBuilder.cs:45`, CINGR001. Поведение старое.
 
 ### [2026-11-02] Находки шага 3
 - Нестабильный тест `WebRtcPeerSocketTests.OtherSideTerminated_ClosedIsRaised` (`client/modules/network/Tests/Editor/WebRtcPeerSocketTests.cs:77`): libdatachannel пишет `DTLS alert: unknown CA` в лог ошибок, 1 падение на 8 полных прогонов EditMode. С разрезами не связан.

@@ -5,7 +5,7 @@ phase: implementation
 created: 2026-11-02
 updated: 2026-11-02
 total_steps: 9
-completed_steps: [1, 3]
+completed_steps: [1, 2, 3]
 blocked_steps: []
 ---
 
@@ -51,7 +51,7 @@ blocked_steps: []
 - **Зависит от:** —
 
 #### [2] G11, генератор
-- **Статус:** [ ] pending
+- **Статус:** [x] completed
 - **Что:** `GraphWalker`, `EdgeResolver`, `ScopePlan`, `ScopeEmitter`, `ManifestReader`, `GraphEmitter`, проверка `InjectorModel.cs:130`. Отдельный worktree. Проверка: Verify и побайтно равный вывод генератора
 - **Зависит от:** 1
 
