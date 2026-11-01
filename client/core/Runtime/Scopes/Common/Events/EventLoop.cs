@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using Cysharp.Threading.Tasks;
 
 namespace Internal
@@ -101,11 +102,41 @@ namespace Internal
 
         public async UniTask RunDispose()
         {
-            Invoke(ResolveList<IScopeDispose>(), (IReadOnlyLifetime)null, static (l, lt) => l.OnDispose());
-            await InvokeAsync(
-                ResolveList<IScopeDisposeAsync>(),
-                (IReadOnlyLifetime)null,
-                static (l, lt) => l.OnDisposeAsync());
+            var errors = new List<Exception>();
+
+            Invoke(ResolveList<IScopeDispose>(), errors, static (l, e) => DisposeIsolated(l, e));
+            await InvokeAsync(ResolveList<IScopeDisposeAsync>(), errors, static (l, e) => DisposeIsolated(l, e));
+
+            if (errors.Count == 1)
+                ExceptionDispatchInfo.Capture(errors[0]).Throw();
+
+            if (errors.Count > 1)
+                throw new AggregateException("[Scope] Several dispose listeners failed", errors);
+        }
+
+        // A failed listener does not take the dispose of the others with it: saves and unsubscriptions would be lost.
+        private static void DisposeIsolated(IScopeDispose listener, List<Exception> errors)
+        {
+            try
+            {
+                listener.OnDispose();
+            }
+            catch (Exception exception)
+            {
+                errors.Add(exception);
+            }
+        }
+
+        private static async UniTask DisposeIsolated(IScopeDisposeAsync listener, List<Exception> errors)
+        {
+            try
+            {
+                await listener.OnDisposeAsync();
+            }
+            catch (Exception exception)
+            {
+                errors.Add(exception);
+            }
         }
 
         /// <summary>

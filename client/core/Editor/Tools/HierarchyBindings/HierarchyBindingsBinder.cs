@@ -11,11 +11,33 @@ namespace Internal
     {
         public static bool Bind(GameObject root, Type type, HierarchyBindingsRequest request, List<string> errors)
         {
-            var component = ResolveComponent(root, type, errors);
+            var component = ResolveComponent(root, type, errors, out var isAdded, out var standalone);
 
             if (component == null)
                 return false;
 
+            // A bind that fails leaves the object as it was.
+            if (Bind(root, component, request, errors) == false)
+            {
+                if (isAdded == true)
+                    UnityEngine.Object.DestroyImmediate(component, true);
+
+                return false;
+            }
+
+            if (standalone != null)
+            {
+                UnityEngine.Object.DestroyImmediate(standalone, true);
+
+                Debug.Log(
+                    $"[HierarchyBindingsGenerator] Removed standalone {type.Name} from '{root.name}': {component.GetType().Name} inherits it.");
+            }
+
+            return true;
+        }
+
+        private static bool Bind(GameObject root, Component component, HierarchyBindingsRequest request, List<string> errors)
+        {
             var declaringAsset = HierarchyBindingsLayer.ResolveDeclaringAsset(component, request.AssetPath);
 
             if (declaringAsset != request.AssetPath)
@@ -73,8 +95,9 @@ namespace Internal
             layerGuid.stringValue = AssetDatabase.AssetPathToGUID(request.AssetPath);
 
             // Keep the checkboxes on the component in sync with what was actually generated.
-            SetFlag(serializedObject, "_isSceneService", request.IsSceneService, errors);
-            SetFlag(serializedObject, "_isEntityComponent", request.IsEntityComponent, errors);
+            if (SetFlag(serializedObject, "_isSceneService", request.IsSceneService, errors) == false ||
+                SetFlag(serializedObject, "_isEntityComponent", request.IsEntityComponent, errors) == false)
+                return false;
 
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(component);
@@ -96,8 +119,16 @@ namespace Internal
         // On the first generation the user class does not inherit the bindings yet, so the component
         // is added separately. Once the inheritance is written, we remove the extra component ourselves:
         // otherwise the object would have two holders of the same bindings.
-        private static Component ResolveComponent(GameObject root, Type type, List<string> errors)
+        private static Component ResolveComponent(
+            GameObject root,
+            Type type,
+            List<string> errors,
+            out bool isAdded,
+            out Component standalone)
         {
+            isAdded = false;
+            standalone = null;
+
             Component derived = null;
             Component exact = null;
 
@@ -132,21 +163,20 @@ namespace Internal
                 derived = candidate;
             }
 
-            if (derived == null)
-                return exact != null ? exact : root.AddComponent(type);
-
-            if (exact != null)
+            if (derived != null)
             {
-                UnityEngine.Object.DestroyImmediate(exact, true);
-
-                Debug.Log(
-                    $"[HierarchyBindingsGenerator] Removed standalone {type.Name} from '{root.name}': {derived.GetType().Name} inherits it.");
+                standalone = exact;
+                return derived;
             }
 
-            return derived;
+            if (exact != null)
+                return exact;
+
+            isAdded = true;
+            return root.AddComponent(type);
         }
 
-        private static void SetFlag(
+        private static bool SetFlag(
             SerializedObject serializedObject,
             string fieldName,
             bool value,
@@ -157,10 +187,11 @@ namespace Internal
             if (property == null)
             {
                 errors.Add($"Generated field '{fieldName}' is missing.");
-                return;
+                return false;
             }
 
             property.boolValue = value;
+            return true;
         }
 
         private static bool Fill(

@@ -68,15 +68,7 @@ namespace Internal
             if (AssetDatabase.IsValidFolder(folder) == false)
                 return Array.Empty<string>();
 
-            try
-            {
-                return Directory.GetFiles(CatalogPaths.ToFullPath(folder), "*.cs", SearchOption.TopDirectoryOnly);
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError($"[{logTag}] Failed to scan {folder}: {exception}");
-                return Array.Empty<string>();
-            }
+            return Directory.GetFiles(CatalogPaths.ToFullPath(folder), "*.cs", SearchOption.TopDirectoryOnly);
         }
 
         private static void Delete(string logTag, string assetPath, string fullPath)

@@ -7,8 +7,8 @@ namespace Global.UI
     {
         public BaseUIState(IReadOnlyLifetime parent)
         {
-            OuterLifetime = new Lifetime(parent);
-            InnerLifetime = new Lifetime(parent);
+            OuterLifetime = parent.Child();
+            InnerLifetime = parent.Child();
             Recovered = new ViewableDelegate();
         }
 

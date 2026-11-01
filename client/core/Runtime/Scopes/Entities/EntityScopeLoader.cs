@@ -95,6 +95,10 @@ namespace Internal
             MethodInfo root,
             EntityTeardown teardown)
         {
+            // The lifetime ended while construct or the build events waited: its teardown has run already, and nothing
+            // would dispose a container built now.
+            builder.ScopeLifetime.Token.ThrowIfCancellationRequested();
+
             builder.RegisterInstance(builder.Events);
 
             var container = ScopeContainer.CreateEntity(
@@ -104,7 +108,7 @@ namespace Internal
 
             teardown.Container = container;
 
-            // Entity roots terminate their own ILifetime, and this is a child lifetime of the container. Component
+            // An entity root without WithParameter(ScopeLifetime) terminates the lifetime of the container. Component
             // setup is subscribed to the scope lifetime, and without this back link entity updates
             // outlived its view until the end of the session.
             container.Lifetime.Listen(builder.ScopeLifetime.Terminate);

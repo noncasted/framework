@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using UnityEditor;
-using UnityEngine;
+﻿using UnityEditor;
 using UnityEngine.SceneManagement;
 
 namespace Internal
@@ -10,43 +8,12 @@ namespace Internal
         [MenuItem("Assets/Scan services %e", priority = -1000)]
         private static void ScanServices()
         {
-            var targets = new List<ISceneReloadListener>();
-            var scenes = GetScenes();
-
-            foreach (var scene in scenes)
+            for (var i = 0; i < SceneManager.sceneCount; i++)
             {
-                var rootObjects = scene.GetRootGameObjects();
+                var scene = SceneManager.GetSceneAt(i);
 
-                foreach (var rootObject in rootObjects)
-                {
-                    var components = rootObject.GetComponentsInChildren<ISceneReloadListener>();
-                    targets.AddRange(components);
-                }
-            }
-
-            foreach (var target in targets)
-            {
-                var hasChanged = target.OnReload();
-
-                if (hasChanged == true)
-                    EditorUtility.SetDirty(target as MonoBehaviour);
-            }
-
-            return;
-
-            IReadOnlyList<Scene> GetScenes()
-            {
-                var foundScenes = new List<Scene>();
-
-                for (var i = 0; i < SceneManager.sceneCount; i++)
-                {
-                    var scene = SceneManager.GetSceneAt(i);
-
-                    if (scene.isLoaded)
-                        foundScenes.Add(scene);
-                }
-
-                return foundScenes;
+                if (scene.isLoaded)
+                    HierarchyBindingsEntityViews.SyncSceneServices(scene);
             }
         }
     }

@@ -1,4 +1,5 @@
 using Internal;
+using UnityEngine;
 using UnityEngine.EventSystems;
 
 namespace Global.Inputs
@@ -11,8 +12,16 @@ namespace Global.Inputs
         {
             builder.RegisterInstance(options);
 
-            builder.Register<GamepadReader>()
-                   .As<IGamepadReader>();
+            if (GamepadLayout.HasLayout(Application.platform) == true)
+            {
+                builder.Register<GamepadReader>()
+                       .As<IGamepadReader>();
+            }
+            else
+            {
+                builder.Register<NoGamepadReader>()
+                       .As<IGamepadReader>();
+            }
 
             builder.Register<InputScheme>()
                    .As<IInputScheme>()

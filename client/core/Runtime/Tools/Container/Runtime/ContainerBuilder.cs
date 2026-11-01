@@ -222,7 +222,7 @@ namespace Internal
                 $"{occurrence + 1}: a registration of it did not run (an if without else around RegisterInstance).");
         }
 
-        // The WithParameter value of this type on the occurrence-th registration of the implementation.
+        // The WithParameter value for a parameter of this type on the occurrence-th registration of the implementation.
         internal bool TryGetParameter(Type implementation, int occurrence, Type type, out object value)
         {
             ThrowIfBuilt();
@@ -240,6 +240,16 @@ namespace Internal
                 for (var h = 0; h < (_holes?.Count ?? 0); h++)
                 {
                     if (_holes[h].Index == i && _holes[h].Type == type)
+                    {
+                        value = _holes[h].Value;
+                        return true;
+                    }
+                }
+
+                // A value the parameter can hold: the generator has checked that there is one such (CINGR014).
+                for (var h = 0; h < (_holes?.Count ?? 0); h++)
+                {
+                    if (_holes[h].Index == i && type.IsAssignableFrom(_holes[h].Type) == true)
                     {
                         value = _holes[h].Value;
                         return true;

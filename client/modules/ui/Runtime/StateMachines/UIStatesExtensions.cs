@@ -171,11 +171,25 @@ namespace Global.UI
                     handler.OnEntered(handle);
                     break;
                 case IUIStateAsyncEnterHandler handler:
-                    handler.OnEntered(handle);
+                    EnterAsync(handler, handle).NoAwait();
                     break;
             }
 
             return handle;
+        }
+
+        // Nobody awaits the enter: the state with its constraints does not stay after an error, and the error is reported.
+        private static async UniTask EnterAsync(IUIStateAsyncEnterHandler handler, IUIStateHandle handle)
+        {
+            try
+            {
+                await handler.OnEntered(handle);
+            }
+            catch
+            {
+                handle.Exit();
+                throw;
+            }
         }
     }
 }

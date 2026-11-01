@@ -106,9 +106,9 @@ Installers are extension methods returning the builder so they chain: `public st
 
 Constructor parameters are bound at compile time to: a registration in this scope, an export of a parent scope, a collection (`IReadOnlyList<T>` = all registrations of `T`), a `WithParameter` value, or `IContainer` (the current container, used by factories as the parent of entity scopes).
 
-### WithParameter is resolved by type, scope-wide
+### WithParameter belongs to its registration and wins
 
-`WithParameter` values and registered instances become "holes" looked up by type across the whole scope (`ContainerBuilder.TryGetHole`, the last registration wins). Two registrations in one entity scope that both take `WithParameter(ISpriteAnimationData)` silently receive the same (last) value. Give each a distinct parameter type or compute the data in the constructor.
+`WithParameter` gives the value to its own registration only (`request.GetParameter<T>(typeof(Implementation), n)`). A constructor parameter that can hold the value (the exact type first, then an interface or a base class of it) takes it before anything else: a registration of the type in the scope (written before or after), a parent scope, and also what the scope gives by itself (`IContainer`, `ILifetime`, `IReadOnlyLifetime`). So `.WithParameter(builder.ScopeLifetime)` gives the class `ScopeLifetime`, not the lifetime of the container. Several values that fit one parameter without an exact one are CINGR014. A `WithParameter` that no parameter can hold is not used: warning CINGR015.
 
 ## Lifecycle Phases
 
@@ -238,7 +238,6 @@ The generator reports errors at compile time; the Unity console shows them as co
 | `if` choosing implementations inside one root | Both branches are built; alternative not registered at runtime breaks the scope | `switch` between roots; platforms: `#if`, or the branches inside one installer |
 | Service not registered under `IScopeSetup` | `OnSetup` never called | `.As<IScopeSetup>()` |
 | Initialization in a constructor / `Awake` that subscribes | No lifetime, leak | Subscribe in `OnSetup(lifetime)` |
-| Two `WithParameter` of the same type in one scope | Both get the last value | Distinct types |
 | New scene service dependency before rescanning the scene | CINGR003 | Scan services, save scene, then add the dependency |
 
 ## Related

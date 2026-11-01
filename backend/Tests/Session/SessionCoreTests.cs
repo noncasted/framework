@@ -119,6 +119,54 @@ public class SessionCoreTests
         core.Owner.Owner.Value.Should().Be(secondUser);
     }
 
+    // A and C are in the session, A loses its connection (its seat waits), a new client enters: it gets the entities of
+    // A in the overview, so it has to know their owner first, as an away user. Without it the client throws on the
+    // owner of the entity and has no entity of A until the end of the match.
+    [Fact]
+    public void Introduce_AwaySeat_KnownAsAwayBeforeItsEntities()
+    {
+        var core = Create();
+        var away = core.Connect(core.Lifetime, Guid.NewGuid(), new RecordingConnection());
+        core.Connect(core.Lifetime, Guid.NewGuid(), new RecordingConnection());
+
+        var id = SharedEntityIds.Create(away.Index, 1);
+
+        core.OnRequest(away, new SharedSessionEntity.CreateRequest
+        {
+            Id = id,
+            Payload = new TestPayload(),
+            Properties = Array.Empty<SharedSessionObject.PropertyUpdate>()
+        }, 1);
+
+        core.Seats.Detach(away);
+
+        var next = new RecordingConnection();
+        core.Connect(core.Lifetime, Guid.NewGuid(), next);
+
+        var messages = next.OneWay;
+        var known = messages.FindIndex(m => m is SharedSessionPlayer.RemoteUpdate update && update.Index == away.Index);
+        var isAway = messages.FindIndex(m => m is SharedSessionPlayer.RemoteAway update && update.Index == away.Index);
+        var entity = messages.FindIndex(m => m is SharedSessionEntity.CreatedOverview overview && overview.EntityId == id);
+
+        known.Should().BeGreaterThanOrEqualTo(0, "the new client has to know the owner of the entity");
+        isAway.Should().BeGreaterThan(known);
+        entity.Should().BeGreaterThan(isAway);
+    }
+
+    // The connected users are told about the others as before: no RemoteAway for them.
+    [Fact]
+    public void Introduce_ConnectedSeat_NotAway()
+    {
+        var core = Create();
+        core.Connect(core.Lifetime, Guid.NewGuid(), new RecordingConnection());
+
+        var next = new RecordingConnection();
+        core.Connect(core.Lifetime, Guid.NewGuid(), next);
+
+        next.OneWay.OfType<SharedSessionPlayer.RemoteAway>().Should().BeEmpty();
+        next.OneWay.OfType<SharedSessionPlayer.RemoteUpdate>().Should().ContainSingle();
+    }
+
     [Fact]
     public void Ping_Answered()
     {

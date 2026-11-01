@@ -28,6 +28,7 @@ namespace Internal
         private const int SendNotOpen = -3;
 
         private bool _isConnected;
+        private bool _isOpened;
         private bool _isDisposed;
 
         // Closed by the browser: before onopen (the server refused or is gone) or right after it (a server that
@@ -90,6 +91,13 @@ namespace Internal
                 throw new Exception($"Failed to connect WebSocket: error={result}");
             }
 
+            await WaitOpened();
+
+            Debug.Log($"[Network] [JsWebSocket] Connected: id={_handlerId}");
+        }
+
+        private async UniTask WaitOpened()
+        {
             // Wait for connection to be established
             await UniTask.WaitUntil(() => _isConnected || _isDisposed || _isClosed,
                 cancellationToken: _lifetime.Token);
@@ -97,11 +105,10 @@ namespace Internal
             if (_isDisposed)
                 throw new ObjectDisposedException(nameof(JsWebSocket));
 
-            // Without this the wait never ended for a socket closed before the next frame.
-            if (_isClosed)
+            // Without this the wait never ended for a socket closed before the next frame. A socket that did open
+            // connects: its close, with the code of the server, comes through Closed.
+            if (_isClosed == true && _isOpened == false)
                 throw new WebSocketClosedException(_closeCode);
-
-            Debug.Log($"[Network] [JsWebSocket] Connected: id={_handlerId}");
         }
 
         public UniTask Send(byte[] bytes)
@@ -309,6 +316,7 @@ namespace Internal
             {
                 Debug.Log($"[Network] [JsWebSocket] OnOpen: id={handlerId}");
                 instance._isConnected = true;
+                instance._isOpened = true;
             }
             else
             {

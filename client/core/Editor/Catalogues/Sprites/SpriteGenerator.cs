@@ -19,6 +19,7 @@ namespace Internal
         private static readonly string[] SourceExtensions =
         {
             ".aseprite",
+            ".ase",
             ".psd",
             ".png"
         };
@@ -81,22 +82,13 @@ namespace Internal
         private static List<SpriteSource> CollectSources()
         {
             var sources = new List<SpriteSource>();
-            var artRoot = Path.Combine(Application.dataPath, "Art");
+            var artRoot = CatalogPaths.ToFullPath(ArtFolder);
 
             if (Directory.Exists(artRoot) == false)
                 return sources;
 
-            string[] files;
-
-            try
-            {
-                files = Directory.GetFiles(artRoot, "*.*", SearchOption.AllDirectories);
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError($"[SpriteGenerator] Failed to scan {ArtFolder}: {exception}");
-                return sources;
-            }
+            // A failure to read throws: taken for an empty result, it would delete what the generator did not see.
+            var files = Directory.GetFiles(artRoot, "*.*", SearchOption.AllDirectories);
 
             var projectRoot = Path.GetDirectoryName(Application.dataPath);
 
@@ -573,7 +565,8 @@ namespace Internal
         {
             var extension = Path.GetExtension(path);
 
-            if (extension.Equals(".aseprite", StringComparison.OrdinalIgnoreCase))
+            if (extension.Equals(".aseprite", StringComparison.OrdinalIgnoreCase) ||
+                extension.Equals(".ase", StringComparison.OrdinalIgnoreCase))
                 return 0;
 
             if (extension.Equals(".psd", StringComparison.OrdinalIgnoreCase))

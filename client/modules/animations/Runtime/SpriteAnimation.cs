@@ -1,3 +1,4 @@
+using System;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
@@ -24,6 +25,7 @@ namespace Internal
             _defaultTime = defaultTime;
             _color = color;
             _void = new SpriteAnimationVoidUpdatable(renderer, frameProvider);
+            _stop = ManualStop;
         }
 
         private readonly IUpdater _updater;
@@ -31,6 +33,7 @@ namespace Internal
         private readonly float _defaultTime;
         private readonly Color _color;
         private readonly SpriteAnimationVoidUpdatable _void;
+        private readonly Action _stop;
 
         private SpriteAnimationLoopUpdatable _loop;
         private SpriteAnimationAsyncUpdatable _async;
@@ -49,7 +52,6 @@ namespace Internal
         public void Play(IReadOnlyLifetime lifetime, float time = 0)
         {
             _current?.Dispose();
-            _lifetime = lifetime;
 
             if (Mathf.Approximately(time, 0f) == true)
                 time = _defaultTime;
@@ -57,20 +59,24 @@ namespace Internal
             _renderer.SetColor(_color);
             _void.Start(time);
             _current = _void;
+            Follow(lifetime);
         }
 
         public async UniTask PlayAsync(IReadOnlyLifetime lifetime, float time = 0)
         {
             _current?.Dispose();
             _async ??= new SpriteAnimationAsyncUpdatable(_void);
-            _lifetime = lifetime;
 
             if (Mathf.Approximately(time, 0f) == true)
                 time = _defaultTime;
 
             _renderer.SetColor(_color);
             _current = _async;
-            await _async.Process(time);
+
+            var process = _async.Process(time);
+            Follow(lifetime);
+
+            await process;
             _current = null;
         }
 
@@ -78,7 +84,6 @@ namespace Internal
         {
             _current?.Dispose();
             _loop ??= new SpriteAnimationLoopUpdatable(_void);
-            _lifetime = lifetime;
 
             if (Mathf.Approximately(time, 0f) == true)
                 time = _defaultTime;
@@ -86,6 +91,7 @@ namespace Internal
             _renderer.SetColor(_color);
             _loop.Start(time);
             _current = _loop;
+            Follow(lifetime);
         }
 
         public void ManualStop()
@@ -94,17 +100,18 @@ namespace Internal
             _current = null;
         }
 
+        // The current play ends with its lifetime; the lifetime of an older play has no say any more.
+        private void Follow(IReadOnlyLifetime lifetime)
+        {
+            _lifetime?.RemoveListener(_stop);
+            _lifetime = lifetime;
+            lifetime.Listen(_stop);
+        }
+
         public void OnUpdate(float delta)
         {
             if (_current == null)
                 return;
-
-            if (_lifetime.IsTerminated == true)
-            {
-                _current?.Dispose();
-                _current = null;
-                return;
-            }
 
             var delete = _current.Update(delta);
 

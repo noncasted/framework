@@ -34,14 +34,23 @@ namespace Internal
 
         protected void PassDelta(float delta)
         {
-            if (_predicate.Invoke() == false)
+            // The error ends the wait: repeated each frame it would never reach the end of the predicate.
+            try
             {
-                _completion.TrySetResult();
-                _lifetime.Terminate();
-                return;
-            }
+                if (_predicate.Invoke() == false)
+                {
+                    _completion.TrySetResult();
+                    _lifetime.Terminate();
+                    return;
+                }
 
-            _callback?.Invoke(delta);
+                _callback?.Invoke(delta);
+            }
+            catch (Exception exception)
+            {
+                _completion.TrySetException(exception);
+                _lifetime.Terminate();
+            }
         }
 
         // The lifetime ended before the predicate: the wait is cancelled, as Progression and Tween are. After the

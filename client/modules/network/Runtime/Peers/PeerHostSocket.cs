@@ -45,7 +45,7 @@ namespace Internal
             if (_socket != null)
                 throw new InvalidOperationException("[Network] [Peers] Connect is called twice");
 
-            if (_isDirectAllowed == true)
+            if (_isDirectAllowed == true && WebRtcPeers.IsSupported(Application.platform) == true)
                 _socket = await TryDirect();
 
             if (_socket == null)
@@ -84,6 +84,11 @@ namespace Internal
                 Debug.LogWarning($"[Network] [Peers] No direct connection to the host {_hostIndex}: {exception.Message}");
                 attempt.Terminate();
                 return null;
+            }
+            catch
+            {
+                attempt.Terminate();
+                throw;
             }
 
             Route = PeerRoute.Direct;

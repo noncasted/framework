@@ -86,17 +86,8 @@ namespace Internal
             if (Directory.Exists(assetsRoot) == false)
                 return sources;
 
-            string[] files;
-
-            try
-            {
-                files = Directory.GetFiles(assetsRoot, "*.prefab", SearchOption.AllDirectories);
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError($"[PrefabCatalogGenerator] Failed to scan Assets: {exception}");
-                return sources;
-            }
+            // A failure to read throws: taken for an empty result, it would delete what the generator did not see.
+            var files = Directory.GetFiles(assetsRoot, "*.prefab", SearchOption.AllDirectories);
 
             var projectRoot = Path.GetDirectoryName(Application.dataPath);
 

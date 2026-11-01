@@ -154,8 +154,11 @@ namespace Internal
             _localId = update.Id;
         }
 
+        // A known index: the user has returned before the server noticed its loss. Its frames belong to a new connection,
+        // the tunnel of the old one is lost.
         private void OnRemoteUpdate(SharedSessionPlayer.RemoteUpdate update)
         {
+            _tunnels.OnPeerGone(update.Index);
             _peers[update.Index] = update.Id;
         }
 

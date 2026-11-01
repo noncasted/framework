@@ -56,6 +56,47 @@ namespace Global.Audio.Tests
             }
         });
 
+        // Two tracks in one frame: the first one has not risen from 0, it fades "to" 0 at once. Its source stops and gives
+        // the voice back instead of playing silently for good.
+        [Test]
+        public void TwoTracksInOneFrame_FirstSourceIsReleased()
+        {
+            var gameObject = new GameObject("audio");
+            var music = new[] { gameObject.AddComponent<AudioSource>(), gameObject.AddComponent<AudioSource>() };
+            var sounds = new[] { gameObject.AddComponent<AudioSource>() };
+            var player = gameObject.AddComponent<AudioPlayer>();
+
+            var serialized = new SerializedObject(player);
+            Fill(serialized.FindProperty("_musicSources"), music);
+            Fill(serialized.FindProperty("_soundSources"), sounds);
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+
+            var updater = new FakeUpdater();
+            var lifetime = new Lifetime();
+            var first = AudioClip.Create("first", 4410, 1, 44100, false);
+            var second = AudioClip.Create("second", 4410, 1, 44100, false);
+
+            try
+            {
+                player.Construct(new Volume(), updater);
+                player.OnSetupCompletion(lifetime);
+
+                player.PlayLoopMusic(new Sound(first, 1f, null, "first"), 0.1f);
+                player.PlayLoopMusic(new Sound(second, 1f, null, "second"), 0.1f);
+
+                updater.Tick();
+
+                Assert.IsTrue(music[0].clip != first && music[1].clip != first, "the silent track keeps its source");
+            }
+            finally
+            {
+                lifetime.Terminate();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                UnityEngine.Object.DestroyImmediate(first);
+                UnityEngine.Object.DestroyImmediate(second);
+            }
+        }
+
         private static void Fill(SerializedProperty array, AudioSource[] sources)
         {
             array.arraySize = sources.Length;

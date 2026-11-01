@@ -24,17 +24,8 @@ namespace Internal
             if (Directory.Exists(assetsRoot) == false)
                 yield break;
 
-            string[] files;
-
-            try
-            {
-                files = Directory.GetFiles(assetsRoot, "*.asset", SearchOption.AllDirectories);
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError($"[{LogTag}] Failed to scan Assets: {exception}");
-                yield break;
-            }
+            // A failure to read throws: taken for an empty result, it would delete what the generator did not see.
+            var files = Directory.GetFiles(assetsRoot, "*.asset", SearchOption.AllDirectories);
 
             var seen = new HashSet<string>(StringComparer.Ordinal);
             var projectRoot = Path.GetDirectoryName(Application.dataPath);

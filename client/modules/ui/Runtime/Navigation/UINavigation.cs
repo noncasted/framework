@@ -19,6 +19,9 @@ namespace Global.UI
         // The first selection is looked for under start first (a part of the root: the buttons of the lobby, not the
         // room code that comes before them in the hierarchy), then in the whole root.
         void Add(IReadOnlyLifetime lifetime, RectTransform root, RectTransform start);
+
+        // A window over every other one, also over those added after it (the notice of an outdated client).
+        void AddOverlay(IReadOnlyLifetime lifetime, RectTransform root);
     }
 
     public static class UINavigationExtensions
@@ -60,6 +63,7 @@ namespace Global.UI
         private readonly InputOptions _options;
 
         private readonly List<Window> _windows = new();
+        private readonly List<Window> _overlays = new();
         private readonly List<Selectable> _found = new();
         private readonly List<Selectable> _candidates = new();
 
@@ -101,6 +105,14 @@ namespace Global.UI
 
             _windows.Add(window);
             lifetime.Listen(() => _windows.Remove(window));
+        }
+
+        public void AddOverlay(IReadOnlyLifetime lifetime, RectTransform root)
+        {
+            var window = new Window(root, root);
+
+            _overlays.Add(window);
+            lifetime.Listen(() => _overlays.Remove(window));
         }
 
         public void OnUpdate(float delta)
@@ -154,13 +166,18 @@ namespace Global.UI
 
         private Window GetTop()
         {
-            for (var i = _windows.Count - 1; i >= 0; i--)
+            return GetTop(_overlays) ?? GetTop(_windows);
+        }
+
+        private static Window GetTop(List<Window> windows)
+        {
+            for (var i = windows.Count - 1; i >= 0; i--)
             {
-                var root = _windows[i].Root;
+                var root = windows[i].Root;
 
                 // the scene of a screen can be unloaded before the lifetime of its window ends
                 if (root != null && root.gameObject.activeInHierarchy == true)
-                    return _windows[i];
+                    return windows[i];
             }
 
             return null;

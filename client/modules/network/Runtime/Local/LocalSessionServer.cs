@@ -121,11 +121,13 @@ namespace Internal
             }
 
             // The frames sent before the close are queued on the socket already; the peer sees the loss of the
-            // channel (there is no close code on a data channel).
+            // channel (there is no close code on a data channel). The socket ends too: a tunnel left open would take
+            // the next try of the guest into a connection nobody reads.
             public void Close(SocketCloseInfo info)
             {
                 Debug.Log($"[Network] [Local] The server closes a socket: {info}");
                 _lifetime.Terminate();
+                _socket.Drop($"closed by the server: {info}");
             }
         }
     }

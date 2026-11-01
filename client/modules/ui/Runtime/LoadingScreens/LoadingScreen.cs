@@ -42,13 +42,19 @@ namespace Global.UI
         public async UniTask Show()
         {
             _direction = Direction2.Forward;
-            await UniTask.WaitUntil(() => _curveInstance.IsFinished == true);
+
+            // A Hide during the fade in ends the wait: nothing is going to finish the fade in any more.
+            await UniTask.WaitUntil(() => _curveInstance.IsFinished == true || _direction != Direction2.Forward);
         }
 
         public void ShowInstantly()
         {
             _direction = Direction2.Forward;
+
+            // The curve goes to its end too: the next update takes the alpha from it.
+            _curveInstance.StepForward(_curve.Time);
             _group.alpha = 1f;
+            gameObject.SetActive(true);
         }
 
         public void Hide()

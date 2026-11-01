@@ -81,7 +81,18 @@ namespace Internal
 
             // A progression of zero time is done on its first update: the division would give NaN and never reach 1.
             var progress = _targetTime > 0f ? _currentTime / _targetTime : 1f;
-            _callback?.Invoke(progress);
+
+            // The error ends the wait: repeated each frame it would never reach the end of the time.
+            try
+            {
+                _callback?.Invoke(progress);
+            }
+            catch (Exception exception)
+            {
+                _completion.TrySetException(exception);
+                _lifetime.Terminate();
+                return;
+            }
 
             if (progress >= 1f)
             {

@@ -8,10 +8,16 @@ namespace Internal
         // is measured by its own concurrent segment: otherwise the whole stage is one black box.
         public static IScopeBuilder RequestAssetGroup(this IScopeBuilder builder, AssetGroup group, string label)
         {
-            builder.Events.AddBeforeBuild(() => GameProfiler
-                                                .Concurrent($"{label}: {group.Name}")
-                                                .Track(group.Retain()));
-            builder.Events.AddAfterDispose(() => ReleaseAsync(group));
+            // The release is registered by the retain: a Construct that fails before the build events has retained nothing.
+            builder.Events.AddBeforeBuild(() =>
+            {
+                builder.Events.AddAfterDispose(() => Release(group));
+
+                return GameProfiler
+                       .Concurrent($"{label}: {group.Name}")
+                       .Track(group.Retain());
+            });
+
             return builder;
         }
 
@@ -21,17 +27,18 @@ namespace Internal
         // The release is registered before the load: a retain counts from the call, a failed one is released too.
         public static async UniTask LoadAssetGroup(this IScopeBuilder builder, AssetGroup group, string label)
         {
-            builder.Events.AddAfterDispose(() => ReleaseAsync(group));
+            builder.Events.AddAfterDispose(() => Release(group));
 
             await GameProfiler.Concurrent($"{label}: {group.Name}").Track(group.Retain());
 
             ContainerRegistryDebug.RecordLoadedAsset(builder.Lifetime, label, group.Name);
         }
 
-        private static UniTask ReleaseAsync(AssetGroup group)
+        // Async: an error of one release is a failed task and the other callbacks of the pass still run.
+        private static async UniTask Release(AssetGroup group)
         {
+            await UniTask.CompletedTask;
             group.Release();
-            return UniTask.CompletedTask;
         }
     }
 }

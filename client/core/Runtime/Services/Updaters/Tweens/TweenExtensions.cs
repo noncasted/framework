@@ -18,6 +18,7 @@ namespace Internal
         {
             if (time <= 0f)
             {
+                lifetime.Token.ThrowIfCancellationRequested();
                 callback.Invoke(Easing.Evaluate(ease, 1f));
                 return;
             }
@@ -39,6 +40,7 @@ namespace Internal
         {
             if (time <= 0f)
             {
+                lifetime.Token.ThrowIfCancellationRequested();
                 callback.Invoke(curve.Evaluate(1f));
                 return;
             }

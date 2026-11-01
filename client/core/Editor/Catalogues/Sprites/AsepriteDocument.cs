@@ -47,30 +47,35 @@ namespace Internal
             if (Cache.TryGetValue(assetPath, out var cached) && cached.WriteTime == writeTime)
                 return cached.Document;
 
-            var document = Read(assetPath);
+            var document = ReadForInspector(assetPath);
             Cache[assetPath] = new CachedDocument(writeTime, document);
             return document;
         }
 
         public static AsepriteDocument Read(string assetPath)
         {
-            AsepriteFile file;
+            // A failure to read throws: the baker would take it for a file without animations and delete its textures.
+            var file = AsepriteReader.ReadFile(assetPath);
 
+            if (file == null)
+                throw new InvalidOperationException($"[{LogTag}] Failed to read {assetPath}");
+
+            using (file)
+                return Build(file, assetPath);
+        }
+
+        // The inspector is the boundary: it says that the file is broken and draws on.
+        private static AsepriteDocument ReadForInspector(string assetPath)
+        {
             try
             {
-                file = AsepriteReader.ReadFile(assetPath);
+                return Read(assetPath);
             }
             catch (Exception exception)
             {
                 Debug.LogError($"[{LogTag}] Failed to read {assetPath}: {exception}");
                 return null;
             }
-
-            if (file == null)
-                return null;
-
-            using (file)
-                return Build(file, assetPath);
         }
 
         public AsepriteTag FindTag(string name)

@@ -109,11 +109,10 @@ namespace Global.UI
             Refresh();
         }
 
-        // Hovered after a press, as before the gamepad selection was added (a touch lifts the pointer without an exit first).
+        // The input module sends the rest: a pointer released outside has exited already, a touch exits right after.
         public void OnPointerUp(PointerEventData eventData)
         {
             _isPointerDown = false;
-            _isPointerInside = true;
             Refresh();
         }
 

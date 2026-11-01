@@ -143,8 +143,7 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
 - **Flow.** The project's startup derives from `StartupEntry`, its mocks from `MockEntry` (`MockSwitcher` runs the mock
   of a scene opened directly); `GameLoopScopeLoader` keeps one game loop scope at a time.
 - **`[Inject]` methods** of a type that may be registered from another assembly are `public`: the generator does
-  not see an `internal` method of a foreign assembly and silently does not call it (no diagnostic). Check with
-  `-p:EmitCompilerGeneratedFiles=true` and a grep for `.Construct(` in `*ConstructContainer.g.cs`.
+  not see an `internal` method of a foreign assembly and does not call it (diagnostic CINGR010).
 - **Modules.** Assemblies `Internal.<Module>`, namespaces `Global.<Module>` (the global scope of the game registers
   them). Each has an `Add*` extension of `IScopeBuilder`; prefabs and options come as arguments (the project owns
   the assets and its generated `GlobalPrefabs` / `GlobalAssets`), so the project's global `Construct` calls them:
@@ -160,12 +159,14 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
     go on lines (`AudioLine.Music` / `SFX`, lines of the game with `AudioLine.Of<TVolume>`), may be trimmed
     (`SoundPlay.WithTrim`), clips loaded at runtime play as `clip.ToSound()`, music may be bound to a lifetime.
   - `inputs` (`AddInput(InputOptions, EventSystem prefab)`): input scheme, gamepad by meaning, back / pause.
-    Controls of a game (aim, sticks, touch layout) are options of the game.
+    Controls of a game (aim, sticks, touch layout) are options of the game. `InputManager.asset` of the project must
+    hold the axes `Gamepad Axis 1..10` (type: joystick axis, axis N-1): `GamepadReader` throws at build without them.
+    A platform without a gamepad layout (macOS, Android, iOS) gets `NoGamepadReader`.
   - `ui` (`AddUI`, `AddLoadingScreen(prefab)`, `AddScreenSafeArea`, `AddClientOutdatedNotice(style)`): UI state
     machine and input constraints, design elements and layouts (+ editors), gamepad navigation (the event system
     prefab needs a `StandaloneInputModule`), safe area, loading screen, the notice of an outdated client
     (`IClientOutdatedNotice` of the core, shown by the network on close code 4001; built from code, the game gives
-    the font, texts and colors in `ClientOutdatedNoticeStyle`). `AddUI` = `AddUIStateMachine` + `AddUINavigation`: a game on `InputSystemUIInputModule` without a gamepad
+    the font, texts and colors in `ClientOutdatedNoticeStyle`; needs `IUINavigation`, so `AddUINavigation` too). `AddUI` = `AddUIStateMachine` + `AddUINavigation`: a game on `InputSystemUIInputModule` without a gamepad
     registers `AddUIStateMachine` only. Kinds of input constraints are instances of `InputConstraints` (`Game` in the
     framework, the project declares its own). Depends on `inputs`.
   - `publish`: platform abstractions (`ISaves`, `IPlatformAuth`, back button, inventory, invites, achievements). The project

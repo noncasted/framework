@@ -48,8 +48,7 @@
 - **C-DI-6** Если в одном scope несколько альтернатив с маркер-интерфейсом фазы -> не более одной группы альтернатив
   с `IScopeSetup` и т.п.; платформенный сервис с фазой регистрируется на всех платформах и сам проверяет платформу.
   `CLAUDE_MISTAKES.md` § F37.
-- **C-DI-7** Если два `WithParameter` (или instance) одного типа в одном scope -> обернуть в разные типы (разрешение
-  по типу на весь scope). `COMMON_CONTAINER.md` § WithParameter is resolved by type; `ENTITIES.md` § Checklist (9).
+- **C-DI-7** `WithParameter` принадлежит своей регистрации и важнее регистрации того же типа, родительского scope и `IContainer` / `ILifetime` / `IReadOnlyLifetime` scope: параметр берёт значение точного типа, иначе значение, которое может принять (несколько таких: CINGR014). `COMMON_CONTAINER.md` § WithParameter belongs to its registration and wins.
 - **C-DI-8** Если сервису нужны ассеты каталога -> `Request*Group` в installer (или `Load*Group`, только если
   `Construct` читает ассеты сам); никаких `Addressables.LoadAssetAsync` / `Retain` в геймплее.
   `COMMON_CONTAINER.md` § Asset Groups.

@@ -79,7 +79,6 @@ namespace Internal
             if (_isOpen == false)
                 throw new WebRtcConnectFailedException(_lostReason);
 
-            _payloadSize = WebRtcFraming.PayloadSize(_peer.MaxMessageSize);
             Debug.Log($"[Network] [WebRtc] Connected: {_role}, part payload {_payloadSize} B");
         }
 
@@ -93,7 +92,19 @@ namespace Internal
             if (_isOpen == false)
                 throw new InvalidOperationException("[Network] [WebRtc] Send before the channel is open");
 
-            WebRtcFraming.Split(bytes, _payloadSize, _peer.Send);
+            // The boundary of the network: the channel closed and its Lost is still in the queue. The sender may be a loop
+            // over the other players, so the failure goes the way of every other loss.
+            try
+            {
+                WebRtcFraming.Split(bytes, _payloadSize, _peer.Send);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"[Network] [WebRtc] Send failed: {exception.Message}");
+                _lostReason ??= $"send failed: {exception.Message}";
+                _inbox.Enqueue(PeerEvent.OfLost(_lostReason));
+            }
+
             return UniTask.CompletedTask;
         }
 
@@ -177,6 +188,8 @@ namespace Internal
                     _signaling.Send(peerEvent.Signal);
                     break;
                 case PeerEventKind.Open:
+                    // Here, not in Connect: a frame in the same pass is answered before Connect wakes up.
+                    _payloadSize = WebRtcFraming.PayloadSize(_peer.MaxMessageSize);
                     _isOpen = true;
                     break;
                 case PeerEventKind.Message:

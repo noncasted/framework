@@ -13,6 +13,7 @@ namespace Internal
         private static readonly string[] SourceExtensions =
         {
             ".aseprite",
+            ".ase",
             ".psd",
             ".png"
         };
@@ -32,22 +33,17 @@ namespace Internal
 
         protected override IEnumerable<string> DiscoverGroups()
         {
-            var artRoot = Path.Combine(Application.dataPath, "Art");
+            // A project without art has no folder in its settings.
+            if (string.IsNullOrEmpty(FrameworkSettings.ArtFolder) == true)
+                yield break;
+
+            var artRoot = CatalogPaths.ToFullPath(FrameworkSettings.ArtFolder);
 
             if (Directory.Exists(artRoot) == false)
                 yield break;
 
-            string[] files;
-
-            try
-            {
-                files = Directory.GetFiles(artRoot, "*.*", SearchOption.AllDirectories);
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError($"[{LogTag}] Failed to scan Assets/Art: {exception}");
-                yield break;
-            }
+            // A failure to read throws: taken for an empty result, it would delete what the generator did not see.
+            var files = Directory.GetFiles(artRoot, "*.*", SearchOption.AllDirectories);
 
             var seen = new HashSet<string>(StringComparer.Ordinal);
             var projectRoot = Path.GetDirectoryName(Application.dataPath);

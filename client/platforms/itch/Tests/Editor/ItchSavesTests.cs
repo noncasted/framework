@@ -52,6 +52,76 @@ namespace Global.Publisher.Itch.Tests
             }
         }
 
+        // A null is not a save: JsonUtility gives an empty string, and every next start fails on it in Get.
+        [Test]
+        public void SaveNull_Throws()
+        {
+            Assert.Catch<ArgumentNullException>(() => new ItchSaves().Save<SavedData>(null));
+        }
+
+        // A broken value of one entry is handled as a broken blob: at the start, once, kept for the report.
+        [TestCase("")]
+        [TestCase("{not json")]
+        public void BrokenEntry_FailsOnce_KeptUnderOwnKey(string value)
+        {
+            var blob = JsonUtility.ToJson(new SaveEntriesProbe
+            {
+                Entries = new[] { new SaveEntryProbe { Key = typeof(SavedData).FullName, Value = value } }
+            });
+            PlayerPrefs.SetString(Key, blob);
+
+            var lifetime = new Lifetime();
+
+            try
+            {
+                var exception = Assert.Catch<Exception>(() => new ItchSaves().OnBaseSetup(lifetime));
+                StringAssert.Contains(CorruptKey, exception.Message);
+
+                var next = new ItchSaves();
+                Assert.DoesNotThrow(() => next.OnBaseSetup(lifetime));
+                Assert.DoesNotThrow(() => next.Get<SavedData>());
+                Assert.AreEqual(blob, PlayerPrefs.GetString(CorruptKey));
+            }
+            finally
+            {
+                lifetime.Terminate();
+            }
+        }
+
+        [Test]
+        public void GoodEntry_IsLoaded()
+        {
+            var saves = new ItchSaves();
+            saves.Save(new SavedData { Value = 5 });
+
+            var lifetime = new Lifetime();
+            var next = new ItchSaves();
+            next.OnBaseSetup(lifetime);
+
+            Assert.AreEqual(5, next.Get<SavedData>().Value);
+            lifetime.Terminate();
+        }
+
+        [Serializable]
+        public class SavedData
+        {
+            public int Value;
+        }
+
+        // The format of the blob, written by hand as a broken save is.
+        [Serializable]
+        private class SaveEntriesProbe
+        {
+            public SaveEntryProbe[] Entries;
+        }
+
+        [Serializable]
+        private class SaveEntryProbe
+        {
+            public string Key;
+            public string Value;
+        }
+
         private static void Restore(string key, string value)
         {
             if (value == null)

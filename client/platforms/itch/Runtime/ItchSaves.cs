@@ -60,6 +60,9 @@ namespace Global.Publisher.Itch
                 if (string.IsNullOrEmpty(entry.Key) == true)
                     throw new InvalidOperationException($"[ItchSaves] {Key} has an entry without a key");
 
+                // The type of the value is not known here: it has to be a JSON object at least, as Save writes it.
+                Parse<SaveValue>(entry.Key, entry.Value);
+
                 _entries[entry.Key] = entry.Value;
             }
         }
@@ -76,6 +79,9 @@ namespace Global.Publisher.Itch
 
         public UniTask Save<T>(T data)
         {
+            if (data == null)
+                throw new ArgumentNullException(nameof(data), $"[ItchSaves] A null {typeof(T).Name} is saved");
+
             var key = typeof(T).FullName!;
             _entries[key] = JsonUtility.ToJson(data);
 
@@ -104,6 +110,11 @@ namespace Global.Publisher.Itch
                 throw new InvalidOperationException($"[ItchSaves] {key}: the saved value is not a {typeof(T).Name}");
 
             return value;
+        }
+
+        [Serializable]
+        private class SaveValue
+        {
         }
 
         [Serializable]

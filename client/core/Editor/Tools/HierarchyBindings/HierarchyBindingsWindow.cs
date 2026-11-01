@@ -178,6 +178,9 @@ namespace Internal
             if (string.IsNullOrEmpty(typeName))
                 return "Name is not a C# identifier.";
 
+            if (string.IsNullOrEmpty(_namespace) == false && CodeIdentifiers.IsNamespace(_namespace) == false)
+                return "Namespace is not a C# namespace.";
+
             var fullName = string.IsNullOrEmpty(_namespace) ? typeName : _namespace + "." + typeName;
 
             foreach (var existing in _existing)

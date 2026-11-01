@@ -8,7 +8,7 @@ namespace Game.Session
     public interface ISessionPresence
     {
         // A connection is handled now: its client learns its seat (the entities of the seat to restore), the other
-        // users learn it and it learns them, and it gets every entity of the session.
+        // users learn it and it learns them (the seats away too), and it gets every entity of the session.
         void Introduce(IUser user);
 
         // The connection of the seat is lost and the seat waits for its return: the others see it away.
@@ -65,6 +65,25 @@ namespace Game.Session
                     Id = user.Id
                 });
             });
+
+            // A seat that waits for its return is known as away: the overview below has its entities, and an owner the
+            // client does not know fails them.
+            foreach (var seat in _seats.Entries.Values)
+            {
+                if (seat == user.Seat || seat.Connected != null)
+                    continue;
+
+                user.Send(new SharedSessionPlayer.RemoteUpdate()
+                {
+                    Index = seat.Index,
+                    Id = seat.Id
+                });
+
+                user.Send(new SharedSessionPlayer.RemoteAway()
+                {
+                    Index = seat.Index
+                });
+            }
 
             foreach (var entity in _entities.Entries.Values)
                 user.Send(entity.CreateOverview());

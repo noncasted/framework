@@ -23,7 +23,10 @@ namespace Internal
 
         public void Run(IReadOnlyLifetime lifetime)
         {
-            _control.Signaling.Incoming.Advise(lifetime, index => AcceptDirect(lifetime, index).Forget());
+            // A platform without a peer leaves the offers unanswered: the guest goes through the tunnel by its timeout.
+            if (WebRtcPeers.IsSupported(Application.platform) == true)
+                _control.Signaling.Incoming.Advise(lifetime, index => AcceptDirect(lifetime, index).Forget());
+
             _control.Tunnels.Incoming.Advise(lifetime, index => AcceptTunnel(lifetime, index));
         }
 
@@ -31,10 +34,16 @@ namespace Internal
         private async UniTaskVoid AcceptDirect(IReadOnlyLifetime lifetime, int index)
         {
             var attempt = lifetime.Child();
-            var socket = new WebRtcPeerSocket(WebRtcPeerRole.Answer, _control.Signaling.Open(attempt, index), _options, attempt);
 
             try
             {
+                var socket = new WebRtcPeerSocket(WebRtcPeerRole.Answer, _control.Signaling.Open(attempt, index), _options, attempt);
+
+                // Before the open: the open and the first frame of the guest may come in one frame of the host, and a
+                // lost channel ends the attempt, so a returning guest negotiates anew.
+                socket.Closed.Advise(attempt, _ => attempt.Terminate());
+                _server.AcceptSocket(attempt, socket);
+
                 await socket.Connect();
             }
             // The guest goes through the tunnel then.
@@ -44,13 +53,15 @@ namespace Internal
                 attempt.Terminate();
                 return;
             }
+            // Any other end frees the channel of the guest as well: it stays taken otherwise.
+            catch
+            {
+                attempt.Terminate();
+                throw;
+            }
 
             Debug.Log($"[Network] [Peers] Guest {index} connected directly");
             _match.SetRoute(index, PeerRoute.Direct);
-
-            // A lost channel ends the attempt: a returning guest negotiates anew.
-            socket.Closed.Advise(attempt, _ => attempt.Terminate());
-            _server.AcceptSocket(attempt, socket);
         }
 
         private void AcceptTunnel(IReadOnlyLifetime lifetime, int index)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Internal;
 using UnityEngine;
 
@@ -79,6 +80,8 @@ namespace Global.Inputs
     {
         public GamepadReader(InputOptions options)
         {
+            RequireAxes();
+
             _options = options;
             _layout = GamepadLayout.ForPlatform(Application.platform);
         }
@@ -107,6 +110,28 @@ namespace Global.Inputs
         public static string GetRawAxisName(int axis)
         {
             return "Gamepad Axis " + axis;
+        }
+
+        // Without them every read throws, each frame, also for a player without a gamepad.
+        private static void RequireAxes()
+        {
+            var missing = new List<string>();
+
+            for (var axis = 1; axis <= RawAxisCount; axis++)
+            {
+                try
+                {
+                    Input.GetAxisRaw(GetRawAxisName(axis));
+                }
+                catch (ArgumentException)
+                {
+                    missing.Add(GetRawAxisName(axis));
+                }
+            }
+
+            if (missing.Count > 0)
+                throw new InvalidOperationException(
+                    $"[Inputs] ProjectSettings/InputManager.asset has no axes: {string.Join(", ", missing)}");
         }
 
         public bool IsPressed(GamepadButton button)
@@ -217,6 +242,20 @@ namespace Global.Inputs
         // The sign of up on the d-pad Y axis: +1 in WebGL, -1 on Linux.
         public float DpadYUp { get; private set; }
 
+        // A platform without a layout has no gamepad here: AddInput registers NoGamepadReader there.
+        public static bool HasLayout(RuntimePlatform platform)
+        {
+            return platform switch
+            {
+                RuntimePlatform.WebGLPlayer => true,
+                RuntimePlatform.LinuxEditor => true,
+                RuntimePlatform.LinuxPlayer => true,
+                RuntimePlatform.WindowsEditor => true,
+                RuntimePlatform.WindowsPlayer => true,
+                _ => false
+            };
+        }
+
         public static GamepadLayout ForPlatform(RuntimePlatform platform)
         {
             return platform switch
@@ -225,6 +264,7 @@ namespace Global.Inputs
                 RuntimePlatform.LinuxEditor => Sdl(),
                 RuntimePlatform.LinuxPlayer => Sdl(),
                 RuntimePlatform.WindowsPlayer => Web(),
+                RuntimePlatform.WindowsEditor => Web(),
                 _ => throw new NotSupportedException($"No gamepad layout of the old Input Manager for {platform}")
             };
         }

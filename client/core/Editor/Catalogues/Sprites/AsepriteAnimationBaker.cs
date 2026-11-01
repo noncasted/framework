@@ -32,16 +32,11 @@ namespace Internal
         {
             var result = new List<BakedAnimation>();
             var document = AsepriteDocument.Read(assetPath);
-
-            if (document == null)
-                return result;
-
             var requests = ResolveRequests(assetPath, document, metadata);
 
             if (requests.Count == 0)
             {
-                Debug.LogError($"[{LogTag}] No animations to bake in {assetPath}");
-                return result;
+                throw new InvalidOperationException($"[{LogTag}] No animations to bake in {assetPath}");
             }
 
             var frames = new List<FrameKey>();

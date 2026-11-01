@@ -33,6 +33,22 @@ namespace Internal.Tests
             Object.Destroy(gameObject);
         }
 
+        // Unity sends no message to an object that has never been active: the lifetime still ends with it.
+        [UnityTest]
+        public IEnumerator NeverShown_Destroyed_LifetimeEnds()
+        {
+            var gameObject = new GameObject("Hidden");
+            gameObject.SetActive(false);
+            var lifetime = gameObject.AddComponent<TestBehaviour>().GetObjectLifetime();
+
+            Object.Destroy(gameObject);
+            yield return null;
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(lifetime.IsTerminated, "the subscriptions of a screen never shown outlive it");
+        }
+
         [UnityTest]
         public IEnumerator HiddenBeforeStart_ListenClick_WorksWhenShown()
         {

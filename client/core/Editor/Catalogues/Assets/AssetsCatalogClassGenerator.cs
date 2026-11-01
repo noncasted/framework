@@ -186,17 +186,8 @@ namespace Internal
             if (Directory.Exists(assetsRoot) == false)
                 return;
 
-            string[] folders;
-
-            try
-            {
-                folders = Directory.GetDirectories(assetsRoot, "Generated", SearchOption.AllDirectories);
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError($"[{LogTag}] Failed to scan generated folders: {exception}");
-                return;
-            }
+            // A failure to read throws: taken for an empty result, it would delete what the generator did not see.
+            var folders = Directory.GetDirectories(assetsRoot, "Generated", SearchOption.AllDirectories);
 
             var projectRoot = Path.GetDirectoryName(Application.dataPath);
 

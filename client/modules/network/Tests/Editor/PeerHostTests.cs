@@ -17,7 +17,7 @@ namespace Internal.Tests
     [NoAutoStaticsCleanup]
     public class PeerHostTests
     {
-        private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
+        internal static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
 
         [UnityTest]
         public IEnumerator HostAndGuest_ShareOneSession() => UniTask.ToCoroutine(async () =>
@@ -158,7 +158,7 @@ namespace Internal.Tests
             return LocalSessionServer.CreateTicket(matchId, control.LocalId, control.LocalIndex);
         }
 
-        private static async UniTask<SessionControl> StartControl(IReadOnlyLifetime lifetime, ILocalServers servers, string ticket)
+        internal static async UniTask<SessionControl> StartControl(IReadOnlyLifetime lifetime, ILocalServers servers, string ticket)
         {
             var control = new SessionControl(new PlatformOptions(), new SilentNotice(), servers, new PeerSockets(),
                 new NetworkProtocolHash("0123456789abcdef"));
@@ -167,7 +167,7 @@ namespace Internal.Tests
             return control;
         }
 
-        private class SilentNotice : IClientOutdatedNotice
+        internal class SilentNotice : IClientOutdatedNotice
         {
             public bool IsShown => false;
 
@@ -197,7 +197,7 @@ namespace Internal.Tests
             return (guest, host);
         }
 
-        private class SignalingEnd : IWebRtcSignaling
+        internal class SignalingEnd : IWebRtcSignaling
         {
             private readonly ViewableDelegate<WebRtcSignal> _received = new();
 
@@ -212,7 +212,7 @@ namespace Internal.Tests
         }
 
         // The client stack (reader, writer) over a socket, as NetworkConnection runs it.
-        private class Client
+        internal class Client
         {
             public Client(IReadOnlyLifetime lifetime, IWebSocket socket)
             {

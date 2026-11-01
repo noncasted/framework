@@ -2,7 +2,9 @@ using System;
 using System.Collections;
 using Cysharp.Threading.Tasks;
 using Global.Inputs;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
+using UnityEngine;
 using UnityEngine.TestTools;
 
 namespace Global.UI.Tests
@@ -127,11 +129,50 @@ namespace Global.UI.Tests
             lifetime.Terminate();
         });
 
+        // An error of an async enter is not lost, and the state with its constraints does not stay.
+        [Test]
+        public void TryEnter_AsyncEnterThrows_ReportedAndStateExits()
+        {
+            var (machine, storage, lifetime) = Create();
+            var handle = machine.CreateChild(lifetime, machine.Base, new ThrowingEnterState());
+
+            LogAssert.Expect(LogType.Exception, new Regex("async enter failed"));
+
+            handle.TryEnter();
+
+            Assert.IsTrue(handle.InnerLifetime.IsTerminated, "the handle lives until the end of the lifetime");
+            Assert.IsTrue(storage[InputConstraints.Game]);
+            lifetime.Terminate();
+        }
+
+        [Test]
+        public void BaseState_EndsWithItsParent()
+        {
+            var parent = new Internal.Lifetime();
+            var state = new BaseUIState(parent);
+
+            parent.Terminate();
+
+            Assert.IsTrue(state.InnerLifetime.IsTerminated);
+            Assert.IsTrue(state.OuterLifetime.IsTerminated);
+        }
+
         private static (UIStateMachine, InputConstraintsStorage, Internal.Lifetime) Create()
         {
             var lifetime = new Internal.Lifetime();
             var storage = new InputConstraintsStorage();
             return (new UIStateMachine(storage, lifetime), storage, lifetime);
+        }
+
+        private class ThrowingEnterState : IUIState, IUIStateAsyncEnterHandler
+        {
+            public IUIConstraints Constraints => UIConstraints.Game;
+
+            public async UniTask OnEntered(IUIStateHandle handle)
+            {
+                await UniTask.CompletedTask;
+                throw new InvalidOperationException("async enter failed");
+            }
         }
 
         private class State : IUIState

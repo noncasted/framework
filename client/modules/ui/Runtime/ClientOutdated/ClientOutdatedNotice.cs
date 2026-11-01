@@ -1,7 +1,6 @@
 using Internal;
 using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 #if UNITY_WEBGL && !UNITY_EDITOR
 using System.Runtime.InteropServices;
@@ -19,15 +18,18 @@ namespace Global.UI
         public ClientOutdatedNotice(
             IReadOnlyLifetime lifetime,
             ILoadingScreen loadingScreen,
+            IUINavigation navigation,
             ClientOutdatedNoticeStyle style)
         {
             _lifetime = lifetime;
             _loadingScreen = loadingScreen;
+            _navigation = navigation;
             _style = style;
         }
 
         private readonly IReadOnlyLifetime _lifetime;
         private readonly ILoadingScreen _loadingScreen;
+        private readonly IUINavigation _navigation;
         private readonly ClientOutdatedNoticeStyle _style;
 
         private GameObject _root;
@@ -72,9 +74,10 @@ namespace Global.UI
 
             CreateLabel(panel, _style.Title(), _style.TitleSize, _style.TitleColor);
             CreateLabel(panel, _style.Text(), _style.TextSize, _style.TextColor);
-            var button = CreateButton(panel);
+            CreateButton(panel);
 
-            EventSystem.current.SetSelectedGameObject(button.gameObject);
+            // The navigation keeps the selection each frame: a selection set here would live for one frame.
+            _navigation.AddOverlay(_lifetime, (RectTransform)_root.transform);
         }
 
         private GameObject CreateCanvas()
@@ -114,7 +117,7 @@ namespace Global.UI
             label.text = text;
         }
 
-        private Button CreateButton(RectTransform parent)
+        private void CreateButton(RectTransform parent)
         {
             var rect = CreateRect("Button", parent);
             var layout = rect.gameObject.AddComponent<LayoutElement>();
@@ -134,8 +137,6 @@ namespace Global.UI
             label.color = _style.ButtonTextColor;
             label.alignment = TextAlignmentOptions.Center;
             label.text = _style.Button();
-
-            return button;
         }
 
         // TextMeshProUGUI.Awake (run by AddComponent on an active object) loads the font: with none assigned yet it

@@ -46,17 +46,8 @@ namespace Internal
             string pattern,
             bool prefabs)
         {
-            string[] files;
-
-            try
-            {
-                files = Directory.GetFiles(assetsRoot, pattern, SearchOption.AllDirectories);
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError("[ContainerGraph] Failed to scan " + pattern + ": " + exception);
-                return;
-            }
+            // A failure to read throws: taken for an empty result, it would delete what the generator did not see.
+            var files = Directory.GetFiles(assetsRoot, pattern, SearchOption.AllDirectories);
 
             foreach (var file in files)
             {
@@ -78,17 +69,10 @@ namespace Internal
             Dictionary<string, Dictionary<string, YamlBlock>> prefabCache,
             bool prefab)
         {
-            string[] lines;
+            // A failure to read throws: taken for an empty result, it would delete what the generator did not see.
+            var lines = File.ReadAllLines(fullPath);
 
-            try
-            {
-                lines = File.ReadAllLines(fullPath);
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError("[ContainerGraph] Failed to read " + fullPath + ": " + exception);
-                return;
-            }
+            RequireNoVariantOverride(lines, fullPath);
 
             var blocks = ParseBlocks(lines);
             var byId = IndexBlocks(blocks);
@@ -369,17 +353,8 @@ namespace Internal
         internal static Dictionary<string, string> BuildPrefabMap(string assetsRoot)
         {
             var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            string[] metas;
-
-            try
-            {
-                metas = Directory.GetFiles(assetsRoot, "*.prefab.meta", SearchOption.AllDirectories);
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError("[ContainerGraph] Failed to index prefab GUIDs: " + exception);
-                return map;
-            }
+            // A failure to read throws: taken for an empty result, it would delete what the generator did not see.
+            var metas = Directory.GetFiles(assetsRoot, "*.prefab.meta", SearchOption.AllDirectories);
 
             var guidLine = new Regex(@"^guid: ([a-f0-9]{32})", RegexOptions.Compiled);
 
@@ -432,20 +407,28 @@ namespace Internal
             if (cache.TryGetValue(prefabPath, out var existing))
                 return existing;
 
-            var map = new Dictionary<string, YamlBlock>(StringComparer.Ordinal);
-
-            try
-            {
-                var blocks = ParseBlocks(File.ReadAllLines(prefabPath));
-                map = IndexBlocks(blocks);
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError("[ContainerGraph] Failed to read prefab " + prefabPath + ": " + exception);
-            }
+            var map = IndexBlocks(ParseBlocks(File.ReadAllLines(prefabPath)));
 
             cache[prefabPath] = map;
             return map;
+        }
+
+        // The blocks read here are the components (!u!114): a list overridden by a prefab variant lies in its PrefabInstance
+        // (!u!1001), m_Modifications. It is not parsed, and without it the map holds the list of the base prefab.
+        private static void RequireNoVariantOverride(string[] lines, string fullPath)
+        {
+            foreach (var line in lines)
+            {
+                var trimmed = line.TrimStart();
+
+                if (trimmed.StartsWith("propertyPath: _autoDetected", StringComparison.Ordinal) == false &&
+                    trimmed.StartsWith("propertyPath: _register", StringComparison.Ordinal) == false &&
+                    trimmed.StartsWith("propertyPath: _services", StringComparison.Ordinal) == false)
+                    continue;
+
+                throw new InvalidOperationException(
+                    $"[ContainerGraph] {fullPath} overrides a list of its base prefab ({trimmed}): not supported by the map, apply it to the base");
+            }
         }
 
         private static List<string> ListFor(YamlBlock block, string field)

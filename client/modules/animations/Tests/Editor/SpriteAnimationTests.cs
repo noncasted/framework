@@ -55,6 +55,46 @@ namespace Internal.Tests
             lifetime.Terminate();
         }
 
+        // The lifetime given to the play ends the play at once: nothing needs the update of the animation for that (its
+        // own update may be over too).
+        [Test]
+        public void PlayAsync_LifetimeEnds_WaitIsCanceled()
+        {
+            var (animation, _, _, lifetime) = Create(2);
+
+            var wait = animation.PlayAsync(lifetime, 1f);
+            lifetime.Terminate();
+
+            Assert.AreEqual(UniTaskStatus.Canceled, wait.Status, "the await hangs for good");
+            Assert.IsFalse(animation.IsPlaying);
+        }
+
+        [Test]
+        public void Play_LifetimeEnds_Stops()
+        {
+            var (animation, _, _, lifetime) = Create(2);
+
+            animation.PlayLooped(lifetime, 1f);
+            lifetime.Terminate();
+
+            Assert.IsFalse(animation.IsPlaying);
+        }
+
+        // A lifetime of an older play does not stop the newer one.
+        [Test]
+        public void OlderLifetimeEnds_NewerPlayGoesOn()
+        {
+            var (animation, _, _, older) = Create(2);
+            var newer = new Lifetime();
+
+            animation.Play(older, 1f);
+            animation.PlayLooped(newer, 1f);
+            older.Terminate();
+
+            Assert.IsTrue(animation.IsPlaying);
+            newer.Terminate();
+        }
+
         [Test]
         public void Play_DrawsFirstFrameAtOnce()
         {

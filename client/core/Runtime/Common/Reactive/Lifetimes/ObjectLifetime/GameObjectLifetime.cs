@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Cysharp.Threading.Tasks;
+using UnityEngine;
 
 namespace Internal
 {
@@ -9,6 +10,12 @@ namespace Internal
     public class GameObjectLifetime : MonoBehaviour, IGameObjectLifetime
     {
         private ILifetime _lifetime;
+        private bool _isAwake;
+
+        private void Awake()
+        {
+            _isAwake = true;
+        }
 
         private void OnDisable()
         {
@@ -17,7 +24,7 @@ namespace Internal
         }
 
         // An object destroyed while hidden gets no OnDisable. Unity sends OnDestroy only to an object that has been
-        // active once: the lifetime of an object destroyed before it was ever shown does not end.
+        // active once: WatchNeverShown ends the lifetime of an object destroyed before it was ever shown.
         private void OnDestroy()
         {
             if (_lifetime is { IsTerminated: false })
@@ -31,7 +38,26 @@ namespace Internal
 
             _lifetime = new Lifetime();
 
+            if (_isAwake == false)
+                WatchNeverShown(_lifetime).Forget();
+
             return _lifetime;
+        }
+
+        // No message tells that an object that has never been active is destroyed, so this one case is looked at once a
+        // frame, until the object wakes up (OnDisable and OnDestroy take over) or the lifetime ends.
+        private async UniTaskVoid WatchNeverShown(ILifetime lifetime)
+        {
+            while (_isAwake == false && lifetime.IsTerminated == false)
+            {
+                await UniTask.Yield();
+
+                if (this == null)
+                {
+                    lifetime.Terminate();
+                    return;
+                }
+            }
         }
 
         public void ForceTerminate()

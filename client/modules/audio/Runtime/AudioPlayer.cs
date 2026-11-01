@@ -391,8 +391,15 @@ namespace Global.Audio
             // True when the fade has changed and the volume has to be applied.
             public bool Step(float delta)
             {
-                if (_sound == null || Mathf.Approximately(_fade, _target) == true)
+                if (_sound == null)
                     return false;
+
+                // Faded out from where it started: no step is left, the source still gives its voice back.
+                if (Mathf.Approximately(_fade, _target) == true)
+                {
+                    StopIfSilent();
+                    return false;
+                }
 
                 _fade = Mathf.MoveTowards(_fade, _target, _speed * delta);
                 StopIfSilent();
