@@ -1,3 +1,14 @@
+---
+task: file_splits
+status: in_progress
+phase: implementation
+created: 2026-11-02
+updated: 2026-11-02
+total_steps: 9
+completed_steps: [1]
+blocked_steps: []
+---
+
 # Разрез больших файлов
 
 ## Контекст
@@ -29,3 +40,53 @@
 - **C11.** `client/core/Runtime/Tools/Container/Runtime/GeneratedScopes.cs`: реестр, id, сборка и хелперы отдельно. Меняется эмиттер.
 
 Остальные файлы длиннее 300 строк: `HierarchyBindingsScanner.cs` (712), `SpriteGenerator.cs` (696), `ProfilerTraceWindow.cs` (651), `HierarchyBindingsBatch.cs` (620), `PrefabCatalogGenerator.cs`, `ProfilerFrameCapture.cs` (501), `AudioCatalogGenerator.cs` (500) и другие. Полный список даёт подсчёт из шага 4.
+
+## План реализации
+
+Область: `client/core`, `client/flow`, `client/modules`, `client/platforms` и исходники генератора, как в подсчёте аудита. Backend, форки `client/packages` и тестовый код (`ContainerGenerator.Verify`, `Tests`) не режутся и перечисляются в итоге с причиной.
+
+#### [1] Замер поведения до правок
+- **Статус:** [x] completed
+- **Что:** EditMode, PlayMode, Verify на исходном коде; скрипт снимка вывода генератора; список файлов длиннее 300 строк
+- **Зависит от:** —
+
+#### [2] G11, генератор
+- **Статус:** [ ] pending
+- **Что:** `GraphWalker`, `EdgeResolver`, `ScopePlan`, `ScopeEmitter`, `ManifestReader`, `GraphEmitter`, проверка `InjectorModel.cs:130`. Отдельный worktree. Проверка: Verify и побайтно равный вывод генератора
+- **Зависит от:** 1
+
+#### [3] U7, I6, I7
+- **Статус:** [ ] pending
+- **Что:** `UINavigation`, `AudioPlayer`, `GamepadReader`
+- **Зависит от:** 1
+
+#### [4] N8, N9, сеть
+- **Статус:** [ ] pending
+- **Что:** `NetworkLatencyMonitor`, `NetworkConnection`, `ConnectionWriter`, `JsWebSocket`, `NativeWebRtcPeer`
+- **Зависит от:** 3
+
+#### [5] E11, окна и графы
+- **Статус:** [ ] pending
+- **Что:** `ContainerDebuggerWindow`, `ContainerGraphAssetScanner`, `ContainerGraph`, `LifetimeGraph`, `ProfilerTraceWindow`, `ProfilerFrameCapture`, `PrefabScreenshot`
+- **Зависит от:** 4
+
+#### [6] HierarchyBindings
+- **Статус:** [ ] pending
+- **Что:** `HierarchyBindingsScanner`, `HierarchyBindingsBatch`, `HierarchyBindingsGenerator`, `HierarchyBindingsCodeGenerator`
+- **Зависит от:** 5
+
+#### [7] Каталоги
+- **Статус:** [ ] pending
+- **Что:** `SpriteGenerator`, `PrefabCatalogGenerator`, `AudioCatalogGenerator`, `SpriteCatalogMetadata`, `AsepriteAnimationBaker`, `SpritesClassGenerator`, `AssetCatalogGenerator`, `AsepriteDocument`
+- **Зависит от:** 6
+
+#### [8] C11 и ContainerBuilder
+- **Статус:** [ ] pending
+- **Что:** `GeneratedScopes` (меняется эмиттер), `ContainerBuilder`
+- **Зависит от:** 2, 7
+
+#### [9] Итоговая проверка
+- **Статус:** [ ] pending
+- **Что:** Пересчёт файлов, все тесты, документация, остаток с причинами
+- **Зависит от:** 8
+
