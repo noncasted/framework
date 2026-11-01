@@ -50,7 +50,9 @@ namespace UnityEngine.ResourceManagement.Util
                 s_Initialized = true;
                 foreach (var asm in GetLoadedAssemblies())
                     RegisterAssembly(asm);
+#if !UNITY_EDITOR
                 AppDomain.CurrentDomain.AssemblyLoad += (_, args) => RegisterAssembly(args.LoadedAssembly);
+#endif
             }
         }
 
@@ -188,6 +190,17 @@ namespace UnityEngine.ResourceManagement.Util
                 if (s_SimpleNameToAssembly.TryGetValue(simple, out var asm))
                     return asm;
             }
+#if UNITY_EDITOR
+            // Local patch: the editor has no AssemblyLoad handler. The event is process-wide, a handler outlives the domain
+            // reload and keeps the old domain from unloading, so an assembly loaded later is found here, on the first miss.
+            foreach (var known in GetLoadedAssemblies())
+                RegisterAssembly(known);
+            lock (s_Lock)
+            {
+                if (s_SimpleNameToAssembly.TryGetValue(simple, out var asm))
+                    return asm;
+            }
+#endif
             try
             {
                 var loaded = Assembly.Load(new AssemblyName(simple));
