@@ -53,7 +53,10 @@ namespace Internal
             NetworkProtocolHash protocolHash)
         {
             var commands = new NetworkCommandsCollection();
-            _connection = new NetworkConnection(commands, platformOptions, outdatedNotice, localServers, peerSockets, protocolHash);
+            _connection = new NetworkConnection(commands,
+                outdatedNotice,
+                new WebSocketFactory(platformOptions, localServers, peerSockets),
+                protocolHash);
 
             _signaling = new PeerSignaling(_connection);
             _tunnels = new PeerTunnels(_connection);

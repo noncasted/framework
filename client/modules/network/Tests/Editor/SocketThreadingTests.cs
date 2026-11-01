@@ -60,10 +60,8 @@ namespace Internal.Tests
             try
             {
                 var connection = new NetworkConnection(new NetworkCommandsCollection(),
-                    new PlatformOptions(),
                     new SilentNotice(),
-                    new LocalServers(),
-                    new PeerSockets(),
+                    new WebSocketFactory(new PlatformOptions(), new LocalServers(), new PeerSockets()),
                     new NetworkProtocolHash("0123456789abcdef"));
 
                 typeof(NetworkConnection)
