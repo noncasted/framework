@@ -73,11 +73,19 @@ Two kinds of grain state, both implement `IStateValue` (`backend/Infrastructure/
 [GrainState(Table = "state_my_entity", State = "my_entity", Lookup = "MyEntity", Key = GrainKeyType.Guid)]
 public class MyState : IDirectStateValue
 {
-    [Id(0)] public Guid Id { get; set; }    // Id(N) sequential, no gaps
-    [Id(1)] public string Name { get; set; } = string.Empty;
+    [Id(0)] [JsonProperty] public Guid Id { get; private set; }    // Id(N) sequential, no gaps
+    [Id(1)] [JsonProperty] public string Name { get; private set; } = string.Empty;
     public int Version => 0;                 // always required
+
+    public void Rename(string name)
+    {
+        Name = name;
+    }
 }
 ```
+
+The state changes only through its methods. `[JsonProperty]` is required on a private setter: without it Newtonsoft saves
+the value but does not restore it, and the property silently comes back as the default after a reload.
 
 `[GrainState]` (`backend/Common/Lookups/GrainStateAttribute.cs`): `Table` = DB table, `State` = value of the
 `type` column (several states may share one table, e.g. `cluster`, `configs`), `Lookup` = name of the generated
@@ -97,12 +105,12 @@ public MyGrain([State] State<MyState> state) { ... }
 ```csharp
 // Read + modify + write — returns updated value
 var state = await _state.Update(s => {
-    s.Name = name;
+    s.Rename(name);
 });
 
 // Read + modify + write — returns Task
 await _state.Write(s => {
-    s.Name = name;
+    s.Rename(name);
 });
 
 // Read only — returns T
@@ -121,8 +129,8 @@ Inside a transaction `Write()` only records the change; it is committed with the
 [GrainEventState(State = "user_entity", Lookup = "User", Key = GrainKeyType.Guid)]
 public class UserState : IEventStateValue
 {
-    [Id(0)] public string Id { get; set; } = string.Empty;
-    [Id(1)] public string Name { get; set; } = string.Empty;
+    [Id(0)] [JsonProperty] public string Id { get; private set; } = string.Empty;
+    [Id(1)] [JsonProperty] public string Name { get; private set; } = string.Empty;
     public int Version => 0;
 
     public void Apply(UserNameChanged e) => Name = e.Name;   // one Apply per event type

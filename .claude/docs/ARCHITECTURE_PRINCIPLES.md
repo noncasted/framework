@@ -17,9 +17,10 @@ details live in the linked docs.
 5. **Network ids are explicit.** A network id is an explicit field of the asset (`_id`), never the position in a
    list; a new asset takes the next free id; uniqueness is checked at load (throw) and by a test. Existing values never
    change.
-6. **Data changes only through methods.** No public setters or public mutable fields anywhere, serialized states,
-   payloads, tests and benchmarks included: state is changed by intent methods (`Init`, `Tick(delta)`, `Restart`, `Hit`),
-   fields are `{ get; private set; }`; values fixed after creation are `readonly struct` / readonly / `{ get; init; }`.
+6. **Data changes only through methods.** No public setters or public mutable fields anywhere, Orleans states, tests and
+   benchmarks included: state is changed by intent methods (`Init`, `Tick(delta)`, `Restart`, `Hit`), fields are
+   `{ get; private set; }`; values fixed after creation are `readonly struct` / readonly / `{ get; init; }`. The exception
+   is a `[MemoryPackable]` type: its public setters are allowed.
    (`CODE_STYLE_FULL.md`)
 7. **Simulation-heavy state is ECS.** Many similar entities updated every frame live in a shared
    ECS world: components are data with methods, systems are plain classes with `Run(...)`, the old facade keeps

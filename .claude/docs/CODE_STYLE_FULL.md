@@ -50,7 +50,7 @@ private EventSource<int> _damage;
 
 ## Braces: On a New Line
 
-The `.editorconfig` of the projects sets the same. An `if` always has braces.
+The `.editorconfig` of the projects sets the same. An `if` may go without braces when its body is one short statement.
 
 ```csharp
 public class MyService
@@ -72,10 +72,16 @@ and no retelling of the code.
 
 ## Data Changes Only Through Methods
 
-There are no public setters and no public mutable fields anywhere: services, entities, ECS components, serialized
-states and payloads, tests and benchmarks. State is changed by intent methods (`Init`, `Tick(delta)`, `Restart`, `Hit`),
-properties are `{ get; private set; }`; a value fixed after creation is `readonly`, `{ get; }` or `{ get; init; }`. A
-Unity field shown in the inspector is `[SerializeField] private`.
+There are no public setters and no public mutable fields anywhere: services, entities, ECS components, Orleans states,
+tests and benchmarks. State is changed by intent methods (`Init`, `Tick(delta)`, `Restart`, `Hit`), properties are
+`{ get; private set; }`; a value fixed after creation is `readonly`, `{ get; }` or `{ get; init; }`. A Unity field shown in
+the inspector is `[SerializeField] private`.
+
+The exception is a `[MemoryPackable]` type (network payloads and contexts): its public setters are allowed.
+
+A stored Orleans state needs `[JsonProperty]` on every `{ get; private set; }` property: Newtonsoft does not write a
+private setter without it, so the value is saved but silently comes back as the default on load. `{ get; init; }` needs
+no attribute. See `COMMON_ORLEANS.md`.
 
 ## Size and Files
 

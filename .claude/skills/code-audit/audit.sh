@@ -68,8 +68,9 @@ echo "## Data by index / name, writers (P4, P5)"
 grep -HnE '^ +(public |private |\[SerializeField\] *)*(readonly )?(int|string|byte|int\[\]|string\[\]) +_?\w*(Index|Indices|Name|Names|Slot)\b *[;=]' $(printf '%s\n' "${CS[@]}" | grep -E 'Options|Definition|Catalog') 2>/dev/null | head -20
 grep -HnE 'class +\w*(Writer|Presets|Generator)\b|AssetDatabase\.(CreateAsset|SaveAssets)' "${CS[@]}" | head -10
 
-echo "## Public mutable state (P6)"
-grep -HnP 'public +[\w<>\[\],. ]+ +\w+ *\{ *get; *set; *\}|^        public +(?!const|static|readonly|event|override|abstract|virtual|ref|void|bool \w+\()[\w<>\[\]]+ +\w+ *(;|= )' "${CS[@]}" | head -20
+echo "## Public mutable state (P6; a [MemoryPackable] type may have public setters)"
+mapfile -t NO_MP < <(grep -L '\[MemoryPackable' "${CS[@]}")
+grep -HnP 'public +[\w<>\[\],. ]+ +\w+ *\{ *get; *set; *\}|^        public +(?!const|static|readonly|event|override|abstract|virtual|ref|void|bool \w+\()[\w<>\[\]]+ +\w+ *(;|= )' "${NO_MP[@]}" | head -20
 
 echo "## Local / remote pairs in separate files (P13 duplicates): shared member names"
 for f in "${CS[@]}"; do
@@ -92,8 +93,10 @@ echo "- async void:"
 grep -Hn 'async void' "${CS[@]}"
 echo "- XML docs:"
 grep -Hc '^\s*///' "${CS[@]}" | grep -v ':0$' | sort -t: -k2 -rn | head -10
-echo "- public setters (all code, states and tests included):"
-grep -Hn '{ *get; *set; *}' "${CS[@]}" | head -30
+echo "- public setters (all code except [MemoryPackable], states and tests included):"
+grep -Hn '{ *get; *set; *}' "${NO_MP[@]}" | head -30
+echo "- private setter of a state without [JsonProperty] (saved, but comes back as the default after a reload):"
+grep -l 'IDirectStateValue\|IEventStateValue' "${CS[@]}" | xargs -r grep -Hn '{ *get; *private set; *}' | grep -v 'JsonProperty' | head -30
 
 echo "## Errors (P8): every catch, empty ones first"
 for f in "${CS[@]}"; do
