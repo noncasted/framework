@@ -139,10 +139,10 @@ namespace ContainerGenerator {
             var lines = (blob ?? "").Replace("\r", "").Split('\n');
 
             // A manifest that is not read loses the registrations of the installer without a word.
-            if (lines[0] != GraphEmitter.BlobVersion)
+            if (lines[0] != ManifestBlobFormat.BlobVersion)
                 throw new InvalidOperationException(
                     "The manifest of '" + method.Id + "' in assembly '" + assemblyName + "' has version '" + lines[0] +
-                    "', this generator reads '" + GraphEmitter.BlobVersion + "': rebuild that assembly with this generator.");
+                    "', this generator reads '" + ManifestBlobFormat.BlobVersion + "': rebuild that assembly with this generator.");
 
             var index = 1;
             if (index < lines.Length && lines[index].StartsWith("parent:", StringComparison.Ordinal)) {
@@ -197,40 +197,40 @@ namespace ContainerGenerator {
                 if (string.IsNullOrEmpty(line))
                     continue;
 
-                var fields = GraphEmitter.SplitFields(line);
+                var fields = ManifestBlobFormat.SplitFields(line);
                 if (fields.Length != 15)
                     throw new InvalidOperationException(
                         "The manifest of '" + method.Id + "' in assembly '" + assemblyName + "' has a broken registration: " + line);
 
                 var serviceCount = ParseInt(fields[4]);
                 var armCount = ParseInt(fields[5]);
-                var implementation = GraphEmitter.Unescape(fields[10]);
+                var implementation = ManifestBlobFormat.Unescape(fields[10]);
                 if (string.IsNullOrEmpty(implementation) && implementationCursor < implementations.Count)
                     implementation = implementations[implementationCursor];
                 // The array has typeof(void) for what typeof cannot write (a switch has no implementation of its own).
-                if (implementation == GraphEmitter.VoidSentinel || implementation == "void")
+                if (implementation == ManifestBlobFormat.VoidSentinel || implementation == "void")
                     implementation = "";
                 implementationCursor++;
 
                 var registration = new GraphRegistration {
-                    Kind = GraphEmitter.Unescape(fields[0]),
-                    Lifetime = GraphEmitter.Unescape(fields[1]),
-                    Origin = GraphEmitter.Unescape(fields[2]),
+                    Kind = ManifestBlobFormat.Unescape(fields[0]),
+                    Lifetime = ManifestBlobFormat.Unescape(fields[1]),
+                    Origin = ManifestBlobFormat.Unescape(fields[2]),
                     Ordinal = ParseInt(fields[3]),
-                    Hole = GraphEmitter.Unescape(fields[6]),
-                    Source = GraphEmitter.Unescape(fields[7]),
-                    File = GraphEmitter.Unescape(fields[8]),
+                    Hole = ManifestBlobFormat.Unescape(fields[6]),
+                    Source = ManifestBlobFormat.Unescape(fields[7]),
+                    File = ManifestBlobFormat.Unescape(fields[8]),
                     Line = ParseInt(fields[9]),
                     ImplementationType = implementation,
-                    TypeMap = GraphEmitter.Unescape(fields[11]),
-                    BranchPath = GraphEmitter.Unescape(fields[13]),
+                    TypeMap = ManifestBlobFormat.Unescape(fields[11]),
+                    BranchPath = ManifestBlobFormat.Unescape(fields[13]),
                 };
 
-                var maps = GraphEmitter.Unescape(fields[12]).Split(';');
+                var maps = ManifestBlobFormat.Unescape(fields[12]).Split(';');
                 for (var m = 0; m < maps.Length; m++)
                     registration.ServiceMaps.Add(maps[m]);
 
-                var parameterTypes = GraphEmitter.Unescape(fields[14]);
+                var parameterTypes = ManifestBlobFormat.Unescape(fields[14]);
                 if (string.IsNullOrEmpty(parameterTypes) == false)
                     registration.ParameterTypes.AddRange(parameterTypes.Split(';'));
 
@@ -239,24 +239,24 @@ namespace ContainerGenerator {
                     if (serviceCursor < services.Count)
                         service = services[serviceCursor];
                     serviceCursor++;
-                    if (service == GraphEmitter.VoidSentinel)
+                    if (service == ManifestBlobFormat.VoidSentinel)
                         service = "";
                     if (string.IsNullOrEmpty(service) == false)
                         registration.ServiceTypes.Add(service);
                 }
 
                 for (var a = 0; a < armCount && index < lines.Length; a++) {
-                    var armFields = GraphEmitter.SplitFields(lines[index]);
+                    var armFields = ManifestBlobFormat.SplitFields(lines[index]);
                     index++;
                     var arm = new GraphSwitchArm();
                     if (armFields.Length > 0)
-                        arm.Discriminant = GraphEmitter.Unescape(armFields[0]);
+                        arm.Discriminant = ManifestBlobFormat.Unescape(armFields[0]);
                     if (armFields.Length > 1)
-                        arm.ImplementationType = GraphEmitter.Unescape(armFields[1]);
+                        arm.ImplementationType = ManifestBlobFormat.Unescape(armFields[1]);
                     if (armFields.Length > 2)
-                        arm.ParameterExpression = GraphEmitter.Unescape(armFields[2]);
+                        arm.ParameterExpression = ManifestBlobFormat.Unescape(armFields[2]);
                     if (armFields.Length > 3)
-                        arm.ParameterType = GraphEmitter.Unescape(armFields[3]);
+                        arm.ParameterType = ManifestBlobFormat.Unescape(armFields[3]);
                     registration.Arms.Add(arm);
                 }
 
@@ -303,7 +303,7 @@ namespace ContainerGenerator {
         }
 
         private static int ParseInt(string value) {
-            if (int.TryParse(GraphEmitter.Unescape(value), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+            if (int.TryParse(ManifestBlobFormat.Unescape(value), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
                 return parsed;
             return 0;
         }
@@ -313,7 +313,7 @@ namespace ContainerGenerator {
                 return;
             var parts = raw.Split('|');
             for (var i = 0; i < parts.Length; i++)
-                target.Add(GraphEmitter.Unescape(parts[i]));
+                target.Add(ManifestBlobFormat.Unescape(parts[i]));
         }
 
     }

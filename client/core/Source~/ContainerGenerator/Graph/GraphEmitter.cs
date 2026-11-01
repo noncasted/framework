@@ -1,18 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Text;
 using Microsoft.CodeAnalysis;
 
 namespace ContainerGenerator {
     internal static class GraphEmitter {
         public const string AttributeMetadataName = "Internal.ContainerInstallerAttribute";
-        public const string BlobVersion = "v2";
-        public const string VoidSentinel = "global::System.Void";
-
-        public static string Emit(GraphDocument document) {
-            return Emit(document, null);
-        }
 
         public static string Emit(GraphDocument document, Compilation? compilation) {
             var writer = new CodeWriter();
@@ -50,9 +43,9 @@ namespace ContainerGenerator {
             }
 
             writer.AppendLine("[assembly: global::Internal.ContainerInstaller(");
-            writer.AppendLine("    " + Literal(method.Id) + ",");
+            writer.AppendLine("    " + EmitLiterals.Literal(method.Id) + ",");
             writer.AppendLine("    " + (method.IsRoot ? "true" : "false") + ",");
-            writer.AppendLine("    " + Literal(method.File) + ",");
+            writer.AppendLine("    " + EmitLiterals.Literal(method.File) + ",");
             writer.AppendLine("    " + method.Line.ToString(CultureInfo.InvariantCulture) + ",");
             WriteTypeArray(writer, implementations);
             writer.AppendLine(",");
@@ -61,18 +54,18 @@ namespace ContainerGenerator {
             writer.AppendLine("    new string[] {");
             for (var i = 0; i < method.Calls.Count; i++) {
                 var comma = i + 1 < method.Calls.Count ? "," : "";
-                writer.AppendLine("        " + Literal(method.Calls[i]) + comma);
+                writer.AppendLine("        " + EmitLiterals.Literal(method.Calls[i]) + comma);
             }
 
             writer.AppendLine("    },");
-            writer.AppendLine("    " + Literal(WriteBlob(method)) + ")]");
+            writer.AppendLine("    " + EmitLiterals.Literal(ManifestBlobWriter.WriteBlob(method)) + ")]");
         }
 
         private static void WriteTypeArray(CodeWriter writer, List<string> types) {
             writer.AppendLine("    new global::System.Type[] {");
             for (var i = 0; i < types.Count; i++) {
                 var comma = i + 1 < types.Count ? "," : "";
-                var type = types[i] == VoidSentinel ? "void" : types[i];
+                var type = types[i] == ManifestBlobFormat.VoidSentinel ? "void" : types[i];
                 writer.AppendLine("        typeof(" + type + ")" + comma);
             }
 
@@ -89,7 +82,7 @@ namespace ContainerGenerator {
 
         private static string TypeOf(TypeIndex? types, string fullyQualified) {
             if (string.IsNullOrEmpty(fullyQualified))
-                return VoidSentinel;
+                return ManifestBlobFormat.VoidSentinel;
             if (types == null)
                 return fullyQualified;
 
@@ -102,11 +95,11 @@ namespace ContainerGenerator {
                 }
 
                 if (ContainsTypeParameter(symbol))
-                    return VoidSentinel;
+                    return ManifestBlobFormat.VoidSentinel;
                 return TypeNames.ForCode(symbol);
             }
 
-            return ContainsPlaceholder(fullyQualified) ? VoidSentinel : fullyQualified;
+            return ContainsPlaceholder(fullyQualified) ? ManifestBlobFormat.VoidSentinel : fullyQualified;
         }
 
         private static bool LooksUnbound(string type) {
@@ -136,168 +129,6 @@ namespace ContainerGenerator {
             if (type is IArrayTypeSymbol array)
                 return ContainsTypeParameter(array.ElementType);
             return false;
-        }
-
-        public static string WriteBlob(GraphMethod method) {
-            var builder = new StringBuilder();
-            builder.Append(BlobVersion);
-            builder.Append('\n');
-            builder.Append("parent:");
-            builder.Append(string.IsNullOrEmpty(method.ParentId) ? method.ParentHint : method.ParentId);
-            builder.Append('\n');
-            builder.Append("calls:");
-            for (var i = 0; i < method.CallOrdinals.Count; i++) {
-                if (i > 0)
-                    builder.Append(',');
-                builder.Append(method.CallOrdinals[i].ToString(CultureInfo.InvariantCulture));
-            }
-
-            builder.Append('\n');
-            builder.Append("return:");
-            builder.Append(method.ReturnedOrdinal.ToString(CultureInfo.InvariantCulture));
-            builder.Append('\n');
-            method.PadCallLists();
-            builder.Append("calltypes:");
-            for (var i = 0; i < method.Calls.Count; i++) {
-                if (i > 0)
-                    builder.Append('|');
-                builder.Append(Escape(method.CallTypeArguments[i]));
-            }
-
-            builder.Append('\n');
-            builder.Append("callas:");
-            for (var i = 0; i < method.Calls.Count; i++) {
-                if (i > 0)
-                    builder.Append('|');
-                builder.Append(Escape(method.CallAsServices[i]));
-            }
-
-            builder.Append('\n');
-            builder.Append("callholes:");
-            for (var i = 0; i < method.Calls.Count; i++) {
-                if (i > 0)
-                    builder.Append('|');
-                builder.Append(Escape(method.CallHoles[i]));
-            }
-
-            builder.Append('\n');
-            builder.Append("callparams:");
-            for (var i = 0; i < method.Calls.Count; i++) {
-                if (i > 0)
-                    builder.Append('|');
-                builder.Append(Escape(method.CallParameters[i]));
-            }
-
-            builder.Append('\n');
-            for (var i = 0; i < method.Registrations.Count; i++) {
-                var registration = method.Registrations[i];
-                builder.Append(Escape(registration.Kind));
-                builder.Append('|');
-                builder.Append(Escape(registration.Lifetime));
-                builder.Append('|');
-                builder.Append(Escape(registration.Origin));
-                builder.Append('|');
-                builder.Append(registration.Ordinal.ToString(CultureInfo.InvariantCulture));
-                builder.Append('|');
-                builder.Append(registration.ServiceTypes.Count.ToString(CultureInfo.InvariantCulture));
-                builder.Append('|');
-                builder.Append(registration.Arms.Count.ToString(CultureInfo.InvariantCulture));
-                builder.Append('|');
-                builder.Append(Escape(registration.Hole));
-                builder.Append('|');
-                builder.Append(Escape(registration.Source));
-                builder.Append('|');
-                builder.Append(Escape(registration.File));
-                builder.Append('|');
-                builder.Append(registration.Line.ToString(CultureInfo.InvariantCulture));
-                builder.Append('|');
-                builder.Append(Escape(registration.ImplementationType));
-                builder.Append('|');
-                builder.Append(Escape(registration.TypeMap));
-                builder.Append('|');
-                builder.Append(Escape(string.Join(";", registration.ServiceMaps.ToArray())));
-                builder.Append('|');
-                builder.Append(Escape(registration.BranchPath));
-                builder.Append('|');
-                builder.Append(Escape(string.Join(";", registration.ParameterTypes.ToArray())));
-                builder.Append('\n');
-                for (var a = 0; a < registration.Arms.Count; a++) {
-                    var arm = registration.Arms[a];
-                    builder.Append(Escape(arm.Discriminant));
-                    builder.Append('|');
-                    builder.Append(Escape(arm.ImplementationType));
-                    builder.Append('|');
-                    builder.Append(Escape(arm.ParameterExpression));
-                    builder.Append('|');
-                    builder.Append(Escape(arm.ParameterType));
-                    builder.Append('\n');
-                }
-            }
-
-            return builder.ToString();
-        }
-
-        public static string Escape(string value) {
-            if (string.IsNullOrEmpty(value))
-                return "";
-            return value.Replace("\\", "\\\\").Replace("|", "\\|").Replace("\r", "").Replace("\n", "\\n");
-        }
-
-        public static string Unescape(string value) {
-            if (string.IsNullOrEmpty(value))
-                return "";
-
-            var builder = new StringBuilder();
-            for (var i = 0; i < value.Length; i++) {
-                if (value[i] == '\\' && i + 1 < value.Length) {
-                    var next = value[i + 1];
-                    if (next == '\\' || next == '|') {
-                        builder.Append(next);
-                        i++;
-                        continue;
-                    }
-
-                    if (next == 'n') {
-                        builder.Append('\n');
-                        i++;
-                        continue;
-                    }
-                }
-
-                builder.Append(value[i]);
-            }
-
-            return builder.ToString();
-        }
-
-        public static string[] SplitFields(string line) {
-            var fields = new List<string>();
-            var current = new StringBuilder();
-            for (var i = 0; i < line.Length; i++) {
-                if (line[i] == '\\' && i + 1 < line.Length) {
-                    current.Append('\\');
-                    current.Append(line[i + 1]);
-                    i++;
-                    continue;
-                }
-
-                if (line[i] == '|') {
-                    fields.Add(current.ToString());
-                    current.Clear();
-                    continue;
-                }
-
-                current.Append(line[i]);
-            }
-
-            fields.Add(current.ToString());
-            return fields.ToArray();
-        }
-
-        private static string Literal(string value) {
-            if (value == null)
-                value = "";
-            return "@\"" + value.Replace("\"", "\"\"") + "\"";
         }
     }
 }

@@ -163,7 +163,7 @@ namespace ContainerGenerator {
 
             var parts = new string[method.TypeArguments.Length];
             for (var i = 0; i < method.TypeArguments.Length; i++)
-                parts[i] = GraphEmitter.Escape(TypeNames.ForCode(method.TypeArguments[i]));
+                parts[i] = ManifestBlobFormat.Escape(TypeNames.ForCode(method.TypeArguments[i]));
             return string.Join(";", parts);
         }
 
@@ -174,7 +174,7 @@ namespace ContainerGenerator {
 
             var parts = encoded.Split(';');
             for (var i = 0; i < parts.Length; i++) {
-                var value = GraphEmitter.Unescape(parts[i]);
+                var value = ManifestBlobFormat.Unescape(parts[i]);
                 if (string.IsNullOrEmpty(value) == false)
                     list.Add(value);
             }
