@@ -38,7 +38,7 @@ namespace Internal
             const string listType = "global::System.Collections.Generic.IReadOnlyList<global::Internal.Sound>";
 
             // Variations are exposed only as a list; individual clips from them are not exposed.
-            var singles = group.Properties.FindAll(property => property.Variation == null);
+            var singles = group.Properties.Where(property => property.Variation == null).ToList();
 
             DeclareMembers(group, singles);
 

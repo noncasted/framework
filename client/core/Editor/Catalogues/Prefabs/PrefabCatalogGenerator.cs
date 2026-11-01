@@ -133,14 +133,12 @@ namespace Internal
                     continue;
                 }
 
-                sources.Add(new PrefabSource
-                {
-                    Path = path,
-                    Group = groupName,
-                    PropertyName = propertyName,
-                    Prefab = prefab,
-                    ComponentType = ResolveComponentType(path, prefab, metadata)
-                });
+                sources.Add(new PrefabSource(
+                    path,
+                    groupName,
+                    propertyName,
+                    prefab,
+                    ResolveComponentType(path, prefab, metadata)));
             }
 
             return sources;
@@ -226,8 +224,7 @@ namespace Internal
                     continue;
 
                 var metadata = PrefabCatalogMetadata.ReadOrDefault(importer);
-                metadata.ComponentType = fix.ComponentType;
-                metadata.ComponentGuid = fix.ComponentGuid;
+                metadata.SetRoot(fix.ComponentType, fix.ComponentGuid);
                 PrefabCatalogMetadata.Write(importer, metadata);
             }
 
@@ -252,14 +249,11 @@ namespace Internal
             {
                 if (groups.TryGetValue(source.Group, out var group) == false)
                 {
-                    group = new PrefabGroupDefinition
-                    {
-                        Name = source.Group,
-                        ClassName = source.Group + "Prefabs",
-                        IsAddressable = PrefabGroupsRegistry.Instance.IsAddressable(source.Group),
-                        ResourcePath = $"{ResourcesSubfolder}/{source.Group}",
-                        Properties = new List<PrefabPropertyDefinition>()
-                    };
+                    group = new PrefabGroupDefinition(
+                        source.Group,
+                        source.Group + "Prefabs",
+                        PrefabGroupsRegistry.Instance.IsAddressable(source.Group),
+                        $"{ResourcesSubfolder}/{source.Group}");
                     groups.Add(source.Group, group);
                     usedNames.Add(source.Group, new HashSet<string>(StringComparer.Ordinal));
                 }
@@ -270,14 +264,12 @@ namespace Internal
                         $"[PrefabCatalogGenerator] Duplicate identifier '{source.PropertyName}' in group " +
                         $"'{source.Group}': {source.Path}. Rename one of the prefabs or move it to another group.");
 
-                group.Properties.Add(new PrefabPropertyDefinition
-                {
-                    PropertyName = source.PropertyName,
-                    FieldName = ToFieldName(source.PropertyName),
-                    Prefab = source.Prefab,
-                    ComponentType = source.ComponentType,
-                    ComponentDisplayName = ToComponentDisplayName(source.ComponentType)
-                });
+                group.AddProperty(new PrefabPropertyDefinition(
+                    source.PropertyName,
+                    ToFieldName(source.PropertyName),
+                    source.Prefab,
+                    source.ComponentType,
+                    ToComponentDisplayName(source.ComponentType)));
             }
 
             var result = new List<PrefabGroupDefinition>();
@@ -287,8 +279,7 @@ namespace Internal
                 if (group.Properties.Count == 0)
                     continue;
 
-                group.Properties.Sort((left, right) => string.Compare(left.PropertyName, right.PropertyName,
-                    StringComparison.Ordinal));
+                group.SortProperties();
                 result.Add(group);
             }
 
@@ -316,13 +307,13 @@ namespace Internal
                     Debug.LogError(
                             $"[PrefabCatalogGenerator] Group '{group.Name}' mixes root types from {string.Join(", ", assemblies)}. One group must stay in one assembly."
                         );
-                    group.SkipCodegen = true;
+                    group.DisableCodegen();
                     continue;
                 }
 
-                group.GeneratedFolder = assemblies.Count == 1
+                group.SetGeneratedFolder(assemblies.Count == 1
                     ? PrefabsCatalogClassGenerator.GetAssemblyGeneratedFolder(assemblies.Min)
-                    : PrefabsCatalogClassGenerator.InternalGeneratedFolder;
+                    : PrefabsCatalogClassGenerator.InternalGeneratedFolder);
             }
         }
 
@@ -330,18 +321,12 @@ namespace Internal
         {
             if (string.IsNullOrEmpty(property.ComponentType))
             {
-                property.IsGameObject = true;
-                property.TypeFullName = "UnityEngine.GameObject";
-                property.TypeAssembly = "UnityEngine";
-                property.CodeTypeName = "global::UnityEngine.GameObject";
+                property.SetGameObjectType();
                 return;
             }
 
             CatalogAssemblies.ParseTypeName(property.ComponentType, out var fullName, out var assemblyName);
-            property.IsGameObject = false;
-            property.TypeFullName = fullName.Replace('+', '.');
-            property.TypeAssembly = assemblyName;
-            property.CodeTypeName = "global::" + property.TypeFullName;
+            property.SetComponentType(fullName.Replace('+', '.'), assemblyName);
         }
 
         private static void WriteGroupAssets(IReadOnlyList<PrefabGroupDefinition> groups)
@@ -390,7 +375,7 @@ namespace Internal
                 EditorUtility.SetDirty(asset);
             }
 
-            group.Address = AssetDatabase.AssetPathToGUID(path);
+            group.SetAddress(AssetDatabase.AssetPathToGUID(path));
         }
 
         private static bool EntriesMatch(PrefabGroupAsset asset, IReadOnlyList<PrefabPropertyDefinition> properties)
@@ -468,36 +453,111 @@ namespace Internal
 
         internal sealed class PrefabSource
         {
-            public string Path;
-            public string Group;
-            public string PropertyName;
-            public GameObject Prefab;
-            public string ComponentType;
+            public PrefabSource(string path, string group, string propertyName, GameObject prefab, string componentType)
+            {
+                Path = path;
+                Group = group;
+                PropertyName = propertyName;
+                Prefab = prefab;
+                ComponentType = componentType;
+            }
+
+            public string Path { get; }
+            public string Group { get; }
+            public string PropertyName { get; }
+            public GameObject Prefab { get; }
+            public string ComponentType { get; }
         }
     }
 
     internal sealed class PrefabGroupDefinition : ICatalogGroupDefinition
     {
-        public string Name { get; set; }
-        public string Address { get; set; }
-        public string ClassName;
-        public string GeneratedFolder;
-        public bool SkipCodegen;
-        public bool IsAddressable = true;
-        public string ResourcePath;
-        public List<PrefabPropertyDefinition> Properties = new();
+        private readonly List<PrefabPropertyDefinition> _properties = new();
+
+        public PrefabGroupDefinition(string name, string className, bool isAddressable, string resourcePath)
+        {
+            Name = name;
+            ClassName = className;
+            IsAddressable = isAddressable;
+            ResourcePath = resourcePath;
+        }
+
+        public string Name { get; }
+        public string Address { get; private set; }
+        public string ClassName { get; }
+        public string GeneratedFolder { get; private set; }
+        public bool SkipCodegen { get; private set; }
+        public bool IsAddressable { get; }
+        public string ResourcePath { get; }
+        public IReadOnlyList<PrefabPropertyDefinition> Properties => _properties;
+
+        public void SetAddress(string address)
+        {
+            Address = address;
+        }
+
+        public void SetGeneratedFolder(string generatedFolder)
+        {
+            GeneratedFolder = generatedFolder;
+        }
+
+        public void DisableCodegen()
+        {
+            SkipCodegen = true;
+        }
+
+        public void AddProperty(PrefabPropertyDefinition property)
+        {
+            _properties.Add(property);
+        }
+
+        public void SortProperties()
+        {
+            _properties.Sort((left, right) =>
+                string.Compare(left.PropertyName, right.PropertyName, StringComparison.Ordinal));
+        }
     }
 
     internal sealed class PrefabPropertyDefinition
     {
-        public string PropertyName;
-        public string FieldName;
-        public GameObject Prefab;
-        public string ComponentType;
-        public string ComponentDisplayName;
-        public bool IsGameObject;
-        public string TypeFullName;
-        public string TypeAssembly;
-        public string CodeTypeName;
+        public PrefabPropertyDefinition(
+            string propertyName,
+            string fieldName,
+            GameObject prefab,
+            string componentType,
+            string componentDisplayName)
+        {
+            PropertyName = propertyName;
+            FieldName = fieldName;
+            Prefab = prefab;
+            ComponentType = componentType;
+            ComponentDisplayName = componentDisplayName;
+        }
+
+        public string PropertyName { get; }
+        public string FieldName { get; }
+        public GameObject Prefab { get; }
+        public string ComponentType { get; }
+        public string ComponentDisplayName { get; }
+        public bool IsGameObject { get; private set; }
+        public string TypeFullName { get; private set; }
+        public string TypeAssembly { get; private set; }
+        public string CodeTypeName { get; private set; }
+
+        public void SetGameObjectType()
+        {
+            IsGameObject = true;
+            TypeFullName = "UnityEngine.GameObject";
+            TypeAssembly = "UnityEngine";
+            CodeTypeName = "global::UnityEngine.GameObject";
+        }
+
+        public void SetComponentType(string typeFullName, string typeAssembly)
+        {
+            IsGameObject = false;
+            TypeFullName = typeFullName;
+            TypeAssembly = typeAssembly;
+            CodeTypeName = "global::" + typeFullName;
+        }
     }
 }

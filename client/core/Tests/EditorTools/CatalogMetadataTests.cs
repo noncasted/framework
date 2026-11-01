@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -67,7 +69,7 @@ namespace Internal.EditorTests
         {
             var path = MakePrefab("Excluded");
             PrefabCatalogMetadata.Write(AssetImporter.GetAtPath(path),
-                new PrefabCatalogMetadata { Included = false, Group = "CatalogMetadataTests" });
+                new PrefabCatalogMetadata(false, "CatalogMetadataTests"));
 
             Unschedule(typeof(PrefabCatalogGenerator));
             Reimport(typeof(PrefabCatalogPostprocessor), path);
@@ -80,12 +82,157 @@ namespace Internal.EditorTests
         {
             var path = MakeWav("Excluded");
             AudioCatalogMetadata.Write(AssetImporter.GetAtPath(path),
-                new AudioCatalogMetadata { Included = false, Group = "CatalogMetadataTests" });
+                new AudioCatalogMetadata(false, "CatalogMetadataTests"));
 
             Unschedule(typeof(AudioCatalogGenerator));
             Reimport(typeof(AudioCatalogPostprocessor), path);
 
             Assert.That(IsScheduled(typeof(AudioCatalogGenerator)), Is.True);
+        }
+
+        // The userData in the .meta of the games: what the catalogues read today must keep its values and be written
+        // back byte for byte, next to the keys of other tools.
+        [Test]
+        public void SpriteUserData_ReadAndWrittenUnchanged()
+        {
+            var importer = ImporterWith(@"{
+                ""otherTool"": { ""value"": 1 },
+                ""spriteCatalog"": {
+                    ""included"": true,
+                    ""group"": ""Game.Players"",
+                    ""kind"": ""MultipleAnimations"",
+                    ""time"": 0.5,
+                    ""color"": { ""r"": 0.25, ""g"": 0.5, ""b"": 0.75, ""a"": 1.0 },
+                    ""fps"": 24.0,
+                    ""animations"": [ { ""tag"": ""Idle"", ""layers"": [ ""Body"", ""Face"" ] } ],
+                    ""customAnimations"": [ { ""name"": ""IdleFace"", ""source"": ""Idle"", ""layers"": [ ""Face"" ] } ],
+                    ""tagSpeeds"": [ { ""tag"": ""Idle"", ""fps"": 6.0 } ]
+                }
+            }");
+            var expected = importer.userData;
+
+            Assert.That(SpriteCatalogMetadata.TryRead(importer, out var metadata), Is.True);
+            Assert.That(metadata.Included, Is.True);
+            Assert.That(metadata.Group, Is.EqualTo("Game.Players"));
+            Assert.That(metadata.Kind, Is.EqualTo(SpriteCatalogKind.MultipleAnimations));
+            Assert.That(metadata.Time, Is.EqualTo(0.5f));
+            Assert.That(metadata.Color, Is.EqualTo(new Color(0.25f, 0.5f, 0.75f, 1f)));
+            Assert.That(metadata.FramesPerSecond, Is.EqualTo(24f));
+            Assert.That(metadata.FindAnimation("Idle").Layers, Is.EqualTo(new[] { "Body", "Face" }));
+            Assert.That(metadata.CustomAnimations[0].Name, Is.EqualTo("IdleFace"));
+            Assert.That(metadata.CustomAnimations[0].Source, Is.EqualTo("Idle"));
+            Assert.That(metadata.CustomAnimations[0].Layers, Is.EqualTo(new[] { "Face" }));
+            Assert.That(metadata.GetFramesPerSecond("Idle"), Is.EqualTo(6f));
+            Assert.That(metadata.GetFramesPerSecond("Run"), Is.EqualTo(24f));
+
+            SpriteCatalogMetadata.Stage(importer, metadata);
+
+            Assert.That(importer.userData, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void AudioUserData_ReadAndWrittenUnchanged()
+        {
+            var importer = ImporterWith(@"{
+                ""audioCatalog"": { ""included"": true, ""group"": ""UI"", ""volume"": 0.5 }
+            }");
+            var expected = importer.userData;
+
+            Assert.That(AudioCatalogMetadata.TryRead(importer, out var metadata), Is.True);
+            Assert.That(metadata.Included, Is.True);
+            Assert.That(metadata.Group, Is.EqualTo("UI"));
+            Assert.That(metadata.Volume, Is.EqualTo(0.5f));
+
+            AudioCatalogMetadata.Write(importer, metadata);
+
+            Assert.That(importer.userData, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void PrefabUserData_ReadAndWrittenUnchanged()
+        {
+            var importer = ImporterWith(@"{
+                ""prefabCatalog"": {
+                    ""included"": true,
+                    ""group"": ""UI"",
+                    ""componentType"": ""Game.HeroView, Game"",
+                    ""componentGuid"": ""0123456789abcdef0123456789abcdef""
+                }
+            }");
+            var expected = importer.userData;
+
+            Assert.That(PrefabCatalogMetadata.TryRead(importer, out var metadata), Is.True);
+            Assert.That(metadata.Included, Is.True);
+            Assert.That(metadata.Group, Is.EqualTo("UI"));
+            Assert.That(metadata.ComponentType, Is.EqualTo("Game.HeroView, Game"));
+            Assert.That(metadata.ComponentGuid, Is.EqualTo("0123456789abcdef0123456789abcdef"));
+
+            PrefabCatalogMetadata.Write(importer, metadata);
+
+            Assert.That(importer.userData, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void AssetUserData_ReadAndWrittenUnchanged()
+        {
+            var importer = ImporterWith(@"{
+                ""assetCatalog"": { ""included"": true, ""group"": ""Configs"" }
+            }");
+            var expected = importer.userData;
+
+            Assert.That(AssetCatalogMetadata.TryRead(importer, out var metadata), Is.True);
+            Assert.That(metadata.Included, Is.True);
+            Assert.That(metadata.Group, Is.EqualTo("Configs"));
+
+            AssetCatalogMetadata.Write(importer, metadata);
+
+            Assert.That(importer.userData, Is.EqualTo(expected));
+        }
+
+        // What the Multiple Animations block of the inspector does to a file, as it reaches the .meta.
+        [Test]
+        public void SpriteEdits_WriteTheSameUserData()
+        {
+            var importer = ImporterWith("{}");
+            var metadata = new SpriteCatalogMetadata();
+            metadata.SetIncluded(true);
+            metadata.SetGroup("Game.Players");
+            metadata.SetKind(SpriteCatalogKind.MultipleAnimations);
+            metadata.SetFramesPerSecond(24f);
+            metadata.AddAnimation(new SpriteCatalogAnimation("Idle", new List<string> { "A", "B" }));
+            metadata.FindAnimation("Idle").SetLayer("A", true);
+            metadata.FindAnimation("Idle").SetLayer("B", false);
+            metadata.AddCustomAnimation(new SpriteCatalogCustomAnimation("X", "Idle", new List<string> { "A" }));
+            metadata.AddCustomAnimation(new SpriteCatalogCustomAnimation("Y", "Idle", new List<string> { "B" }));
+            metadata.CustomAnimations[0].Rename("Z");
+            metadata.CustomAnimations[0].SetSource("Run");
+            metadata.CustomAnimations[0].SetLayer("C", true);
+            metadata.RemoveCustomAnimationAt(1);
+            metadata.SetFramesPerSecond("Idle", 6f);
+            metadata.SetFramesPerSecond("Run", 24f);
+
+            SpriteCatalogMetadata.Stage(importer, metadata);
+
+            Assert.That(importer.userData, Is.EqualTo(JObject.Parse(@"{
+                ""spriteCatalog"": {
+                    ""included"": true,
+                    ""group"": ""Game.Players"",
+                    ""kind"": ""MultipleAnimations"",
+                    ""time"": 0.8,
+                    ""color"": { ""r"": 1.0, ""g"": 1.0, ""b"": 1.0, ""a"": 1.0 },
+                    ""fps"": 24.0,
+                    ""animations"": [ { ""tag"": ""Idle"", ""layers"": [ ""A"" ] } ],
+                    ""customAnimations"": [ { ""name"": ""Z"", ""source"": ""Run"", ""layers"": [ ""A"", ""C"" ] } ],
+                    ""tagSpeeds"": [ { ""tag"": ""Idle"", ""fps"": 6.0 } ]
+                }
+            }").ToString(Formatting.Indented)));
+        }
+
+        private static AssetImporter ImporterWith(string userData)
+        {
+            var importer = AssetImporter.GetAtPath(MakePrefab("UserData"));
+            importer.userData = JObject.Parse(userData).ToString(Formatting.Indented);
+            return importer;
         }
 
         private static void Reimport(Type postprocessor, string path)

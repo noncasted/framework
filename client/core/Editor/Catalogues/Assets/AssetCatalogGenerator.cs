@@ -127,13 +127,7 @@ namespace Internal
                     continue;
                 }
 
-                sources.Add(new AssetSource
-                {
-                    Path = path,
-                    Group = groupName,
-                    PropertyName = propertyName,
-                    Asset = asset
-                });
+                sources.Add(new AssetSource(path, groupName, propertyName, asset));
             }
 
             return sources;
@@ -150,13 +144,11 @@ namespace Internal
             {
                 if (groups.TryGetValue(source.Group, out var group) == false)
                 {
-                    group = new AssetGroupDefinition
-                    {
-                        Name = source.Group,
-                        ClassName = source.Group + "Assets",
-                        IsAddressable = AssetGroupsRegistry.Instance.IsAddressable(source.Group),
-                        ResourcePath = $"{ResourcesSubfolder}/{source.Group}"
-                    };
+                    group = new AssetGroupDefinition(
+                        source.Group,
+                        source.Group + "Assets",
+                        AssetGroupsRegistry.Instance.IsAddressable(source.Group),
+                        $"{ResourcesSubfolder}/{source.Group}");
                     groups.Add(source.Group, group);
                     usedNames.Add(source.Group, new HashSet<string>(StringComparer.Ordinal));
                 }
@@ -170,14 +162,12 @@ namespace Internal
                 var type = source.Asset.GetType();
                 var script = ScriptTypeNames.ScriptOf(source.Asset);
 
-                group.Properties.Add(new AssetPropertyDefinition
-                {
-                    PropertyName = source.PropertyName,
-                    FieldName = "_" + char.ToLowerInvariant(source.PropertyName[0]) + source.PropertyName.Substring(1),
-                    Asset = source.Asset,
-                    TypeFullName = ScriptTypeNames.FullName(type, script).Replace('+', '.'),
-                    TypeAssembly = ScriptTypeNames.AssemblyName(type, script)
-                });
+                group.AddProperty(new AssetPropertyDefinition(
+                    source.PropertyName,
+                    "_" + char.ToLowerInvariant(source.PropertyName[0]) + source.PropertyName.Substring(1),
+                    source.Asset,
+                    ScriptTypeNames.FullName(type, script).Replace('+', '.'),
+                    ScriptTypeNames.AssemblyName(type, script)));
             }
 
             var result = new List<AssetGroupDefinition>();
@@ -187,8 +177,7 @@ namespace Internal
                 if (group.Properties.Count == 0)
                     continue;
 
-                group.Properties.Sort((left, right) => string.Compare(left.PropertyName, right.PropertyName,
-                    StringComparison.Ordinal));
+                group.SortProperties();
                 result.Add(group);
             }
 
@@ -215,19 +204,19 @@ namespace Internal
                 {
                     Debug.LogError(
                         $"[{LogTag}] Group '{group.Name}' mixes asset types from {string.Join(", ", assemblies)}. One group must stay in one assembly.");
-                    group.SkipCodegen = true;
+                    group.DisableCodegen();
                     continue;
                 }
 
                 if (assemblies.Count == 1)
                 {
-                    group.TargetNamespace = CatalogAssemblies.ToNamespace(LogTag, assemblies.Min);
-                    group.GeneratedFolder = AssetsCatalogClassGenerator.GetAssemblyGeneratedFolder(assemblies.Min);
+                    group.SetGeneratedTarget(
+                        CatalogAssemblies.ToNamespace(LogTag, assemblies.Min),
+                        AssetsCatalogClassGenerator.GetAssemblyGeneratedFolder(assemblies.Min));
                     continue;
                 }
 
-                group.TargetNamespace = "Internal";
-                group.GeneratedFolder = AssetsCatalogClassGenerator.InternalGeneratedFolder;
+                group.SetGeneratedTarget("Internal", AssetsCatalogClassGenerator.InternalGeneratedFolder);
             }
         }
 
@@ -289,7 +278,7 @@ namespace Internal
                 EditorUtility.SetDirty(asset);
             }
 
-            group.Address = AssetDatabase.AssetPathToGUID(path);
+            group.SetAddress(AssetDatabase.AssetPathToGUID(path));
         }
 
         private static bool EntriesMatch(SerializedProperty entries, IReadOnlyList<AssetPropertyDefinition> properties)
@@ -313,32 +302,91 @@ namespace Internal
 
         internal sealed class AssetSource
         {
-            public string Path;
-            public string Group;
-            public string PropertyName;
-            public EnvAsset Asset;
+            public AssetSource(string path, string group, string propertyName, EnvAsset asset)
+            {
+                Path = path;
+                Group = group;
+                PropertyName = propertyName;
+                Asset = asset;
+            }
+
+            public string Path { get; }
+            public string Group { get; }
+            public string PropertyName { get; }
+            public EnvAsset Asset { get; }
         }
     }
 
     internal sealed class AssetGroupDefinition : ICatalogGroupDefinition
     {
-        public string Name { get; set; }
-        public string Address { get; set; }
-        public string ClassName;
-        public string TargetNamespace;
-        public string GeneratedFolder;
-        public bool SkipCodegen;
-        public bool IsAddressable = true;
-        public string ResourcePath;
-        public List<AssetPropertyDefinition> Properties = new();
+        private readonly List<AssetPropertyDefinition> _properties = new();
+
+        public AssetGroupDefinition(string name, string className, bool isAddressable, string resourcePath)
+        {
+            Name = name;
+            ClassName = className;
+            IsAddressable = isAddressable;
+            ResourcePath = resourcePath;
+        }
+
+        public string Name { get; }
+        public string Address { get; private set; }
+        public string ClassName { get; }
+        public string TargetNamespace { get; private set; }
+        public string GeneratedFolder { get; private set; }
+        public bool SkipCodegen { get; private set; }
+        public bool IsAddressable { get; }
+        public string ResourcePath { get; }
+        public IReadOnlyList<AssetPropertyDefinition> Properties => _properties;
+
+        public void SetAddress(string address)
+        {
+            Address = address;
+        }
+
+        public void SetGeneratedTarget(string targetNamespace, string generatedFolder)
+        {
+            TargetNamespace = targetNamespace;
+            GeneratedFolder = generatedFolder;
+        }
+
+        public void DisableCodegen()
+        {
+            SkipCodegen = true;
+        }
+
+        public void AddProperty(AssetPropertyDefinition property)
+        {
+            _properties.Add(property);
+        }
+
+        public void SortProperties()
+        {
+            _properties.Sort((left, right) =>
+                string.Compare(left.PropertyName, right.PropertyName, StringComparison.Ordinal));
+        }
     }
 
     internal sealed class AssetPropertyDefinition
     {
-        public string PropertyName;
-        public string FieldName;
-        public EnvAsset Asset;
-        public string TypeFullName;
-        public string TypeAssembly;
+        public AssetPropertyDefinition(
+            string propertyName,
+            string fieldName,
+            EnvAsset asset,
+            string typeFullName,
+            string typeAssembly)
+        {
+            PropertyName = propertyName;
+            FieldName = fieldName;
+            Asset = asset;
+            TypeFullName = typeFullName;
+            TypeAssembly = typeAssembly;
+        }
+
+        public string PropertyName { get; }
+        public string FieldName { get; }
+        public EnvAsset Asset { get; }
+        public string TypeFullName { get; }
+        public string TypeAssembly { get; }
     }
 }

@@ -206,16 +206,14 @@ namespace Internal
                     continue;
                 }
 
-                sources.Add(new ClipSource
-                {
-                    Path = path,
-                    Group = groupName,
-                    PropertyName = propertyName,
-                    Variation = ParseVariation(fileName),
-                    Clip = clip,
-                    Encoded = encoded,
-                    Volume = Mathf.Clamp01(metadata.Volume)
-                });
+                sources.Add(new ClipSource(
+                    path,
+                    groupName,
+                    propertyName,
+                    ParseVariation(fileName),
+                    clip,
+                    encoded,
+                    Mathf.Clamp01(metadata.Volume)));
             }
 
             return sources;
@@ -247,11 +245,7 @@ namespace Internal
             {
                 if (groups.TryGetValue(source.Group, out var group) == false)
                 {
-                    group = new AudioGroupDefinition
-                    {
-                        Name = source.Group,
-                        ClassName = source.Group + "Audio"
-                    };
+                    group = new AudioGroupDefinition(source.Group, source.Group + "Audio");
                     groups.Add(source.Group, group);
                     usedNames.Add(source.Group, new HashSet<string>(StringComparer.Ordinal));
                 }
@@ -262,23 +256,20 @@ namespace Internal
                         $"[{LogTag}] Duplicate identifier '{source.PropertyName}' in group '{source.Group}': " +
                         $"{source.Path}. Rename one of the clips or move it to another group.");
 
-                group.Properties.Add(new AudioPropertyDefinition
-                {
-                    PropertyName = source.PropertyName,
-                    FieldName = ToFieldName(source.PropertyName),
-                    Clip = source.Clip,
-                    Encoded = source.Encoded,
-                    Volume = source.Volume,
-                    Variation = source.Variation
-                });
+                group.AddProperty(new AudioPropertyDefinition(
+                    source.PropertyName,
+                    ToFieldName(source.PropertyName),
+                    source.Variation,
+                    source.Clip,
+                    source.Encoded,
+                    source.Volume));
             }
 
             var result = new List<AudioGroupDefinition>(groups.Values);
 
             foreach (var group in result)
             {
-                group.Properties.Sort((left, right) => string.Compare(left.PropertyName, right.PropertyName,
-                    StringComparison.Ordinal));
+                group.SortProperties();
                 BuildVariations(group, usedNames[group.Name]);
             }
 
@@ -307,23 +298,18 @@ namespace Internal
                         continue;
                     }
 
-                    variation = new AudioVariationDefinition
-                    {
-                        PropertyName = key.Name,
-                        FieldName = ToFieldName(key.Name)
-                    };
+                    variation = new AudioVariationDefinition(key.Name, ToFieldName(key.Name));
                     variations.Add(key.Name, variation);
-                    group.Variations.Add(variation);
+                    group.AddVariation(variation);
                 }
 
-                variation?.Entries.Add(property);
+                variation?.AddEntry(property);
             }
 
             foreach (var variation in group.Variations)
-                variation.Entries.Sort((left, right) => left.Variation.Index.CompareTo(right.Variation.Index));
+                variation.SortEntries();
 
-            group.Variations.Sort((left, right) => string.Compare(left.PropertyName, right.PropertyName,
-                StringComparison.Ordinal));
+            group.SortVariations();
         }
 
         private static string ToFieldName(string propertyName)
@@ -363,7 +349,7 @@ namespace Internal
                 EditorUtility.SetDirty(asset);
             }
 
-            group.Address = AssetDatabase.AssetPathToGUID(path);
+            group.SetAddress(AssetDatabase.AssetPathToGUID(path));
         }
 
         private static bool EntriesMatch(AudioGroupAsset asset, IReadOnlyList<AudioPropertyDefinition> properties)
@@ -432,13 +418,31 @@ namespace Internal
 
         internal sealed class ClipSource
         {
-            public string Path;
-            public string Group;
-            public string PropertyName;
-            public VariationKey Variation;
-            public AudioClip Clip;
-            public TextAsset Encoded;
-            public float Volume;
+            public ClipSource(
+                string path,
+                string group,
+                string propertyName,
+                VariationKey variation,
+                AudioClip clip,
+                TextAsset encoded,
+                float volume)
+            {
+                Path = path;
+                Group = group;
+                PropertyName = propertyName;
+                Variation = variation;
+                Clip = clip;
+                Encoded = encoded;
+                Volume = volume;
+            }
+
+            public string Path { get; }
+            public string Group { get; }
+            public string PropertyName { get; }
+            public VariationKey Variation { get; }
+            public AudioClip Clip { get; }
+            public TextAsset Encoded { get; }
+            public float Volume { get; }
         }
     }
 
@@ -456,27 +460,97 @@ namespace Internal
 
     internal sealed class AudioGroupDefinition : ICatalogGroupDefinition
     {
-        public string Name { get; set; }
-        public string Address { get; set; }
-        public string ClassName;
-        public List<AudioPropertyDefinition> Properties = new();
-        public List<AudioVariationDefinition> Variations = new();
+        private readonly List<AudioPropertyDefinition> _properties = new();
+        private readonly List<AudioVariationDefinition> _variations = new();
+
+        public AudioGroupDefinition(string name, string className)
+        {
+            Name = name;
+            ClassName = className;
+        }
+
+        public string Name { get; }
+        public string Address { get; private set; }
+        public string ClassName { get; }
+        public IReadOnlyList<AudioPropertyDefinition> Properties => _properties;
+        public IReadOnlyList<AudioVariationDefinition> Variations => _variations;
+
+        public void SetAddress(string address)
+        {
+            Address = address;
+        }
+
+        public void AddProperty(AudioPropertyDefinition property)
+        {
+            _properties.Add(property);
+        }
+
+        public void SortProperties()
+        {
+            _properties.Sort((left, right) =>
+                string.Compare(left.PropertyName, right.PropertyName, StringComparison.Ordinal));
+        }
+
+        public void AddVariation(AudioVariationDefinition variation)
+        {
+            _variations.Add(variation);
+        }
+
+        public void SortVariations()
+        {
+            _variations.Sort((left, right) =>
+                string.Compare(left.PropertyName, right.PropertyName, StringComparison.Ordinal));
+        }
     }
 
     internal sealed class AudioPropertyDefinition
     {
-        public string PropertyName;
-        public string FieldName;
-        public VariationKey Variation;
-        public AudioClip Clip;
-        public TextAsset Encoded;
-        public float Volume;
+        public AudioPropertyDefinition(
+            string propertyName,
+            string fieldName,
+            VariationKey variation,
+            AudioClip clip,
+            TextAsset encoded,
+            float volume)
+        {
+            PropertyName = propertyName;
+            FieldName = fieldName;
+            Variation = variation;
+            Clip = clip;
+            Encoded = encoded;
+            Volume = volume;
+        }
+
+        public string PropertyName { get; }
+        public string FieldName { get; }
+        public VariationKey Variation { get; }
+        public AudioClip Clip { get; }
+        public TextAsset Encoded { get; }
+        public float Volume { get; }
     }
 
     internal sealed class AudioVariationDefinition
     {
-        public string PropertyName;
-        public string FieldName;
-        public List<AudioPropertyDefinition> Entries = new();
+        private readonly List<AudioPropertyDefinition> _entries = new();
+
+        public AudioVariationDefinition(string propertyName, string fieldName)
+        {
+            PropertyName = propertyName;
+            FieldName = fieldName;
+        }
+
+        public string PropertyName { get; }
+        public string FieldName { get; }
+        public IReadOnlyList<AudioPropertyDefinition> Entries => _entries;
+
+        public void AddEntry(AudioPropertyDefinition entry)
+        {
+            _entries.Add(entry);
+        }
+
+        public void SortEntries()
+        {
+            _entries.Sort((left, right) => left.Variation.Index.CompareTo(right.Variation.Index));
+        }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using UnityEditor;
 using UnityEditor.U2D.Aseprite;
@@ -134,7 +135,7 @@ namespace Internal
         }
 
         // Layer order in the frame key is the file order, so identical sets produce one sprite.
-        private static List<string> OrderLayers(AsepriteDocument document, List<string> selected)
+        private static List<string> OrderLayers(AsepriteDocument document, IReadOnlyList<string> selected)
         {
             var ordered = new List<string>();
 

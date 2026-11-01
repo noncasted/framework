@@ -65,8 +65,7 @@ namespace Internal
                 if (TryDrawLayers(document, layers, out var layer, out var enabled))
                 {
                     var tagName = tag.Name;
-                    apply(importers, next => SetLayer(GetOrCreateAnimation(next, document, tagName).Layers,
-                        layer, enabled));
+                    apply(importers, next => GetOrCreateAnimation(next, document, tagName).SetLayer(layer, enabled));
                 }
 
                 GUILayout.FlexibleSpace();
@@ -99,7 +98,7 @@ namespace Internal
             using (new EditorGUI.DisabledScope(document.Tags.Count == 0))
             {
                 if (GUILayout.Button("Add", EditorStyles.miniButton, GUILayout.Width(50f)))
-                    apply(importers, next => next.CustomAnimations.Add(CreateCustom(next, document)));
+                    apply(importers, next => next.AddCustomAnimation(CreateCustom(next, document)));
             }
 
             EditorGUILayout.EndHorizontal();
@@ -122,7 +121,7 @@ namespace Internal
                     var name = EditorGUILayout.DelayedTextField(custom.Name, GUILayout.Width(NameWidth));
 
                     if (EditorGUI.EndChangeCheck())
-                        apply(importers, next => next.CustomAnimations[index].Name = name.Trim());
+                        apply(importers, next => next.CustomAnimations[index].Rename(name.Trim()));
 
                     var sourceIndex = tagNames.IndexOf(custom.Source);
 
@@ -141,11 +140,11 @@ namespace Internal
                     if (EditorGUI.EndChangeCheck() && nextSourceIndex < tagNames.Count)
                     {
                         var source = tagNames[nextSourceIndex];
-                        apply(importers, next => next.CustomAnimations[index].Source = source);
+                        apply(importers, next => next.CustomAnimations[index].SetSource(source));
                     }
 
                     if (GUILayout.Button("-", EditorStyles.miniButton, GUILayout.Width(RemoveButtonWidth)))
-                        apply(importers, next => next.CustomAnimations.RemoveAt(index));
+                        apply(importers, next => next.RemoveCustomAnimationAt(index));
 
                     EditorGUILayout.EndHorizontal();
 
@@ -153,7 +152,7 @@ namespace Internal
                     GUILayout.Space(NameWidth + 4f);
 
                     if (TryDrawLayers(document, custom.Layers, out var layer, out var enabled))
-                        apply(importers, next => SetLayer(next.CustomAnimations[index].Layers, layer, enabled));
+                        apply(importers, next => next.CustomAnimations[index].SetLayer(layer, enabled));
 
                     GUILayout.FlexibleSpace();
                     EditorGUILayout.EndHorizontal();
@@ -200,8 +199,8 @@ namespace Internal
             if (animation != null)
                 return animation;
 
-            animation = new SpriteCatalogAnimation { Tag = tag, Layers = document.GetVisibleLayerNames() };
-            metadata.Animations.Add(animation);
+            animation = new SpriteCatalogAnimation(tag, document.GetVisibleLayerNames());
+            metadata.AddAnimation(animation);
             return animation;
         }
 
@@ -216,12 +215,7 @@ namespace Internal
             for (var suffix = 2; HasCustom(metadata, candidate); suffix++)
                 candidate = name + suffix;
 
-            return new SpriteCatalogCustomAnimation
-            {
-                Name = candidate,
-                Source = source,
-                Layers = document.GetVisibleLayerNames()
-            };
+            return new SpriteCatalogCustomAnimation(candidate, source, document.GetVisibleLayerNames());
         }
 
         private static bool HasCustom(SpriteCatalogMetadata metadata, string name)
@@ -233,14 +227,6 @@ namespace Internal
             }
 
             return false;
-        }
-
-        private static void SetLayer(List<string> layers, string layer, bool enabled)
-        {
-            layers.Remove(layer);
-
-            if (enabled)
-                layers.Add(layer);
         }
 
         private static bool Contains(IReadOnlyCollection<string> names, string name)

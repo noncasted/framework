@@ -32,8 +32,8 @@ namespace Internal.EditorTests
         {
             var sources = new List<PrefabCatalogGenerator.PrefabSource>
             {
-                new() { Path = "Assets/Menu/Shop.prefab", Group = Group, PropertyName = "Shop", ComponentType = "" },
-                new() { Path = "Assets/GamePlay/Shop.prefab", Group = Group, PropertyName = "Shop", ComponentType = "" }
+                new("Assets/Menu/Shop.prefab", Group, "Shop", null, ""),
+                new("Assets/GamePlay/Shop.prefab", Group, "Shop", null, "")
             };
 
             Assert.Throws<InvalidOperationException>(() => PrefabCatalogGenerator.BuildGroups(sources));
@@ -46,12 +46,8 @@ namespace Internal.EditorTests
             var prefab = new GameObject("Hero");
             _created.Add(prefab);
 
-            var metadata = new PrefabCatalogMetadata
-            {
-                Included = true,
-                Group = Group,
-                ComponentType = "Game.HeroView, Game"
-            };
+            var metadata = new PrefabCatalogMetadata(true, Group);
+            metadata.SetRoot("Game.HeroView, Game", string.Empty);
 
             Assert.Throws<InvalidOperationException>(() =>
                 PrefabCatalogGenerator.ResolveComponentType("Assets/Hero.prefab", prefab, metadata));
@@ -62,8 +58,8 @@ namespace Internal.EditorTests
         {
             var sources = new List<AssetCatalogGenerator.AssetSource>
             {
-                new() { Path = "Assets/A/Config.asset", Group = Group, PropertyName = "Config", Asset = MakeAsset() },
-                new() { Path = "Assets/B/Config.asset", Group = Group, PropertyName = "Config", Asset = MakeAsset() }
+                new("Assets/A/Config.asset", Group, "Config", MakeAsset()),
+                new("Assets/B/Config.asset", Group, "Config", MakeAsset())
             };
 
             Assert.Throws<InvalidOperationException>(() => AssetCatalogGenerator.BuildGroups(sources));
@@ -74,8 +70,8 @@ namespace Internal.EditorTests
         {
             var sources = new List<AudioCatalogGenerator.ClipSource>
             {
-                new() { Path = "Assets/A/Click.wav", Group = Group, PropertyName = "Click" },
-                new() { Path = "Assets/B/Click.wav", Group = Group, PropertyName = "Click" }
+                new("Assets/A/Click.wav", Group, "Click", null, null, null, 0f),
+                new("Assets/B/Click.wav", Group, "Click", null, null, null, 0f)
             };
 
             Assert.Throws<InvalidOperationException>(() => AudioCatalogGenerator.BuildGroups(sources));
@@ -93,21 +89,8 @@ namespace Internal.EditorTests
         [Test]
         public void AssetOfAssemblyCSharp_Throws()
         {
-            var group = new AssetGroupDefinition
-            {
-                Name = Group,
-                ClassName = Group + "Assets",
-                Properties =
-                {
-                    new AssetPropertyDefinition
-                    {
-                        PropertyName = "Config",
-                        FieldName = "_config",
-                        TypeFullName = "Config",
-                        TypeAssembly = "Assembly-CSharp"
-                    }
-                }
-            };
+            var group = new AssetGroupDefinition(Group, Group + "Assets", true, null);
+            group.AddProperty(new AssetPropertyDefinition("Config", "_config", null, "Config", "Assembly-CSharp"));
 
             Assert.Throws<InvalidOperationException>(() =>
                 AssetCatalogGenerator.AssignGeneratedTargets(new List<AssetGroupDefinition> { group }));

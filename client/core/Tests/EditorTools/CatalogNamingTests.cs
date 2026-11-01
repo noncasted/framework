@@ -37,22 +37,10 @@ namespace Internal.EditorTests
         [TestCase("UIAssets")]
         public void AssetNamedAsMember_CompilesOrIsRefused(string name)
         {
-            var group = new AssetGroupDefinition
-            {
-                Name = "UI",
-                ClassName = "UIAssets",
-                TargetNamespace = "Internal",
-                Address = "address",
-                Properties =
-                {
-                    new AssetPropertyDefinition
-                    {
-                        PropertyName = name,
-                        FieldName = ToFieldName(name),
-                        TypeFullName = "Internal.EnvAsset"
-                    }
-                }
-            };
+            var group = new AssetGroupDefinition("UI", "UIAssets", true, null);
+            group.SetGeneratedTarget("Internal", null);
+            group.SetAddress("address");
+            group.AddProperty(new AssetPropertyDefinition(name, ToFieldName(name), null, "Internal.EnvAsset", null));
 
             AssertCompilesOrRefused(() => new[] { AssetsCatalogClassGenerator.BuildGroupClass(group) }, name);
         }
@@ -63,13 +51,9 @@ namespace Internal.EditorTests
         [TestCase("UIAudio")]
         public void SoundNamedAsMember_CompilesOrIsRefused(string name)
         {
-            var group = new AudioGroupDefinition
-            {
-                Name = "UI",
-                ClassName = "UIAudio",
-                Address = "address",
-                Properties = { new AudioPropertyDefinition { PropertyName = name, FieldName = ToFieldName(name) } }
-            };
+            var group = new AudioGroupDefinition("UI", "UIAudio");
+            group.SetAddress("address");
+            group.AddProperty(new AudioPropertyDefinition(name, ToFieldName(name), null, null, null, 0f));
 
             AssertCompilesOrRefused(() => new[] { AudioCatalogClassGenerator.BuildGroupClass(group) }, name);
         }
@@ -122,22 +106,14 @@ namespace Internal.EditorTests
 
         private static PrefabGroupDefinition PrefabGroup(params string[] names)
         {
-            var group = new PrefabGroupDefinition
-            {
-                Name = "UI",
-                ClassName = "UIPrefabs",
-                Address = "address"
-            };
+            var group = new PrefabGroupDefinition("UI", "UIPrefabs", true, null);
+            group.SetAddress("address");
 
             foreach (var name in names)
             {
-                group.Properties.Add(new PrefabPropertyDefinition
-                {
-                    PropertyName = name,
-                    FieldName = ToFieldName(name),
-                    IsGameObject = true,
-                    CodeTypeName = "global::UnityEngine.GameObject"
-                });
+                var property = new PrefabPropertyDefinition(name, ToFieldName(name), null, null, null);
+                property.SetGameObjectType();
+                group.AddProperty(property);
             }
 
             return group;
@@ -145,22 +121,16 @@ namespace Internal.EditorTests
 
         private static SpriteGroupDefinition SpriteGroup(string path, string spriteName)
         {
-            return new SpriteGroupDefinition
-            {
-                Name = path,
-                Path = path,
-                ClassName = path + "Sprites",
-                Address = "address",
-                Properties =
-                {
-                    new SpritePropertyDefinition
-                    {
-                        PropertyName = spriteName,
-                        FieldName = ToFieldName(spriteName),
-                        Kind = SpriteKind.Sheet
-                    }
-                }
-            };
+            var group = new SpriteGroupDefinition(path, path, path + "Sprites");
+            group.SetAddress("address");
+            group.AddProperty(new SpritePropertyDefinition(
+                spriteName,
+                ToFieldName(spriteName),
+                SpriteKind.Sheet,
+                null,
+                0f,
+                default));
+            return group;
         }
 
         private static string ColorSource(params (string group, string color)[] entries)

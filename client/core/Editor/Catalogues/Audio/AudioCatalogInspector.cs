@@ -30,7 +30,7 @@ namespace Internal
                     AudioGroupsRegistry.Instance,
                     states.Group,
                     states.GroupMixed,
-                    group => Apply(importers, metadata => metadata.Group = group));
+                    group => Apply(importers, metadata => metadata.SetGroup(group)));
 
                 DrawVolume(importers, states);
             }
@@ -75,7 +75,7 @@ namespace Internal
         {
             if (CatalogInspectorGUI.TryDrawToggle("Audio Catalog", states.Included, states.IncludedMixed,
                 out var included))
-                Apply(importers, metadata => metadata.Included = included);
+                Apply(importers, metadata => metadata.SetIncluded(included));
         }
 
         private static void DrawVolume(IReadOnlyList<AssetImporter> importers, CatalogStates states)
@@ -86,7 +86,7 @@ namespace Internal
                 out var volume);
 
             if (changed)
-                Apply(importers, metadata => metadata.Volume = volume);
+                Apply(importers, metadata => metadata.SetVolume(volume));
         }
 
         private static void Apply(IReadOnlyList<AssetImporter> importers, Action<AudioCatalogMetadata> mutate)

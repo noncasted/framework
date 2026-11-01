@@ -55,8 +55,8 @@ namespace Internal.EditorTests
 
                 var importer = AssetImporter.GetAtPath(path);
                 var metadata = SpriteCatalogMetadata.CreateDefault(importer);
-                metadata.Included = true;
-                metadata.Group = string.Empty;
+                metadata.SetIncluded(true);
+                metadata.SetGroup(string.Empty);
                 SpriteCatalogMetadata.Write(importer, metadata);
 
                 LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("Hero.png.*no group"));

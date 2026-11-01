@@ -4,6 +4,7 @@ namespace Internal
     internal interface ICatalogGroupDefinition
     {
         string Name { get; }
-        string Address { get; set; }
+        string Address { get; }
+        void SetAddress(string address);
     }
 }

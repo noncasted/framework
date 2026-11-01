@@ -35,7 +35,7 @@ namespace Internal
                     SpriteGroupsRegistry.Instance,
                     states.Group,
                     states.GroupMixed,
-                    group => Apply(importers, metadata => metadata.Group = group));
+                    group => Apply(importers, metadata => metadata.SetGroup(group)));
 
                 if (states.KindMixed)
                     return;
@@ -118,7 +118,7 @@ namespace Internal
         {
             if (CatalogInspectorGUI.TryDrawToggle("Sprite Catalog", states.Included, states.IncludedMixed,
                 out var included))
-                Apply(importers, metadata => metadata.Included = included);
+                Apply(importers, metadata => metadata.SetIncluded(included));
         }
 
         private static void DrawKind(IReadOnlyList<AssetImporter> importers, CatalogStates states)
@@ -141,11 +141,11 @@ namespace Internal
             EditorGUILayout.EndHorizontal();
 
             if (nextSheet && isSheet == false)
-                Apply(importers, metadata => metadata.Kind = SpriteCatalogKind.Sheet);
+                Apply(importers, metadata => metadata.SetKind(SpriteCatalogKind.Sheet));
             else if (nextAnimation && isAnimation == false)
-                Apply(importers, SwitchToAnimation);
+                Apply(importers, metadata => metadata.SwitchToAnimation());
             else if (nextMultiple && isMultiple == false)
-                Apply(importers, metadata => metadata.Kind = SpriteCatalogKind.MultipleAnimations);
+                Apply(importers, metadata => metadata.SetKind(SpriteCatalogKind.MultipleAnimations));
         }
 
         private static void DrawFramesPerSecond(IReadOnlyList<AssetImporter> importers, CatalogStates states)
@@ -156,7 +156,7 @@ namespace Internal
                 out var framesPerSecond);
 
             if (changed)
-                Apply(importers, metadata => metadata.FramesPerSecond = Mathf.Max(framesPerSecond, 0.01f));
+                Apply(importers, metadata => metadata.SetFramesPerSecond(Mathf.Max(framesPerSecond, 0.01f)));
         }
 
         private static bool AllAseprite(IReadOnlyList<AssetImporter> importers)
@@ -178,7 +178,7 @@ namespace Internal
                 out var time);
 
             if (changed)
-                Apply(importers, metadata => metadata.Time = time);
+                Apply(importers, metadata => metadata.SetTime(time));
         }
 
         private static void DrawColor(IReadOnlyList<AssetImporter> importers, CatalogStates states)
@@ -189,7 +189,7 @@ namespace Internal
                 out var color);
 
             if (changed)
-                Apply(importers, metadata => metadata.Color = color);
+                Apply(importers, metadata => metadata.SetColor(color));
         }
 
         // Changes live in the importer's memory until Apply in the inspector; the reimport on Apply
@@ -203,21 +203,10 @@ namespace Internal
                 mutate(metadata);
 
                 if (metadata.Included && string.IsNullOrEmpty(metadata.Group))
-                    metadata.Group = SpriteCatalogMetadata.GetDefaultGroup(importer.assetPath);
+                    metadata.SetGroup(SpriteCatalogMetadata.GetDefaultGroup(importer.assetPath));
 
                 SpriteCatalogMetadata.Stage(importer, metadata);
             }
-        }
-
-        private static void SwitchToAnimation(SpriteCatalogMetadata metadata)
-        {
-            if (metadata.Kind != SpriteCatalogKind.Animation)
-            {
-                metadata.Time = SpriteCatalogMetadata.DefaultTime;
-                metadata.Color = SpriteCatalogMetadata.DefaultColor;
-            }
-
-            metadata.Kind = SpriteCatalogKind.Animation;
         }
 
         private readonly struct CatalogStates

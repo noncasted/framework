@@ -175,8 +175,8 @@ namespace Internal.EditorTests
                 var importer = AssetImporter.GetAtPath(sprite);
                 SpriteCatalogMetadata.TryRead(importer, out var metadata);
                 metadata ??= new SpriteCatalogMetadata();
-                metadata.Included = true;
-                metadata.Group = "ArtFolderTest";
+                metadata.SetIncluded(true);
+                metadata.SetGroup("ArtFolderTest");
                 SpriteCatalogMetadata.Write(importer, metadata);
 
                 var sources = (IEnumerable<object>)Invoke(typeof(SpriteGenerator), "CollectSources");

@@ -10,12 +10,38 @@ namespace Internal
         private const string UserDataKey = "prefabCatalog";
         private const string LogTag = "PrefabCatalogMetadata";
 
-        public bool Included { get; set; }
-        public string Group { get; set; } = string.Empty;
-        public string ComponentType { get; set; } = string.Empty;
+        public PrefabCatalogMetadata()
+        {
+        }
+
+        public PrefabCatalogMetadata(bool included, string group)
+        {
+            Included = included;
+            Group = group;
+        }
+
+        public bool Included { get; private set; }
+        public string Group { get; private set; } = string.Empty;
+        public string ComponentType { get; private set; } = string.Empty;
 
         // The script GUID survives type and namespace renames; ComponentType is only a readable mirror.
-        public string ComponentGuid { get; set; } = string.Empty;
+        public string ComponentGuid { get; private set; } = string.Empty;
+
+        public void SetIncluded(bool included)
+        {
+            Included = included;
+        }
+
+        public void SetGroup(string group)
+        {
+            Group = group;
+        }
+
+        public void SetRoot(string componentType, string componentGuid)
+        {
+            ComponentType = componentType;
+            ComponentGuid = componentGuid;
+        }
 
         public static bool TryRead(AssetImporter importer, out PrefabCatalogMetadata metadata)
         {

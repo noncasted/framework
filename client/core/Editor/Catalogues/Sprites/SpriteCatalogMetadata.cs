@@ -17,12 +17,20 @@ namespace Internal
     // Animation from an aseprite tag: the name comes from the tag, only the enabled layers are configurable.
     public sealed class SpriteCatalogAnimation
     {
-        public string Tag = string.Empty;
-        public List<string> Layers = new();
+        private readonly List<string> _layers;
 
-        public SpriteCatalogAnimation Clone()
+        public SpriteCatalogAnimation(string tag, List<string> layers)
         {
-            return new SpriteCatalogAnimation { Tag = Tag, Layers = new List<string>(Layers) };
+            Tag = tag;
+            _layers = layers;
+        }
+
+        public string Tag { get; }
+        public IReadOnlyList<string> Layers => _layers;
+
+        public void SetLayer(string layer, bool enabled)
+        {
+            SpriteCatalogMetadata.SetLayer(_layers, layer, enabled);
         }
     }
 
@@ -30,25 +38,45 @@ namespace Internal
     // instead of the FPS of the file.
     public sealed class SpriteCatalogTagSpeed
     {
-        public string Tag = string.Empty;
-        public float FramesPerSecond;
+        public SpriteCatalogTagSpeed(string tag, float framesPerSecond)
+        {
+            Tag = tag;
+            FramesPerSecond = framesPerSecond;
+        }
+
+        public string Tag { get; }
+        public float FramesPerSecond { get; }
     }
 
     // Additional animation on top of a source tag with its own name and layer set.
     public sealed class SpriteCatalogCustomAnimation
     {
-        public string Name = string.Empty;
-        public string Source = string.Empty;
-        public List<string> Layers = new();
+        private readonly List<string> _layers;
 
-        public SpriteCatalogCustomAnimation Clone()
+        public SpriteCatalogCustomAnimation(string name, string source, List<string> layers)
         {
-            return new SpriteCatalogCustomAnimation
-            {
-                Name = Name,
-                Source = Source,
-                Layers = new List<string>(Layers)
-            };
+            Name = name;
+            Source = source;
+            _layers = layers;
+        }
+
+        public string Name { get; private set; }
+        public string Source { get; private set; }
+        public IReadOnlyList<string> Layers => _layers;
+
+        public void Rename(string name)
+        {
+            Name = name;
+        }
+
+        public void SetSource(string source)
+        {
+            Source = source;
+        }
+
+        public void SetLayer(string layer, bool enabled)
+        {
+            SpriteCatalogMetadata.SetLayer(_layers, layer, enabled);
         }
     }
 
@@ -61,19 +89,80 @@ namespace Internal
         private const string UserDataKey = "spriteCatalog";
         private const string LogTag = "SpriteCatalogMetadata";
 
-        public bool Included { get; set; }
-        public string Group { get; set; } = string.Empty;
-        public SpriteCatalogKind Kind { get; set; } = SpriteCatalogKind.Sheet;
-        public float Time { get; set; } = DefaultTime;
-        public Color Color { get; set; } = DefaultColor;
-        public float FramesPerSecond { get; set; } = DefaultFramesPerSecond;
+        private List<SpriteCatalogAnimation> _animations = new();
+        private List<SpriteCatalogCustomAnimation> _customAnimations = new();
+        private List<SpriteCatalogTagSpeed> _tagSpeeds = new();
+
+        public bool Included { get; private set; }
+        public string Group { get; private set; } = string.Empty;
+        public SpriteCatalogKind Kind { get; private set; } = SpriteCatalogKind.Sheet;
+        public float Time { get; private set; } = DefaultTime;
+        public Color Color { get; private set; } = DefaultColor;
+        public float FramesPerSecond { get; private set; } = DefaultFramesPerSecond;
 
         // Only tags whose layer set is already saved; the others use the file's visible layers.
-        public List<SpriteCatalogAnimation> Animations { get; set; } = new();
-        public List<SpriteCatalogCustomAnimation> CustomAnimations { get; set; } = new();
+        public IReadOnlyList<SpriteCatalogAnimation> Animations => _animations;
+        public IReadOnlyList<SpriteCatalogCustomAnimation> CustomAnimations => _customAnimations;
 
         // Only tags with their own speed; the others play at FramesPerSecond.
-        public List<SpriteCatalogTagSpeed> TagSpeeds { get; set; } = new();
+        public IReadOnlyList<SpriteCatalogTagSpeed> TagSpeeds => _tagSpeeds;
+
+        public void SetIncluded(bool included)
+        {
+            Included = included;
+        }
+
+        public void SetGroup(string group)
+        {
+            Group = group;
+        }
+
+        public void SetKind(SpriteCatalogKind kind)
+        {
+            Kind = kind;
+        }
+
+        public void SetTime(float time)
+        {
+            Time = time;
+        }
+
+        public void SetColor(Color color)
+        {
+            Color = color;
+        }
+
+        public void SetFramesPerSecond(float framesPerSecond)
+        {
+            FramesPerSecond = framesPerSecond;
+        }
+
+        // Time and color of another kind do not carry over to an animation.
+        public void SwitchToAnimation()
+        {
+            if (Kind != SpriteCatalogKind.Animation)
+            {
+                Time = DefaultTime;
+                Color = DefaultColor;
+            }
+
+            Kind = SpriteCatalogKind.Animation;
+        }
+
+        public void AddAnimation(SpriteCatalogAnimation animation)
+        {
+            _animations.Add(animation);
+        }
+
+        public void AddCustomAnimation(SpriteCatalogCustomAnimation animation)
+        {
+            _customAnimations.Add(animation);
+        }
+
+        public void RemoveCustomAnimationAt(int index)
+        {
+            _customAnimations.RemoveAt(index);
+        }
 
         public static bool TryRead(AssetImporter importer, out SpriteCatalogMetadata metadata)
         {
@@ -90,9 +179,9 @@ namespace Internal
                 Time = catalog["time"] != null ? catalog.Value<float>("time") : DefaultTime,
                 Color = ReadColor(catalog["color"]),
                 FramesPerSecond = catalog["fps"] != null ? catalog.Value<float>("fps") : DefaultFramesPerSecond,
-                Animations = ReadAnimations(catalog["animations"]),
-                CustomAnimations = ReadCustomAnimations(catalog["customAnimations"]),
-                TagSpeeds = ReadTagSpeeds(catalog["tagSpeeds"])
+                _animations = ReadAnimations(catalog["animations"]),
+                _customAnimations = ReadCustomAnimations(catalog["customAnimations"]),
+                _tagSpeeds = ReadTagSpeeds(catalog["tagSpeeds"])
             };
             return true;
         }
@@ -192,12 +281,12 @@ namespace Internal
         // The speed of the file itself removes the entry: the tag follows the file again.
         public void SetFramesPerSecond(string tag, float framesPerSecond)
         {
-            TagSpeeds.RemoveAll(speed => string.Equals(speed.Tag, tag, StringComparison.Ordinal));
+            _tagSpeeds.RemoveAll(speed => string.Equals(speed.Tag, tag, StringComparison.Ordinal));
 
             if (Mathf.Approximately(framesPerSecond, FramesPerSecond) == true)
                 return;
 
-            TagSpeeds.Add(new SpriteCatalogTagSpeed { Tag = tag, FramesPerSecond = framesPerSecond });
+            _tagSpeeds.Add(new SpriteCatalogTagSpeed(tag, framesPerSecond));
         }
 
         public static string GetDefaultGroup(string assetPath)
@@ -242,6 +331,14 @@ namespace Internal
                    extension.Equals(".ase", StringComparison.OrdinalIgnoreCase);
         }
 
+        internal static void SetLayer(List<string> layers, string layer, bool enabled)
+        {
+            layers.Remove(layer);
+
+            if (enabled)
+                layers.Add(layer);
+        }
+
         private static SpriteCatalogKind ParseKind(string kind)
         {
             if (string.Equals(kind, nameof(SpriteCatalogKind.Animation), StringComparison.Ordinal))
@@ -265,11 +362,9 @@ namespace Internal
                 if (item is not JObject animation)
                     continue;
 
-                animations.Add(new SpriteCatalogAnimation
-                {
-                    Tag = animation.Value<string>("tag") ?? string.Empty,
-                    Layers = ReadStrings(animation["layers"])
-                });
+                animations.Add(new SpriteCatalogAnimation(
+                    animation.Value<string>("tag") ?? string.Empty,
+                    ReadStrings(animation["layers"])));
             }
 
             return animations;
@@ -287,12 +382,10 @@ namespace Internal
                 if (item is not JObject animation)
                     continue;
 
-                animations.Add(new SpriteCatalogCustomAnimation
-                {
-                    Name = animation.Value<string>("name") ?? string.Empty,
-                    Source = animation.Value<string>("source") ?? string.Empty,
-                    Layers = ReadStrings(animation["layers"])
-                });
+                animations.Add(new SpriteCatalogCustomAnimation(
+                    animation.Value<string>("name") ?? string.Empty,
+                    animation.Value<string>("source") ?? string.Empty,
+                    ReadStrings(animation["layers"])));
             }
 
             return animations;
@@ -310,11 +403,7 @@ namespace Internal
                 if (item is not JObject speed)
                     continue;
 
-                speeds.Add(new SpriteCatalogTagSpeed
-                {
-                    Tag = speed.Value<string>("tag"),
-                    FramesPerSecond = speed.Value<float>("fps")
-                });
+                speeds.Add(new SpriteCatalogTagSpeed(speed.Value<string>("tag"), speed.Value<float>("fps")));
             }
 
             return speeds;

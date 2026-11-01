@@ -9,8 +9,28 @@ namespace Internal
         private const string UserDataKey = "assetCatalog";
         private const string LogTag = "AssetCatalogMetadata";
 
-        public bool Included { get; set; }
-        public string Group { get; set; } = string.Empty;
+        public AssetCatalogMetadata()
+        {
+        }
+
+        public AssetCatalogMetadata(bool included, string group)
+        {
+            Included = included;
+            Group = group;
+        }
+
+        public bool Included { get; private set; }
+        public string Group { get; private set; } = string.Empty;
+
+        public void SetIncluded(bool included)
+        {
+            Included = included;
+        }
+
+        public void SetGroup(string group)
+        {
+            Group = group;
+        }
 
         public static bool TryRead(AssetImporter importer, out AssetCatalogMetadata metadata)
         {

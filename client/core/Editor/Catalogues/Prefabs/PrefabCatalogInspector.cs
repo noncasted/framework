@@ -33,7 +33,7 @@ namespace Internal
                     PrefabGroupsRegistry.Instance,
                     states.Group,
                     states.GroupMixed,
-                    group => Apply(importers, metadata => metadata.Group = group));
+                    group => Apply(importers, metadata => metadata.SetGroup(group)));
 
                 if (states.GroupMixed == false && string.IsNullOrEmpty(states.Group) == false)
                     DrawAddressable(states.Group);
@@ -84,7 +84,7 @@ namespace Internal
         {
             if (CatalogInspectorGUI.TryDrawToggle("Prefab Catalog", states.Included, states.IncludedMixed,
                 out var included))
-                Apply(importers, metadata => metadata.Included = included);
+                Apply(importers, metadata => metadata.SetIncluded(included));
         }
 
         // The setting is shared by the whole group, not per prefab: clearing the checkbox moves the group asset
@@ -122,10 +122,7 @@ namespace Internal
 
             var option = options[nextIndex];
 
-            Apply(importers, metadata => {
-                metadata.ComponentType = option.ComponentType;
-                metadata.ComponentGuid = option.ComponentGuid;
-            });
+            Apply(importers, metadata => metadata.SetRoot(option.ComponentType, option.ComponentGuid));
         }
 
         private static void Apply(IReadOnlyList<AssetImporter> importers, Action<PrefabCatalogMetadata> mutate)

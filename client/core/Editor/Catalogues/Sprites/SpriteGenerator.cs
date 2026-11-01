@@ -179,7 +179,7 @@ namespace Internal
             if (string.IsNullOrEmpty(metadata.Group) == false)
                 return metadata;
 
-            metadata.Group = SpriteCatalogMetadata.GetDefaultGroup(importer.assetPath);
+            metadata.SetGroup(SpriteCatalogMetadata.GetDefaultGroup(importer.assetPath));
 
             if (string.IsNullOrEmpty(metadata.Group))
             {
@@ -202,13 +202,10 @@ namespace Internal
             {
                 if (groups.TryGetValue(source.Group, out var group) == false)
                 {
-                    group = new SpriteGroupDefinition
-                    {
-                        Name = ToGroupKey(source.Group),
-                        Path = source.Group,
-                        ClassName = ToGroupKey(source.Group) + "Sprites",
-                        Properties = new List<SpritePropertyDefinition>()
-                    };
+                    group = new SpriteGroupDefinition(
+                        ToGroupKey(source.Group),
+                        source.Group,
+                        ToGroupKey(source.Group) + "Sprites");
                     groups.Add(source.Group, group);
                     usedNames.Add(source.Group, new HashSet<string>(StringComparer.Ordinal));
                 }
@@ -240,10 +237,10 @@ namespace Internal
                                 source.Color,
                                 source.Path))
                         {
-                            var property = group.Properties[group.Properties.Count - 1];
-                            property.Owner = source.PropertyName;
-                            property.MemberName = memberName;
-                            property.FieldName = ToFieldName(memberName);
+                            group.Properties[group.Properties.Count - 1].NestInOwner(
+                                source.PropertyName,
+                                memberName,
+                                ToFieldName(memberName));
                         }
                     }
 
@@ -303,8 +300,7 @@ namespace Internal
                 if (group.Properties.Count == 0)
                     continue;
 
-                group.Properties.Sort((left, right) => string.Compare(left.PropertyName, right.PropertyName,
-                    StringComparison.Ordinal));
+                group.SortProperties();
                 result.Add(group);
             }
 
@@ -340,13 +336,13 @@ namespace Internal
 
             if (EntriesMatch(asset, group.Properties))
             {
-                group.Address = AssetDatabase.AssetPathToGUID(path);
+                group.SetAddress(AssetDatabase.AssetPathToGUID(path));
                 return;
             }
 
             ApplyEntries(asset, group.Properties);
             EditorUtility.SetDirty(asset);
-            group.Address = AssetDatabase.AssetPathToGUID(path);
+            group.SetAddress(AssetDatabase.AssetPathToGUID(path));
         }
 
         private static bool EntriesMatch(SpriteGroupAsset asset, IReadOnlyList<SpritePropertyDefinition> properties)
@@ -599,15 +595,13 @@ namespace Internal
                 return false;
             }
 
-            group.Properties.Add(new SpritePropertyDefinition
-            {
-                PropertyName = propertyName,
-                FieldName = ToFieldName(propertyName),
-                Kind = kind,
-                Sprites = sprites,
-                Time = time,
-                Color = color
-            });
+            group.AddProperty(new SpritePropertyDefinition(
+                propertyName,
+                ToFieldName(propertyName),
+                kind,
+                sprites,
+                time,
+                color));
             return true;
         }
 
@@ -662,24 +656,72 @@ namespace Internal
 
     internal sealed class SpriteGroupDefinition : ICatalogGroupDefinition
     {
-        public string Name { get; set; }
-        public string Address { get; set; }
-        public string Path;
-        public string ClassName;
-        public List<SpritePropertyDefinition> Properties = new();
+        private readonly List<SpritePropertyDefinition> _properties = new();
+
+        public SpriteGroupDefinition(string name, string path, string className)
+        {
+            Name = name;
+            Path = path;
+            ClassName = className;
+        }
+
+        public string Name { get; }
+        public string Address { get; private set; }
+        public string Path { get; }
+        public string ClassName { get; }
+        public IReadOnlyList<SpritePropertyDefinition> Properties => _properties;
+
+        public void SetAddress(string address)
+        {
+            Address = address;
+        }
+
+        public void AddProperty(SpritePropertyDefinition property)
+        {
+            _properties.Add(property);
+        }
+
+        public void SortProperties()
+        {
+            _properties.Sort((left, right) =>
+                string.Compare(left.PropertyName, right.PropertyName, StringComparison.Ordinal));
+        }
     }
 
     internal sealed class SpritePropertyDefinition
     {
-        public string PropertyName;
-        public string FieldName;
+        public SpritePropertyDefinition(
+            string propertyName,
+            string fieldName,
+            SpriteKind kind,
+            Sprite[] sprites,
+            float time,
+            Color color)
+        {
+            PropertyName = propertyName;
+            FieldName = fieldName;
+            Kind = kind;
+            Sprites = sprites;
+            Time = time;
+            Color = color;
+        }
+
+        public string PropertyName { get; }
+        public string FieldName { get; private set; }
 
         // The Multiple Animations file the animation belongs to, and its name inside that file.
-        public string Owner;
-        public string MemberName;
-        public SpriteKind Kind;
-        public Sprite[] Sprites;
-        public float Time;
-        public Color Color;
+        public string Owner { get; private set; }
+        public string MemberName { get; private set; }
+        public SpriteKind Kind { get; }
+        public Sprite[] Sprites { get; }
+        public float Time { get; }
+        public Color Color { get; }
+
+        public void NestInOwner(string owner, string memberName, string fieldName)
+        {
+            Owner = owner;
+            MemberName = memberName;
+            FieldName = fieldName;
+        }
     }
 }

@@ -11,9 +11,34 @@ namespace Internal
         private const string UserDataKey = "audioCatalog";
         private const string LogTag = "AudioCatalogMetadata";
 
-        public bool Included { get; set; }
-        public string Group { get; set; } = string.Empty;
-        public float Volume { get; set; } = DefaultVolume;
+        public AudioCatalogMetadata()
+        {
+        }
+
+        public AudioCatalogMetadata(bool included, string group)
+        {
+            Included = included;
+            Group = group;
+        }
+
+        public bool Included { get; private set; }
+        public string Group { get; private set; } = string.Empty;
+        public float Volume { get; private set; } = DefaultVolume;
+
+        public void SetIncluded(bool included)
+        {
+            Included = included;
+        }
+
+        public void SetGroup(string group)
+        {
+            Group = group;
+        }
+
+        public void SetVolume(float volume)
+        {
+            Volume = volume;
+        }
 
         public static bool TryRead(AssetImporter importer, out AudioCatalogMetadata metadata)
         {
