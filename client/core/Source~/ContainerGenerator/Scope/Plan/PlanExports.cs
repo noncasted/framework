@@ -20,7 +20,7 @@ namespace ContainerGenerator {
 
             foreach (var pair in plan.Providers) {
                 var chain = AlternativeExpressions.Chain(plan, pair.Key);
-                if (PlanMarkers.HasTransientSlot(plan, chain))
+                if (plan.HasTransientSlot(chain))
                     continue;
 
                 plan.Exports.Add(new ScopePlan.Export {

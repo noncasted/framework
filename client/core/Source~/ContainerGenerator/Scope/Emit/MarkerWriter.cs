@@ -7,7 +7,7 @@ namespace ContainerGenerator {
             for (var i = 0; i < plan.Markers.Count; i++) {
                 var marker = plan.Markers[i];
                 // A list with transients is built on every ResolveAll: a field would keep the same instances.
-                if (PlanMarkers.HasTransientSlot(plan, marker.Slots))
+                if (plan.HasTransientSlot(marker.Slots))
                     continue;
 
                 writer.AppendLine(indent + marker.FieldName + " = " + MarkerArray(plan, i) + ";");

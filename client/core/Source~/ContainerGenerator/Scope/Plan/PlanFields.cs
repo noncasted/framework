@@ -31,7 +31,7 @@ namespace ContainerGenerator {
                 }
                 else {
                     slot.FieldType = string.IsNullOrEmpty(slot.ImplementationType)
-                        ? FirstService(slot.Registration)
+                        ? slot.Registration.FirstService()
                         : slot.ImplementationType;
                 }
 
@@ -85,15 +85,6 @@ namespace ContainerGenerator {
             }
 
             return fallback;
-        }
-
-        public static string FirstService(GraphRegistration registration) {
-            for (var i = 0; i < registration.ServiceTypes.Count; i++) {
-                if (string.IsNullOrEmpty(registration.ServiceTypes[i]) == false)
-                    return registration.ServiceTypes[i];
-            }
-
-            return "";
         }
     }
 }

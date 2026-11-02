@@ -191,7 +191,7 @@ namespace ContainerGenerator {
             WriteThrowIfDisposed(writer, plan, body);
             for (var i = 0; i < plan.Markers.Count; i++) {
                 var marker = plan.Markers[i];
-                var list = PlanMarkers.HasTransientSlot(plan, marker.Slots) ? MarkerWriter.MarkerArray(plan, i) : marker.FieldName;
+                var list = plan.HasTransientSlot(marker.Slots) ? MarkerWriter.MarkerArray(plan, i) : marker.FieldName;
                 writer.AppendLine(body + "if (typeof(T) == typeof(" + marker.ElementType + "))");
                 writer.AppendLine(body + "    return (global::System.Collections.Generic.IReadOnlyList<T>)(object)" + list + ";");
             }

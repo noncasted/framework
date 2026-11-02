@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace ContainerGenerator {
@@ -46,6 +47,32 @@ namespace ContainerGenerator {
             for (var i = 0; i < Arms.Count; i++)
                 copy.Arms.Add(Arms[i].Clone());
             return copy;
+        }
+
+        public string FirstService() {
+            for (var i = 0; i < ServiceTypes.Count; i++) {
+                if (string.IsNullOrEmpty(ServiceTypes[i]) == false)
+                    return ServiceTypes[i];
+            }
+
+            return "";
+        }
+
+        public string InferDiscriminantType() {
+            if (Arms.Count == 0)
+                return "object";
+
+            var pattern = Arms[0].Discriminant ?? "";
+            var dot = pattern.LastIndexOf('.');
+            if (dot <= 0)
+                return "object";
+
+            var type = pattern.Substring(0, dot).Trim();
+            if (type.StartsWith("global::", StringComparison.Ordinal) == false && type.IndexOf('.') >= 0)
+                type = "global::" + type;
+            if (string.IsNullOrEmpty(type))
+                return "object";
+            return type;
         }
     }
 }

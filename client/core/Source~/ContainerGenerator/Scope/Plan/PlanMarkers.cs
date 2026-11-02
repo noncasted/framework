@@ -37,7 +37,7 @@ namespace ContainerGenerator {
             // A transient is not in _exports, so even a single one gets a list: otherwise
             // ResolveAll would silently return nothing.
             foreach (var pair in byType) {
-                if (pair.Value.Count > 1 || HasTransientSlot(plan, pair.Value))
+                if (pair.Value.Count > 1 || plan.HasTransientSlot(pair.Value))
                     wanted.Add(pair.Key);
             }
 
@@ -51,7 +51,7 @@ namespace ContainerGenerator {
                 };
                 marker.Slots.AddRange(slots);
                 plan.Markers.Add(marker);
-                if (HasTransientSlot(plan, slots))
+                if (plan.HasTransientSlot(slots))
                     continue;
 
                 plan.Fields.Add(new ScopePlan.Field {
@@ -60,15 +60,6 @@ namespace ContainerGenerator {
                     IsMarker = true,
                 });
             }
-        }
-
-        public static bool HasTransientSlot(ScopePlan plan, List<int> slots) {
-            for (var i = 0; i < slots.Count; i++) {
-                if (plan.Slots[slots[i]].IsTransient)
-                    return true;
-            }
-
-            return false;
         }
 
         private static void AddKnownMarkers(HashSet<string> wanted) {

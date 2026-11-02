@@ -30,7 +30,7 @@ namespace ContainerGenerator {
                 if (slot.IsSwitch)
                     slot.CreateMethod = ScopeNames.CreateMethod(
                         string.IsNullOrEmpty(registration.ImplementationType)
-                            ? PlanFields.FirstService(registration)
+                            ? registration.FirstService()
                             : registration.ImplementationType,
                         used);
 

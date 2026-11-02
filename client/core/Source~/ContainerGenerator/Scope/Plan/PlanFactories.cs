@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 
 namespace ContainerGenerator {
@@ -9,7 +8,7 @@ namespace ContainerGenerator {
                 if (slot.IsSwitch == false)
                     continue;
 
-                var returnType = PlanFields.FirstService(slot.Registration);
+                var returnType = slot.Registration.FirstService();
                 if (string.IsNullOrEmpty(returnType))
                     returnType = slot.ImplementationType;
                 if (string.IsNullOrEmpty(returnType) && slot.Registration.Arms.Count > 0)
@@ -17,7 +16,7 @@ namespace ContainerGenerator {
                 if (string.IsNullOrEmpty(returnType))
                     returnType = "object";
 
-                var discriminantType = InferDiscriminantType(slot.Registration);
+                var discriminantType = slot.Registration.InferDiscriminantType();
                 plan.Factories.Add(new ScopePlan.Factory {
                     Slot = i,
                     MethodName = slot.CreateMethod,
@@ -25,23 +24,6 @@ namespace ContainerGenerator {
                     DiscriminantType = discriminantType,
                 });
             }
-        }
-
-        public static string InferDiscriminantType(GraphRegistration registration) {
-            if (registration.Arms.Count == 0)
-                return "object";
-
-            var pattern = registration.Arms[0].Discriminant ?? "";
-            var dot = pattern.LastIndexOf('.');
-            if (dot <= 0)
-                return "object";
-
-            var type = pattern.Substring(0, dot).Trim();
-            if (type.StartsWith("global::", StringComparison.Ordinal) == false && type.IndexOf('.') >= 0)
-                type = "global::" + type;
-            if (string.IsNullOrEmpty(type))
-                return "object";
-            return type;
         }
     }
 }

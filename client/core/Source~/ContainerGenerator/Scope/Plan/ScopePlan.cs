@@ -40,6 +40,15 @@ namespace ContainerGenerator {
         public Dictionary<string, List<int>> Providers = new Dictionary<string, List<int>>(StringComparer.Ordinal);
         public HashSet<int> DisposableSlots = new HashSet<int>();
 
+        public bool HasTransientSlot(List<int> slots) {
+            for (var i = 0; i < slots.Count; i++) {
+                if (Slots[slots[i]].IsTransient)
+                    return true;
+            }
+
+            return false;
+        }
+
         public sealed class CtorParam {
             public string Type = "";
             public string Name = "";
