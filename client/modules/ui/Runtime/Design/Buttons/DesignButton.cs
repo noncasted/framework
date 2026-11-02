@@ -33,9 +33,6 @@ namespace Global.UI
 
         private void OnEnable()
         {
-            if (_button == null)
-                _button = GetComponent<Button>();
-
             ButtonSounds.Attach(_button);
             _isPointerInside = false;
             _isPointerDown = false;
@@ -67,26 +64,6 @@ namespace Global.UI
                 return;
 
             _clicked.Invoke();
-        }
-
-        private void Refresh()
-        {
-            if (_isPointerDown == true)
-                SetState(DesignElementState.Pressed);
-            else if (_isPointerInside == true || _isSelected == true)
-                SetState(DesignElementState.Hovered);
-            else
-                SetState(DesignElementState.Idle);
-        }
-
-        private void SetState(DesignElementState state)
-        {
-            _state = state;
-
-            if (_isLocked == true)
-                return;
-
-            _element.SetState(state);
         }
 
         public void OnPointerEnter(PointerEventData eventData)
@@ -128,12 +105,30 @@ namespace Global.UI
             Refresh();
         }
 
-        private void OnValidate()
+        private void Refresh()
         {
-            if (_element != null)
+            if (_isPointerDown == true)
+                SetState(DesignElementState.Pressed);
+            else if (_isPointerInside == true || _isSelected == true)
+                SetState(DesignElementState.Hovered);
+            else
+                SetState(DesignElementState.Idle);
+        }
+
+        private void SetState(DesignElementState state)
+        {
+            _state = state;
+
+            if (_isLocked == true)
                 return;
 
-            _element = GetComponent<DesignElement>();
+            _element.SetState(state);
+        }
+
+        private void OnValidate()
+        {
+            if (_element == null)
+                _element = GetComponent<DesignElement>();
 
             if (_element == null)
                 _element = gameObject.AddComponent<DesignElement>();

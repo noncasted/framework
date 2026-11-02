@@ -33,7 +33,7 @@ namespace Global.UI
 
         public RectTransform Rect => _rect != null ? _rect : _rect = (RectTransform)transform;
 
-        public RectOffset Padding => _padding ??= new RectOffset();
+        public RectOffset Padding => _padding;
 
         public DesignHorizontalPivot HorizontalPivot => _horizontalPivot;
 
@@ -43,7 +43,7 @@ namespace Global.UI
 
         public void SetPadding(RectOffset padding)
         {
-            _padding = padding ?? new RectOffset();
+            _padding = padding;
             SetDirty();
         }
 
@@ -83,7 +83,6 @@ namespace Global.UI
             if (_rebuilding || isActiveAndEnabled == false)
                 return;
 
-            _padding ??= new RectOffset();
             _rebuilding = true;
 
             try
@@ -195,7 +194,6 @@ namespace Global.UI
 
         private void OnValidate()
         {
-            _padding ??= new RectOffset();
             SetDirty();
         }
 

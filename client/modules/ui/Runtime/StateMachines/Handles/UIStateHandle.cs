@@ -75,14 +75,6 @@ namespace Global.UI
             });
         }
 
-        private void UpdateVisible()
-        {
-            if (_innerLifetime.IsTerminated == true)
-                return;
-
-            _isVisible.Set(_isParentVisible == true && _coveringStacks == 0);
-        }
-
         public void OnParent(IInternalUIStateHandle child)
         {
             _childCount++;
@@ -93,6 +85,14 @@ namespace Global.UI
         {
             _isVisible.Set(false);
             _innerLifetime.Terminate();
+        }
+
+        private void UpdateVisible()
+        {
+            if (_innerLifetime.IsTerminated == true)
+                return;
+
+            _isVisible.Set(_isParentVisible == true && _coveringStacks == 0);
         }
     }
 }

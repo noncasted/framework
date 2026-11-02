@@ -23,13 +23,13 @@ namespace Global.UI
             };
         }
 
-        private IUIState _stackHead;
-
         // The stacked states that live, in the order they were stacked.
         private readonly List<UIStateHandle> _stack = new();
 
         private readonly IInputConstraintsStorage _constraintsStorage;
         private readonly Dictionary<IUIState, IInternalUIStateHandle> _handles;
+
+        private IUIState _stackHead;
 
         public IUIState Base { get; }
         public IUIState StackHead => _stackHead;

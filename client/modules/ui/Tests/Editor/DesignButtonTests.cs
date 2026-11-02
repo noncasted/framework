@@ -1,6 +1,9 @@
+using System;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace Global.UI.Tests
 {
@@ -27,6 +30,38 @@ namespace Global.UI.Tests
         public void TearDown()
         {
             Object.DestroyImmediate(_object);
+        }
+
+        // A button without its Button is a broken prefab: seen when it is shown, not repaired at runtime.
+        [Test]
+        public void EnabledWithoutItsButton_Throws()
+        {
+            _object.AddComponent<Button>();
+            Field("_button").SetValue(_button, null);
+
+            var enable = typeof(DesignButton).GetMethod("OnEnable", BindingFlags.Instance | BindingFlags.NonPublic);
+            var exception = Assert.Throws<TargetInvocationException>(() => enable.Invoke(_button, null));
+
+            Assert.IsInstanceOf<NullReferenceException>(exception.InnerException);
+        }
+
+        // The editor fills what is missing: a button whose element is set already gets its Button too.
+        [Test]
+        public void OnValidate_ElementSet_FillsTheButton()
+        {
+            var button = _object.AddComponent<Button>();
+            Field("_button").SetValue(_button, null);
+
+            typeof(DesignButton)
+                .GetMethod("OnValidate", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(_button, null);
+
+            Assert.AreEqual(button, Field("_button").GetValue(_button));
+        }
+
+        private static FieldInfo Field(string name)
+        {
+            return typeof(DesignButton).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
         }
 
         [Test]
