@@ -230,11 +230,17 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
 
 ## Tests
 
-`dotnet build framework.slnx`, then `.build/bin/Tests/Debug/net10.0/Framework.Tests` (backend) and
+`tools/scripts/test-all.sh` runs the whole suite on the current tree, uncommitted edits included: `dotnet build
+framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to them Unity EditMode (`client/project`, needs
+its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
+tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
+`Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
+Release build replaces it.
+
+One suite by hand: `.build/bin/Tests/Debug/net10.0/Framework.Tests` (backend),
 `.build/bin/Framework.Common.Tests/Debug/net10.0/Framework.Common.Tests` (common): xunit v3 on the Microsoft Testing
-Platform, run the executable, `dotnet test` refuses on the .NET 10 SDK. Unity tests (`Internal.Tests`,
-`Internal.Network.Tests`) run in the editor of a project. The projects keep their own tests of the framework code
-until they move here.
+Platform, run the executable, `dotnet test` refuses on the .NET 10 SDK. The projects keep their own tests of the framework
+code until they move here.
 
 ## Working from a project
 
