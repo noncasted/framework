@@ -238,7 +238,7 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1080, common 92, Verify 159, EditMode 630 (4 of them skipped, the
+Release build replaces it. The expected numbers: backend 1080, common 92, Verify 159, EditMode 635 (4 of them skipped, the
 benchmarks of `ContainerBenchmarkTests`), PlayMode 72; the script does not check them, a smaller number is a lost test.
 
 One suite by hand: `.build/bin/Tests/Debug/net10.0/Framework.Tests` (backend),
