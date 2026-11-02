@@ -312,10 +312,11 @@ namespace Internal.Tests
             await UniTask.WaitUntil(condition).Timeout(TimeSpan.FromSeconds(10));
         }
 
-        // What must not happen has no event to wait for. The idle send loop sleeps 50 ms between checks of the queue.
+        // What must not happen has no event to wait for: the idle send loop checks the queue every frame, so a few
+        // frames are a few turns of it, on a loaded machine too.
         private static UniTask LoopTurns()
         {
-            return UniTask.Delay(200, DelayType.Realtime);
+            return UniTask.DelayFrame(5);
         }
 
         // Only the failures of a closing connection are quiet: any other one is a mistake, also while the connection closes.
