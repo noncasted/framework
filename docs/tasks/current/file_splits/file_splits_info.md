@@ -1,11 +1,11 @@
 ---
 task: file_splits
-status: in_progress
+status: completed
 phase: implementation
 created: 2026-11-02
 updated: 2026-11-02
-total_steps: 9
-completed_steps: [1, 2, 3, 4, 5, 6, 7, 8]
+total_steps: 10
+completed_steps: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 blocked_steps: []
 ---
 
@@ -86,7 +86,7 @@ blocked_steps: []
 - **Зависит от:** 2, 7
 
 #### [9] Итоговая проверка
-- **Статус:** [ ] pending
+- **Статус:** [x] completed
 - **Что:** Пересчёт файлов, все тесты, документация, остаток с причинами; `ContainerGraph.cs` и `LifetimeGraph.cs` переименовать по типам; независимый просмотр границ классов генератора; удалить мёртвые `HierarchyBindingsCodeGenerator.FileSuffix` и `HierarchyBindingsScanner.ToCodeTypeName(Type)`, если grep подтвердит
 - **Зависит от:** 8
 

@@ -17,8 +17,8 @@ updated: 2026-11-02
 | 6 | 5 | 5 | ORCH-file_splits-6-g1 / a9f9984558a973612 | 1 | done | — |
 | 7 | 6 | 6 | ORCH-file_splits-7-g1 / a1625a314b6bcfb34 | 1 | done | — |
 | 8 | 2, 7 | 7 | ORCH-file_splits-8-g1 / a1684cd574dca06fd | 1 | done | — |
-| 9 | 8 | 8 | ORCH-file_splits-9-g1 / a294842f33fd67ec8, просмотр: ORCH-file_splits-9r-g1 / a2b95dcd03642dc72 | 1 | done, повтор тестов после шага 10 | — |
-| 10 | 9r | 8 | ORCH-file_splits-10-g1 / acf3cc3034519d936 | 1 | in_progress | — |
+| 9 | 8 | 8 | ORCH-file_splits-9-g1 / a294842f33fd67ec8, просмотр: ORCH-file_splits-9r-g1 / a2b95dcd03642dc72 | 1 | done | — |
+| 10 | 9r | 8 | ORCH-file_splits-10-g1 / acf3cc3034519d936 | 1 | done | — |
 
 ## Ресурсы
 - Дерево: только `.claude/worktrees/file_splits` (ветка `file_splits`). В `/projects/framework` работает другая сессия (`public_setters`), там ничего не запускать.
@@ -35,3 +35,5 @@ updated: 2026-11-02
 Шаг 2 в `file_splits_gen`, шаг 3 в `file_splits`. Файлы шагов не пересекаются.
 ### [2026-11-02] Новая база в origin
 `origin/main` ушёл на `a3a2422` (`fe69ad4`: `SharedAddressablesSync`, общая запись атласа; сессия `pixel-swarm-b2`). Шаг 8 перед началом и шаг 9 в конце перебазируются также на него, если локальный `main` его ещё не содержит.
+### [2026-11-02] Итог
+Шагов 10 и 4b, 9r; агентов 11; handoff 0; заблокированных шагов нет. Итоговая проверка на `26f0f0f`.

@@ -1,8 +1,9 @@
 ## Разрез больших файлов — Результат
 
-### Статус: В работе
+### Статус: Завершено
 
 ### Что сделано
+- Границы классов генератора поправлены по независимому просмотру (11 пунктов), вывод прежний.
 - C11: `GeneratedScopes` и `ContainerBuilder` разрезаны, 64 теста на старом коде, вывод генератора прежний.
 - Каталоги: восемь файлов разрезаны, самый длинный 257 строк, 34 теста на старом коде, дамп вывода побайтно прежний.
 - HierarchyBindings: четыре файла разрезаны, самый длинный 221 строка, вывод генератора привязок побайтно прежний.
@@ -31,6 +32,9 @@
 - С шага 5 по решению пользователя тесты прогоняются в конце шага, а не после каждого класса. Промежуточные коммиты шага отдельно не проверяются.
 
 ### Нерешенные вопросы
+- Ветка `file_splits` не влита и не запушена, основана на локальном `main`; локальный `main` и `origin/main` разошлись.
+- Шаг F2 задачи `public_setters` ждёт вливания генератора.
+- Плееры IL2CPP и WebGL не собирались, игры с новой версией не собирались.
 - Длиннее 300 строк вне области задачи: backend 15 файлов (задача родом из аудита клиента, отдельная задача): `Session/Root/Session.cs` 523, `Infrastructure/Orleans/SideEffects/SideEffectsStorage.cs` 519, `Infrastructure/Orleans/State/Direct/DirectStorage.cs` 451, `Infrastructure/Orleans/Transactions/Transactions.cs` 418, `Session/Root/SessionAdmission.cs` 380, `Infrastructure/Messaging/Channels/RuntimeChannelClient.cs` 372, `Infrastructure/Orleans/Transactions/TransactionAttribute.cs` 371, `Infrastructure/Orleans/State/Events/EventStorage.cs` 368, `Hosting/Lobbies/LobbyService.cs` 348, `Infrastructure/Messaging/Channels/RuntimeChannel.cs` 341, `Cluster/Deploy/DeploymentState.cs` 339, `Infrastructure/Messaging/Pipes/MessagePipeClient.cs` 329, `Hosting/Lobbies/LobbySessions.cs` 328, `Infrastructure/Orleans/Transactions/GrainTransactionHandler.cs` 325, `Infrastructure/Messaging/Queues/DurableQueueClient.cs` 320. Форки `client/packages` 608 (сторонний код), тесты и Verify 41 (P11 без лимита).
 - `SpriteGenerator.GenerateInternal` не сбрасывает реестр групп, в отличие от других генераторов; возможный дефект.
 - Полный путь `GenerateInternal` каталогов не проверен: нужен проект с Addressables.
