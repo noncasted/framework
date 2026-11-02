@@ -10,6 +10,8 @@
         <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory).build/obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
         <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
         <BaseOutputPath>$(MSBuildThisFileDirectory).build/bin/$(MSBuildProjectName)/</BaseOutputPath>
+        <!-- The hash of the commit in the version and in Source Link recompiles every project after any commit, nothing reads them. -->
+        <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
     </PropertyGroup>
 
     <ItemGroup>
