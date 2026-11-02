@@ -109,3 +109,11 @@ RuntimeChannelOptions>`). Без него канал падает при пер�
 - `InputManager.asset`: оси `Gamepad Axis 1..10` добавлены в `client/project`, требование к игре прежнее.
 - `SharedAddressablesSync`: выбор ассетов и групп вынесен в `SharedAddressablesTargets`, API прежний.
 - `core`: `Common/DataTypes/Structs` -> `Common/Math`, `Common/DataTypes/Collections` -> `Common/Collections`, `RootScopeExtensions` в `Scopes`. `network`: команды сущностей в `Entities/Commands`, `PlayerDisconnectedCommand` в `Session/Users`, `Events`, `Objects`, `Properties` наверху `Runtime`. Пространства имён и guid прежние, в играх ссылок на эти пути нет.
+
+### 8. `ISessionAdmission.Unseal`, конструктор `RuntimePipeClient.Listener`; провал `ILobbyMatches.Create` возвращает лобби назад
+
+Кого касается: бэкенд, своя реализация `ISessionAdmission`, код или тесты, создающие `RuntimePipeClient.Listener` руками, и `ILobbyMatches` игры. На 2026-11-02 реализаций и таких вызовов в играх нет.
+
+Поиск: `git grep -nE ': *ISessionAdmission\b|RuntimePipeClient\.Listener\(' -- 'backend/*.cs'`, `git grep -n 'ILobbyMatches' -- 'backend/*.cs'`
+
+Сделать: реализация `ISessionAdmission` получает `void Unseal()`; `new Listener(id, observerId, source, observer, pipe, orleans, logger)` получает `SemaphoreSlim bindOrder` после `pipe`, для тестового двойника `new SemaphoreSlim(1, 1)`. `ILobbyMatches.Create`, бросивший исключение, теперь оставляет лобби живым: отсчёт и флаг старта сброшены, лидер может начать снова, значит `Create` не оставляет после провала созданную сессию и переданный код.

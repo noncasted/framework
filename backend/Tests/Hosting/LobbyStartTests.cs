@@ -681,6 +681,51 @@ public class LobbyStartTests
         lobby.Game.PlayersCount.Should().Be(2);
     }
 
+    // No match at zero: the failure goes on to the queue, the lobby is back where it was before the start.
+    [Fact]
+    public async Task Zero_MatchCreationFails_LobbyIsBackBeforeTheStart_TheLeaderStartsAgain()
+    {
+        var lobby = await TestLobby.Create(guests: 1);
+
+        ReachZeroWithoutAMatch(lobby);
+
+        lobby.Countdown.IsActive.Should().BeFalse();
+        lobby.Start.IsStarting.Should().BeFalse();
+        lobby.Session.Session.IsSealed.Should().BeFalse();
+
+        var joined = lobby.World.Lobbies.Join(lobby.Session.Session.Id, Guid.Empty, lobby.Code, Guid.NewGuid());
+        joined.Status.Should().Be(LobbyJoinStatus.Ok);
+
+        lobby.World.FailMatchCreation(null);
+        lobby.RunCountdown();
+    }
+
+    // The next error of the old order: a cancel of the leader after the failure stopped a countdown already over.
+    [Fact]
+    public async Task Zero_MatchCreationFails_CancelOfTheLeader_ChangesNothing()
+    {
+        var lobby = await TestLobby.Create(guests: 1);
+
+        ReachZeroWithoutAMatch(lobby);
+
+        lobby.WriteStart(false);
+
+        lobby.Countdown.IsActive.Should().BeFalse();
+    }
+
+    // The same through the change of the leader, which also goes on to write the new leader.
+    [Fact]
+    public async Task Zero_MatchCreationFails_LeaderLeaves_TheNextUserLeads()
+    {
+        var lobby = await TestLobby.Create(guests: 1);
+
+        ReachZeroWithoutAMatch(lobby);
+
+        lobby.World.Disconnect(lobby.Session, lobby.Users[0]);
+
+        lobby.State.OwnerIndex.Should().Be(lobby.Users[1].Index);
+    }
+
     // The step of a second that has passed is queued behind a cancel: it changes nothing.
     [Fact]
     public async Task CancelQueuedBeforeTheStep_StepIsDropped()
@@ -709,5 +754,15 @@ public class LobbyStartTests
         lobby.World.Time.Advance(LobbyService.CountdownStep * 2);
 
         lobby.Session.Queue.Count.Should().Be(0);
+    }
+
+    private static void ReachZeroWithoutAMatch(TestLobby lobby)
+    {
+        lobby.World.FailMatchCreation(new InvalidOperationException("no match"));
+        lobby.WriteStart(true);
+
+        var advance = () => lobby.Advance(LobbyService.CountdownStep * LobbyCountdownState.Seconds);
+
+        advance.Should().Throw<InvalidOperationException>().WithMessage("no match");
     }
 }

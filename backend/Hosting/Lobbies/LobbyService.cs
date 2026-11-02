@@ -10,7 +10,7 @@ namespace Game.Lobbies;
 // - Lobby (LobbyState, id 1): written only here - the code of the room and the index of the lobby leader
 //   (the session owner; when the leader leaves, the next user by index).
 // - Start (LobbyStartState, id 2): written by the client of the leader - "Start" / "Cancel". Cleared here
-//   only when the leader changes while it is set: its writer is gone.
+//   when the leader changes while it is set (its writer is gone) and when the match of the start is not created.
 // - Countdown (LobbyCountdownState, id 3): written only here - the countdown that runs while Start is set,
 //   one step a second on the clock of the server: every client shows the number it gets.
 // - Game (LobbyGameState, id 4): written only here, once, when the countdown reaches zero - the match

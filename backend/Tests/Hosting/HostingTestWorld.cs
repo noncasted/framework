@@ -91,6 +91,7 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
 
     // Not null: the lobby factory of the game fails with it.
     private Exception? _lobbyCreationFailure;
+    private Exception? _matchCreationFailure;
 
     public string WebSocketUrl => ServerUrl.ServerUrlToWebSocket();
 
@@ -137,6 +138,11 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
         _lobbyCreationFailure = failure;
     }
 
+    public void FailMatchCreation(Exception? failure)
+    {
+        _matchCreationFailure = failure;
+    }
+
     // ILobbyFactory: a lobby session with the lobby service of the framework.
     ISession ILobbyFactory.Create(LobbyCreation creation)
     {
@@ -174,6 +180,9 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     // lobby, listed by the code of the lobby; a closed room of one player is a match of one place.
     public LobbyMatch Create(Guid lobbySessionId, IReadOnlyList<Guid> userIds, bool isOpen)
     {
+        if (_matchCreationFailure != null)
+            throw _matchCreationFailure;
+
         if (userIds.Count > Options.MaxUsers)
             throw new InvalidOperationException($"A lobby starts a match for {userIds.Count} users, the limit is {Options.MaxUsers}");
 

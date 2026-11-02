@@ -15,6 +15,9 @@ public interface ISessionAdmission
 
     void Seal();
 
+    // The match of the lobby was not created: the lobby takes reservations again.
+    void Unseal();
+
     // Closes the session whoever still holds it (the expected users have not all joined in time): the caller
     // terminates it right after.
     void Close();
@@ -109,6 +112,12 @@ public class SessionAdmission : ISessionAdmission
     {
         lock (_lock)
             _isSealed = true;
+    }
+
+    public void Unseal()
+    {
+        lock (_lock)
+            _isSealed = false;
     }
 
     public void Close()

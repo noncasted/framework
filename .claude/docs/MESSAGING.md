@@ -12,7 +12,7 @@ Each transport is a grain keyed by the id string (`IDurableQueueId` / `IRuntimeC
 
 - `DurableQueue`: **one observer per id per process**, fanning the message out to the local handlers.
 - `RuntimeChannel`: **one observer per `Listen` call**, so a slow handler delays only itself (several per id per process are normal).
-- `RuntimePipe`: **one handler per id per process**: a new one replaces the previous one once it has bound; if it fails to bind, the previous one stays.
+- `RuntimePipe`: **one handler per id per process**: a new one replaces the previous one once it has bound; if it fails to bind, the previous one stays. The binds and unbinds of one pipe in a process go one by one, so a refresh on its way cannot bind a replaced observer; a new handler waits for such a call (at most its Orleans response timeout).
 
 - Observers are refreshed by the client resubscribe loop (`AdaptiveInterval`, 10-60 s; faster after failures; for channels `ResubscribeMinIntervalMs`, `ResubscribeMaxIntervalMs`). Every listener refreshes on its own: one that hangs does not hold the others, it counts as failed after the timeout (30 s, for channels `ResubscribeTimeoutMs`) and is not called again until its call ends.
 - A grain removes an observer whose call failed or timed out. The observer is back after the next resubscribe of its process.

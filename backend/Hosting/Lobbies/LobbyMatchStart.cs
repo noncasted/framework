@@ -49,7 +49,7 @@ internal class LobbyMatchStart
                 userIds.Add(userId);
         }
 
-        var match = _matches.Create(_info.SessionId, userIds, _properties.Visibility.Value.IsOpen);
+        var match = CreateMatch(userIds);
 
         _logger.LogInformation("[Lobby] Lobby {Code} starts the match {SessionID} for {Count} users",
             _properties.Lobby.Value.Code,
@@ -62,5 +62,22 @@ internal class LobbyMatchStart
             SessionId = match.SessionId,
             PlayersCount = userIds.Count
         });
+    }
+
+    private LobbyMatch CreateMatch(IReadOnlyList<Guid> userIds)
+    {
+        try
+        {
+            return _matches.Create(_info.SessionId, userIds, _properties.Visibility.Value.IsOpen);
+        }
+        catch (Exception)
+        {
+            // No match: the lobby goes back to where it was before the start, the leader may start again. The failure
+            // itself goes on to the session queue.
+            _admission.Unseal();
+            _properties.Countdown.Set(new LobbyCountdownState());
+            _properties.Start.Set(new LobbyStartState());
+            throw;
+        }
     }
 }

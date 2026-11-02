@@ -40,6 +40,9 @@ public class RuntimePipeClient : IRuntimePipeClient
 
     private readonly ConcurrentDictionary<Guid, Listener> _listeners = new();
 
+    // By the id of a pipe, kept for the life of the client: a process has few pipes.
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _bindOrders = new();
+
     public Task Start(IReadOnlyLifetime lifetime)
     {
         ResubscribeLoop.Run(lifetime,
@@ -87,40 +90,52 @@ public class RuntimePipeClient : IRuntimePipeClient
     {
         var observerId = Guid.NewGuid();
         var observerReference = _orleans.Client.CreateObjectReference<IRuntimePipeObserver>(observer);
+        var bindOrder = _bindOrders.GetOrAdd(id.ToRaw(), _ => new SemaphoreSlim(1, 1));
 
-        // Taken before the new one is known: of two registrations together the later one stays.
-        var replaced = _listeners.ToArray().Where(pair => pair.Value.Id.ToRaw() == id.ToRaw()).ToArray();
-
-        var transportListener = new Listener(
-            id,
-            observerId,
-            observer,
-            observerReference,
-            GetPipe(id),
-            _orleans,
-            _logger);
-
-        _listeners[observerId] = transportListener;
-        lifetime.Listen(() => RemoveListener(observerId, transportListener));
+        // The whole replacement goes in the order of the pipe: a refresh of the old listener is either over or finds it
+        // gone, it cannot bind the old observer over the new one.
+        await bindOrder.WaitAsync();
 
         try
         {
-            await transportListener.Resubscribe();
-            transportListener.RecordSuccess();
-        }
-        catch (Exception e)
-        {
-            transportListener.RecordFailure(e);
-            RemoveListener(observerId, transportListener);
-            throw;
-        }
+            var replaced = _listeners.ToArray().Where(pair => pair.Value.Id.ToRaw() == id.ToRaw()).ToArray();
 
-        // Only now: a new observer that failed to bind leaves the pipe with the old one.
-        foreach (var (replacedId, replacedListener) in replaced)
+            var transportListener = new Listener(
+                id,
+                observerId,
+                observer,
+                observerReference,
+                GetPipe(id),
+                bindOrder,
+                _orleans,
+                _logger);
+
+            _listeners[observerId] = transportListener;
+            lifetime.Listen(() => RemoveListener(observerId, transportListener));
+
+            try
+            {
+                await transportListener.Bind();
+                transportListener.RecordSuccess();
+            }
+            catch (Exception e)
+            {
+                transportListener.RecordFailure(e);
+                RemoveListener(observerId, transportListener);
+                throw;
+            }
+
+            // Only now: a new observer that failed to bind leaves the pipe with the old one.
+            foreach (var (replacedId, replacedListener) in replaced)
+            {
+                _logger.LogWarning("[Messaging] [RuntimePipe] Removing duplicate observer {ObserverId} for pipe {PipeId}",
+                    replacedListener.ObserverId, id.ToRaw());
+                RemoveListener(replacedId, replacedListener);
+            }
+        }
+        finally
         {
-            _logger.LogWarning("[Messaging] [RuntimePipe] Removing duplicate observer {ObserverId} for pipe {PipeId}",
-                replacedListener.ObserverId, id.ToRaw());
-            RemoveListener(replacedId, replacedListener);
+            bindOrder.Release();
         }
     }
 
@@ -146,6 +161,7 @@ public class RuntimePipeClient : IRuntimePipeClient
             RuntimePipeObserver observerSource,
             IRuntimePipeObserver observer,
             IRuntimePipe pipe,
+            SemaphoreSlim bindOrder,
             IOrleans orleans,
             ILogger logger)
         {
@@ -154,6 +170,7 @@ public class RuntimePipeClient : IRuntimePipeClient
             ObserverSource = observerSource;
             Observer = observer;
             Pipe = pipe;
+            _bindOrder = bindOrder;
             Orleans = orleans;
             Logger = logger;
             _failures = new ResubscribeFailures(
@@ -164,6 +181,11 @@ public class RuntimePipeClient : IRuntimePipeClient
         }
 
         private readonly ResubscribeFailures _failures;
+
+        // One per pipe: the binds and unbinds of its listeners reach the grain one by one, in the order they were
+        // decided. A call still on its way could otherwise overtake the next one (a bind of a listener already replaced).
+        // A call that hangs ends with the response timeout of Orleans.
+        private readonly SemaphoreSlim _bindOrder;
 
         private int _cleanupStarted;
 
@@ -179,7 +201,26 @@ public class RuntimePipeClient : IRuntimePipeClient
 
         public async Task Resubscribe()
         {
-            await Pipe.BindObserver(ObserverId, Observer);
+            await _bindOrder.WaitAsync();
+
+            try
+            {
+                // Gone since the pass of the loop took it.
+                if (Volatile.Read(ref _cleanupStarted) == 1)
+                    return;
+
+                await Bind();
+            }
+            finally
+            {
+                _bindOrder.Release();
+            }
+        }
+
+        // The caller is in the order of the pipe.
+        public Task Bind()
+        {
+            return Pipe.BindObserver(ObserverId, Observer);
         }
 
         public void RecordSuccess()
@@ -211,6 +252,8 @@ public class RuntimePipeClient : IRuntimePipeClient
         {
             ObserverSource.ClearResponseHandler();
 
+            await _bindOrder.WaitAsync();
+
             try
             {
                 await Pipe.UnbindObserver(ObserverId);
@@ -220,6 +263,10 @@ public class RuntimePipeClient : IRuntimePipeClient
                 Logger.LogWarning(e,
                     "[Messaging] [RuntimePipe] Failed to unbind observer {ObserverId} from pipe {PipeId}",
                     ObserverId, Id.ToRaw());
+            }
+            finally
+            {
+                _bindOrder.Release();
             }
 
             try

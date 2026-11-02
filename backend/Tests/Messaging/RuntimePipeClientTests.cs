@@ -272,7 +272,7 @@ public class RuntimePipeClientTests
         var observer = new RuntimePipeObserver(_logger);
 
         var listener = new RuntimePipeClient.Listener(_id, Guid.NewGuid(), observer,
-            Substitute.For<IRuntimePipeObserver>(), _pipe, Orleans, _logger);
+            Substitute.For<IRuntimePipeObserver>(), _pipe, new SemaphoreSlim(1, 1), Orleans, _logger);
 
         listener.Cleanup();
         listener.Cleanup();
@@ -329,5 +329,158 @@ public class RuntimePipeClientTests
 
         // Only the observer that failed to bind goes: the handler of the first still answers.
         await ((RuntimePipeObserver)_observers[0]).Ping();
+    }
+
+    // A pass of the loop has its bind of the old observer on the way when a new handler comes: whatever order the two
+    // would reach the grain in, the new one stays bound.
+    [Fact]
+    public async Task AddHandler_BindOfTheOldOneOnTheWay_TheNewOneStaysBound()
+    {
+        var pipe = new BindsOfAGrain(_pipe);
+        var client = CreateClient();
+        var loop = new Lifetime();
+
+        await client.AddHandler<string, string>(new Lifetime(), _id, Task.FromResult);
+        var old = pipe.Bound;
+
+        pipe.HoldNextBind();
+        await client.Start(loop);
+        await TestWait.Until(() => pipe.HasHeldBind);
+
+        var adding = client.AddHandler<string, string>(new Lifetime(), _id, Task.FromResult);
+        pipe.ReleaseHeldBind();
+        await adding;
+
+        await TestWait.Until(() => pipe.Unbinds.Contains(old!.Value));
+
+        pipe.Bound.Should().NotBe(old!.Value, "the pipe would stay without a handler until the next refresh, 10-60 s");
+        await ((RuntimePipeObserver)_observers[1]).Ping();
+
+        loop.Terminate();
+    }
+
+    // A handler ends with its bind on the way: the unbind comes after it, the pipe does not keep the dead observer.
+    [Fact]
+    public async Task LifetimeEnd_BindOnTheWay_NothingStaysBound()
+    {
+        var pipe = new BindsOfAGrain(_pipe);
+        var client = CreateClient();
+        var lifetime = new Lifetime();
+        var loop = new Lifetime();
+
+        await client.AddHandler<string, string>(lifetime, _id, Task.FromResult);
+        var bound = pipe.Bound;
+
+        pipe.HoldNextBind();
+        await client.Start(loop);
+        await TestWait.Until(() => pipe.HasHeldBind);
+
+        lifetime.Terminate();
+        pipe.ReleaseHeldBind();
+
+        await TestWait.Until(() => pipe.Unbinds.Contains(bound!.Value));
+
+        pipe.Bound.Should().BeNull();
+
+        loop.Terminate();
+    }
+
+    // A pass that took the listener before its end does not bring it back.
+    [Fact]
+    public async Task Listener_ResubscribeAfterCleanup_DoesNotBind()
+    {
+        var observer = new RuntimePipeObserver(_logger);
+
+        var listener = new RuntimePipeClient.Listener(_id, Guid.NewGuid(), observer,
+            Substitute.For<IRuntimePipeObserver>(), _pipe, new SemaphoreSlim(1, 1), Orleans, _logger);
+
+        listener.Cleanup();
+
+        await listener.Resubscribe();
+
+        await _pipe.DidNotReceiveWithAnyArgs().BindObserver(default, default!);
+    }
+
+    // The observer of the grain: a bind takes effect when it reaches it, here when the test lets it through.
+    private sealed class BindsOfAGrain
+    {
+        public BindsOfAGrain(IRuntimePipe pipe)
+        {
+            pipe.BindObserver(default, default!).ReturnsForAnyArgs(call => Bind(call.Arg<Guid>()));
+
+            pipe.UnbindObserver(default).ReturnsForAnyArgs(call => {
+                Unbind(call.Arg<Guid>());
+                return Task.CompletedTask;
+            });
+        }
+
+        private readonly Lock _lock = new();
+        private readonly TaskCompletionSource _release = new();
+        private bool _holdNext;
+        private volatile bool _hasHeld;
+        private Guid? _bound;
+        private readonly List<Guid> _unbinds = new();
+
+        public bool HasHeldBind => _hasHeld;
+
+        public Guid? Bound
+        {
+            get
+            {
+                lock (_lock)
+                    return _bound;
+            }
+        }
+
+        public IReadOnlyList<Guid> Unbinds
+        {
+            get
+            {
+                lock (_lock)
+                    return _unbinds.ToArray();
+            }
+        }
+
+        public void HoldNextBind()
+        {
+            lock (_lock)
+                _holdNext = true;
+        }
+
+        public void ReleaseHeldBind()
+        {
+            _release.SetResult();
+        }
+
+        private async Task Bind(Guid id)
+        {
+            var isHeld = false;
+
+            lock (_lock)
+            {
+                isHeld = _holdNext;
+                _holdNext = false;
+            }
+
+            if (isHeld == true)
+            {
+                _hasHeld = true;
+                await _release.Task;
+            }
+
+            lock (_lock)
+                _bound = id;
+        }
+
+        private void Unbind(Guid id)
+        {
+            lock (_lock)
+            {
+                _unbinds.Add(id);
+
+                if (_bound == id)
+                    _bound = null;
+            }
+        }
     }
 }
