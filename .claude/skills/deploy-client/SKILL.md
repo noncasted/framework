@@ -35,15 +35,15 @@ a target stops the run; targets already deployed stay deployed - report which on
   (both targets when none is given) and report
 - `--rollback <web|telegram> <tag>` - only run `tools/scripts/deploy-webgl.sh --target <t> --rollback <tag>`
   and report. The target is required: tags of the two targets look alike.
-- `skip-tests` - combines with the build arguments above (`skip-tests`, `web skip-tests`, ...): skip
-  step 1b. Only when the user typed it in this request - never on your own, not even to save time
-  or after a failing test run. `--list` and `--rollback` never run the tests anyway.
+- `--notest` (same as `skip-tests`) - combines with the build arguments above (`--notest`, `web --notest`,
+  ...): skip step 1b. Only when the user typed it in this request - never on your own, not even to save
+  time or after a failing test run. `--list` and `--rollback` never run the tests anyway.
 
 | Argument | Targets | Tests (step 1b) | Build + deploy |
 |----------|---------|-----------------|----------------|
 | none | web, telegram | yes | yes |
 | `web` / `telegram` | that one | yes | yes |
-| `skip-tests` / `web skip-tests` / ... | as above | no | yes |
+| `--notest` / `web --notest` / `skip-tests` / ... | as above | no | yes |
 | `--list [t]` | t or both | no | no, list only |
 | `--rollback <t> <tag>` | t | no | no, rollback only |
 
@@ -73,7 +73,7 @@ tools/scripts/deploy-webgl.sh --target <t> --list   # per target
 
 ## Step 1b - Tests
 
-Skipped only with the `skip-tests` argument (see Arguments). Run from the repo root, in the
+Skipped only with the `--notest` argument (see Arguments). Run from the repo root, in the
 background (`run_in_background`; a full run takes several minutes), and wait for it to finish:
 
 ```bash
@@ -88,7 +88,7 @@ seconds, totals) and `ALL TESTS PASSED` or `TESTS FAILED`; the exit code is non-
 - Exit code 0 and `ALL TESTS PASSED` - go on to step 2.
 - Anything else - STOP, do not build or deploy. Report in Russian: the summary table, the failed test
   names the script printed under each failing step, and the log folder (`Logs: ...`). Do not fix the
-  tests, do not rerun with `skip-tests`, do not retry on your own - the user decides.
+  tests, do not rerun with `--notest`, do not retry on your own - the user decides.
 - The Unity step refuses to start with less than 8 GB of available memory (`low memory`) - report it
   as a failure too; the user may close something and rerun.
 
@@ -268,7 +268,7 @@ tools/scripts/deploy-webgl.sh --target <t> --list
 ## Step 6 - Report
 
 Tell the user, in Russian, the result of step 1b (passed with totals per suite, or "skipped by
-`skip-tests`"), then per target:
+`--notest`"), then per target:
 
 - the deployed tag and the size that was uploaded
 - the link: the url of the target (the script prints
