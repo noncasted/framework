@@ -116,6 +116,7 @@ All are errors.
 | CINGR013 | A scope root is overloaded: the runtime finds a root by its name only |
 | CINGR014 | Several `WithParameter` values of a registration fit one parameter and none has exactly its type |
 | CINGR015 | Warning: a `WithParameter` value of a registration that no parameter can take |
+| CINGR016 | A scope root is generic: the method, a method around it or a type around it has type parameters. A generic installer is fine |
 
 An exception inside the generator is reported as CINGR001 for the scope it happened in; the other scopes of the
 assembly are still emitted.

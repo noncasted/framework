@@ -53,7 +53,8 @@ namespace ContainerGenerator {
                 RootId = graph.RootId,
                 Namespace = ns,
                 ClassName = className,
-                HintName = className + ".g.cs",
+                // With the namespace: roots of one type name in two namespaces have two classes of one name.
+                HintName = (string.IsNullOrEmpty(ns) ? "" : ns + ".") + className + ".g.cs",
                 ViewType = graph.ViewType ?? "",
                 OriginRootId = originRootId,
                 HasContainerInterface = compilation.GetTypeByMetadataName("Internal.IContainer") != null,

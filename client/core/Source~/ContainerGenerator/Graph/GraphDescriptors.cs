@@ -116,6 +116,14 @@ namespace ContainerGenerator {
             defaultSeverity: DiagnosticSeverity.Error,
             isEnabledByDefault: true);
 
+        public static readonly DiagnosticDescriptor GenericRoot = new DiagnosticDescriptor(
+            id: "CINGR016",
+            title: "Scope root is generic",
+            messageFormat: "Scope root '{0}' is generic: one class is generated per root and the runtime finds it by the name of a non-generic method. Make the root non-generic and give the type to a generic installer it calls. File {1} line {2}.",
+            category: Category,
+            defaultSeverity: DiagnosticSeverity.Error,
+            isEnabledByDefault: true);
+
         public static readonly DiagnosticDescriptor InjectableWithoutInject = new DiagnosticDescriptor(
             id: "CINGR008",
             title: "Injectable type has no [Inject] method",

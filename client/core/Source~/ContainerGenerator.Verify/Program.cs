@@ -670,8 +670,8 @@ namespace ContainerGenerator.Verify {
                 classes.Add(hint);
             }
 
-            Require(hints.Contains("ItemFactoryBuildLocalContainer.g.cs"), "missing BuildLocal class; got " + string.Join(", ", classes));
-            Require(hints.Contains("ItemFactoryBuildRemoteContainer.g.cs"), "missing BuildRemote class; got " + string.Join(", ", classes));
+            Require(hints.Contains("Feature.Items.ItemFactoryBuildLocalContainer.g.cs"), "missing BuildLocal class; got " + string.Join(", ", classes));
+            Require(hints.Contains("Feature.Items.ItemFactoryBuildRemoteContainer.g.cs"), "missing BuildRemote class; got " + string.Join(", ", classes));
         }
 
         private static string ViewTypeOf(string source) {

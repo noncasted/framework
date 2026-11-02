@@ -24,7 +24,7 @@ Internal  (InternalScopeExtensions.Construct)          client/Assets/Common/Inte
 
 ### Service scope (`IScopeBuilder`)
 
-A root is a static `Construct` method taking `IScopeBuilder` (optionally plus one argument). It is passed to `ScopeLoadOptions` as a **method group**, never a lambda: the generator finds the scope class by the method (`GeneratedScopes.RootId`). The parent is declared twice: at runtime by the `ILoadedScope parent` argument and at compile time by `[ContainerScopeParent]`.
+A root is a static non-generic `Construct` method of a non-generic type taking `IScopeBuilder` (optionally plus one argument). It is passed to `ScopeLoadOptions` as a **method group**, never a lambda: the generator finds the scope class by the method (`GeneratedScopes.RootId`). The parent is declared twice: at runtime by the `ILoadedScope parent` argument and at compile time by `[ContainerScopeParent]`.
 
 ```csharp
 public static async UniTask<ILoadedScope> LoadGlobal(this IServiceScopeLoader loader, ILoadedScope parent)
@@ -223,6 +223,7 @@ The generator reports errors at compile time; the Unity console shows them as co
 | CINGR006 | One `ScopeEntityView` type used by two assets | One view subtype per prefab |
 | CINGR007 | Declared parent scope manifest not found | Check `[ContainerScopeParent]` type and method name |
 | CINGR008 | `builder.Injectable<T>` type has no visible `[Inject]` method | Add the method; `internal` methods of other assemblies are not visible |
+| CINGR016 | Scope root is generic: the method, a method around it or a type around it has type parameters | A non-generic root that calls a generic installer |
 
 - `Tools/Container Debugger` (Play mode): live containers, registrations, resolve history, allocations per phase and per listener.
 - `Tools/Container Graph` (Play mode): Graph Toolkit view of live scopes and their parent links.

@@ -18,6 +18,16 @@ namespace ContainerGenerator {
             return HasBuilderParameter(method);
         }
 
+        // The method, a method around it or a type around it has type parameters: no form of it can be a root.
+        public static bool IsGeneric(IMethodSymbol method) {
+            for (ISymbol? symbol = method; symbol != null; symbol = symbol.ContainingSymbol) {
+                if (symbol is IMethodSymbol { IsGenericMethod: true } || symbol is INamedTypeSymbol { IsGenericType: true })
+                    return true;
+            }
+
+            return false;
+        }
+
         private bool HasGraphRootAttribute(IMethodSymbol method) {
             if (_references.GraphRootAttribute == null)
                 return false;

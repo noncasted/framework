@@ -6,6 +6,7 @@ namespace ContainerGenerator.Verify {
     // Cases of bugs found in review: each one failed before its fix.
     internal static partial class Program {
         private static void RunRegressionCases() {
+            RunGenericRootCases();
             Run("WithParameter of one type is bound to its own registration", TestParameterPerRegistration);
             Run("two instances of one type get two slots", TestInstancePerRegistration);
             Run("two instances of one type reach the list in their order", () => RunScenario(InstancesInOrderScenario));
@@ -110,14 +111,14 @@ namespace ContainerGenerator.Verify {
             RequireBlocked(AmbiguousConstructorsSource, "AmbiguousRoot", "CINGR011", "constructors");
         }
 
-        // A generic root cannot be named as a class: the exception of the emitter used to drop every generated source
-        // of the assembly with only the CS8785 warning.
+        // Two roots that get one class name make AddSource throw: the exception of the emitter used to drop every
+        // generated source of the assembly with only the CS8785 warning.
         private static void TestEmitterExceptionIsDiagnostic() {
             var run = RunGenerator(Compile(EmitterExceptionSource, "EmitterException"), "EmitterException", requireEmit: false);
             RequireNoId(run.Diagnostics, "CS8785");
             var error = RequireId(run.Diagnostics, "CINGR001");
             Require(error.Severity == DiagnosticSeverity.Error, "CINGR001 severity " + error.Severity);
-            Require(error.GetMessage().IndexOf("Make", StringComparison.Ordinal) >= 0, "CINGR001 must name the root: " + error.GetMessage());
+            Require(error.GetMessage().IndexOf("Sample.SameClass", StringComparison.Ordinal) >= 0, "CINGR001 must name the root: " + error.GetMessage());
             RequireGeneratedContains(run.Output, "class HealthyRootConstructContainer");
             RequireGeneratedContains(run.Output, "[assembly: global::Internal.ContainerInstaller(");
         }
@@ -399,9 +400,15 @@ namespace Sample {
 using Internal;
 namespace Sample {
     public class Service {}
-    public static class GenericRoot {
+    public static class SameClass {
         [ContainerGraphRoot]
-        public static void Make<T>(IScopeBuilder builder) {
+        public static void NameRoot(IScopeBuilder builder) {
+            builder.Register<Service>();
+        }
+    }
+    public static class SameClassName {
+        [ContainerGraphRoot]
+        public static void Root(IScopeBuilder builder) {
             builder.Register<Service>();
         }
     }

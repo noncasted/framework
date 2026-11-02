@@ -69,6 +69,11 @@ namespace ContainerGenerator {
                         continue;
 
                     var isRoot = _installerClassifier.IsRoot(method);
+                    if (isRoot && InstallerClassifier.IsGeneric(method)) {
+                        _walkDiagnostics.ReportGenericRoot(method);
+                        isRoot = false;
+                    }
+
                     if (isRoot == false && _installerClassifier.ShouldWalkAsInstaller(method) == false)
                         continue;
 

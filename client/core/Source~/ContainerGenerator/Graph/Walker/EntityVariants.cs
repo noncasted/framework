@@ -65,6 +65,11 @@ namespace ContainerGenerator {
             }
 
             foreach (var pair in groups) {
+                if (InstallerClassifier.IsGeneric(pair.Value[0].Construct)) {
+                    _walkDiagnostics.ReportGenericRoot(pair.Value[0].Construct);
+                    continue;
+                }
+
                 _unenumerableConditions.ReportUnenumerableVariants(pair.Value[0].Construct);
                 var distinct = DistinctViewTypes(pair.Value);
                 // The loader finds the class by the bare name of the method (GeneratedScopes.RootId).
