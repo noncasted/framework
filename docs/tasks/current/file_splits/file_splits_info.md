@@ -5,7 +5,7 @@ phase: implementation
 created: 2026-11-02
 updated: 2026-11-02
 total_steps: 9
-completed_steps: [1, 2, 3, 4]
+completed_steps: [1, 2, 3]
 blocked_steps: []
 ---
 
@@ -61,7 +61,7 @@ blocked_steps: []
 - **Зависит от:** 1
 
 #### [4] N8, N9, сеть
-- **Статус:** [x] completed
+- **Статус:** [/] in_progress
 - **Что:** `NetworkLatencyMonitor`, `NetworkConnection`, `ConnectionWriter`, `JsWebSocket`, `NativeWebRtcPeer`
 - **Зависит от:** 3
 

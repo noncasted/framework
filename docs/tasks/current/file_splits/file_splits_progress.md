@@ -10,7 +10,7 @@ updated: 2026-11-02
 | [1] | [x] | `baseline.md`: Verify 149/149, EditMode 361 passed + 4 skipped, PlayMode 12/12, md5 `4924df6a...` | — |
 | [2] | [x] | `file_splits_gen` @ `ca6cc23`: Verify 149/149, снимок и вывод кейсов равны эталону (перепроверено оркестратором), 4 игры без отличий (со слов агента) | — |
 | [3] | [x] | `93b20e9`: EditMode 406 + 4 skipped, PlayMode 56/56; проверено по `final.*.xml`, файлы до 165 строк | — |
-| [4] | [x] | EditMode 412 + 4 skipped, PlayMode 71/71; после слияния со 2 и main см. заметку | — |
+| [4] | [/] | Отчёт агента: EditMode 412 + 4 skipped, PlayMode 71/71. После слияния есть падения WebRTC, идёт сравнение | возможная регрессия, шаг 4b |
 | [5] | [ ] | — | — |
 | [6] | [ ] | — | — |
 | [7] | [ ] | — | — |
@@ -19,11 +19,15 @@ updated: 2026-11-02
 
 ## Заметки
 
+### [2026-11-02] Решение пользователя: тесты в конце шага
+Начиная с шага 5 полный прогон EditMode и PlayMode идёт в конце шага, а не после каждого класса. По коммиту на класс остаётся. Это отступление от пункта 2 раздела «Что сделать».
+
 ### [2026-11-02] Слияние шагов 2 и 4 с main
 - `file_splits` перебазирован на `main` (коммиты `public_setters`). Единственный конфликт: сеттеры `GamepadState` перенесены в вынесенный `GamepadState.cs` и `ReadInput`.
 - `file_splits_gen` перебазирован на `file_splits`, слияние fast-forward.
 - Старый (`4004262`) и новый генератор на одном дереве дают одинаковый вывод, md5 манифеста `24993616...`. `harness/baseline_manifest.md5` обновлён на него: прежний эталон устарел из-за новой регистрации в `network`.
 - Первый прогон EditMode после слияния уронил `AudioPlayerTests.UpdaterPaused_MusicStillFadesIn` на логе Unity о `Assets/common` и `Assets/Common` (различие только в регистре), код теста ни при чём. Лог пишется при импорте и может попасть в любой тест. Это особенность `client/project`.
+- Второй прогон EditMode на том же коммите дал другие два падения: `PeerHostFirstFrameTests.OpenAndFirstFrameInOneFrame_GuestIsAuthorized` (`DTLS alert: unknown CA`) и `WebRtcPeerSocketTests.Connect_Frames_ArriveInOrder` (`add remote candidate failed: error=-2`). Шаг 4 поэтому не считается доказанным, пока шаг 4b не сравнит частоту падений до и после разреза `NativeWebRtcPeer`.
 
 ### [2026-11-02] Находка шага 4
 Подтверждён дефект N8: исключение отчёта завершает цикл пингов до конца сессии (`NetworkLatencyMonitor.cs:81`, источник `GuestLatencyReport.cs:18`, `HostLatencyReport.cs:20`). Поведение сохранено, закреплено тестом `KnownDefect_FailedReportStopsTheProbes`.
