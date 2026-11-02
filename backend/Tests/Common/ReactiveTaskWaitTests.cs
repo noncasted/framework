@@ -40,17 +40,19 @@ public class ReactiveTaskWaitTests
     public async Task WaitTrue_Completed_AwaiterNotInsideSet()
     {
         var property = new ViewableProperty<bool>(false);
-        var insideSet = false;
+        // Per thread on purpose: Set goes on after it completes the wait, so a continuation on a pool thread may run before
+        // Set returns and is still not inside it. Only a continuation on the thread in the call of Set sees true.
+        using var insideSet = new ThreadLocal<bool>();
         bool? continuationInsideSet = null;
 
         var wait = property.WaitTrue(new Lifetime());
 
-        var continuation = wait.ContinueWith(_ => continuationInsideSet = insideSet, CancellationToken.None,
+        var continuation = wait.ContinueWith(_ => continuationInsideSet = insideSet.Value, CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
 
-        insideSet = true;
+        insideSet.Value = true;
         property.Set(true);
-        insideSet = false;
+        insideSet.Value = false;
 
         await continuation;
         continuationInsideSet.Should().BeFalse("the awaiter of a wait must not run inside the Set that completed it");
