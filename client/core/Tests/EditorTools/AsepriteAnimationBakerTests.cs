@@ -50,7 +50,15 @@ namespace Internal.EditorTests
         {
             File.Delete(_path);
             File.WriteAllText(SettingsFile, _settings);
-            AssetDatabase.DeleteAsset(Content);
+
+            // The folders stay for the next test: the first bake of a run creates them.
+            EditorTestAssets.DeleteFiles(Content);
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTearDown()
+        {
+            EditorTestAssets.DeleteFolder(Content);
         }
 
         [Test]

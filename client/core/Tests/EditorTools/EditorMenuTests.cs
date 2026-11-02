@@ -14,26 +14,19 @@ namespace Internal.EditorTests
         private const string Folder = "Assets/EditorMenuTests";
         private const string AssetPath = Folder + "/Clip.anim";
 
-        [SetUp]
-        public void SetUp()
-        {
-            AssetDatabase.CreateFolder("Assets", "EditorMenuTests");
-            AssetDatabase.CreateAsset(new AnimationClip(), AssetPath);
-            AssetDatabase.AddObjectToAsset(new AnimationClip { name = "Nested" }, AssetPath);
-            AssetDatabase.SaveAssets();
-        }
-
         [TearDown]
         public void TearDown()
         {
             Selection.objects = Array.Empty<Object>();
-            AssetDatabase.DeleteAsset(Folder);
+            EditorTestAssets.DeleteFolder(Folder);
         }
 
         // The first item of the context menu of any asset: right click on a prefab and a click destroys the prefab.
         [Test]
         public void DestroyNested_MainAsset_IsNotOffered_AndNotDestroyed()
         {
+            CreateClipWithNested();
+
             var main = AssetDatabase.LoadMainAssetAtPath(AssetPath);
             Selection.objects = new[] { main };
 
@@ -48,6 +41,8 @@ namespace Internal.EditorTests
         [Test]
         public void DestroyNested_NestedAsset_IsOffered_AndDestroyed()
         {
+            CreateClipWithNested();
+
             var nested = AssetDatabase.LoadAllAssetsAtPath(AssetPath).First(AssetDatabase.IsSubAsset);
             Selection.objects = new[] { nested };
 
@@ -116,6 +111,14 @@ namespace Internal.EditorTests
             {
                 Object.DestroyImmediate(window);
             }
+        }
+
+        private static void CreateClipWithNested()
+        {
+            AssetDatabase.CreateFolder("Assets", "EditorMenuTests");
+            AssetDatabase.CreateAsset(new AnimationClip(), AssetPath);
+            AssetDatabase.AddObjectToAsset(new AnimationClip { name = "Nested" }, AssetPath);
+            AssetDatabase.SaveAssets();
         }
 
         private static MethodInfo FindMenu(bool validate)

@@ -46,11 +46,14 @@ namespace Internal.EditorTests
             ResetState();
             File.SetAttributes(CatalogPaths.ToFullPath(Fixture), FileAttributes.Normal);
 
-            foreach (var folder in new[] { TempRoot, NoAssemblyRoot })
-            {
-                if (AssetDatabase.IsValidFolder(folder))
-                    AssetDatabase.DeleteAsset(folder);
-            }
+            EditorTestAssets.DeleteFiles(TempRoot);
+            EditorTestAssets.DeleteFolder(NoAssemblyRoot);
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTearDown()
+        {
+            EditorTestAssets.DeleteFolder(TempRoot);
         }
 
         // Menu/Shop.prefab and GamePlay/Shop.prefab, both bindings named ShopBindings: different classes, one file.

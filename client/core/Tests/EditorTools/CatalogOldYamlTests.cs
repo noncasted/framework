@@ -17,14 +17,15 @@ namespace Internal.EditorTests
         private const string FolderName = "CatalogOldYamlTests_Temp";
         private const string Folder = "Assets/" + FolderName;
 
-        [SetUp]
-        public void SetUp()
+        // Every test writes files of its own names and reads only them, so they stay until the end of the class.
+        [OneTimeSetUp]
+        public void OneTimeSetUp()
         {
             AssetDatabase.CreateFolder("Assets", FolderName);
         }
 
-        [TearDown]
-        public void TearDown()
+        [OneTimeTearDown]
+        public void OneTimeTearDown()
         {
             AssetDatabase.DeleteAsset(Folder);
         }

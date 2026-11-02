@@ -19,6 +19,22 @@ namespace Internal.EditorTests
 
         private string _settings;
 
+        // One asset for the class: the tests read and write the userData of its importer in memory, nothing imports it.
+        // A text asset: importing a prefab schedules the shared addressables sync, which fires in a later test.
+        [OneTimeSetUp]
+        public void OneTimeSetUp()
+        {
+            AssetDatabase.CreateFolder("Assets", Path.GetFileName(TempFolder));
+            File.WriteAllText(CatalogPaths.ToFullPath(HolderPath), "holder");
+            AssetDatabase.ImportAsset(HolderPath, ImportAssetOptions.ForceSynchronousImport);
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTearDown()
+        {
+            EditorTestAssets.DeleteFolder(TempFolder);
+        }
+
         [SetUp]
         public void SetUp()
         {
@@ -29,9 +45,6 @@ namespace Internal.EditorTests
         public void TearDown()
         {
             File.WriteAllText(SettingsFile, _settings);
-
-            if (AssetDatabase.IsValidFolder(TempFolder))
-                AssetDatabase.DeleteAsset(TempFolder);
         }
 
         [Test]
@@ -208,13 +221,6 @@ namespace Internal.EditorTests
 
         private static AssetImporter Importer(string userData)
         {
-            if (AssetDatabase.IsValidFolder(TempFolder) == false)
-                AssetDatabase.CreateFolder("Assets", Path.GetFileName(TempFolder));
-
-            // A text asset: importing a prefab schedules the shared addressables sync, which fires in a later test.
-            File.WriteAllText(CatalogPaths.ToFullPath(HolderPath), "holder");
-            AssetDatabase.ImportAsset(HolderPath, ImportAssetOptions.ForceSynchronousImport);
-
             var importer = AssetImporter.GetAtPath(HolderPath);
             importer.userData = JObject.Parse(userData).ToString(Formatting.Indented);
             return importer;

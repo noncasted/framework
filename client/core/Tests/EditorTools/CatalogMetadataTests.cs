@@ -16,13 +16,27 @@ namespace Internal.EditorTests
     public class CatalogMetadataTests
     {
         private const string TempFolder = "Assets/CatalogMetadataTemp";
+        private const string HolderPath = TempFolder + "/UserData.prefab";
         private const string RegistryPath = "Temp/CatalogMetadataTests/Registry.json";
+
+        // One prefab for the tests of the userData: they set it on its importer in memory, each test its own. The
+        // assets of the other tests have their own names and stay until the end of the class too.
+        [OneTimeSetUp]
+        public void OneTimeSetUp()
+        {
+            MakePrefab("UserData");
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTearDown()
+        {
+            EditorTestAssets.DeleteFolder(TempFolder);
+        }
 
         [TearDown]
         public void TearDown()
         {
-            if (AssetDatabase.IsValidFolder(TempFolder))
-                AssetDatabase.DeleteAsset(TempFolder);
+            AssetImporter.GetAtPath(HolderPath).userData = string.Empty;
 
             var registry = CatalogPaths.ToFullPath(RegistryPath);
 
@@ -47,7 +61,7 @@ namespace Internal.EditorTests
         [Test]
         public void UnreadableUserData_Throws()
         {
-            var importer = AssetImporter.GetAtPath(MakePrefab("Broken"));
+            var importer = AssetImporter.GetAtPath(HolderPath);
             importer.userData = "<<<<<<< HEAD";
 
             Assert.Catch<Exception>(() => AssetUserData.TryRead(importer, "prefabCatalog", "CatalogMetadataTests", out _));
@@ -56,7 +70,7 @@ namespace Internal.EditorTests
         [Test]
         public void StagingOverUnreadableUserData_Throws()
         {
-            var importer = AssetImporter.GetAtPath(MakePrefab("Broken"));
+            var importer = AssetImporter.GetAtPath(HolderPath);
             importer.userData = "<<<<<<< HEAD";
 
             Assert.Catch<Exception>(() => AssetUserData.Stage(importer, "prefabCatalog", "CatalogMetadataTests",
@@ -67,7 +81,7 @@ namespace Internal.EditorTests
         [Test]
         public void ExcludedPrefabReimported_SchedulesCatalogue()
         {
-            var path = MakePrefab("Excluded");
+            var path = MakePrefab("ExcludedPrefab");
             PrefabCatalogMetadata.Write(AssetImporter.GetAtPath(path),
                 new PrefabCatalogMetadata(false, "CatalogMetadataTests"));
 
@@ -80,7 +94,7 @@ namespace Internal.EditorTests
         [Test]
         public void ExcludedSoundReimported_SchedulesCatalogue()
         {
-            var path = MakeWav("Excluded");
+            var path = MakeWav("ExcludedSound");
             AudioCatalogMetadata.Write(AssetImporter.GetAtPath(path),
                 new AudioCatalogMetadata(false, "CatalogMetadataTests"));
 
@@ -230,7 +244,7 @@ namespace Internal.EditorTests
 
         private static AssetImporter ImporterWith(string userData)
         {
-            var importer = AssetImporter.GetAtPath(MakePrefab("UserData"));
+            var importer = AssetImporter.GetAtPath(HolderPath);
             importer.userData = JObject.Parse(userData).ToString(Formatting.Indented);
             return importer;
         }
