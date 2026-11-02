@@ -60,14 +60,14 @@ namespace Internal.EditorTests
             var menu = MakePrefab(TempRoot + "/Menu/Shop.prefab", _ => { });
             var gamePlay = MakePrefab(TempRoot + "/GamePlay/Shop.prefab", _ => { });
 
-            var items = new List<HierarchyBindingsBatch.PrefabItem>
+            var items = new List<HierarchyBindingsPrefabItem>
             {
                 Item(menu, MenuNamespace),
                 Item(gamePlay, GamePlayNamespace)
             };
 
             LogAssert.Expect(LogType.Error, new Regex("ShopBindings"));
-            Assert.That(HierarchyBindingsBatch.ValidateUniqueTypes(items), Is.False);
+            Assert.That(HierarchyBindingsPrefabItems.ValidateUniqueTypes(items), Is.False);
         }
 
         // The generated file of another class is not overwritten.
@@ -97,11 +97,11 @@ namespace Internal.EditorTests
                 Child(root, "Panel").AddComponent<ShopBindings>();
             });
 
-            var items = new List<HierarchyBindingsBatch.PrefabItem>();
-            HierarchyBindingsBatch.CollectPrefab(path, items);
+            var items = new List<HierarchyBindingsPrefabItem>();
+            HierarchyBindingsPrefabItems.CollectPrefab(path, items);
 
             Assert.That(items, Has.Count.EqualTo(1));
-            Assert.That(HierarchyBindingsBatch.FindInAsset(items[0].Request).GetComponent<ShopBindings>(),
+            Assert.That(HierarchyBindingsPrefabItems.FindInAsset(items[0].Request).GetComponent<ShopBindings>(),
                 Is.Not.Null);
         }
 
@@ -111,11 +111,11 @@ namespace Internal.EditorTests
             var path = MakePrefab(TempRoot + "/Window.prefab", root =>
                 Child(Child(root, "Left/Right"), "Inner").AddComponent<ShopBindings>());
 
-            var items = new List<HierarchyBindingsBatch.PrefabItem>();
-            HierarchyBindingsBatch.CollectPrefab(path, items);
+            var items = new List<HierarchyBindingsPrefabItem>();
+            HierarchyBindingsPrefabItems.CollectPrefab(path, items);
 
             Assert.That(items, Has.Count.EqualTo(1));
-            Assert.That(HierarchyBindingsBatch.FindInAsset(items[0].Request).GetComponent<ShopBindings>(),
+            Assert.That(HierarchyBindingsPrefabItems.FindInAsset(items[0].Request).GetComponent<ShopBindings>(),
                 Is.Not.Null);
         }
 
@@ -567,8 +567,8 @@ namespace Internal.EditorTests
         {
             var (_, variant) = MakeVariant(added => added.AddComponent<ExtraBindings>());
 
-            var items = new List<HierarchyBindingsBatch.PrefabItem>();
-            HierarchyBindingsBatch.CollectPrefab(variant, items);
+            var items = new List<HierarchyBindingsPrefabItem>();
+            HierarchyBindingsPrefabItems.CollectPrefab(variant, items);
 
             var item = items.Single();
             Assert.That(item.FullTypeName, Is.EqualTo(typeof(ExtraBindings).FullName));
@@ -632,9 +632,9 @@ namespace Internal.EditorTests
             }
         }
 
-        private static HierarchyBindingsBatch.PrefabItem Item(string assetPath, string namespaceName)
+        private static HierarchyBindingsPrefabItem Item(string assetPath, string namespaceName)
         {
-            return new HierarchyBindingsBatch.PrefabItem(
+            return new HierarchyBindingsPrefabItem(
                 0,
                 0,
                 namespaceName + ".ShopBindings",
