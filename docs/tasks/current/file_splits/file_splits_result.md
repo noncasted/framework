@@ -22,6 +22,7 @@
 
 ### Нерешенные вопросы
 - N8: исключение отчёта останавливает пинги, поведение сохранено, см. `_progress.md`.
+- Нестабильность WebRTC-тестов: гонка в libdatachannel, около 8% полных прогонов EditMode на старом коде; нужна отдельная задача. Редактор загружает системную libdatachannel вместо плагина.
 - `Assets/common` и `Assets/Common` в `client/project` различаются только регистром; лог Unity об этом может уронить тест при первом импорте.
 - Обобщённый корень даёт CINGR001 из-за `<` в hint name (`Scope/Plan/ScopePlanBuilder.cs:45`).
 - Публичные изменяемые поля в `WalkState`, `WalkLocal`, `ScopePlan`, `GraphRegistration` (P6) остались как были.
