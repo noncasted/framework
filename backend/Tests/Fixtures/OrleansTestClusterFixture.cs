@@ -180,8 +180,12 @@ public class OrleansTestClusterFixture : IAsyncLifetime
 
         RegisterConfig<IDurableQueueConfig, DurableQueueOptions>(services);
         RegisterConfig<ITaskBalancerConfig, TaskBalancerOptions>(services);
-        // A timed-out request of the pipe tests ends within their waits.
-        RegisterConfig<IRuntimePipeConfig, RuntimePipeOptions>(services, new RuntimePipeOptions { SendTimeoutSeconds = 2 });
+        // A timed-out request of the pipe tests ends within their waits, a request without a handler gives up in 0.35 s.
+        RegisterConfig<IRuntimePipeConfig, RuntimePipeOptions>(services, new RuntimePipeOptions
+        {
+            SendTimeoutSeconds = 2,
+            SendRetryBaseDelayMs = 50
+        });
         RegisterConfig<IRuntimeChannelConfig, RuntimeChannelOptions>(services);
 
         // Cluster features

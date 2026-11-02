@@ -109,8 +109,7 @@ public class RuntimePipeTests
         // Terminate the handler
         lifetime.Terminate();
 
-        // Allow cleanup to run
-        await Task.Delay(200, TestContext.Current.CancellationToken);
+        await TestWait.Until(async () => await messaging.IsPipeExists(pipeId) == false);
 
         var act = () => messaging.SendPipe<TestResponse>(pipeId, new TestRequest { Question = "gone" });
         await act.Should().ThrowAsync<Exception>();
