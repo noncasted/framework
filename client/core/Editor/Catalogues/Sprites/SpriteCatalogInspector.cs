@@ -62,7 +62,7 @@ namespace Internal
             if (importer.assetPath.StartsWith(ArtPrefix, StringComparison.OrdinalIgnoreCase) == false)
                 return false;
 
-            return SpriteGenerator.IsSourceFile(importer.assetPath);
+            return SpriteSourcePaths.IsSourceFile(importer.assetPath);
         }
 
         private static CatalogStates ResolveStates(IReadOnlyList<AssetImporter> importers)

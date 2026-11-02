@@ -60,7 +60,7 @@ namespace Internal.EditorTests
                 SpriteCatalogMetadata.Write(importer, metadata);
 
                 LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("Hero.png.*no group"));
-                Invoke(typeof(SpriteGenerator), "ResolveMetadata", importer);
+                Invoke(typeof(SpriteSourceCollector), "ResolveMetadata", importer);
             }
             finally
             {

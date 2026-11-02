@@ -24,7 +24,7 @@ namespace Internal
 
             for (var i = 0; i < paths.Length; i++)
             {
-                if (SpriteGenerator.IsSourcePath(paths[i]))
+                if (SpriteSourcePaths.IsSourcePath(paths[i]))
                     return true;
             }
 
@@ -40,7 +40,7 @@ namespace Internal
             {
                 var path = paths[i];
 
-                if (SpriteGenerator.IsSourcePath(path) == false)
+                if (SpriteSourcePaths.IsSourcePath(path) == false)
                     continue;
 
                 var importer = AssetImporter.GetAtPath(path);
