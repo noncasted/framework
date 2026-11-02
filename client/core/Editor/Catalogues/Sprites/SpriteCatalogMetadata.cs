@@ -1,85 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
 
 namespace Internal
 {
-    public enum SpriteCatalogKind
-    {
-        Sheet,
-        Animation,
-        MultipleAnimations
-    }
-
-    // Animation from an aseprite tag: the name comes from the tag, only the enabled layers are configurable.
-    public sealed class SpriteCatalogAnimation
-    {
-        private readonly List<string> _layers;
-
-        public SpriteCatalogAnimation(string tag, List<string> layers)
-        {
-            Tag = tag;
-            _layers = layers;
-        }
-
-        public string Tag { get; }
-        public IReadOnlyList<string> Layers => _layers;
-
-        public void SetLayer(string layer, bool enabled)
-        {
-            SpriteCatalogMetadata.SetLayer(_layers, layer, enabled);
-        }
-    }
-
-    // Own speed of one aseprite tag: its animation and every custom animation made from it play at this FPS
-    // instead of the FPS of the file.
-    public sealed class SpriteCatalogTagSpeed
-    {
-        public SpriteCatalogTagSpeed(string tag, float framesPerSecond)
-        {
-            Tag = tag;
-            FramesPerSecond = framesPerSecond;
-        }
-
-        public string Tag { get; }
-        public float FramesPerSecond { get; }
-    }
-
-    // Additional animation on top of a source tag with its own name and layer set.
-    public sealed class SpriteCatalogCustomAnimation
-    {
-        private readonly List<string> _layers;
-
-        public SpriteCatalogCustomAnimation(string name, string source, List<string> layers)
-        {
-            Name = name;
-            Source = source;
-            _layers = layers;
-        }
-
-        public string Name { get; private set; }
-        public string Source { get; private set; }
-        public IReadOnlyList<string> Layers => _layers;
-
-        public void Rename(string name)
-        {
-            Name = name;
-        }
-
-        public void SetSource(string source)
-        {
-            Source = source;
-        }
-
-        public void SetLayer(string layer, bool enabled)
-        {
-            SpriteCatalogMetadata.SetLayer(_layers, layer, enabled);
-        }
-    }
-
     public sealed class SpriteCatalogMetadata
     {
         public const float DefaultTime = 0.8f;
@@ -88,6 +14,32 @@ namespace Internal
 
         private const string UserDataKey = "spriteCatalog";
         private const string LogTag = "SpriteCatalogMetadata";
+
+        public SpriteCatalogMetadata()
+        {
+        }
+
+        internal SpriteCatalogMetadata(
+            bool included,
+            string group,
+            SpriteCatalogKind kind,
+            float time,
+            Color color,
+            float framesPerSecond,
+            List<SpriteCatalogAnimation> animations,
+            List<SpriteCatalogCustomAnimation> customAnimations,
+            List<SpriteCatalogTagSpeed> tagSpeeds)
+        {
+            Included = included;
+            Group = group;
+            Kind = kind;
+            Time = time;
+            Color = color;
+            FramesPerSecond = framesPerSecond;
+            _animations = animations;
+            _customAnimations = customAnimations;
+            _tagSpeeds = tagSpeeds;
+        }
 
         private List<SpriteCatalogAnimation> _animations = new();
         private List<SpriteCatalogCustomAnimation> _customAnimations = new();
@@ -170,19 +122,7 @@ namespace Internal
 
             if (AssetUserData.TryRead(importer, UserDataKey, LogTag, out var catalog) == false)
                 return false;
-
-            metadata = new SpriteCatalogMetadata
-            {
-                Included = catalog["included"] != null && catalog.Value<bool>("included"),
-                Group = catalog.Value<string>("group") ?? string.Empty,
-                Kind = ParseKind(catalog.Value<string>("kind")),
-                Time = catalog["time"] != null ? catalog.Value<float>("time") : DefaultTime,
-                Color = ReadColor(catalog["color"]),
-                FramesPerSecond = catalog["fps"] != null ? catalog.Value<float>("fps") : DefaultFramesPerSecond,
-                _animations = ReadAnimations(catalog["animations"]),
-                _customAnimations = ReadCustomAnimations(catalog["customAnimations"]),
-                _tagSpeeds = ReadTagSpeeds(catalog["tagSpeeds"])
-            };
+            metadata = SpriteCatalogMetadataJson.Read(catalog);
             return true;
         }
 
@@ -207,52 +147,16 @@ namespace Internal
                 Color = DefaultColor
             };
         }
-
-        private static JObject ToJson(SpriteCatalogMetadata metadata)
-        {
-            if (metadata == null)
-                throw new ArgumentNullException(nameof(metadata));
-
-            var catalog = new JObject
-            {
-                ["included"] = metadata.Included,
-                ["group"] = metadata.Group ?? string.Empty,
-                ["kind"] = metadata.Kind.ToString(),
-                ["time"] = metadata.Time,
-                ["color"] = new JObject
-                {
-                    ["r"] = metadata.Color.r,
-                    ["g"] = metadata.Color.g,
-                    ["b"] = metadata.Color.b,
-                    ["a"] = metadata.Color.a
-                }
-            };
-
-            if (metadata.Kind == SpriteCatalogKind.MultipleAnimations ||
-                metadata.Animations.Count > 0 ||
-                metadata.CustomAnimations.Count > 0)
-            {
-                catalog["fps"] = metadata.FramesPerSecond;
-                catalog["animations"] = WriteAnimations(metadata.Animations);
-                catalog["customAnimations"] = WriteCustomAnimations(metadata.CustomAnimations);
-
-                if (metadata.TagSpeeds.Count > 0)
-                    catalog["tagSpeeds"] = WriteTagSpeeds(metadata.TagSpeeds);
-            }
-
-            return catalog;
-        }
-
         public static void Write(AssetImporter importer, SpriteCatalogMetadata metadata)
         {
-            if (AssetUserData.Write(importer, UserDataKey, LogTag, ToJson(metadata)))
+            if (AssetUserData.Write(importer, UserDataKey, LogTag, SpriteCatalogMetadataJson.Write(metadata)))
                 SpriteGroupsRegistry.Instance.Invalidate();
         }
 
         // Change from the inspector: stays in the importer's memory until Apply.
         public static void Stage(AssetImporter importer, SpriteCatalogMetadata metadata)
         {
-            if (AssetUserData.Stage(importer, UserDataKey, LogTag, ToJson(metadata)))
+            if (AssetUserData.Stage(importer, UserDataKey, LogTag, SpriteCatalogMetadataJson.Write(metadata)))
                 SpriteGroupsRegistry.Instance.Invalidate();
         }
 
@@ -330,163 +234,6 @@ namespace Internal
             return extension.Equals(".aseprite", StringComparison.OrdinalIgnoreCase) ||
                    extension.Equals(".ase", StringComparison.OrdinalIgnoreCase);
         }
-
-        internal static void SetLayer(List<string> layers, string layer, bool enabled)
-        {
-            layers.Remove(layer);
-
-            if (enabled)
-                layers.Add(layer);
-        }
-
-        private static SpriteCatalogKind ParseKind(string kind)
-        {
-            if (string.Equals(kind, nameof(SpriteCatalogKind.Animation), StringComparison.Ordinal))
-                return SpriteCatalogKind.Animation;
-
-            if (string.Equals(kind, nameof(SpriteCatalogKind.MultipleAnimations), StringComparison.Ordinal))
-                return SpriteCatalogKind.MultipleAnimations;
-
-            return SpriteCatalogKind.Sheet;
-        }
-
-        private static List<SpriteCatalogAnimation> ReadAnimations(JToken token)
-        {
-            var animations = new List<SpriteCatalogAnimation>();
-
-            if (token is not JArray array)
-                return animations;
-
-            foreach (var item in array)
-            {
-                if (item is not JObject animation)
-                    continue;
-
-                animations.Add(new SpriteCatalogAnimation(
-                    animation.Value<string>("tag") ?? string.Empty,
-                    ReadStrings(animation["layers"])));
-            }
-
-            return animations;
-        }
-
-        private static List<SpriteCatalogCustomAnimation> ReadCustomAnimations(JToken token)
-        {
-            var animations = new List<SpriteCatalogCustomAnimation>();
-
-            if (token is not JArray array)
-                return animations;
-
-            foreach (var item in array)
-            {
-                if (item is not JObject animation)
-                    continue;
-
-                animations.Add(new SpriteCatalogCustomAnimation(
-                    animation.Value<string>("name") ?? string.Empty,
-                    animation.Value<string>("source") ?? string.Empty,
-                    ReadStrings(animation["layers"])));
-            }
-
-            return animations;
-        }
-
-        private static List<SpriteCatalogTagSpeed> ReadTagSpeeds(JToken token)
-        {
-            var speeds = new List<SpriteCatalogTagSpeed>();
-
-            if (token is not JArray array)
-                return speeds;
-
-            foreach (var item in array)
-            {
-                if (item is not JObject speed)
-                    continue;
-
-                speeds.Add(new SpriteCatalogTagSpeed(speed.Value<string>("tag"), speed.Value<float>("fps")));
-            }
-
-            return speeds;
-        }
-
-        private static JArray WriteTagSpeeds(IReadOnlyList<SpriteCatalogTagSpeed> speeds)
-        {
-            var array = new JArray();
-
-            foreach (var speed in speeds)
-            {
-                array.Add(new JObject
-                {
-                    ["tag"] = speed.Tag,
-                    ["fps"] = speed.FramesPerSecond
-                });
-            }
-
-            return array;
-        }
-
-        private static List<string> ReadStrings(JToken token)
-        {
-            var strings = new List<string>();
-
-            if (token is not JArray array)
-                return strings;
-
-            foreach (var item in array)
-            {
-                if (item.Type == JTokenType.String)
-                    strings.Add(item.Value<string>());
-            }
-
-            return strings;
-        }
-
-        private static JArray WriteAnimations(IReadOnlyList<SpriteCatalogAnimation> animations)
-        {
-            var array = new JArray();
-
-            foreach (var animation in animations)
-            {
-                array.Add(new JObject
-                {
-                    ["tag"] = animation.Tag ?? string.Empty,
-                    ["layers"] = new JArray(animation.Layers)
-                });
-            }
-
-            return array;
-        }
-
-        private static JArray WriteCustomAnimations(IReadOnlyList<SpriteCatalogCustomAnimation> animations)
-        {
-            var array = new JArray();
-
-            foreach (var animation in animations)
-            {
-                array.Add(new JObject
-                {
-                    ["name"] = animation.Name ?? string.Empty,
-                    ["source"] = animation.Source ?? string.Empty,
-                    ["layers"] = new JArray(animation.Layers)
-                });
-            }
-
-            return array;
-        }
-
-        private static Color ReadColor(JToken token)
-        {
-            if (token is not JObject color)
-                return DefaultColor;
-
-            return new Color(
-                    color["r"] != null ? color.Value<float>("r") : 1f,
-                    color["g"] != null ? color.Value<float>("g") : 1f,
-                    color["b"] != null ? color.Value<float>("b") : 1f,
-                    color["a"] != null ? color.Value<float>("a") : 1f
-                );
-        }
-
         private static bool HasMultipleAsepriteFrames(AssetImporter importer)
         {
             var serializedObject = new SerializedObject(importer);
