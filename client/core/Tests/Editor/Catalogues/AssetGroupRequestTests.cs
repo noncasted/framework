@@ -25,7 +25,7 @@ namespace Internal.Tests
         public IEnumerator ConstructFailsAfterRequest_GroupOfAnotherOwnerStaysLoaded() => UniTask.ToCoroutine(async () =>
         {
             var group = new ProbeGroup();
-            AssetGroupRequestRoots.First = group;
+            AssetGroupRequestRoots.SetFirst(group);
             await group.Retain();
 
             var caught = await Catch(() => new ServiceScopeLoader().Load(
@@ -38,7 +38,7 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator ConstructFailsAfterRequest_NoOtherOwner_NoReleaseWithoutRetain() => UniTask.ToCoroutine(async () =>
         {
-            AssetGroupRequestRoots.First = new ProbeGroup();
+            AssetGroupRequestRoots.SetFirst(new ProbeGroup());
 
             var caught = await Catch(() => new ServiceScopeLoader().Load(
                 new ScopeLoadOptions(null, AssetGroupRequestRoots.RequestThenFail)));
@@ -51,8 +51,8 @@ namespace Internal.Tests
         {
             var failing = new ProbeGroup(true);
             var other = new ProbeGroup();
-            AssetGroupRequestRoots.First = failing;
-            AssetGroupRequestRoots.Second = other;
+            AssetGroupRequestRoots.SetFirst(failing);
+            AssetGroupRequestRoots.SetSecond(other);
 
             var scope = await new ServiceScopeLoader().Load(new ScopeLoadOptions(null, AssetGroupRequestRoots.LoadTwo));
 
@@ -94,8 +94,18 @@ namespace Internal.Tests
 
     public static class AssetGroupRequestRoots
     {
-        public static AssetGroup First;
-        public static AssetGroup Second;
+        public static AssetGroup First { get; private set; }
+        public static AssetGroup Second { get; private set; }
+
+        public static void SetFirst(AssetGroup group)
+        {
+            First = group;
+        }
+
+        public static void SetSecond(AssetGroup group)
+        {
+            Second = group;
+        }
 
         [ContainerGraphRoot]
         public static UniTask RequestThenFail(IScopeBuilder builder)

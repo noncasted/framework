@@ -13,8 +13,8 @@ public class AddressableStateTests
 {
     public class TestConfig
     {
-        public string Label { get; set; } = string.Empty;
-        public int MaxRetries { get; set; }
+        public string Label { get; init; } = string.Empty;
+        public int MaxRetries { get; init; }
 
         public override string ToString() => $"Label={Label}, MaxRetries={MaxRetries}";
     }

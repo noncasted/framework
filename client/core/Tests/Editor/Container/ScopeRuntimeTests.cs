@@ -11,8 +11,8 @@ namespace Internal.Tests
         [Test]
         public void WithParameter_OfOneType_GoesToItsOwnRegistration()
         {
-            ScopeRuntimeRoots.FirstConfig = new ScopeRuntimeConfig();
-            ScopeRuntimeRoots.SecondConfig = new ScopeRuntimeConfig();
+            ScopeRuntimeRoots.SetFirstConfig(new ScopeRuntimeConfig());
+            ScopeRuntimeRoots.SetSecondConfig(new ScopeRuntimeConfig());
 
             var container = GeneratedScopeHarness.Build(ScopeRuntimeRoots.Parameters);
 
@@ -24,8 +24,7 @@ namespace Internal.Tests
         [Test]
         public void RegisterInstance_TwiceOfOneType_ListsBoth()
         {
-            ScopeRuntimeRoots.FirstDep = new ScopeRuntimeDep();
-            ScopeRuntimeRoots.SecondDep = new ScopeRuntimeDep();
+            ScopeRuntimeRoots.SetDeps(new ScopeRuntimeDep(), new ScopeRuntimeDep());
 
             var container = GeneratedScopeHarness.Build(ScopeRuntimeRoots.Instances);
             var deps = container.Resolve<ScopeRuntimeDepList>().Deps;
@@ -39,8 +38,8 @@ namespace Internal.Tests
         [Test]
         public void RegisterComponent_TwiceOfOneType_ListsBoth()
         {
-            ScopeRuntimeRoots.FirstAsset = ScriptableObject.CreateInstance<ScopeRuntimeAsset>();
-            ScopeRuntimeRoots.SecondAsset = ScriptableObject.CreateInstance<ScopeRuntimeAsset>();
+            ScopeRuntimeRoots.SetAssets(ScriptableObject.CreateInstance<ScopeRuntimeAsset>(),
+                ScriptableObject.CreateInstance<ScopeRuntimeAsset>());
 
             var container = GeneratedScopeHarness.Build(ScopeRuntimeRoots.Components);
             var assets = container.Resolve<ScopeRuntimeAssetList>().Assets;
@@ -57,7 +56,7 @@ namespace Internal.Tests
         [Test]
         public void RegisterInstance_InLoop_Throws()
         {
-            ScopeRuntimeRoots.LoopDeps = new IScopeRuntimeDep[] { new ScopeRuntimeDep(), new ScopeRuntimeDep() };
+            ScopeRuntimeRoots.SetLoopDeps(new IScopeRuntimeDep[] { new ScopeRuntimeDep(), new ScopeRuntimeDep() });
 
             var exception = Assert.Throws<InvalidOperationException>(
                 () => GeneratedScopeHarness.Build(ScopeRuntimeRoots.InstanceLoop));
@@ -79,7 +78,7 @@ namespace Internal.Tests
         [Test]
         public void BaseClassInject_IsCalled()
         {
-            ScopeRuntimeRoots.FirstConfig = new ScopeRuntimeConfig();
+            ScopeRuntimeRoots.SetFirstConfig(new ScopeRuntimeConfig());
 
             var container = GeneratedScopeHarness.Build(ScopeRuntimeRoots.BaseInject);
 
@@ -90,7 +89,7 @@ namespace Internal.Tests
         [Test]
         public void ConditionalRegistration_NotTaken_ScopeBuilds()
         {
-            ScopeRuntimeRoots.IsOptionalRegistered = false;
+            ScopeRuntimeRoots.SetOptionalRegistered(false);
 
             var container = GeneratedScopeHarness.Build(ScopeRuntimeRoots.Optional);
 
@@ -103,7 +102,7 @@ namespace Internal.Tests
         [Test]
         public void ConditionalRegistration_Taken_Resolves()
         {
-            ScopeRuntimeRoots.IsOptionalRegistered = true;
+            ScopeRuntimeRoots.SetOptionalRegistered(true);
 
             var container = GeneratedScopeHarness.Build(ScopeRuntimeRoots.Optional);
 

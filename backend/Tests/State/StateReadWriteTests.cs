@@ -84,7 +84,7 @@ public class StateReadWriteTests
             Extension = null
         };
 
-        var written = new SimpleTestState { Counter = 99, Label = "round-trip" };
+        var written = SimpleTestState.Of(99, "round-trip");
         await storage.Write(identity, written);
 
         var read = await storage.Read<SimpleTestState>(identity);
@@ -109,7 +109,7 @@ public class StateReadWriteTests
             Extension = null
         };
 
-        await storage.Write(identity, new SimpleTestState { Counter = 50 });
+        await storage.Write(identity, SimpleTestState.Of(50));
         await storage.Delete(identity);
 
         var read = await storage.Read<SimpleTestState>(identity);
@@ -171,7 +171,7 @@ public class StateReadWriteTests
 
         foreach (var identity in identities)
         {
-            await storage.Write(identity, new SimpleTestState { Counter = 1 });
+            await storage.Write(identity, SimpleTestState.Of(1));
         }
 
         await storage.Delete(identities);

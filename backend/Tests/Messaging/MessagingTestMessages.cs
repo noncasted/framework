@@ -5,20 +5,20 @@ namespace Framework.Tests.Messaging;
 [GenerateSerializer]
 public class TestMessage
 {
-    [Id(0)] public string Text { get; set; } = string.Empty;
-    [Id(1)] public int Sequence { get; set; }
+    [Id(0)] public string Text { get; init; } = string.Empty;
+    [Id(1)] public int Sequence { get; init; }
 }
 
 [GenerateSerializer]
 public class TestRequest
 {
-    [Id(0)] public string Question { get; set; } = string.Empty;
+    [Id(0)] public string Question { get; init; } = string.Empty;
 }
 
 [GenerateSerializer]
 public class TestResponse
 {
-    [Id(0)] public string Answer { get; set; } = string.Empty;
+    [Id(0)] public string Answer { get; init; } = string.Empty;
 }
 
 public class TestQueueId : IDurableQueueId

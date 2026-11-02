@@ -1,5 +1,6 @@
 using Common;
 using Infrastructure.State;
+using Newtonsoft.Json;
 using Shared;
 
 namespace Framework.Tests.Grains;
@@ -11,8 +12,13 @@ namespace Framework.Tests.Grains;
     Key = GrainKeyType.String)]
 public class MigrationTestState_0 : IDirectStateValue
 {
-    [Id(0)] public int Value { get; set; }
+    [Id(0)] [JsonProperty] public int Value { get; private set; }
     public int Version => 0;
+
+    public void SetValue(int value)
+    {
+        Value = value;
+    }
 }
 
 [GenerateSerializer]
@@ -20,8 +26,8 @@ public class MigrationTestState_0 : IDirectStateValue
     Key = GrainKeyType.String)]
 public class MigrationTestState_1 : IDirectStateValue
 {
-    [Id(0)] public int Value { get; set; }
-    [Id(1)] public string Label { get; set; } = string.Empty;
+    [Id(0)] public int Value { get; init; }
+    [Id(1)] public string Label { get; init; } = string.Empty;
     public int Version => 1;
 }
 
@@ -86,9 +92,9 @@ public class MigrationTestStep_V1 : IStateMigrationStep
     Key = GrainKeyType.String)]
 public class MigrationTestState_2 : IDirectStateValue
 {
-    [Id(0)] public int Value { get; set; }
-    [Id(1)] public string Label { get; set; } = string.Empty;
-    [Id(2)] public int DoubledValue { get; set; }
+    [Id(0)] public int Value { get; init; }
+    [Id(1)] public string Label { get; init; } = string.Empty;
+    [Id(2)] public int DoubledValue { get; init; }
     public int Version => 2;
 }
 
@@ -190,7 +196,7 @@ public class MigrationGrainV0 : Grain, IMigrationGrainV0
 
     public Task Write(int value)
     {
-        return _state.Update(s => s.Value = value);
+        return _state.Update(s => s.SetValue(value));
     }
 }
 

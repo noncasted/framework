@@ -368,7 +368,7 @@ public class LobbyStartTests
         match.Lifetime.IsTerminated.Should().BeTrue();
         (await lobby.World.Codes.Find(code)).Should().BeNull();
 
-        lobby.World.Codes.Generator = () => code;
+        lobby.World.Codes.SetGenerator(() => code);
         var next = await lobby.World.Lobbies.Create(Guid.NewGuid());
 
         next.Code.Should().Be(code);
@@ -386,7 +386,7 @@ public class LobbyStartTests
         lobby.World.Disconnect(lobby.Session, lobby.Users[0]);
 
         var generated = new Queue<string>([code, code == "ZZZZZZ" ? "YYYYYY" : "ZZZZZZ"]);
-        lobby.World.Codes.Generator = generated.Dequeue;
+        lobby.World.Codes.SetGenerator(generated.Dequeue);
 
         var next = await lobby.World.Lobbies.Create(Guid.NewGuid());
 
@@ -411,7 +411,7 @@ public class LobbyStartTests
         (await lobby.World.Codes.Find(code)).Should().BeNull();
 
         // the code already belongs to another lobby when the old one is closed at last
-        lobby.World.Codes.Generator = () => code;
+        lobby.World.Codes.SetGenerator(() => code);
         var next = await lobby.World.Lobbies.Create(Guid.NewGuid());
 
         lobby.World.Disconnect(lobby.Session, lobby.Users[0]);
@@ -427,7 +427,7 @@ public class LobbyStartTests
         var code = lobby.State.Code;
         var gate = new TaskCompletionSource();
 
-        lobby.World.Codes.MarkStartedGate = gate;
+        lobby.World.Codes.HoldMarkStarted(gate);
         lobby.RunCountdown();
 
         var match = lobby.World.Sessions[lobby.Game.SessionId];

@@ -236,7 +236,9 @@ public class StateCollectionSyncTests
 
     private static CollectionTestState Value(Guid id, string name)
     {
-        return new CollectionTestState { Id = id, Name = name };
+        var value = new CollectionTestState();
+        value.Init(id, name);
+        return value;
     }
 
     private static StateCollectionUtils<Guid, CollectionTestState> CreateUtils(IStateStorage storage, Type registeredType)

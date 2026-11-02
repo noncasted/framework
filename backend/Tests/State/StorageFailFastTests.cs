@@ -100,8 +100,8 @@ public class StorageFailFastTests
 
         var records = new List<GrainStateRecord>
         {
-            new() { Id = grainId, Value = new TxTestState { Value = 1 } },
-            new() { Id = grainId, Value = new TxTestState { Value = 2 } }
+            new() { Id = grainId, Value = TxTestState.Of(1) },
+            new() { Id = grainId, Value = TxTestState.Of(2) }
         };
 
         var build = () => storage.BuildWriteCommands(records);
@@ -139,6 +139,6 @@ public class StorageFailFastTests
 
     public class PlainDocument
     {
-        public string Id { get; set; } = string.Empty;
+        public string Id { get; init; } = string.Empty;
     }
 }

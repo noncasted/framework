@@ -1,6 +1,7 @@
 using Common;
 using Infrastructure;
 using Infrastructure.State;
+using Newtonsoft.Json;
 using Orleans.Concurrency;
 using Shared;
 
@@ -12,9 +13,24 @@ namespace Framework.Tests.Grains;
 [GrainState(Table = "state_simple_test", State = "simple_test", Lookup = "SimpleTest", Key = GrainKeyType.Guid)]
 public class SimpleTestState : IDirectStateValue
 {
-    [Id(0)] public int Counter { get; set; }
-    [Id(1)] public string Label { get; set; } = string.Empty;
+    [Id(0)] [JsonProperty] public int Counter { get; private set; }
+    [Id(1)] [JsonProperty] public string Label { get; private set; } = string.Empty;
     public int Version => 0;
+
+    public static SimpleTestState Of(int counter, string label = "")
+    {
+        return new SimpleTestState { Counter = counter, Label = label };
+    }
+
+    public void SetCounter(int value)
+    {
+        Counter = value;
+    }
+
+    public void SetLabel(string label)
+    {
+        Label = label;
+    }
 }
 
 public interface ISimpleTestGrain : IGrainWithGuidKey
@@ -36,7 +52,7 @@ public class SimpleTestGrain : Grain, ISimpleTestGrain
 
     public async Task SetCounter(int value)
     {
-        await _state.Write(s => s.Counter = value);
+        await _state.Write(s => s.SetCounter(value));
     }
 
     public async Task<int> GetCounter()
@@ -46,7 +62,7 @@ public class SimpleTestGrain : Grain, ISimpleTestGrain
 
     public async Task SetLabel(string label)
     {
-        await _state.Write(s => s.Label = label);
+        await _state.Write(s => s.SetLabel(label));
     }
 
     public async Task<string> GetLabel()
@@ -62,9 +78,15 @@ public class SimpleTestGrain : Grain, ISimpleTestGrain
     Key = GrainKeyType.Guid)]
 public class CollectionTestState : IDirectStateValue
 {
-    [Id(0)] public Guid Id { get; set; }
-    [Id(1)] public string Name { get; set; } = string.Empty;
+    [Id(0)] [JsonProperty] public Guid Id { get; private set; }
+    [Id(1)] [JsonProperty] public string Name { get; private set; } = string.Empty;
     public int Version => 0;
+
+    public void Init(Guid id, string name)
+    {
+        Id = id;
+        Name = name;
+    }
 }
 
 public interface ICollectionTestGrain : IGrainWithGuidKey
@@ -84,10 +106,7 @@ public class CollectionTestGrain : Grain, ICollectionTestGrain
 
     public async Task SetName(string name)
     {
-        await _state.Write(s => {
-            s.Id = this.GetGrainId().GetGuidKey();
-            s.Name = name;
-        });
+        await _state.Write(s => s.Init(this.GetGrainId().GetGuidKey(), name));
     }
 
     public async Task<string> GetName()
@@ -102,8 +121,23 @@ public class CollectionTestGrain : Grain, ICollectionTestGrain
 [GrainState(Table = "state_tx_test", State = "tx_test", Lookup = "TxTest", Key = GrainKeyType.Guid)]
 public class TxTestState : IDirectStateValue
 {
-    [Id(0)] public int Value { get; set; }
+    [Id(0)] [JsonProperty] public int Value { get; private set; }
     public int Version => 0;
+
+    public static TxTestState Of(int value)
+    {
+        return new TxTestState { Value = value };
+    }
+
+    public void SetValue(int value)
+    {
+        Value = value;
+    }
+
+    public void Increment()
+    {
+        Value += 1;
+    }
 }
 
 public interface ITxTestGrain : IGrainWithGuidKey
@@ -130,12 +164,12 @@ public class TxTestGrain : Grain, ITxTestGrain
 
     public Task Increment()
     {
-        return _state.Write(s => s.Value += 1);
+        return _state.Write(s => s.Increment());
     }
 
     public async Task IncrementWithDelay(int delayMs)
     {
-        await _state.Write(s => s.Value += 1);
+        await _state.Write(s => s.Increment());
         await Task.Delay(delayMs);
     }
 
@@ -156,7 +190,7 @@ public class TxTestGrain : Grain, ITxTestGrain
 [GenerateSerializer]
 public class TestSideEffect : ISideEffect
 {
-    [Id(0)] public Guid TargetGrainId { get; set; }
+    [Id(0)] public Guid TargetGrainId { get; init; }
 
     public async Task Execute(IOrleans orleans)
     {
@@ -172,7 +206,7 @@ public class TestSideEffect : ISideEffect
 [GenerateSerializer]
 public class TransactionalTestSideEffect : ITransactionalSideEffect
 {
-    [Id(0)] public Guid TargetGrainId { get; set; }
+    [Id(0)] public Guid TargetGrainId { get; init; }
 
     public async Task Execute(IOrleans orleans)
     {
@@ -185,8 +219,8 @@ public class TransactionalTestSideEffect : ITransactionalSideEffect
 [GenerateSerializer]
 public class FailingTestSideEffect : ISideEffect
 {
-    [Id(0)] public Guid TargetGrainId { get; set; }
-    [Id(1)] public int FailCount { get; set; }
+    [Id(0)] public Guid TargetGrainId { get; init; }
+    [Id(1)] public int FailCount { get; init; }
 
     // Static counter shared across executions (keyed by TargetGrainId to avoid cross-test interference)
     internal static readonly object AttemptsLock = new();
@@ -231,8 +265,8 @@ public class FailingTestSideEffect : ISideEffect
 [GenerateSerializer]
 public class FailingTransactionalTestSideEffect : ITransactionalSideEffect
 {
-    [Id(0)] public Guid TargetGrainId { get; set; }
-    [Id(1)] public int FailCount { get; set; }
+    [Id(0)] public Guid TargetGrainId { get; init; }
+    [Id(1)] public int FailCount { get; init; }
 
     public async Task Execute(IOrleans orleans)
     {
@@ -254,7 +288,7 @@ public class FailingTransactionalTestSideEffect : ITransactionalSideEffect
 [GenerateSerializer]
 public class AlwaysFailingSideEffect : ISideEffect
 {
-    [Id(0)] public Guid TrackingId { get; set; }
+    [Id(0)] public Guid TrackingId { get; init; }
 
     public Task Execute(IOrleans orleans)
     {
@@ -314,13 +348,13 @@ public class TxSideEffectGrain : Grain, ITxSideEffectGrain
 
     public async Task IncrementAndRegisterSideEffect(Guid sideEffectTargetId)
     {
-        await _state.Write(s => s.Value += 1);
+        await _state.Write(s => s.Increment());
         new TestSideEffect { TargetGrainId = sideEffectTargetId }.AddToTransaction();
     }
 
     public async Task RegisterMultipleSideEffects(IReadOnlyList<Guid> targetIds)
     {
-        await _state.Write(s => s.Value += 1);
+        await _state.Write(s => s.Increment());
 
         foreach (var targetId in targetIds)
             new TestSideEffect { TargetGrainId = targetId }.AddToTransaction();
@@ -328,7 +362,7 @@ public class TxSideEffectGrain : Grain, ITxSideEffectGrain
 
     public async Task<int> IncrementAndReturn()
     {
-        var state = await _state.Update(s => s.Value += 1);
+        var state = await _state.Update(s => s.Increment());
         return state.Value;
     }
 
@@ -344,8 +378,8 @@ public class TxSideEffectGrain : Grain, ITxSideEffectGrain
 public class EventTestAggregate : IEventStateValue
 {
     [Id(0)] public string Id { get; set; } = string.Empty;
-    [Id(1)] public int Counter { get; set; }
-    [Id(2)] public string Label { get; set; } = string.Empty;
+    [Id(1)] [JsonProperty] public int Counter { get; private set; }
+    [Id(2)] [JsonProperty] public string Label { get; private set; } = string.Empty;
     public int Version => 0;
 
     public void Apply(CounterIncremented e) => Counter += e.Amount;
@@ -354,22 +388,22 @@ public class EventTestAggregate : IEventStateValue
 
 public class CounterIncremented
 {
-    public int Amount { get; set; }
+    public int Amount { get; init; }
 }
 
 public class LabelChanged
 {
-    public string Label { get; set; } = string.Empty;
+    public string Label { get; init; } = string.Empty;
 }
 
 public class BadEvent
 {
-    public string Data { get; set; } = string.Empty;
+    public string Data { get; init; } = string.Empty;
 }
 
 public class NoApplyEvent
 {
-    public int Value { get; set; }
+    public int Value { get; init; }
 }
 
 public interface IEventTestGrain : IGrainWithGuidKey
@@ -498,7 +532,7 @@ public class MixedStateGrain : Grain, IMixedStateGrain
 
     public async Task IncrementAndAppend(int amount)
     {
-        await _directState.Write(s => s.Value += 1);
+        await _directState.Write(s => s.Increment());
         await _eventState.Read();
         await _eventState.Append(new CounterIncremented { Amount = amount });
         await _eventState.Write();
@@ -506,7 +540,7 @@ public class MixedStateGrain : Grain, IMixedStateGrain
 
     public async Task IncrementAndAppendThenFail(int amount)
     {
-        await _directState.Write(s => s.Value += 1);
+        await _directState.Write(s => s.Increment());
         await _eventState.Read();
         await _eventState.Append(new CounterIncremented { Amount = amount });
         await _eventState.Write();

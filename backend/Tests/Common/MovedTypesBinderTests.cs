@@ -68,5 +68,5 @@ public class MovedTypesBinderTests
 
 public class MovedState
 {
-    public int Value { get; set; }
+    public int Value { get; init; }
 }

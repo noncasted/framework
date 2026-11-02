@@ -203,7 +203,7 @@ public class SessionRequesterTests
         var meta = new MetaWorld();
         var lobby = await TestLobby.Create(meta.Game, guests: 1);
 
-        meta.Game.Codes.MarkStartedGate = new TaskCompletionSource();
+        meta.Game.Codes.HoldMarkStarted(new TaskCompletionSource());
         lobby.RunCountdown();
 
         var result = await meta.Join(Guid.NewGuid(), lobby.State.Code);
@@ -272,7 +272,7 @@ public class SessionRequesterTests
 
         (await meta.Join(Guid.NewGuid(), code)).Status.Should().Be(SharedSessionRequests.EntryStatus.NotFound);
 
-        meta.Game.Codes.Generator = () => code;
+        meta.Game.Codes.SetGenerator(() => code);
         var created = await meta.Create(Guid.NewGuid());
 
         created.Code.Should().Be(code);
@@ -334,9 +334,9 @@ public class SessionRequesterTests
         meta.Game.Enter(entered.SessionId, late).Should().NotBeNull();
 
         // only when the game lets a late player in
-        meta.Game.EntryPolicy.CanEnter = false;
+        meta.Game.EntryPolicy.SetCanEnter(false);
         (await meta.JoinMatch(late, code)).Status.Should().Be(SharedSessionRequests.EntryStatus.Started);
-        meta.Game.EntryPolicy.CanEnter = true;
+        meta.Game.EntryPolicy.SetCanEnter(true);
 
         var result = await meta.JoinMatch(late, code);
 

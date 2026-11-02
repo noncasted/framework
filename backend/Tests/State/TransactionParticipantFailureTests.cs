@@ -43,7 +43,7 @@ public class TransactionParticipantFailureTests : IDisposable
 
         storage.Read<TxTestState>(Arg.Any<StateIdentity>())
                .Returns(_ => Task.FromException<TxTestState>(new Exception("read failed")),
-                   _ => Task.FromResult(new TxTestState { Value = 7 }));
+                   _ => Task.FromResult(TxTestState.Of(7)));
 
         var state = new State<TxTestState>(storage, _context);
 
@@ -66,7 +66,11 @@ public class TransactionParticipantFailureTests : IDisposable
 
         storage.Read<EventTestAggregate>(Arg.Any<string>())
                .Returns(_ => Task.FromException<EventTestAggregate>(new Exception("load failed")),
-                   _ => Task.FromResult(new EventTestAggregate { Counter = 7 }));
+                   _ => {
+                       var stored = new EventTestAggregate();
+                       stored.Apply(new CounterIncremented { Amount = 7 });
+                       return Task.FromResult(stored);
+                   });
 
         var state = CreateEventState(storage);
 

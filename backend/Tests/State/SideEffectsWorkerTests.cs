@@ -150,7 +150,7 @@ public class SlowSideEffect : ISideEffect
 {
     public static readonly ConcurrentDictionary<Guid, int> Executions = new();
 
-    [Id(0)] public Guid TrackingId { get; set; }
+    [Id(0)] public Guid TrackingId { get; init; }
 
     public async Task Execute(IOrleans orleans)
     {

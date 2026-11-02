@@ -19,7 +19,7 @@ public class DeploymentStateLoadTests
 {
     public class Marker
     {
-        public int Value { get; set; }
+        public int Value { get; init; }
     }
 
     private readonly InMemoryChannelClient _channel = new();

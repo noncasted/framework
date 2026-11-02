@@ -49,7 +49,12 @@ namespace Internal.Tests
     [NoAutoStaticsCleanup]
     public sealed class ScopeCodegenSingleton
     {
-        public static int Instances;
+        public static int Instances { get; private set; }
+
+        public static void ResetInstances()
+        {
+            Instances = 0;
+        }
 
         public ScopeCodegenSingleton()
         {
@@ -60,7 +65,12 @@ namespace Internal.Tests
     [NoAutoStaticsCleanup]
     public sealed class ScopeCodegenScoped
     {
-        public static int Instances;
+        public static int Instances { get; private set; }
+
+        public static void ResetInstances()
+        {
+            Instances = 0;
+        }
 
         public ScopeCodegenScoped()
         {
@@ -71,7 +81,12 @@ namespace Internal.Tests
     [NoAutoStaticsCleanup]
     public sealed class ScopeCodegenTransient
     {
-        public static int Instances;
+        public static int Instances { get; private set; }
+
+        public static void ResetInstances()
+        {
+            Instances = 0;
+        }
 
         public ScopeCodegenTransient(ScopeCodegenSingleton singleton)
         {

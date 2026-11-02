@@ -115,7 +115,7 @@ public class DeploymentStateUpdateTests
 
     public class Marker
     {
-        public string Id { get; set; } = string.Empty;
+        public string Id { get; init; } = string.Empty;
     }
 
     private class MarkerState(IOrleans orleans)

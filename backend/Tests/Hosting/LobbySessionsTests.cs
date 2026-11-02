@@ -83,7 +83,7 @@ public class LobbySessionsTests
     {
         var world = new HostingTestWorld();
         var codes = new Queue<string>(["AAAAAA", "AAAAAA", "AAAAAA", "BBBBBB"]);
-        world.Codes.Generator = codes.Dequeue;
+        world.Codes.SetGenerator(codes.Dequeue);
 
         var first = await world.Lobbies.Create(Guid.NewGuid());
         var second = await world.Lobbies.Create(Guid.NewGuid());
@@ -248,7 +248,7 @@ public class LobbySessionsTests
     public async Task ReleasedCode_CanBeGivenToAnotherLobby()
     {
         var world = new HostingTestWorld();
-        world.Codes.Generator = () => "AAAAAA";
+        world.Codes.SetGenerator(() => "AAAAAA");
         var creator = Guid.NewGuid();
 
         var first = await world.Lobbies.Create(creator);
@@ -401,7 +401,7 @@ public class LobbySessionsTests
     public async Task Create_FactoryFails_CodeIsReleased()
     {
         var world = new HostingTestWorld();
-        world.LobbyCreationFailure = new InvalidOperationException("The game has failed to build the lobby");
+        world.FailLobbyCreation(new InvalidOperationException("The game has failed to build the lobby"));
 
         var create = () => world.Lobbies.Create(Guid.NewGuid());
 

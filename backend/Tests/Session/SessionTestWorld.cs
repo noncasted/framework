@@ -68,7 +68,7 @@ public class TestSession
     public readonly ICommandsCollection Commands;
     public readonly ISessionOwner Owner;
 
-    public Task RunTask = Task.CompletedTask;
+    public Task RunTask { get; private set; } = Task.CompletedTask;
 
     public static TestSession Create(
         int expectedUsers = 0,
@@ -264,7 +264,7 @@ public class TestConnection : IConnection, IConnectionReader, IConnectionWriter
     }
 
     // Not null: Run fails with it (a transport error of the socket).
-    public Exception? RunFailure;
+    public Exception? RunFailure { get; init; }
 
     public Task Run()
     {

@@ -15,8 +15,8 @@ namespace Framework.Tests.State;
     Key = GrainKeyType.String)]
 public class AddressableStorageTestOptions
 {
-    public string Label { get; set; } = string.Empty;
-    public int Limit { get; set; }
+    public string Label { get; init; } = string.Empty;
+    public int Limit { get; init; }
 }
 
 public class AddressableStorageTestState(AddressableStateUtils utils)

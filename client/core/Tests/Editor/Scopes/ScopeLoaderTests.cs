@@ -101,7 +101,7 @@ namespace Internal.Tests
         {
             var parentLifetime = new Lifetime();
             var parent = GeneratedScopeHarness.Build(ScopeRuntimeRoots.Empty);
-            ScopeLoaderProbe.Gate = new UniTaskCompletionSource();
+            ScopeLoaderProbe.SetGate(new UniTaskCompletionSource());
 
             var load = new EntityScopeLoader().Load(
                 parentLifetime,
@@ -124,7 +124,7 @@ namespace Internal.Tests
         {
             var parentLifetime = new Lifetime();
             var parent = GeneratedScopeHarness.Build(ScopeRuntimeRoots.Empty);
-            ScopeLoaderProbe.Gate = new UniTaskCompletionSource();
+            ScopeLoaderProbe.SetGate(new UniTaskCompletionSource());
 
             var load = new EntityScopeLoader().Load(
                 parentLifetime,

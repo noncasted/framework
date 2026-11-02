@@ -8,7 +8,9 @@ namespace Internal.EditorTests
 {
     public sealed class SerializeReferencePickerHolder : ScriptableObject
     {
-        [SerializeReference] public SerializeReferencePickerTests.INested Value;
+        public const string ValueField = nameof(_value);
+
+        [SerializeReference] private SerializeReferencePickerTests.INested _value;
     }
 
     public class SerializeReferencePickerTests
@@ -30,7 +32,7 @@ namespace Internal.EditorTests
 
             try
             {
-                var property = new SerializedObject(holder).FindProperty(nameof(SerializeReferencePickerHolder.Value));
+                var property = new SerializedObject(holder).FindProperty(SerializeReferencePickerHolder.ValueField);
 
                 Assert.That(SerializeReferencePickerDrawer.ResolveFieldType(property.managedReferenceFieldTypename),
                     Is.EqualTo(typeof(INested)));

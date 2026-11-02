@@ -75,9 +75,9 @@ namespace Internal.Tests
         [Test]
         public void GeneratedScope_Resolve_DoesNotConstructNewSingletons()
         {
-            ScopeCodegenSingleton.Instances = 0;
-            ScopeCodegenScoped.Instances = 0;
-            ScopeCodegenTransient.Instances = 0;
+            ScopeCodegenSingleton.ResetInstances();
+            ScopeCodegenScoped.ResetInstances();
+            ScopeCodegenTransient.ResetInstances();
 
             var container = CreateGenerated();
 
@@ -127,9 +127,9 @@ namespace Internal.Tests
                 "Hole-free fixture must emit (ILifetime, IContainer, IEventLoop) constructor. Have: " +
                 Describe(constructors));
 
-            ScopeCodegenSingleton.Instances = 0;
-            ScopeCodegenScoped.Instances = 0;
-            ScopeCodegenTransient.Instances = 0;
+            ScopeCodegenSingleton.ResetInstances();
+            ScopeCodegenScoped.ResetInstances();
+            ScopeCodegenTransient.ResetInstances();
             return (IContainer)chosen.Invoke(new object[] { new Lifetime(), null, new EventLoop() });
         }
 

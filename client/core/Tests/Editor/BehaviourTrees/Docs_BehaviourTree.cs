@@ -34,9 +34,16 @@ namespace Internal.Tests
 
         private float _eatEndTime = -1f;
 
-        public float Hunger { get; set; }
-        public bool SeesIntruder { get; set; }
+        public float Hunger { get; private set; }
+        public bool SeesIntruder { get; private set; }
         public string Intent { get; private set; } = "none";
+
+        // What the owner has seen since the previous Think.
+        public void Sense(float hunger, bool seesIntruder)
+        {
+            Hunger = hunger;
+            SeesIntruder = seesIntruder;
+        }
 
         // Called by the owner on its own interval (an enemy - every 0.1 s of the game time), delta - the time since
         // the previous call.

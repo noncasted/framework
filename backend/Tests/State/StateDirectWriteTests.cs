@@ -17,7 +17,7 @@ public class StateDirectWriteTests
     public StateDirectWriteTests()
     {
         _storage.Registry.Returns(TestStates.CreateRegistry());
-        _storage.Read<TxTestState>(Arg.Any<StateIdentity>()).Returns(_ => Task.FromResult(new TxTestState { Value = 1 }));
+        _storage.Read<TxTestState>(Arg.Any<StateIdentity>()).Returns(_ => Task.FromResult(TxTestState.Of(1)));
 
         var context = Substitute.For<IGrainContext>();
         context.GrainId.Returns(GrainId.Create(GrainType.Create("test"),
@@ -34,7 +34,7 @@ public class StateDirectWriteTests
     {
         _storage.Write(Arg.Any<StateWriteRequest>()).Returns(Task.FromException(new Exception("db down")));
 
-        var write = () => _state.Write(s => s.Value = 5);
+        var write = () => _state.Write(s => s.SetValue(5));
         await write.Should().ThrowAsync<Exception>().WithMessage("db down");
 
         var value = await _state.Read(s => s.Value);
@@ -59,8 +59,8 @@ public class StateDirectWriteTests
             return Task.CompletedTask;
         });
 
-        var firstWrite = _state.Write(s => s.Value = 2);
-        var secondWrite = _state.Write(s => s.Value = 3);
+        var firstWrite = _state.Write(s => s.SetValue(2));
+        var secondWrite = _state.Write(s => s.SetValue(3));
 
         first.SetResult();
         await Task.WhenAll(firstWrite, secondWrite);

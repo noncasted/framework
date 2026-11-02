@@ -90,7 +90,7 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     public readonly Dictionary<Guid, TestSession> Sessions = new();
 
     // Not null: the lobby factory of the game fails with it.
-    public Exception? LobbyCreationFailure;
+    private Exception? _lobbyCreationFailure;
 
     public string WebSocketUrl => ServerUrl.ServerUrlToWebSocket();
 
@@ -132,11 +132,16 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
         return Add(MatchOptions(isPrivate: false, maxUsers: Options.MaxUsers), _ => { });
     }
 
+    public void FailLobbyCreation(Exception failure)
+    {
+        _lobbyCreationFailure = failure;
+    }
+
     // ILobbyFactory: a lobby session with the lobby service of the framework.
     ISession ILobbyFactory.Create(LobbyCreation creation)
     {
-        if (LobbyCreationFailure != null)
-            throw LobbyCreationFailure;
+        if (_lobbyCreationFailure != null)
+            throw _lobbyCreationFailure;
 
         var options = new SessionCreateOptions
         {
@@ -298,7 +303,12 @@ public class TestLobbyEntryPolicy : ILobbyEntryPolicy
     public readonly HashSet<Guid> OverMatches = new();
 
     // False: no running match can be entered now (Started).
-    public bool CanEnter = true;
+    private bool _canEnter = true;
+
+    public void SetCanEnter(bool canEnter)
+    {
+        _canEnter = canEnter;
+    }
 
     public bool IsMatchOver(Guid matchSessionId)
     {
@@ -308,7 +318,7 @@ public class TestLobbyEntryPolicy : ILobbyEntryPolicy
 
     public bool CanEnterMatchNow(Guid matchSessionId)
     {
-        return CanEnter;
+        return _canEnter;
     }
 }
 
@@ -349,13 +359,23 @@ public class FakeLobbyCodes : ILobbyCodes
     public readonly Dictionary<string, LobbyRegistryEntry> Entries = new();
 
     // Null: real random codes.
-    public Func<string>? Generator;
+    private Func<string>? _generator;
 
     // Not null: the registry answers MarkStarted only when the gate is completed (a slow grain call).
-    public TaskCompletionSource? MarkStartedGate;
+    public TaskCompletionSource? MarkStartedGate { get; private set; }
 
     // Every registry call in the order the registry got them: "Mark CODE", "Listing CODE", "Release CODE".
     public readonly List<string> Calls = new();
+
+    public void SetGenerator(Func<string> generator)
+    {
+        _generator = generator;
+    }
+
+    public void HoldMarkStarted(TaskCompletionSource gate)
+    {
+        MarkStartedGate = gate;
+    }
 
     public Task UpdateListing(string code, Guid sessionId, LobbyListing listing)
     {
@@ -409,7 +429,7 @@ public class FakeLobbyCodes : ILobbyCodes
     {
         lock (Entries)
         {
-            var code = LobbyCodeGenerator.GenerateUnique(Entries.ContainsKey, Generator ?? LobbyCodeGenerator.Generate);
+            var code = LobbyCodeGenerator.GenerateUnique(Entries.ContainsKey, _generator ?? LobbyCodeGenerator.Generate);
 
             Entries.Add(code, new LobbyRegistryEntry
             {

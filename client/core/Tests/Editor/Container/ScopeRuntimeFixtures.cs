@@ -8,14 +8,46 @@ namespace Internal.Tests
     [NoAutoStaticsCleanup]
     public static class ScopeRuntimeRoots
     {
-        public static ScopeRuntimeConfig FirstConfig;
-        public static ScopeRuntimeConfig SecondConfig;
-        public static IScopeRuntimeDep FirstDep;
-        public static IScopeRuntimeDep SecondDep;
-        public static ScopeRuntimeAsset FirstAsset;
-        public static ScopeRuntimeAsset SecondAsset;
-        public static IScopeRuntimeDep[] LoopDeps;
-        public static bool IsOptionalRegistered;
+        public static ScopeRuntimeConfig FirstConfig { get; private set; }
+        public static ScopeRuntimeConfig SecondConfig { get; private set; }
+        public static IScopeRuntimeDep FirstDep { get; private set; }
+        public static IScopeRuntimeDep SecondDep { get; private set; }
+        public static ScopeRuntimeAsset FirstAsset { get; private set; }
+        public static ScopeRuntimeAsset SecondAsset { get; private set; }
+        public static IScopeRuntimeDep[] LoopDeps { get; private set; }
+        public static bool IsOptionalRegistered { get; private set; }
+
+        public static void SetFirstConfig(ScopeRuntimeConfig config)
+        {
+            FirstConfig = config;
+        }
+
+        public static void SetSecondConfig(ScopeRuntimeConfig config)
+        {
+            SecondConfig = config;
+        }
+
+        public static void SetDeps(IScopeRuntimeDep first, IScopeRuntimeDep second)
+        {
+            FirstDep = first;
+            SecondDep = second;
+        }
+
+        public static void SetAssets(ScopeRuntimeAsset first, ScopeRuntimeAsset second)
+        {
+            FirstAsset = first;
+            SecondAsset = second;
+        }
+
+        public static void SetLoopDeps(IScopeRuntimeDep[] deps)
+        {
+            LoopDeps = deps;
+        }
+
+        public static void SetOptionalRegistered(bool isRegistered)
+        {
+            IsOptionalRegistered = isRegistered;
+        }
 
         [ContainerGraphRoot]
         public static void Parameters(IBuilder builder)

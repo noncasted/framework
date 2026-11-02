@@ -11,8 +11,8 @@ namespace Internal.Tests
     {
         public static readonly List<string> Log = new List<string>();
         public static readonly Dictionary<string, IReadOnlyLifetime> Lifetimes = new Dictionary<string, IReadOnlyLifetime>();
-        public static IContainer Container;
-        public static UniTaskCompletionSource Gate;
+        public static IContainer Container { get; private set; }
+        public static UniTaskCompletionSource Gate { get; private set; }
 
         public static void Reset()
         {
@@ -20,6 +20,16 @@ namespace Internal.Tests
             Lifetimes.Clear();
             Container = null;
             Gate = null;
+        }
+
+        public static void SetContainer(IContainer container)
+        {
+            Container = container;
+        }
+
+        public static void SetGate(UniTaskCompletionSource gate)
+        {
+            Gate = gate;
         }
 
         public static int Count(string entry)
@@ -251,7 +261,7 @@ namespace Internal.Tests
     {
         public ScopeEntityThrowingSetup(IContainer container)
         {
-            ScopeLoaderProbe.Container = container;
+            ScopeLoaderProbe.SetContainer(container);
         }
 
         public void OnSetup(IReadOnlyLifetime lifetime)

@@ -165,7 +165,7 @@ public class LobbyListingTests
         var code = lobby.Code;
 
         lobby.WriteVisibility(true);
-        lobby.World.Codes.MarkStartedGate = new TaskCompletionSource();
+        lobby.World.Codes.HoldMarkStarted(new TaskCompletionSource());
         lobby.RunCountdown();
 
         var match = lobby.World.Sessions[lobby.Game.SessionId];
@@ -332,11 +332,11 @@ public class LobbyListingTests
 
         world.Lobbies.Join(lobbyId, match.Session.Id, code, late).Status.Should().Be(LobbyJoinStatus.Ok);
 
-        world.EntryPolicy.CanEnter = false;
+        world.EntryPolicy.SetCanEnter(false);
         world.Lobbies.JoinMatch(lobbyId, match.Session.Id, late).Should().Be(LobbyJoinStatus.Started);
         match.Admission.GetPendingUsers(world.Time.GetUtcNow().UtcDateTime).Should().BeEmpty();
 
-        world.EntryPolicy.CanEnter = true;
+        world.EntryPolicy.SetCanEnter(true);
         world.Lobbies.JoinMatch(lobbyId, match.Session.Id, late).Should().Be(LobbyJoinStatus.Ok);
         match.Admission.GetPendingUsers(world.Time.GetUtcNow().UtcDateTime).Should().Equal(late);
     }

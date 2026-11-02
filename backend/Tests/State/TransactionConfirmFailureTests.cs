@@ -104,7 +104,7 @@ public class TxConfirmFailingGrain : Grain, ITxConfirmFailingGrain
 
     public Task Write(int value)
     {
-        _participant.Value = new TxTestState { Value = value };
+        _participant.Value = TxTestState.Of(value);
 
         var handler = (GrainTransactionHandler)GrainContext.GetComponent<IGrainTransactionHandler>().ThrowIfNull();
         handler.RecordStateChanged(_participant);

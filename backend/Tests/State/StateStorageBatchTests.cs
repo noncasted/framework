@@ -159,7 +159,7 @@ public class StateStorageBatchTests
                 TableName = stateInfo.TableName,
                 Extension = null
             },
-            e => (IStateValue)new SimpleTestState { Counter = e.counter, Label = e.label });
+            e => (IStateValue)SimpleTestState.Of(e.counter, e.label));
 
         await storage.Write(new StateWriteRequest { Records = records });
 
