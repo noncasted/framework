@@ -19,11 +19,7 @@ namespace ContainerGenerator {
                 }
                 else {
                     writer.AppendLine(body + "var instance = " + created + ";");
-                    var method = ConstructorWriter.ConstructName(slot.Registration);
-                    if (construct.Count == 0)
-                        writer.AppendLine(body + "instance." + method + "();");
-                    else
-                        writer.AppendLine(body + "instance." + method + "(" + string.Join(", ", construct) + ");");
+                    writer.AppendLine(body + ArgumentExpressions.ConstructCall(slot.Registration, "instance", construct) + ";");
                     writer.AppendLine(body + "return instance;");
                 }
 
@@ -50,7 +46,7 @@ namespace ContainerGenerator {
 
                     writer.AppendLine(body + "    case " + discriminant + ": {");
                     writer.AppendLine(body + "        var instance = " + created + ";");
-                    writer.AppendLine(body + "        instance." + ConstructorWriter.ConstructName(slot.Registration, a) + "(" + string.Join(", ", construct) + ");");
+                    writer.AppendLine(body + "        " + ArgumentExpressions.ConstructCall(slot.Registration, "instance", construct, a) + ";");
                     writer.AppendLine(body + "        return instance;");
                     writer.AppendLine(body + "    }");
                 }
@@ -74,12 +70,9 @@ namespace ContainerGenerator {
                 var slot = plan.Slots[provide.Slot];
                 writer.AppendLine(indent + "void global::Internal.IProvides<" + provide.TargetType + ">.Construct(" +
                                   provide.TargetType + " target) {");
-                var args = ArgumentExpressions.Arguments(plan, graph, slot.Registration, "Construct");
-                var method = ConstructorWriter.ConstructName(slot.Registration);
-                if (args == null || args.Count == 0)
-                    writer.AppendLine(body + "target." + method + "();");
-                else
-                    writer.AppendLine(body + "target." + method + "(" + string.Join(", ", args) + ");");
+                // PlanExports gives a Provide only to a slot with Construct edges: the arguments are there.
+                var args = ArgumentExpressions.Arguments(plan, graph, slot.Registration, "Construct")!;
+                writer.AppendLine(body + ArgumentExpressions.ConstructCall(slot.Registration, "target", args) + ";");
                 writer.AppendLine(indent + "}");
                 writer.AppendLine();
             }

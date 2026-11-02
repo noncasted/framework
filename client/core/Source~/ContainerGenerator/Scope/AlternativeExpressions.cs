@@ -45,6 +45,11 @@ namespace ContainerGenerator {
                 : slot.CreateMethod + "()";
         }
 
+        // A list over the field of an alternative drops it when its branch did not run.
+        public static string WithoutAbsent(string array, bool hasAlternative) {
+            return hasAlternative ? "global::Internal.GeneratedScopes.WithoutAbsent(" + array + ")" : array;
+        }
+
         public static string Field(ScopePlan.Slot slot, string type) {
             if (slot.IsAlternative == false || slot.GroupMembers.Count <= 1 || slot.FieldType == type)
                 return slot.FieldName;

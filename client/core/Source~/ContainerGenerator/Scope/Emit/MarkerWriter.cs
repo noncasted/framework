@@ -38,7 +38,7 @@ namespace ContainerGenerator {
                 hasAlternative |= slot.IsAlternative;
             }
 
-            return ArgumentExpressions.WithoutAbsent("new " + marker.ElementType + "[] { " + string.Join(", ", items) + " }", hasAlternative);
+            return AlternativeExpressions.WithoutAbsent("new " + marker.ElementType + "[] { " + string.Join(", ", items) + " }", hasAlternative);
         }
     }
 }

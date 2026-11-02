@@ -40,6 +40,25 @@ namespace ContainerGenerator {
             return args;
         }
 
+        public static string ConstructCall(GraphRegistration registration, string target, List<string> args, int arm = -1) {
+            return target + "." + ConstructName(registration, arm) + "(" + string.Join(", ", args) + ")";
+        }
+
+        // The name of the [Inject] method is on the edges with Source == "Construct"; without edges there is no call.
+        private static string ConstructName(GraphRegistration registration, int arm) {
+            for (var i = 0; i < registration.Dependencies.Count; i++) {
+                var edge = registration.Dependencies[i];
+                if (edge.Source != "Construct" || edge.Arm != arm)
+                    continue;
+                if (string.IsNullOrEmpty(edge.Method) == false)
+                    return edge.Method;
+            }
+
+            if (arm < 0 && string.IsNullOrEmpty(registration.InjectMethod) == false)
+                return registration.InjectMethod;
+            return "Construct";
+        }
+
         public static string Argument(ScopePlan plan, ScopeGraph graph, GraphEdge edge) {
             if (edge.Kind == "Implicit") {
                 if (IsContainerType(edge.ParameterType))
@@ -108,12 +127,7 @@ namespace ContainerGenerator {
                 }
             }
 
-            return WithoutAbsent("new " + element + "[] { " + string.Join(", ", items) + " }", hasAlternative);
-        }
-
-        // A list over the field of an alternative drops it when its branch did not run.
-        public static string WithoutAbsent(string array, bool hasAlternative) {
-            return hasAlternative ? "global::Internal.GeneratedScopes.WithoutAbsent(" + array + ")" : array;
+            return AlternativeExpressions.WithoutAbsent("new " + element + "[] { " + string.Join(", ", items) + " }", hasAlternative);
         }
 
         private static string HoleParam(ScopePlan plan, GraphEdge edge) {

@@ -175,26 +175,7 @@ namespace ContainerGenerator {
             var args = ArgumentExpressions.Arguments(plan, graph, slot.Registration, "Construct");
             if (args == null)
                 return;
-            var method = ConstructName(slot.Registration);
-            if (args.Count == 0)
-                writer.AppendLine(indent + target + "." + method + "();");
-            else
-                writer.AppendLine(indent + target + "." + method + "(" + string.Join(", ", args) + ");");
-        }
-
-        // The name of the [Inject] method is on the edges with Source == "Construct"; without edges there is no call.
-        public static string ConstructName(GraphRegistration registration, int arm = -1) {
-            for (var i = 0; i < registration.Dependencies.Count; i++) {
-                var edge = registration.Dependencies[i];
-                if (edge.Source != "Construct" || edge.Arm != arm)
-                    continue;
-                if (string.IsNullOrEmpty(edge.Method) == false)
-                    return edge.Method;
-            }
-
-            if (arm < 0 && string.IsNullOrEmpty(registration.InjectMethod) == false)
-                return registration.InjectMethod;
-            return "Construct";
+            writer.AppendLine(indent + ArgumentExpressions.ConstructCall(slot.Registration, target, args) + ";");
         }
     }
 }

@@ -224,12 +224,8 @@ namespace ContainerGenerator {
                     continue;
 
                 var local = ScopeNames.Unique(ScopeNames.Camel(ScopeNames.Short(slot.ImplementationType)), used);
-                var method = ConstructorWriter.ConstructName(slot.Registration);
                 writer.AppendLine(indent + "if (target is " + slot.ImplementationType + " " + local + ") {");
-                if (args.Count == 0)
-                    writer.AppendLine(indent + "    " + local + "." + method + "();");
-                else
-                    writer.AppendLine(indent + "    " + local + "." + method + "(" + string.Join(", ", args) + ");");
+                writer.AppendLine(indent + "    " + ArgumentExpressions.ConstructCall(slot.Registration, local, args) + ";");
                 writer.AppendLine(indent + "    return;");
                 writer.AppendLine(indent + "}");
             }
