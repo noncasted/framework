@@ -20,6 +20,9 @@ namespace Internal
 
         public static void Sync(IReadOnlyList<(string sceneName, string sceneGuid)> scenes)
         {
+            if (FrameworkSettings.WithoutAddressables)
+                return;
+
             var settings = AddressableAssetSettingsDefaultObject.Settings;
 
             // A project without scenes needs no Addressables; one whose last scene is gone still has its entries.

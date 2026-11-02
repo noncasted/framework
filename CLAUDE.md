@@ -26,7 +26,8 @@ client/
   platforms/            platform implementations of modules/publish: web, website, itch, telegram, steam
   packages/             forks of third-party packages (Unity, UniTask, MemoryPack, unity-mcp), see FORK.md in each
   project/              Unity project for browsing and compiling the framework without a game: Assets/ links the
-                        folders of the framework (core, flow, modules, platforms, shared), the forks are packages;
+                        folders of the framework (core, flow, modules, platforms, shared; common as framework-common, next to the
+                        content folder Assets/Common), the forks are packages;
                         Library and the generated sln/csproj stay local. Open client/project, not client (Unity takes
                         client/packages for client/Packages). Solution: Unity -batchmode -projectPath client/project
                         -executeMethod Packages.Rider.Editor.RiderScriptEditor.SyncSolution -quit
@@ -123,7 +124,9 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
 - **Project layout for the editor tools.** `ProjectSettings/Framework.json` (`FrameworkSettings`, required: no game
   defaults, `ContentAssembly` and `ContentFolder` must be set): content folder and
   assembly, module roots, scene folders, art and audio folders, favorite scenes, phases of the shared addressable
-  groups, player assemblies to strip. Editor assets of the framework are loaded from `FrameworkSettings.Package(...)`.
+  groups, player assemblies to strip. `WithoutAddressables` only in `client/project`: nothing to sync there; a game without the
+  settings gets the error. The live graphs write into `<ContentFolder>/Editor/Transient`: the project ignores `Transient*`
+  there in git. Editor assets of the framework are loaded from `FrameworkSettings.Package(...)`.
 - **Player build steps.** A project step around the build entry points of the platforms implements `IPlayerBuildStep`
   (`core/Editor/Tools/Build`: `BeforeBuild` / `AfterBuild(target, succeeded)`, a parameterless class, found by
   `TypeCache`, ordered by full type name); `PlayerBuildSteps.Run(target, build)` calls `AfterBuild` of every started

@@ -1,6 +1,7 @@
 {
   "ContentAssembly": "Internal.Content",
   "ContentFolder": "Assets/Common/Internal",
+  "WithoutAddressables": true,
   "ModuleRoots": [],
   "SceneFolders": [ "Assets/Common" ],
   "ArtFolder": "",

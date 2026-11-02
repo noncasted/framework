@@ -54,6 +54,15 @@ RuntimeChannelOptions>`). Без него канал падает при пер�
 - `ILiveState<T>`, `LiveState<T>`, `LiveStateChannelId<T>`, `AddLiveState` -> `DeploymentState<T>`; методы `DeploymentStateCompat` удалены вместе с классом.
 - `TransactionContext.ExceptionMessage`, `SetExceptionMessage` удалены: причину сбоя несёт исключение. `TransactionCommitResult` стал `internal`.
 
+### 5. `.gitignore`: живые графы редактора
+
+Кого касается: клиент, игры без этого правила; на 2026-11-02 mines-leader, peace-data-reborn, pixel-swarm. В storytale-workshop папка закрыта своим `.gitignore`.
+
+Поиск: `git check-ignore -q client/Assets/Common/Internal/Editor/Transient/x.asset || echo надо`
+
+Сделать: строка `/client/Assets/Common/Internal/Editor/Transient*` в `.gitignore` проекта (другой `ContentFolder` в `Framework.json`: путь под ним).
+Туда пишут `ContainerLiveGraph` и `LifetimeLiveGraph`.
+
 ## Проверить поведение
 
 - Канал: подписчик, не получивший ни одного сообщения, при реактивации зерна канала получает gap (`onGapDetected`) и перечитывает состояние.
@@ -73,5 +82,9 @@ RuntimeChannelOptions>`). Без него канал падает при пер�
 - `WebRtcPeerRole`, `WebRtcConnectFailedException` в своих файлах, пространство имён прежнее.
 - `Directory.Build.props`: у сборок framework нет хеша коммита в версии и Source Link в PDB; новый коммит не пересобирает их заново.
 - `com.unity.web.stripping-tool`: нет `FindAssets` на каждое обновление базы.
+- `client/project`: `Assets/common` -> `Assets/framework-common`, в играх ссылок на эту папку нет.
+- `FrameworkSettings.WithoutAddressables`: только для `client/project`, игре не ставить: без настроек Addressables она получает прежнюю ошибку.
 - Бэкенд: файлы `MessagePipeClient.cs`, `MessagePipe.cs`, `MessagePipeObserver.cs` -> `RuntimePipeClient.cs`, `RuntimePipe.cs`, `RuntimePipeObserver.cs`, имена типов прежние.
 - `RuntimeChannelOptions.ResubscribeTimeoutMs` 30000; сохранённый конфиг без него читается со значением по умолчанию.
+- `InputManager.asset`: оси `Gamepad Axis 1..10` добавлены в `client/project`, требование к игре прежнее.
+- `SharedAddressablesSync`: выбор ассетов и групп вынесен в `SharedAddressablesTargets`, API прежний.

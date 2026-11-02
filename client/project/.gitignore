@@ -8,3 +8,9 @@
 *.sln
 *.slnx
 steam_appid.txt
+# The live graphs write into <ContentFolder>/Editor/Transient; this project has no other editor content there.
+/Assets/Common/Internal/Editor/
+/Assets/Common/Internal/Editor.meta
+# What a test leaves in Assets when the editor crashes in the middle of it.
+/Assets/*Tests*
+/Assets/*Temp*

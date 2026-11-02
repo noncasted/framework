@@ -27,6 +27,10 @@ namespace Internal
         // group lists).
         public static string ContentFolder => Get().ContentFolder;
 
+        // The project has no Addressable settings on purpose (client/project of the framework): the catalogues and the
+        // shared groups have nothing to sync. Off by default: a game without the settings gets the error.
+        public static bool WithoutAddressables => Get().WithoutAddressables;
+
         // Game modules that keep their runtime assets in an Assets/ subfolder (Scenes, Prefabs, Generated, Options).
         public static IReadOnlyList<string> ModuleRoots => Get().ModuleRoots;
 
@@ -104,6 +108,7 @@ namespace Internal
         {
             public string ContentAssembly;
             public string ContentFolder;
+            public bool WithoutAddressables;
             public List<string> ModuleRoots = new();
             public List<string> SceneFolders = new();
             public string ArtFolder = string.Empty;

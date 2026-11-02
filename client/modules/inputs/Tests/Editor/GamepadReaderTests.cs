@@ -49,6 +49,64 @@ namespace Global.Inputs.Tests
             StringAssert.Contains(GamepadReader.GetRawAxisName(1), exception.Message);
         }
 
+        // Reads every axis of the layout of this platform through the Input Manager: a missing one throws here.
+        [Test]
+        public void ReadInput_EveryAxisOfTheLayout_IsRead()
+        {
+            var reader = new GamepadReader(_options);
+
+            var state = reader.State;
+
+            Assert.That(state.LeftTrigger, Is.InRange(0f, 1f));
+            Assert.That(state.RightTrigger, Is.InRange(0f, 1f));
+        }
+
+        [Test]
+        public void Substitute_TheStateComesFromTheSample()
+        {
+            var reader = new GamepadReader(_options);
+            var lifetime = new Lifetime();
+            var sample = new GamepadState();
+            sample.SetLeftTrigger(0.25f);
+            sample.SetPressed(GamepadButton.X, true);
+
+            reader.Substitute(lifetime, () => sample);
+
+            Assert.AreEqual(0.25f, reader.LeftTrigger);
+            Assert.IsTrue(reader.IsPressed(GamepadButton.X));
+
+            lifetime.Terminate();
+        }
+
+        [Test]
+        public void Substitute_Twice_Throws()
+        {
+            var reader = new GamepadReader(_options);
+            var lifetime = new Lifetime();
+
+            reader.Substitute(lifetime, () => new GamepadState());
+
+            Assert.Throws<InvalidOperationException>(() => reader.Substitute(lifetime, () => new GamepadState()));
+
+            lifetime.Terminate();
+        }
+
+        // A next substitute is allowed only after the lifetime of the first one ended.
+        [Test]
+        public void Substitute_LifetimeEnded_CanBeSubstitutedAgain()
+        {
+            var reader = new GamepadReader(_options);
+            var first = new Lifetime();
+            var second = new Lifetime();
+
+            reader.Substitute(first, () => new GamepadState());
+            first.Terminate();
+
+            Assert.DoesNotThrow(() => reader.Substitute(second, () => new GamepadState()));
+
+            second.Terminate();
+        }
+
         [TestCase(RuntimePlatform.WebGLPlayer)]
         [TestCase(RuntimePlatform.LinuxEditor)]
         [TestCase(RuntimePlatform.LinuxPlayer)]

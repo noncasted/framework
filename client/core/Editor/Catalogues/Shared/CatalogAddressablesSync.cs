@@ -18,6 +18,9 @@ namespace Internal
             string groupsFolder,
             IReadOnlyList<ICatalogGroupDefinition> groups)
         {
+            if (FrameworkSettings.WithoutAddressables)
+                return;
+
             var settings = AddressableAssetSettingsDefaultObject.Settings;
 
             if (settings == null)

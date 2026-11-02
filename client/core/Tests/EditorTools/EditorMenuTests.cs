@@ -115,6 +115,8 @@ namespace Internal.EditorTests
 
         private static void CreateClipWithNested()
         {
+            // A crash of the editor in a test leaves the folder, and the next one would be "EditorMenuTests 1".
+            AssetDatabase.DeleteAsset(Folder);
             AssetDatabase.CreateFolder("Assets", "EditorMenuTests");
             AssetDatabase.CreateAsset(new AnimationClip(), AssetPath);
             AssetDatabase.AddObjectToAsset(new AnimationClip { name = "Nested" }, AssetPath);
