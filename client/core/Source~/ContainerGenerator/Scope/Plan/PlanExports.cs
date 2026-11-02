@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace ContainerGenerator {
     internal static class PlanExports {
-        // A type resolves to its last registration that ran, as a constructor parameter binds (EdgeResolver): when
+        // A type resolves to its last registration that ran, as a constructor parameter binds (ParameterBinder): when
         // a transient is among them, the type is not exported and the transient branch of Resolve creates it.
         public static void BuildExports(ScopePlan plan, ScopeGraph graph) {
             for (var i = 0; i < graph.Registrations.Count; i++) {

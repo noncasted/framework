@@ -5,7 +5,7 @@ using System.Diagnostics;
 namespace Internal
 {
     // Registrations are a static table of the generated class, shared by all its instances.
-    // Children and loaded assets are appended during building (GeneratedScopes, ContainerRegistryDebug).
+    // Children and loaded assets are appended during building (GeneratedScopeCreator, ContainerRegistryDebug).
     public sealed class ContainerDiagnostics : IContainerDiagnostics
     {
         public ContainerDiagnostics(

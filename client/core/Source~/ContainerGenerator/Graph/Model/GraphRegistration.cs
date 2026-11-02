@@ -17,7 +17,7 @@ namespace ContainerGenerator {
         public LocationInfo? Location;
         public List<GraphSwitchArm> Arms = new List<GraphSwitchArm>();
         public List<GraphEdge> Dependencies = new List<GraphEdge>();
-        // The name of the [Inject] method; EdgeResolver sets it together with the edges, so Clone does not copy it.
+        // The name of the [Inject] method; RegistrationBinder sets it together with the edges, so Clone does not copy it.
         public string InjectMethod = "";
         // Where the registration stands among the if / switch statements of its method: "statement.arm" per level.
         // Two registrations exclude each other when they took different arms of one statement (BranchGroups).
