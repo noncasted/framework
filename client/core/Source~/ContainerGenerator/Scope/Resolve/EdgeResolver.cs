@@ -78,8 +78,9 @@ namespace ContainerGenerator {
             for (var i = 0; i < graph.Registrations.Count; i++)
                 ServiceIndex.IndexServices(graph.Registrations[i], i, lastByType, allByType);
 
+            var context = new BindContext(graph, index, compilation, references, implicitTypes, lastByType, allByType, parentExports);
             for (var i = 0; i < graph.Registrations.Count; i++)
-                RegistrationBinder.Bind(graph, i, index, compilation, references, implicitTypes, lastByType, allByType, parentExports);
+                RegistrationBinder.Bind(context, i);
 
             AlternativeLinks.LinkAlternatives(graph, allByType);
             PhaseListeners.ReportTransientPhaseListeners(graph);

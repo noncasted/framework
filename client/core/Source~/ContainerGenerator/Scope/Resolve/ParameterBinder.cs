@@ -1,21 +1,16 @@
-using System.Collections.Generic;
 using System.Globalization;
 
 namespace ContainerGenerator {
     internal static class ParameterBinder {
         public static void BindParameters(
-            ScopeGraph graph,
+            BindContext context,
             int ownerIndex,
             EquatableArray<ParameterModel> parameters,
             string source,
-            TypeIndex types,
-            HashSet<string> implicitTypes,
-            Dictionary<string, int> lastByType,
-            Dictionary<string, List<int>> allByType,
-            Dictionary<string, string> parentExports,
             int arm,
             string armParameterType,
             string method = "") {
+            var graph = context.Graph;
             var registration = graph.Registrations[ownerIndex];
             for (var i = 0; i < parameters.Count; i++) {
                 var parameter = parameters[i];
@@ -27,36 +22,36 @@ namespace ContainerGenerator {
                     Arm = arm,
                 };
 
-                if (string.IsNullOrEmpty(armParameterType) == false && types.IsAssignable(armParameterType, parameter.TypeFullName)) {
+                if (string.IsNullOrEmpty(armParameterType) == false && context.Types.IsAssignable(armParameterType, parameter.TypeFullName)) {
                     // WithParameter of its own arm: at runtime the builder holds only the value of the chosen arm.
                     edge.Kind = "ArmParameter";
                 }
-                else if (TakesOwnParameter(graph, registration, parameter, types)) {
+                else if (TakesOwnParameter(context, registration, parameter)) {
                     // The value of its own WithParameter wins over any registration of the type and over what the
                     // scope gives by itself (the container, the lifetimes).
                     edge.Kind = arm >= 0 ? "ArmParameter" : "Hole";
                 }
-                else if (lastByType.TryGetValue(parameter.TypeFullName, out var target)) {
+                else if (context.LastByType.TryGetValue(parameter.TypeFullName, out var target)) {
                     edge.Kind = "Registration";
                     edge.TargetIndex = target;
-                    WarnIfAmbiguous(graph, registration, parameter, target, allByType);
+                    WarnIfAmbiguous(context, registration, parameter, target);
                 }
                 else if (CollectionTypes.TryElement(parameter.TypeFullName, out var element) &&
-                         allByType.TryGetValue(element, out var indices)) {
+                         context.AllByType.TryGetValue(element, out var indices)) {
                     edge.Kind = "Collection";
                     edge.CollectionIndices.AddRange(indices);
                     if (indices.Count > 0)
                         edge.TargetIndex = indices[indices.Count - 1];
                 }
-                else if (implicitTypes.Contains(parameter.TypeFullName)) {
+                else if (context.ImplicitTypes.Contains(parameter.TypeFullName)) {
                     edge.Kind = "Implicit";
                 }
                 else if (CollectionTypes.TryElement(parameter.TypeFullName, out _) &&
-                         parentExports.ContainsKey(parameter.TypeFullName) == false) {
+                         context.ParentExports.ContainsKey(parameter.TypeFullName) == false) {
                     // A collection is always ResolveAll of its own scope (like ContainerLocal<IReadOnlyList<T>>): an empty list.
                     edge.Kind = "Collection";
                 }
-                else if (parentExports.TryGetValue(parameter.TypeFullName, out var parentId)) {
+                else if (context.ParentExports.TryGetValue(parameter.TypeFullName, out var parentId)) {
                     edge.Kind = "Hole";
                     edge.ParentRootId = parentId;
                 }
@@ -78,11 +73,7 @@ namespace ContainerGenerator {
 
         // The exact type first, then a value the parameter can hold (ILifetime for IReadOnlyLifetime, a class for its
         // interface), as ContainerBuilder.TryGetParameter takes it. Two such values: nothing tells which one is meant.
-        private static bool TakesOwnParameter(
-            ScopeGraph graph,
-            GraphRegistration registration,
-            ParameterModel parameter,
-            TypeIndex types) {
+        private static bool TakesOwnParameter(BindContext context, GraphRegistration registration, ParameterModel parameter) {
             if (registration.Kind != "Register" && registration.Kind != "SwitchFactory")
                 return false;
 
@@ -91,12 +82,12 @@ namespace ContainerGenerator {
 
             var assignable = 0;
             for (var i = 0; i < registration.ParameterTypes.Count; i++) {
-                if (types.IsAssignable(registration.ParameterTypes[i], parameter.TypeFullName))
+                if (context.Types.IsAssignable(registration.ParameterTypes[i], parameter.TypeFullName))
                     assignable++;
             }
 
             if (assignable > 1) {
-                graph.Diagnostics.Add(new DiagnosticInfo(
+                context.Graph.Diagnostics.Add(new DiagnosticInfo(
                     GraphDescriptors.AmbiguousParameter,
                     registration.Location,
                     parameter.Name,
@@ -111,14 +102,11 @@ namespace ContainerGenerator {
 
         // A single parameter of a type registered several times takes the last registration (Resolve does the same):
         // usually one of them is a mistake, or the parameter wants all of them.
-        private static void WarnIfAmbiguous(
-            ScopeGraph graph,
-            GraphRegistration owner,
-            ParameterModel parameter,
-            int target,
-            Dictionary<string, List<int>> allByType) {
-            if (allByType.TryGetValue(parameter.TypeFullName, out var indices) == false)
+        private static void WarnIfAmbiguous(BindContext context, GraphRegistration owner, ParameterModel parameter, int target) {
+            if (context.AllByType.TryGetValue(parameter.TypeFullName, out var indices) == false)
                 return;
+
+            var graph = context.Graph;
 
             // The branches of one if / switch are one registration at runtime.
             var count = 0;
