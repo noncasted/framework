@@ -17,7 +17,7 @@
 </div>
 
 @code {
-    [Inject] public IClusterParticipantContext ClusterParticipantContext { get; set; } = null!;
+    [Inject] private IClusterParticipantContext ClusterParticipantContext { get; set; } = null!;
 
     private bool _isInitialized;
     private string _currentStageName = "Starting...";

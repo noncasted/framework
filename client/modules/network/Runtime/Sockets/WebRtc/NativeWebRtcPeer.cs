@@ -162,11 +162,9 @@ namespace Internal
 
                 serversHandle = GCHandle.Alloc(servers, GCHandleType.Pinned);
 
-                var configuration = new NativeWebRtcApi.Configuration
-                {
-                    IceServers = servers.Length > 0 ? serversHandle.AddrOfPinnedObject() : IntPtr.Zero,
-                    IceServersCount = servers.Length
-                };
+                var configuration = new NativeWebRtcApi.Configuration(
+                    servers.Length > 0 ? serversHandle.AddrOfPinnedObject() : IntPtr.Zero,
+                    servers.Length);
 
                 // The library copies the configuration.
                 return Check(NativeWebRtcApi.CreatePeerConnection(ref configuration), "create peer connection");

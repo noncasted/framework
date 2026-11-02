@@ -66,10 +66,12 @@ Never use `@inject` directive in markup. Always use `[Inject]` attribute in the 
 
 @* Correct — in @code block *@
 @code {
-    [Inject] ToastService ToastService { get; set; } = null!;
-    [Inject] NavigationManager Nav { get; set; } = null!;
+    [Inject] private ToastService ToastService { get; set; } = null!;
+    [Inject] private NavigationManager Nav { get; set; } = null!;
 }
 ```
+
+An injected property is non-public: the framework sets it whatever its access is.
 
 Exception: `@inherits UiComponent` is a directive, not injection — it stays in markup.
 
@@ -112,7 +114,7 @@ lifetime in `Dispose`). Example below is `backend/Console/Home/FeaturesStatusWid
 @inherits UiComponent
 
 @code {
-    [Inject] public IClusterFeatures ClusterFeatures { get; set; } = null!;
+    [Inject] private IClusterFeatures ClusterFeatures { get; set; } = null!;
 
     private ClusterFeaturesState _state = new();
 
@@ -154,8 +156,8 @@ Standard loading indicator:
     [Parameter] public string Id { get; set; } = string.Empty;
 
     // 2. [Inject] dependencies
-    [Inject] public IOrleans Orleans { get; set; } = null!;
-    [Inject] ToastService ToastService { get; set; } = null!;
+    [Inject] private IOrleans Orleans { get; set; } = null!;
+    [Inject] private ToastService ToastService { get; set; } = null!;
 
     // 3. Private fields
     private bool _isLoading = true;

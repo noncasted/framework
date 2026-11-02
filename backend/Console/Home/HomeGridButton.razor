@@ -5,5 +5,5 @@
 @code {
     [Parameter] public required string Name { get; init; }
     [Parameter] public required string Target { get; init; }
-    [Inject] public required IConsoleNavigation Navigation { get; init; }
+    [Inject] private IConsoleNavigation Navigation { get; set; } = null!;
 }

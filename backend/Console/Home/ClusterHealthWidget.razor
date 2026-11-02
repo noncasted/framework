@@ -36,9 +36,9 @@
 </div>
 
 @code {
-    [Inject] public IServiceDiscovery ServiceDiscovery { get; set; } = null!;
-    [Inject] public IClusterStartupConfig StartupConfig { get; set; } = null!;
-    [Inject] public IOptions<ServiceRoleIcons> RoleIcons { get; set; } = null!;
+    [Inject] private IServiceDiscovery ServiceDiscovery { get; set; } = null!;
+    [Inject] private IClusterStartupConfig StartupConfig { get; set; } = null!;
+    [Inject] private IOptions<ServiceRoleIcons> RoleIcons { get; set; } = null!;
 
     private IReadOnlyList<IServiceOverview> _services = [];
     private Dictionary<ServiceTag, int> _grouped = new();

@@ -196,9 +196,9 @@
 </div>
 
 @code {
-    [Inject] public ISideEffectsAggregator Aggregator { get; set; } = null!;
-    [Inject] public ISideEffectsStorage Storage { get; set; } = null!;
-    [Inject] public ToastService ToastService { get; set; } = null!;
+    [Inject] private ISideEffectsAggregator Aggregator { get; set; } = null!;
+    [Inject] private ISideEffectsStorage Storage { get; set; } = null!;
+    [Inject] private ToastService ToastService { get; set; } = null!;
 
     private SideEffectsAggregate _aggregate = new();
     private List<ThroughputRow> _chartData = [];

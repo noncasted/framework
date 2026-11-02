@@ -73,8 +73,8 @@
 </div>
 
 @code {
-    [Inject] public IAuditLogStorage AuditStorage { get; set; } = null!;
-    [Inject] public ToastService ToastService { get; set; } = null!;
+    [Inject] private IAuditLogStorage AuditStorage { get; set; } = null!;
+    [Inject] private ToastService ToastService { get; set; } = null!;
 
     private const int PageSize = 30;
 

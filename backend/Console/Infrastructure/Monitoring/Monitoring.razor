@@ -85,10 +85,10 @@
 </div>
 
 @code {
-    [Inject] public HeapReportCollector Collector { get; set; } = null!;
-    [Inject] public IHeapReportStorage Storage { get; set; } = null!;
-    [Inject] public IJSRuntime JS { get; set; } = null!;
-    [Inject] public ToastService ToastService { get; set; } = null!;
+    [Inject] private HeapReportCollector Collector { get; set; } = null!;
+    [Inject] private IHeapReportStorage Storage { get; set; } = null!;
+    [Inject] private IJSRuntime JS { get; set; } = null!;
+    [Inject] private ToastService ToastService { get; set; } = null!;
 
     private IReadOnlyList<HeapReport> _reports = [];
     private bool _isCollecting;

@@ -24,7 +24,7 @@ public class ServiceDiscoveryOptions
 {
     // The service is a game server: it publishes its public url (GAME_SERVER_URL), matchmaking hands it to clients.
     // Set by the composition root for the game server role (PublishGameServerUrl).
-    public bool PublishGameServerUrl { get; set; }
+    public bool PublishGameServerUrl { get; init; }
 }
 
 public class ServiceDiscovery : IServiceDiscovery
@@ -186,7 +186,7 @@ public static class ServiceDiscoveryExtensions
     // Marks the host as a game server (ServiceDiscoveryOptions.PublishGameServerUrl).
     public static IHostApplicationBuilder PublishGameServerUrl(this IHostApplicationBuilder builder)
     {
-        builder.Services.Configure<ServiceDiscoveryOptions>(options => options.PublishGameServerUrl = true);
+        builder.Services.AddSingleton(Options.Create(new ServiceDiscoveryOptions { PublishGameServerUrl = true }));
         return builder;
     }
 }

@@ -60,10 +60,10 @@
 </div>
 
 @code {
-    [Inject] public IClusterFeatures ClusterFeatures { get; set; } = null!;
-    [Inject] public ToastService ToastService { get; set; } = null!;
-    [Inject] public IAuditLogStorage AuditLog { get; set; } = null!;
-    [Inject] public IEnumerable<ConsoleGameFlag> GameFlags { get; set; } = null!;
+    [Inject] private IClusterFeatures ClusterFeatures { get; set; } = null!;
+    [Inject] private ToastService ToastService { get; set; } = null!;
+    [Inject] private IAuditLogStorage AuditLog { get; set; } = null!;
+    [Inject] private IEnumerable<ConsoleGameFlag> GameFlags { get; set; } = null!;
 
     private ClusterFeaturesState _state = new();
     private bool _isSaving;

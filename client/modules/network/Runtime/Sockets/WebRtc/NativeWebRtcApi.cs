@@ -34,24 +34,34 @@ namespace Internal
             Verbose = 6
         }
 
-        // rtcConfiguration; C bool is one byte.
+        // rtcConfiguration; C bool is one byte. The order and the types of the fields are the native layout: the marshaller
+        // reads them whatever their access is, the fields without a value stay zero (the defaults of the library).
         [StructLayout(LayoutKind.Sequential)]
-        public struct Configuration
+        public readonly struct Configuration
         {
-            public IntPtr IceServers;
-            public int IceServersCount;
-            public IntPtr ProxyServer;
-            public IntPtr BindAddress;
-            public int CertificateType;
-            public int IceTransportPolicy;
-            public byte EnableIceTcp;
-            public byte EnableIceUdpMux;
-            public byte DisableAutoNegotiation;
-            public byte ForceMediaTransport;
-            public ushort PortRangeBegin;
-            public ushort PortRangeEnd;
-            public int Mtu;
-            public int MaxMessageSize;
+            public Configuration(IntPtr iceServers, int iceServersCount)
+            {
+                this = default;
+                _iceServers = iceServers;
+                _iceServersCount = iceServersCount;
+            }
+
+            private readonly IntPtr _iceServers;
+            private readonly int _iceServersCount;
+#pragma warning disable CS0169 // The native side reads them.
+            private readonly IntPtr _proxyServer;
+            private readonly IntPtr _bindAddress;
+            private readonly int _certificateType;
+            private readonly int _iceTransportPolicy;
+            private readonly byte _enableIceTcp;
+            private readonly byte _enableIceUdpMux;
+            private readonly byte _disableAutoNegotiation;
+            private readonly byte _forceMediaTransport;
+            private readonly ushort _portRangeBegin;
+            private readonly ushort _portRangeEnd;
+            private readonly int _mtu;
+            private readonly int _maxMessageSize;
+#pragma warning restore CS0169
         }
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]

@@ -104,9 +104,9 @@
 </div>
 
 @code {
-    [Inject] public IStateStorage Storage { get; set; } = null!;
-    [Inject] public ToastService ToastService { get; set; } = null!;
-    [Inject] public IClipboard Clipboard { get; set; } = null!;
+    [Inject] private IStateStorage Storage { get; set; } = null!;
+    [Inject] private ToastService ToastService { get; set; } = null!;
+    [Inject] private IClipboard Clipboard { get; set; } = null!;
 
     private IReadOnlyList<GrainStateInfo> _stateTypes = [];
     private string _selectedTable = string.Empty;

@@ -55,5 +55,5 @@
 
 @code {
     // Cards of the project (AddConsoleInfrastructureCard) come first.
-    [Inject] public IEnumerable<ConsoleInfrastructureCard> ProjectCards { get; set; } = null!;
+    [Inject] private IEnumerable<ConsoleInfrastructureCard> ProjectCards { get; set; } = null!;
 }

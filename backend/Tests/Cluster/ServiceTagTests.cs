@@ -91,6 +91,18 @@ public class ServiceTagTests
     }
 
     [Fact]
+    public void PublishGameServerUrl_MarksTheOptions()
+    {
+        var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings());
+
+        builder.PublishGameServerUrl();
+
+        using var provider = builder.Services.BuildServiceProvider();
+
+        provider.GetRequiredService<IOptions<ServiceDiscoveryOptions>>().Value.PublishGameServerUrl.Should().BeTrue();
+    }
+
+    [Fact]
     public void StartupConfig_EmptyOrDuplicates_Throws()
     {
         var empty = () => new ClusterStartupConfig(Options.Create(new ClusterStartupOptions { RequiredServices = [] }));

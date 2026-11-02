@@ -15,7 +15,7 @@ public interface IClusterStartupConfig
 public class ClusterStartupOptions
 {
     // Set by the composition root through ConfigureRequiredServices; there is no default set.
-    public IReadOnlyList<ServiceTag> RequiredServices { get; set; } = [];
+    public IReadOnlyList<ServiceTag> RequiredServices { get; init; } = [];
 }
 
 public class ClusterStartupConfig : IClusterStartupConfig
@@ -44,7 +44,7 @@ public static class ClusterStartupConfigExtensions
         this IHostApplicationBuilder builder,
         params ServiceTag[] required)
     {
-        builder.Services.Configure<ClusterStartupOptions>(options => options.RequiredServices = required);
+        builder.Services.AddSingleton(Options.Create(new ClusterStartupOptions { RequiredServices = required }));
         return builder;
     }
 }

@@ -29,12 +29,12 @@
 </div>
 
 @code {
-    [Inject] public ISideEffectsConfig SideEffectsConfig { get; set; } = null!;
-    [Inject] public IDurableQueueConfig DurableQueueConfig { get; set; } = null!;
-    [Inject] public ITaskBalancerConfig TaskBalancerConfig { get; set; } = null!;
-    [Inject] public ITransactionConfig TransactionConfig { get; set; } = null!;
-    [Inject] public ToastService ToastService { get; set; } = null!;
-    [Inject] public IAuditLogStorage AuditLog { get; set; } = null!;
+    [Inject] private ISideEffectsConfig SideEffectsConfig { get; set; } = null!;
+    [Inject] private IDurableQueueConfig DurableQueueConfig { get; set; } = null!;
+    [Inject] private ITaskBalancerConfig TaskBalancerConfig { get; set; } = null!;
+    [Inject] private ITransactionConfig TransactionConfig { get; set; } = null!;
+    [Inject] private ToastService ToastService { get; set; } = null!;
+    [Inject] private IAuditLogStorage AuditLog { get; set; } = null!;
 
     private SideEffectsOptions _sideEffectsValue = new();
     private DurableQueueOptions _durableQueueValue = new();

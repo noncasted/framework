@@ -11,7 +11,14 @@ namespace Internal
     {
         public const string Id = "Internal.ContainerLiveGraph.Refresh";
 
-        public EditorWindow containerWindow { get; set; }
+        private EditorWindow _containerWindow;
+
+        // Unity assigns it through the interface when it creates the toolbar element.
+        EditorWindow IAccessContainerWindow.containerWindow
+        {
+            get => _containerWindow;
+            set => _containerWindow = value;
+        }
 
         public ContainerGraphRefreshButton()
         {
@@ -22,7 +29,7 @@ namespace Internal
 
         private void Rebuild()
         {
-            if (containerWindow is IGraphWindow graphWindow && graphWindow.Graph is ContainerLiveGraph graph)
+            if (_containerWindow is IGraphWindow graphWindow && graphWindow.Graph is ContainerLiveGraph graph)
                 graph.Rebuild();
         }
     }
@@ -32,7 +39,14 @@ namespace Internal
     {
         public const string Id = "Internal.ContainerLiveGraph.Status";
 
-        public EditorWindow containerWindow { get; set; }
+        private EditorWindow _containerWindow;
+
+        // Unity assigns it through the interface when it creates the toolbar element.
+        EditorWindow IAccessContainerWindow.containerWindow
+        {
+            get => _containerWindow;
+            set => _containerWindow = value;
+        }
 
         public ContainerGraphStatusLabel()
         {
@@ -49,7 +63,7 @@ namespace Internal
 
         private void Refresh()
         {
-            if (containerWindow is IGraphWindow graphWindow && graphWindow.Graph is ContainerLiveGraph graph)
+            if (_containerWindow is IGraphWindow graphWindow && graphWindow.Graph is ContainerLiveGraph graph)
             {
                 text = string.IsNullOrEmpty(graph.Status)
                     ? ContainerLiveGraph.EmptyEditModeStatus

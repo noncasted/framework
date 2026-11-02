@@ -46,9 +46,9 @@
 </div>
 
 @code {
-    [Inject] public IDeployContext DeployContext { get; set; } = null!;
-    [Inject] public IDeployCleanup DeployCleanup { get; set; } = null!;
-    [Inject] public ToastService ToastService { get; set; } = null!;
+    [Inject] private IDeployContext DeployContext { get; set; } = null!;
+    [Inject] private IDeployCleanup DeployCleanup { get; set; } = null!;
+    [Inject] private ToastService ToastService { get; set; } = null!;
 
     private Guid _currentDeployId = Guid.Empty;
     private bool _isRunning;

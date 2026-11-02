@@ -11,7 +11,14 @@ namespace Internal
     {
         public const string Id = "Internal.LifetimeLiveGraph.Clear";
 
-        public EditorWindow containerWindow { get; set; }
+        private EditorWindow _containerWindow;
+
+        // Unity assigns it through the interface when it creates the toolbar element.
+        EditorWindow IAccessContainerWindow.containerWindow
+        {
+            get => _containerWindow;
+            set => _containerWindow = value;
+        }
 
         public LifetimeGraphClearButton()
         {
@@ -22,7 +29,7 @@ namespace Internal
 
         private void ClearTracked()
         {
-            if (containerWindow is IGraphWindow { Graph: LifetimeLiveGraph graph })
+            if (_containerWindow is IGraphWindow { Graph: LifetimeLiveGraph graph })
                 graph.ClearTracked();
         }
     }
@@ -32,7 +39,14 @@ namespace Internal
     {
         public const string Id = "Internal.LifetimeLiveGraph.Status";
 
-        public EditorWindow containerWindow { get; set; }
+        private EditorWindow _containerWindow;
+
+        // Unity assigns it through the interface when it creates the toolbar element.
+        EditorWindow IAccessContainerWindow.containerWindow
+        {
+            get => _containerWindow;
+            set => _containerWindow = value;
+        }
 
         public LifetimeGraphStatusLabel()
         {
@@ -47,7 +61,7 @@ namespace Internal
 
         private void Refresh()
         {
-            if (containerWindow is IGraphWindow { Graph: LifetimeLiveGraph graph })
+            if (_containerWindow is IGraphWindow { Graph: LifetimeLiveGraph graph })
                 text = graph.Status;
         }
     }
