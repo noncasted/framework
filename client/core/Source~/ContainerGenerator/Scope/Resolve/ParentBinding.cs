@@ -21,7 +21,7 @@ namespace ContainerGenerator {
                     if (string.IsNullOrEmpty(method.AssemblyName) == false &&
                         string.Equals(method.AssemblyName, document.AssemblyName, StringComparison.Ordinal) == false)
                         continue;
-                    document.Diagnostics.Add(MissingParentManifest(
+                    document.Diagnostics.Add(ResolveDiagnostics.MissingParentManifest(
                         hint,
                         method.ParentAssembly,
                         method.Id));
@@ -42,15 +42,6 @@ namespace ContainerGenerator {
             }
 
             return "";
-        }
-
-        public static DiagnosticInfo MissingParentManifest(string parentId, string assembly, string declaredOn) {
-            return new DiagnosticInfo(
-                GraphDescriptors.UnresolvedParent,
-                null,
-                parentId ?? "",
-                string.IsNullOrEmpty(assembly) ? "" : assembly,
-                declaredOn ?? "");
         }
     }
 }

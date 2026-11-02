@@ -53,6 +53,15 @@ namespace ContainerGenerator {
                 line);
         }
 
+        public static DiagnosticInfo MissingParentManifest(string parentId, string assembly, string declaredOn) {
+            return new DiagnosticInfo(
+                GraphDescriptors.UnresolvedParent,
+                null,
+                parentId ?? "",
+                string.IsNullOrEmpty(assembly) ? "" : assembly,
+                declaredOn ?? "");
+        }
+
         public static string Display(GraphRegistration registration) {
             if (string.IsNullOrEmpty(registration.ImplementationType) == false)
                 return registration.ImplementationType;
