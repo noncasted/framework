@@ -2,22 +2,9 @@ using System.Collections.Generic;
 
 namespace ContainerGenerator {
     internal static class ExportTableWriter {
-        public static void WriteFields(CodeWriter writer, ScopePlan plan, string indent) {
-            for (var i = 0; i < plan.Fields.Count; i++) {
-                var field = plan.Fields[i];
-                writer.AppendLine(indent + "private readonly " + field.Type + " " + field.Name + ";");
-            }
-
-            WriteExportTable(writer, plan, indent);
-            if (plan.HasContainerDiagnostics)
-                writer.AppendLine(indent + "private readonly global::Internal.ContainerDiagnostics _diagnostics;");
-            writer.AppendLine(indent + "private bool _isDisposing;");
-            writer.AppendLine(indent + "private bool _disposed;");
-        }
-
         // Type -> the number of the instance in GetExport. The table is static, shared by every instance of the class:
         // the instances are in the fields anyway, and a scope does not pay for a dictionary of its own (340-790 bytes).
-        private static void WriteExportTable(CodeWriter writer, ScopePlan plan, string indent) {
+        public static void WriteExportTable(CodeWriter writer, ScopePlan plan, string indent) {
             var values = ExportValues(plan);
             writer.AppendLine(indent + "private static readonly global::System.Collections.Generic.Dictionary<global::System.Type, int> _exports =");
             writer.AppendLine(indent + "    new global::System.Collections.Generic.Dictionary<global::System.Type, int>(" +

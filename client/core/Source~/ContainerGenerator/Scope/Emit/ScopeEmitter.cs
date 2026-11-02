@@ -53,7 +53,7 @@ namespace ContainerGenerator {
             writer.AppendLine(indent + "internal sealed class " + plan.ClassName + " : " + bases + " {");
             ConstructorWriter.WriteConstructor(writer, plan, graph, deeper, body);
             writer.AppendLine();
-            ExportTableWriter.WriteFields(writer, plan, deeper);
+            FieldsWriter.WriteFields(writer, plan, deeper);
             writer.AppendLine();
             ContainerApiWriter.WriteContainerApi(writer, plan, graph, deeper, body);
             RegisterWriter.WriteRegister(writer, plan, graph, deeper, body);
