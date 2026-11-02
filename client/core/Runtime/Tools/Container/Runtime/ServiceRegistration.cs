@@ -5,8 +5,8 @@ namespace Internal
     // Registration handle for the installer chain: owner and index, never allocated on the heap.
     // The generator reads service types, lifetime and construction order from the source; the runtime
     // keeps the implementation type (if/switch branches), the ready instance and WithParameter parameters -
-    // ContainerBuilder stores them. The interface is implemented for the generator (GraphWalker.IsRegistrationLike):
-    // a call through it boxes, so chain extensions take the struct itself.
+    // ContainerBuilder stores them. The interface is implemented for the generator
+    // (InstallerClassifier.IsRegistrationLike): a call through it boxes, so chain extensions take the struct itself.
     public readonly struct ServiceRegistration : IServiceRegistration
     {
         internal ServiceRegistration(ContainerBuilder owner, int index)
