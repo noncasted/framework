@@ -3,6 +3,7 @@
 ### Статус: В работе
 
 ### Что сделано
+- C11: `GeneratedScopes` и `ContainerBuilder` разрезаны, 64 теста на старом коде, вывод генератора прежний.
 - Каталоги: восемь файлов разрезаны, самый длинный 257 строк, 34 теста на старом коде, дамп вывода побайтно прежний.
 - HierarchyBindings: четыре файла разрезаны, самый длинный 221 строка, вывод генератора привязок побайтно прежний.
 - E11: `ContainerDebuggerWindow` и ещё шесть файлов окон и графов разрезаны, дубли `ContainerGraphRead` убраны, 28 тестов на старом коде.
@@ -14,6 +15,7 @@
 
 | Файл | Что изменено | Шаг | Evidence |
 |------|-------------|-----|----------|
+| `client/core/Runtime/Tools/Container/Runtime/**` | разрез двух файлов, 64 теста | 8 | EditMode 606, снимок равен эталону |
 | `client/core/Editor/Catalogues/{Sprites,Prefabs,Assets,Audio}/**` | разрез восьми файлов, тесты | 7 | EditMode 542, дамп md5 `d3fb2151...` |
 | `client/core/Editor/Tools/HierarchyBindings/**` | разрез четырёх файлов, 44 теста | 6 | EditMode 507, дамп md5 `5dc361be...` |
 | `client/core/Editor/Tools/{Container,ContainerCodegen,ContainerGraph,LifetimeGraph,Profiling,GraphWindows}/**`, `PrefabScreenshot*` | разрез семи файлов | 5 | EditMode 463, PlayMode 71/71, дампы окон |
@@ -24,6 +26,7 @@
 | `client/modules/inputs/Runtime/*` | разрез `GamepadReader` | 3 | `93b20e9`, тесты зелёные |
 
 ### Отличия от плана
+- C11 выполнен без изменения эмиттера: `GeneratedScopes` остался фасадом.
 - С шага 5 по решению пользователя тесты прогоняются в конце шага, а не после каждого класса. Промежуточные коммиты шага отдельно не проверяются.
 
 ### Нерешенные вопросы

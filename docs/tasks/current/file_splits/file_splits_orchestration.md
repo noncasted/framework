@@ -16,8 +16,8 @@ updated: 2026-11-02
 | 5 | 4 | 4 | ORCH-file_splits-5-g1 / a00cf987c6b964fc4 | 1 | done | — |
 | 6 | 5 | 5 | ORCH-file_splits-6-g1 / a9f9984558a973612 | 1 | done | — |
 | 7 | 6 | 6 | ORCH-file_splits-7-g1 / a1625a314b6bcfb34 | 1 | done | — |
-| 8 | 2, 7 | 7 | ORCH-file_splits-8-g1 | 1 | in_progress | — |
-| 9 | 8 | 8 | — | 1 | pending | — |
+| 8 | 2, 7 | 7 | ORCH-file_splits-8-g1 / a1684cd574dca06fd | 1 | done | — |
+| 9 | 8 | 8 | ORCH-file_splits-9-g1, просмотр: ORCH-file_splits-9r-g1 | 1 | in_progress | — |
 
 ## Ресурсы
 - Дерево: только `.claude/worktrees/file_splits` (ветка `file_splits`). В `/projects/framework` работает другая сессия (`public_setters`), там ничего не запускать.

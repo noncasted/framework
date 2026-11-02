@@ -5,7 +5,7 @@ phase: implementation
 created: 2026-11-02
 updated: 2026-11-02
 total_steps: 9
-completed_steps: [1, 2, 3, 4, 5, 6, 7]
+completed_steps: [1, 2, 3, 4, 5, 6, 7, 8]
 blocked_steps: []
 ---
 
@@ -81,7 +81,7 @@ blocked_steps: []
 - **Зависит от:** 6
 
 #### [8] C11 и ContainerBuilder
-- **Статус:** [ ] pending
+- **Статус:** [x] completed
 - **Что:** `GeneratedScopes` (меняется эмиттер), `ContainerBuilder`
 - **Зависит от:** 2, 7
 

@@ -14,10 +14,19 @@ updated: 2026-11-02
 | [5] | [x] | EditMode 463 + 4 skipped, PlayMode 71/71; дампы окон и графов совпали до и после (со слов агента) | — |
 | [6] | [x] | EditMode 507 + 4 skipped, PlayMode 71/71; дамп привязок побайтно равен (43 сценария) | — |
 | [7] | [x] | EditMode 542 + 4 skipped, PlayMode 71/71; дамп каталогов побайтно равен | — |
-| [8] | [ ] | — | — |
+| [8] | [x] | EditMode 606 + 4 skipped, PlayMode 71/71; снимок и вывод кейсов равны эталону, Verify 149 | — |
 | [9] | [ ] | — | — |
 
 ## Заметки
+
+### [2026-11-02] Шаг 8
+- `GeneratedScopes` стал фасадом с прежней поверхностью, поэтому эмиттер не менялся, хотя в аудите C11 это ожидалось. Вывод генератора прежний, `BREAKING` нет.
+- Удалён мёртвый код: `GeneratedScopes.Clear`, `ContainerBuilder.IsBuilt`.
+- `PeerHostTests.DirectAndTunnelGuests_PlayOnHost` тоже падает на `DTLS alert: unknown CA`: тот же дефект, что и у других WebRTC-тестов.
+- Плееры (IL2CPP, WebGL) с новым runtime контейнера не собирались.
+
+### [2026-11-02] Поправка: origin/main
+Локальный `main` и `origin/main` разошлись (18 и 5 своих коммитов). `file_splits` основан на локальном `main`, перебазирование на `origin/main` не выполняется, пока ветки не сведены. Прежняя запись о шагах 8 и 9 в журнале неверна.
 
 ### [2026-11-02] Находки шага 7
 - Не проверено: `GenerateInternal` целиком (`CatalogAddressablesSync.Sync`, `CatalogGroupAssets.Move`), в `client/project` нет настроек Addressables; реальные каталоги игр не генерировались.
