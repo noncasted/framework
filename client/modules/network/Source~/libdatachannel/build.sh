@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Builds the native WebRTC library of NativeWebRtcPeer (libdatachannel, data channels only: no media, no websocket,
 # TLS on mbedtls linked in statically) for the desktop players and editors. The binaries are committed into
-# Runtime/Plugins/libdatachannel, so rebuild only to update the pinned versions below.
+# Runtime/Plugins/libdatachannel, so rebuild only to update the pinned versions below. They get a name of their own
+# (framework_datachannel, see NativeWebRtcApi): an installed libdatachannel must not take their place.
 #   ./build.sh            linux-x64 and win-x64
 #   ./build.sh linux      one target
 # Both build in docker: linux in the Steam Runtime sniper SDK (glibc 2.31, so the library loads in the Steam runtime and
@@ -80,14 +81,14 @@ for target in "${targets[@]}"; do
             run_in "$LINUX_IMAGE" linux "-DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14" \
                 "-s -static-libstdc++ -static-libgcc -Wl,--exclude-libs,ALL"
             mkdir -p "$plugins/linux-x64"
-            cp -L "$work/linux/libdatachannel/libdatachannel.so.${LIBDATACHANNEL_VERSION#v}" "$plugins/linux-x64/libdatachannel.so"
+            cp -L "$work/linux/libdatachannel/libdatachannel.so.${LIBDATACHANNEL_VERSION#v}" "$plugins/linux-x64/libframework_datachannel.so"
             ;;
         windows)
             run_in "$WINDOWS_IMAGE" windows \
                 "-DCMAKE_TOOLCHAIN_FILE=/usr/src/mxe/usr/x86_64-w64-mingw32.static/share/cmake/mxe-conf.cmake" \
                 "-s -static -static-libgcc -static-libstdc++" "-lbcrypt -lws2_32 -liphlpapi"
             mkdir -p "$plugins/win-x64"
-            cp "$work/windows/libdatachannel/libdatachannel.dll" "$plugins/win-x64/datachannel.dll"
+            cp "$work/windows/libdatachannel/libdatachannel.dll" "$plugins/win-x64/framework_datachannel.dll"
             ;;
         *)
             echo "Unknown target: $target" >&2

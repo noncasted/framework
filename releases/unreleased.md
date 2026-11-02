@@ -63,6 +63,15 @@ RuntimeChannelOptions>`). Без него канал падает при пер�
 Сделать: строка `/client/Assets/Common/Internal/Editor/Transient*` в `.gitignore` проекта (другой `ContentFolder` в `Framework.json`: путь под ним).
 Туда пишут `ContainerLiveGraph` и `LifetimeLiveGraph`.
 
+### 6. Плагин WebRTC переименован
+
+Кого касается: клиент, игра, которая называет библиотеку по имени файла (сборка, `link.xml`, исключения). Поиск на 2026-11-02 ничего не нашёл.
+
+Поиск: `git grep -nE '(^|[^_a-z])datachannel\.(dll|so)|libdatachannel\.so|"datachannel"' -- ':!tools/framework'`
+
+Сделать: `datachannel` -> `framework_datachannel`: `libframework_datachannel.so`, `framework_datachannel.dll` (папка `Runtime/Plugins/libdatachannel` прежняя). Причина:
+редактор пробует голый `dlopen` раньше плагинов проекта, и установленная в системе библиотека подменяла нашу.
+
 ## Проверить поведение
 
 - Канал: подписчик, не получивший ни одного сообщения, при реактивации зерна канала получает gap (`onGapDetected`) и перечитывает состояние.

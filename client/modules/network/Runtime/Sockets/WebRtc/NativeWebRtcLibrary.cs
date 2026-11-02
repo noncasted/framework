@@ -33,23 +33,30 @@ namespace Internal
             NativeWebRtcApi.InitLogger(NativeWebRtcApi.LogLevel.Error, OnLogCallback);
             WriteLogs().NoAwait();
 
+            // The threads of the library must not call into a domain that is unloaded, and a connection alive at exit is
+            // destroyed by the static destructors of the library, which can crash on the way out (code 139 of the editor).
 #if UNITY_EDITOR
-            // The threads of the library must not call into a domain that is unloaded: every peer goes before a reload.
             UnityEditor.AssemblyReloadEvents.beforeAssemblyReload += Shutdown;
+            UnityEditor.EditorApplication.quitting += Shutdown;
+#else
+            Application.quitting += Shutdown;
 #endif
         }
 
-#if UNITY_EDITOR
         private static void Shutdown()
         {
+#if UNITY_EDITOR
             UnityEditor.AssemblyReloadEvents.beforeAssemblyReload -= Shutdown;
+            UnityEditor.EditorApplication.quitting -= Shutdown;
+#else
+            Application.quitting -= Shutdown;
+#endif
 
             NativeWebRtcCallbacks.DisposeAll();
 
             NativeWebRtcApi.InitLogger(NativeWebRtcApi.LogLevel.None, null);
             _isInitialized = false;
         }
-#endif
 
         [MonoPInvokeCallback(typeof(NativeWebRtcApi.LogCallback))]
         private static void OnLog(NativeWebRtcApi.LogLevel level, IntPtr message)

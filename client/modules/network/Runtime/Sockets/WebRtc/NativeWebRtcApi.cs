@@ -9,7 +9,9 @@ namespace Internal
     // Strings go as null-terminated UTF-8 byte arrays: blittable on Mono and IL2CPP alike.
     internal static class NativeWebRtcApi
     {
-        private const string Library = "datachannel";
+        // Not the name of the upstream library: the runtime of the editor asks the system loader for a bare name before
+        // the plugins of the project, so an installed libdatachannel (on OpenSSL) would win over this build.
+        private const string Library = "framework_datachannel";
 
         public const int Success = 0;
 
