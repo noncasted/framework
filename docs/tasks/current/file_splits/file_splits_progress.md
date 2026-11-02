@@ -12,12 +12,17 @@ updated: 2026-11-02
 | [3] | [x] | `93b20e9`: EditMode 406 + 4 skipped, PlayMode 56/56; проверено по `final.*.xml`, файлы до 165 строк | — |
 | [4] | [x] | Шаг 4b: EditMode до разреза 4/25 прогонов с падением, после 0/25; diff без смысловых отличий | — |
 | [5] | [x] | EditMode 463 + 4 skipped, PlayMode 71/71; дампы окон и графов совпали до и после (со слов агента) | — |
-| [6] | [ ] | — | — |
+| [6] | [x] | EditMode 507 + 4 skipped, PlayMode 71/71; дамп привязок побайтно равен (43 сценария) | — |
 | [7] | [ ] | — | — |
 | [8] | [ ] | — | — |
 | [9] | [ ] | — | — |
 
 ## Заметки
+
+### [2026-11-02] Находки шага 6
+- Ещё одно ложное падение: `GameLoopScopeLoaderTests.Load_AfterFailedDispose_Succeeds` и другие тесты с `[SharedAddressablesSync] Addressable settings are missing`. Вероятно, debounce `CatalogGenerationRunner.Schedule` (`CatalogGenerationRunner.cs:119`) срабатывает внутри теста, а в `client/project` нет настроек Addressables (`SharedAddressablesSync.cs:55`). Не воспроизводилось отдельно.
+- Мёртвый код: `HierarchyBindingsCodeGenerator.FileSuffix`, `HierarchyBindingsScanner.ToCodeTypeName(Type)`.
+- `HierarchyBindingsBatch.PrefabItem` стал top-level `HierarchyBindingsPrefabItem` (internal).
 
 ### [2026-11-02] Находки шага 5
 - `PrefabScreenshot.Capture`, блок `finally`: `RenderTexture` уничтожается, пока камера держит его целью, каждый снимок логирует ошибку. Закреплено через `LogAssert.Expect` в `PrefabScreenshotTests`.

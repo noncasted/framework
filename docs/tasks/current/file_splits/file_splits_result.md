@@ -3,6 +3,7 @@
 ### Статус: В работе
 
 ### Что сделано
+- HierarchyBindings: четыре файла разрезаны, самый длинный 221 строка, вывод генератора привязок побайтно прежний.
 - E11: `ContainerDebuggerWindow` и ещё шесть файлов окон и графов разрезаны, дубли `ContainerGraphRead` убраны, 28 тестов на старом коде.
 - N8, N9: файлы модуля `network` разрезаны, 15 PlayMode-тестов монитора на старом коде. `BREAKING:` конструктор `NetworkConnection` принимает `IWebSocketFactory`; игры его напрямую не вызывают.
 - G11: генератор разрезан на 93 файла, самый длинный 293 строки, без `partial`; вывод не изменился.
@@ -12,6 +13,7 @@
 
 | Файл | Что изменено | Шаг | Evidence |
 |------|-------------|-----|----------|
+| `client/core/Editor/Tools/HierarchyBindings/**` | разрез четырёх файлов, 44 теста | 6 | EditMode 507, дамп md5 `5dc361be...` |
 | `client/core/Editor/Tools/{Container,ContainerCodegen,ContainerGraph,LifetimeGraph,Profiling,GraphWindows}/**`, `PrefabScreenshot*` | разрез семи файлов | 5 | EditMode 463, PlayMode 71/71, дампы окон |
 | `client/modules/network/**` | разрез пяти файлов, тесты монитора | 4 | PlayMode 71/71, сборка WebGL-ветки Roslyn |
 | `client/core/Source~/ContainerGenerator/**` | разрез, удалён мёртвый код | 2 | `ca6cc23`, `check_generator.sh` |
@@ -23,6 +25,7 @@
 - С шага 5 по решению пользователя тесты прогоняются в конце шага, а не после каждого класса. Промежуточные коммиты шага отдельно не проверяются.
 
 ### Нерешенные вопросы
+- Ложное падение тестов из-за `[SharedAddressablesSync] Addressable settings are missing` в `client/project`.
 - `PrefabScreenshot.Capture` логирует ошибку освобождения `RenderTexture` при каждом снимке.
 - Открытие графа пачкает `client/project` файлами `Transient`.
 - N8: исключение отчёта останавливает пинги, поведение сохранено, см. `_progress.md`.
