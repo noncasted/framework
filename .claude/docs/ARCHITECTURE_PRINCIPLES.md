@@ -21,9 +21,8 @@ details live in the linked docs.
    change.
 6. **Data changes only through methods.** No public setters or public mutable fields anywhere, Orleans states, tests and
    benchmarks included: state is changed by intent methods (`Init`, `Tick(delta)`, `Restart`, `Hit`), fields are
-   `{ get; private set; }`; values fixed after creation are `readonly struct` / readonly / `{ get; init; }`. The exception
-   is a `[MemoryPackable]` type: its public setters are allowed.
-   (`CODE_STYLE_FULL.md`)
+   `{ get; private set; }`; values fixed after creation are `readonly struct` / readonly / `{ get; init; }`. The full
+   list of exceptions: `CODE_STYLE_FULL.md`.
 7. **Simulation-heavy state is ECS.** Many similar entities updated every frame live in a shared
    ECS world: components are data with methods, systems are plain classes with `Run(...)`, the old facade keeps
    its external API. Entity handles are not kept between frames.
