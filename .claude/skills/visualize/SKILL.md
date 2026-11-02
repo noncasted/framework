@@ -24,7 +24,8 @@ them into one sheet, show it, and wait for the choice. Only the chosen variant g
    - the look of the project: `.claude/project-skills.md` § visualize;
    - the real size in game (px, PPU) - variants are drawn at that size, the sheet only upscales them.
 2. Find what exists: the current asset / screen (a render or the file), earlier research in
-   `docs/media/research/<topic>/` and `docs/art`, so the variants do not repeat rejected ones.
+   `docs/media/research/<topic>/`, `docs/media/research/complete/<topic>/` and `docs/art`, so the variants do not repeat
+   rejected ones.
 3. Define the **axes of difference**: each variant must differ in a meaningful decision (silhouette, composition,
    colour scheme, frame style, motion), not in noise. Write one line per variant: label, idea, what it tests.
    With conditions given, all variants obey them and differ inside them.
@@ -33,8 +34,8 @@ them into one sheet, show it, and wait for the choice. Only the chosen variant g
 
 - Task in work (`docs/tasks/current/<task>/` exists and the visual belongs to it) -
   `docs/tasks/current/<task>/visualize/<topic>/`.
-- Otherwise - `docs/media/research/<topic>/` (`<topic>` lowercase with underscores; if the folder exists, add
-  `_v2`, `_v3` instead of overwriting).
+- Otherwise - `docs/media/research/<topic>/` (`<topic>` lowercase with underscores; if the folder exists, also under
+  `complete/`, add `_v2`, `_v3` instead of overwriting). Finished research moves to `complete/`, never write there.
 
 Inside: `<topic>_variants.png` (+ `.gif`), the variant sources `<label>_<slug>.png` (or `<label>_<slug>/` frames),
 the generator scripts if any (`*.py`, like the earlier research folders), and `README.md`.
