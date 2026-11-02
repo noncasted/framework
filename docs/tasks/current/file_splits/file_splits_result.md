@@ -26,10 +26,12 @@
 | `client/modules/inputs/Runtime/*` | разрез `GamepadReader` | 3 | `93b20e9`, тесты зелёные |
 
 ### Отличия от плана
+- Добавлен шаг 10: 11 правок границ классов генератора по независимому просмотру.
 - C11 выполнен без изменения эмиттера: `GeneratedScopes` остался фасадом.
 - С шага 5 по решению пользователя тесты прогоняются в конце шага, а не после каждого класса. Промежуточные коммиты шага отдельно не проверяются.
 
 ### Нерешенные вопросы
+- Длиннее 300 строк вне области задачи: backend 15 файлов (задача родом из аудита клиента, отдельная задача): `Session/Root/Session.cs` 523, `Infrastructure/Orleans/SideEffects/SideEffectsStorage.cs` 519, `Infrastructure/Orleans/State/Direct/DirectStorage.cs` 451, `Infrastructure/Orleans/Transactions/Transactions.cs` 418, `Session/Root/SessionAdmission.cs` 380, `Infrastructure/Messaging/Channels/RuntimeChannelClient.cs` 372, `Infrastructure/Orleans/Transactions/TransactionAttribute.cs` 371, `Infrastructure/Orleans/State/Events/EventStorage.cs` 368, `Hosting/Lobbies/LobbyService.cs` 348, `Infrastructure/Messaging/Channels/RuntimeChannel.cs` 341, `Cluster/Deploy/DeploymentState.cs` 339, `Infrastructure/Messaging/Pipes/MessagePipeClient.cs` 329, `Hosting/Lobbies/LobbySessions.cs` 328, `Infrastructure/Orleans/Transactions/GrainTransactionHandler.cs` 325, `Infrastructure/Messaging/Queues/DurableQueueClient.cs` 320. Форки `client/packages` 608 (сторонний код), тесты и Verify 41 (P11 без лимита).
 - `SpriteGenerator.GenerateInternal` не сбрасывает реестр групп, в отличие от других генераторов; возможный дефект.
 - Полный путь `GenerateInternal` каталогов не проверен: нужен проект с Addressables.
 - Ложное падение тестов из-за `[SharedAddressablesSync] Addressable settings are missing` в `client/project`.
