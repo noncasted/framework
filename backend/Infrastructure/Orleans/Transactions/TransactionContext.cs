@@ -21,7 +21,12 @@ public class TransactionContext
     public ConcurrentDictionary<Guid, TransactionHandlerResult> Results { get; } = new();
 
     [Id(20)]
-    public string? ExceptionMessage { get; set; }
+    public string? ExceptionMessage { get; private set; }
+
+    public void SetExceptionMessage(string message)
+    {
+        ExceptionMessage = message;
+    }
 
     // Keeps the newest snapshot per participant. Sequence is assigned by the participant's handler,
     // so a snapshot from a slower parallel branch cannot overwrite a newer one.

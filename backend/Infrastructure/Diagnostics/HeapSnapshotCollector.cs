@@ -34,35 +34,28 @@ public class HeapSnapshotCollector : IHeapSnapshotCollector
 
         if (!CollectLock.Wait(TimeSpan.FromSeconds(5)))
         {
-            response.Error = "[HeapSnapshot] Another collection is in progress";
+            response.SetError("[HeapSnapshot] Another collection is in progress");
             sw.Stop();
-            response.CollectDurationMs = sw.ElapsedMilliseconds;
+            response.SetCollectDuration(sw.ElapsedMilliseconds);
             return response;
         }
 
         try
         {
             var info = GC.GetGCMemoryInfo();
-            response.GcTotalBytes = GC.GetTotalMemory(false);
-
-            var gens = info.GenerationInfo;
-            if (gens.Length > 0) response.Gen0SizeBytes = gens[0].SizeAfterBytes;
-            if (gens.Length > 1) response.Gen1SizeBytes = gens[1].SizeAfterBytes;
-            if (gens.Length > 2) response.Gen2SizeBytes = gens[2].SizeAfterBytes;
-            if (gens.Length > 3) response.LohSizeBytes = gens[3].SizeAfterBytes;
-            if (gens.Length > 4) response.PohSizeBytes = gens[4].SizeAfterBytes;
+            response.SetGcMemory(GC.GetTotalMemory(false), info.GenerationInfo);
 
             if (deep)
             {
                 _logger.LogWarning("[HeapSnapshot] Deep collection requested on {ServiceName} — fork may stall Orleans silo",
                     serviceName);
-                response.TopTypes = CollectTopTypes(topN, response);
+                response.SetTopTypes(CollectTopTypes(topN, response));
             }
         }
         catch (Exception e)
         {
             _logger.LogError(e, "[HeapSnapshot] Collection failed for {ServiceName}", serviceName);
-            response.Error = e.ToString();
+            response.SetError(e.ToString());
         }
         finally
         {
@@ -70,7 +63,7 @@ public class HeapSnapshotCollector : IHeapSnapshotCollector
         }
 
         sw.Stop();
-        response.CollectDurationMs = sw.ElapsedMilliseconds;
+        response.SetCollectDuration(sw.ElapsedMilliseconds);
         return response;
     }
 
@@ -93,7 +86,7 @@ public class HeapSnapshotCollector : IHeapSnapshotCollector
 
             if (target.ClrVersions.Length == 0)
             {
-                response.Error = "[HeapSnapshot] No CLR versions found in target process";
+                response.SetError("[HeapSnapshot] No CLR versions found in target process");
                 return [];
             }
 
@@ -102,7 +95,7 @@ public class HeapSnapshotCollector : IHeapSnapshotCollector
 
             if (!heap.CanWalkHeap)
             {
-                response.Error = "[HeapSnapshot] Heap walk not available in snapshot";
+                response.SetError("[HeapSnapshot] Heap walk not available in snapshot");
                 return [];
             }
 
@@ -151,7 +144,7 @@ public class HeapSnapshotCollector : IHeapSnapshotCollector
         catch (Exception e)
         {
             _logger.LogWarning(e, "[HeapSnapshot] Deep heap walk failed, returning GC stats only");
-            response.Error = $"[HeapSnapshot] Deep heap walk unavailable: {e.Message}. GC stats collected.";
+            response.SetError($"[HeapSnapshot] Deep heap walk unavailable: {e.Message}. GC stats collected.");
             return [];
         }
         finally

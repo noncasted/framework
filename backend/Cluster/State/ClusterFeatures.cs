@@ -128,10 +128,10 @@ public class ClusterFeatures : DeploymentState<ClusterFeaturesState>, IClusterFe
 [GenerateSerializer]
 public class ClusterFeaturesPatch
 {
-    [Id(0)] public bool? AcceptingConnections { get; set; }
-    [Id(1)] public bool? SideEffectsEnabled { get; set; }
-    [Id(2)] public bool? CoordinatorUnhealthy { get; set; }
-    [Id(3)] public Dictionary<string, bool>? GameFlags { get; set; }
+    [Id(0)] public bool? AcceptingConnections { get; init; }
+    [Id(1)] public bool? SideEffectsEnabled { get; init; }
+    [Id(2)] public bool? CoordinatorUnhealthy { get; init; }
+    [Id(3)] public Dictionary<string, bool>? GameFlags { get; init; }
 
     public void ApplyTo(ClusterFeaturesState state)
     {

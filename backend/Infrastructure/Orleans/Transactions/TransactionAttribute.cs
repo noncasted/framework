@@ -28,10 +28,10 @@ public abstract class TransactionRequestBase : RequestBase, IOutgoingGrainCallFi
     private readonly IGrainFactory _grains;
 
     [Id(0)]
-    public TransactionContext? Context { get; set; }
+    public TransactionContext? Context { get; private set; }
 
     [Id(1)]
-    public IAddressable Target { get; set; } = null!;
+    public IAddressable Target { get; private set; } = null!;
 
     async Task IOutgoingGrainCallFilter.Invoke(IOutgoingGrainCallContext context)
     {
@@ -100,7 +100,7 @@ public abstract class TransactionRequestBase : RequestBase, IOutgoingGrainCallFi
             var response = await BaseInvoke();
 
             if (response.Exception != null)
-                Context.ExceptionMessage = response.Exception.Message;
+                Context.SetExceptionMessage(response.Exception.Message);
             else
                 Context.AddResult(participantId, await handler.CollectResult(Context.Id));
 
@@ -108,7 +108,7 @@ public abstract class TransactionRequestBase : RequestBase, IOutgoingGrainCallFi
         }
         catch (Exception e)
         {
-            Context.ExceptionMessage = e.Message;
+            Context.SetExceptionMessage(e.Message);
             return TransactionResponse.Create(Response.FromException(e), Context);
         }
         finally

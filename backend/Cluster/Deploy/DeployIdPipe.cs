@@ -15,5 +15,5 @@ public class DeployIdRequest
 [GenerateSerializer]
 public class DeployIdResponse
 {
-    [Id(0)] public Guid DeployId { get; set; }
+    [Id(0)] public Guid DeployId { get; init; }
 }

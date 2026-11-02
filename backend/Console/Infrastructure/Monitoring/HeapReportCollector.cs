@@ -42,14 +42,16 @@ public class HeapReportCollector
             catch (Exception e)
             {
                 _logger.LogError(e, "[HeapReport] Failed to collect snapshot from {Service}", svc.Tag);
-                return new HeapSnapshotResponse
+                var failed = new HeapSnapshotResponse
                 {
                     ServiceName = svc.Tag.ToString(),
                     ServiceId = svc.Id,
                     Timestamp = DateTime.UtcNow,
                     Deep = deep,
-                    Error = e.ToString(),
                 };
+
+                failed.SetError(e.ToString());
+                return failed;
             }
         }).ToList();
 

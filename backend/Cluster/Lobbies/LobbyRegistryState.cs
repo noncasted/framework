@@ -52,16 +52,16 @@ public class LobbyListing
 public class OpenLobbies
 {
     // Grows with every change: a listener drops a snapshot older than the one it has.
-    [Id(0)] public long Version { get; set; }
-    [Id(1)] public List<OpenLobby> Entries { get; set; } = new();
+    [Id(0)] public long Version { get; init; }
+    [Id(1)] public List<OpenLobby> Entries { get; init; } = new();
 }
 
 [GenerateSerializer]
 public class OpenLobby
 {
-    [Id(0)] public string Code { get; set; } = string.Empty;
-    [Id(1)] public Guid ServerId { get; set; }
-    [Id(2)] public LobbyListing Listing { get; set; } = new();
+    [Id(0)] public string Code { get; init; } = string.Empty;
+    [Id(1)] public Guid ServerId { get; init; }
+    [Id(2)] public LobbyListing Listing { get; init; } = new();
 }
 
 [GenerateSerializer]

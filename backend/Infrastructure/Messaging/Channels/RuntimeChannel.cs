@@ -28,20 +28,20 @@ public class RuntimeChannelId : IRuntimeChannelId
 [GenerateSerializer]
 public class SequencedMessage
 {
-    [Id(0)] public long Sequence { get; set; }
-    [Id(1)] public object Payload { get; set; } = null!;
+    [Id(0)] public long Sequence { get; init; }
+    [Id(1)] public object Payload { get; init; } = null!;
 
     // The activation of the channel that numbered the message: a new activation numbers from 1 again.
-    [Id(2)] public Guid Epoch { get; set; }
+    [Id(2)] public Guid Epoch { get; init; }
 }
 
 [GenerateSerializer]
 public class CatchUpResult
 {
-    [Id(0)] public IReadOnlyList<SequencedMessage> Messages { get; set; } = Array.Empty<SequencedMessage>();
-    [Id(1)] public bool GapDetected { get; set; }
-    [Id(2)] public long CurrentSequence { get; set; }
-    [Id(3)] public Guid Epoch { get; set; }
+    [Id(0)] public IReadOnlyList<SequencedMessage> Messages { get; init; } = Array.Empty<SequencedMessage>();
+    [Id(1)] public bool GapDetected { get; init; }
+    [Id(2)] public long CurrentSequence { get; init; }
+    [Id(3)] public Guid Epoch { get; init; }
 }
 
 public interface IRuntimeChannel : IGrainWithStringKey
