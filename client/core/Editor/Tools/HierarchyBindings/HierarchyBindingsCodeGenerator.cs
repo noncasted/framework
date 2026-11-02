@@ -11,8 +11,6 @@ namespace Internal
     // it): bindings of different classes (base and variant of a prefab) still live on one object.
     internal static class HierarchyBindingsCodeGenerator
     {
-        public const string FileSuffix = "Bindings.g.cs";
-
         // The registration methods of the root class: no member mirrored from the hierarchy may take their names.
         public const string SceneServiceMethod = "Create";
         public const string EntityComponentMethod = "Register";

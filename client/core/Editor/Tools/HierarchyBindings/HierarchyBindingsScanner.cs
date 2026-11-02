@@ -204,11 +204,5 @@ namespace Internal
 
             return false;
         }
-
-        public static string ToCodeTypeName(Type type)
-        {
-            var fullName = type.FullName ?? type.Name;
-            return "global::" + fullName.Replace('+', '.');
-        }
     }
 }
