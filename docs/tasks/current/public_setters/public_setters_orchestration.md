@@ -22,7 +22,7 @@ updated: 2026-11-02
 | 11. E2: stored-состояния, редакторы консоли | 10 | 11 | ORCH-public_setters-11-g1 / a83bc68359fdb609f | 1 | done (19ba916) | — |
 | 12. G: Inject, тулбары, options, interop | 11 | 12 | ORCH-public_setters-12-g1 / abe7116941156517f | 1 | done (0bf4243) | — |
 | 13. F1: тесты | 12 | 13 | ORCH-public_setters-13-g1 / a787ae7c0e601cdcb | 1 | done (7c04dbe) | — |
-| 14. F2: генератор | 13 | 14 | — | — | blocked: ждёт вливания генератора из `file_splits` | — |
+| 14. F2: генератор | 13 | 14 | ORCH-public_setters-14-g1 / a04a4bcf4cff75523 | 1 | done (3360bac) | — |
 | 13a. Зачистка: `IEventStateValue.Id` | 13 | 14 | ORCH-public_setters-13a-g1 / a13f1c50c743bab96 | 1 | done (4d39a49) | — |
 | 15a. `HierarchyBindingsQueue.Requests` | 15 | 16 | ORCH-public_setters-15a-g1 / a504331733b3e0298 | 1 | done (2395e8e) | — |
 | 15. Проверка `Read` и подсчёт без F2 | 13a | 15 | ORCH-public_setters-15-g1 / ace769003aed31767 | 1 | done (73dda7d) | — |
@@ -58,3 +58,6 @@ Unity editor: свободен. Worktree `.claude/worktrees/public_setters`, в�
 
 ## Итог на этот момент
 Шагов сделано: 16 из 17 (с 13a и 15a), агентов 15, handoff 0. Открыто: F2 (`blocked`), `SignalingEnd.Other` и P6 (ждут чужую незакоммиченную правку в основном дереве). Worktree `.claude/worktrees/public_setters` и ветка `public_setters` оставлены для F2. Задача не закрыта.
+### [2026-11-02] Пользователь велел влить `file_splits`, разрез генератора в локальном `main`. F2 разблокирован, запускается поверх `ebe5f64`.
+### [2026-11-02] F2 готов: `3360bac` на `main`. Verify 149/149, вывод побайтно тот же (786 записей), backend 836, common 92, Unity 606 + 4 из 610 (рост с 394 не разобран). Финальный счётчик: A 0, B 0, C 99, D 64, E 0, F 4, G 22, всего 189. Новый `HierarchyBindingsPrefabPlan` (D, вынесен разрезом) подходит под исключение. Единственное нарушение: `PeerHostTests.SignalingEnd.Other`. Осталось вместе с P6, оба ждут чужих правок.
+### [2026-11-02] Шаг 16 готов: `ab24d81`, `5791401`, `47fa72c`, `7becbd2`, `a1858a9`, `86d9049`. Backend 836, common 92, Verify пройден, Unity 606 + 4 из 610. Счётчик: A 0, B 0, C 99, D 64, E 0, F 3, G 22, нарушений вне исключений 0. Четвёртый заход аудита не взят (`handoff/foreign_audit_fourth_pass.patch`), полный патч чужих правок: `handoff/foreign_all_before_cleanup.patch`. Пользователь велел запушить всё в `main`.

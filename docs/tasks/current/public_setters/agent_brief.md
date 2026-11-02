@@ -15,7 +15,7 @@
 ## Проверка, всё в worktree
 Скретчпад: `/tmp/claude-1000/-projects-framework/c83b6d6a-df3b-4319-a9aa-1c50de253acb/scratchpad`.
 
-База перед шагом (на коммите `73dda7d`, новые шаги сравнивают с последним коммитом): backend 836, common 92 прошло, Unity EditMode 394: 390 прошло, 4 пропущено, упало 0. Заново снимать базу не нужно, если не появится падение; тогда проверить его на предыдущем коммите.
+База перед шагом (на коммите `ebe5f64`, новые шаги сравнивают с последним коммитом): backend 836, common 92 прошло, Unity EditMode 394: 390 прошло, 4 пропущено, упало 0. Заново снимать базу не нужно, если не появится падение; тогда проверить его на предыдущем коммите.
 
 1. `dotnet build framework.slnx`, затем `.build/bin/Tests/Debug/net10.0/Framework.Tests` и `.build/bin/Framework.Common.Tests/Debug/net10.0/Framework.Common.Tests` (исполняемые файлы, `dotnet test` не работает).
 2. Unity EditMode, если затронут код, который компилирует Unity: `/tools/unity/<версия из client/project/ProjectSettings/ProjectVersion.txt>/Editor/Unity -batchmode -projectPath <worktree>/client/project -runTests -testPlatform EditMode -testResults <скретчпад>/results.xml -logFile <скретчпад>/unity.log` (без `-quit`), с большим таймаутом или в фоне. Чужие процессы Unity не останавливать.

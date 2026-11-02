@@ -1,7 +1,7 @@
 # public_setters: результат
 
 ## Статус
-Не закрыта: F2, `SignalingEnd.Other` и P6 ждут внешних условий (см. `_progress.md`).
+Выполнена. Финальный счётчик на `86d9049`: всего 188, нарушений вне исключений 0.
 
 Подсчёт на шаге 15: 790 -> 358; после шага 15a D3 без `HierarchyBindingsQueue.Requests`. Подробно: `public_setters_inventory.md`, раздел «Финальный подсчёт без F2».
 
@@ -27,3 +27,5 @@
 | `IEventStateValue.Id`, 5 файлов | `{ get; }` в интерфейсе, `SetIdFromStream` удалён. BREAKING | `4d39a49` |
 | `EventStorage`, 4 файла | чтение снимка бросает, если `Id` не восстановился | `73dda7d` |
 | `HierarchyBindingsQueue`, 3 файла | `[SerializeField] private _requests`, уточнение исключения в `CODE_STYLE_FULL.md` | `2395e8e` |
+| F2, 36 файлов: генератор | `init` и методы, Release dll | `3360bac` |
+
