@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Common.Extensions;
 using Internal;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Infrastructure;
@@ -22,13 +23,16 @@ public class RuntimeChannelClient : IRuntimeChannelClient
 {
     public RuntimeChannelClient(
         IOrleans orleans,
+        IServiceProvider services,
         ILogger<RuntimeChannelClient> logger)
     {
         _orleans = orleans;
+        _config = new Lazy<IRuntimeChannelConfig>(() => services.GetRequiredService<IRuntimeChannelConfig>());
         _logger = logger;
     }
 
     private readonly IOrleans _orleans;
+    private readonly Lazy<IRuntimeChannelConfig> _config;
     private readonly ILogger<RuntimeChannelClient> _logger;
 
     private readonly ConcurrentDictionary<Guid, Listener> _listeners = new();
@@ -48,7 +52,7 @@ public class RuntimeChannelClient : IRuntimeChannelClient
         if (lifetime.IsTerminated)
             return;
 
-        var transportListener = new Listener(id, GetChannel(id), _orleans, _logger);
+        var transportListener = new Listener(id, GetChannel(id), _orleans, _logger, _config.Value.Value);
         _listeners[transportListener.ObserverSource.Id] = transportListener;
 
         var handlerId = transportListener.AddHandler(async message => {
@@ -115,7 +119,7 @@ public class RuntimeChannelClient : IRuntimeChannelClient
             }
 
             var delay = snapshot.Length == 0
-                ? TimeSpan.FromSeconds(10)
+                ? TimeSpan.FromMilliseconds(_config.Value.Value.ResubscribeMinIntervalMs)
                 : snapshot.Min(l => l.Interval.GetNextDelay());
 
             try
@@ -134,12 +138,16 @@ public class RuntimeChannelClient : IRuntimeChannelClient
             IRuntimeChannelId id,
             IRuntimeChannel channel,
             IOrleans orleans,
-            ILogger logger)
+            ILogger logger,
+            RuntimeChannelOptions options)
         {
             Id = id;
             Channel = channel;
             Orleans = orleans;
             Logger = logger;
+            Interval = new AdaptiveInterval(minInterval: TimeSpan.FromMilliseconds(options.ResubscribeMinIntervalMs),
+                maxInterval: TimeSpan.FromMilliseconds(options.ResubscribeMaxIntervalMs),
+                failureBaseInterval: TimeSpan.FromSeconds(1));
             ObserverSource = new RuntimeChannelObserver(Deliver);
             ObserverReference = Orleans.Client.CreateObjectReference<IRuntimeChannelObserver>(ObserverSource);
         }
@@ -158,9 +166,7 @@ public class RuntimeChannelClient : IRuntimeChannelClient
         public ILogger Logger { get; }
         public IOrleans Orleans { get; }
 
-        public AdaptiveInterval Interval { get; } = new(minInterval: TimeSpan.FromSeconds(10),
-            maxInterval: TimeSpan.FromSeconds(60),
-            failureBaseInterval: TimeSpan.FromSeconds(1));
+        public AdaptiveInterval Interval { get; }
 
         public Guid AddHandler(Func<object, Task> handler, Action? onGapDetected)
         {

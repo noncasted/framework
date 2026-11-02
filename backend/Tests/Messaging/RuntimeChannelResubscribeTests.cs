@@ -30,7 +30,7 @@ public class RuntimeChannelResubscribeTests
         channel.CatchUp(default).ReturnsForAnyArgs(new CatchUpResult { CurrentSequence = 1 });
 
         var listener = new RuntimeChannelClient.Listener(new RuntimeChannelId("overlap"), channel,
-            Substitute.For<IOrleans>(), NullLogger.Instance);
+            Substitute.For<IOrleans>(), NullLogger.Instance, new RuntimeChannelOptions());
 
         var received = new List<object>();
 
@@ -60,7 +60,8 @@ public class RuntimeChannelResubscribeTests
         var messaging = GetSiloService<IMessaging>();
         var orleans = GetSiloService<IOrleans>();
         var channel = GetGrain<IRuntimeChannel>(channelId.ToRaw());
-        var listener = new RuntimeChannelClient.Listener(channelId, channel, orleans, NullLogger.Instance);
+        var listener = new RuntimeChannelClient.Listener(channelId, channel, orleans, NullLogger.Instance,
+            new RuntimeChannelOptions());
         var received = new List<string>();
 
         listener.AddHandler(message => {

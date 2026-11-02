@@ -10,7 +10,7 @@ Code: `backend/Infrastructure/Messaging/` (`Queues/`, `Channels/`, `Pipes/`). AP
 
 Each transport is a grain keyed by the id string (`IDurableQueueId` / `IRuntimeChannelId` / `IRuntimePipeId`). A process subscribes by registering a grain observer (`AddObserver` / `BindObserver`). The client side (`*Client.Listener`) keeps **one observer per id per process** and fans the message out to the local handlers.
 
-- Observers are refreshed by the client resubscribe loop (`AdaptiveInterval`, 10-60 s; faster after failures).
+- Observers are refreshed by the client resubscribe loop (`AdaptiveInterval`, 10-60 s; faster after failures; for channels `ResubscribeMinIntervalMs`, `ResubscribeMaxIntervalMs`).
 - A grain removes an observer whose call failed or timed out. The observer is back after the next resubscribe of its process.
 - Grain state (observer list, channel sequence buffer) lives only in the activation. A new activation starts empty; observers re-attach on resubscribe.
 

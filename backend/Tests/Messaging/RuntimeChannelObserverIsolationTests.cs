@@ -51,6 +51,7 @@ public class RuntimeChannelObserverIsolationTests(OrleansTestClusterFixture fixt
     {
         var channelName = $"keep-alive-{Guid.NewGuid():N}";
         var channel = GetGrain<IRuntimeChannel>(channelName);
+        using var delivery = ShortDeliveryTimeout();
         var observer = new RuntimeChannelObserver(_ => { });
         var reference = Cluster.Client.CreateObjectReference<IRuntimeChannelObserver>(observer);
 
@@ -73,6 +74,7 @@ public class RuntimeChannelObserverIsolationTests(OrleansTestClusterFixture fixt
     public async Task ChannelWithoutObservers_IsCollected()
     {
         var channel = GetGrain<IRuntimeChannel>($"no-observers-{Guid.NewGuid():N}");
+        using var delivery = ShortDeliveryTimeout();
 
         await channel.Publish(new TestMessage { Sequence = 1 });
 
@@ -84,10 +86,20 @@ public class RuntimeChannelObserverIsolationTests(OrleansTestClusterFixture fixt
         result.CurrentSequence.Should().Be(0);
     }
 
+    // Only for the tests that wait it out: the others keep the default, wide enough for a loaded machine.
+    private ConfigOverride<RuntimeChannelOptions> ShortDeliveryTimeout()
+    {
+        return OverrideConfig<IRuntimeChannelConfig, RuntimeChannelOptions>(new RuntimeChannelOptions
+        {
+            DeliveryTimeoutSeconds = 1
+        });
+    }
+
+    // A real wait: the keep-alive being checked has no signal, and passing it later than this changes nothing.
     private Task WaitPastDeliveryTimeout()
     {
         var deliveryTimeout = TimeSpan.FromSeconds(GetSiloService<IRuntimeChannelConfig>().Value.DeliveryTimeoutSeconds);
-        return Task.Delay(deliveryTimeout + TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+        return Task.Delay(deliveryTimeout + TimeSpan.FromMilliseconds(200), TestContext.Current.CancellationToken);
     }
 
     private async Task ForceCollection()

@@ -10,6 +10,8 @@ public class RuntimeChannelOptions
     public int ObserverKeepAliveMinutes { get; init; } = 3;
     public int CatchUpBufferSize { get; init; } = 1024;
     public int DeliveryTimeoutSeconds { get; init; } = 5;
+    public int ResubscribeMinIntervalMs { get; init; } = 10_000; // resubscribe of a listener, after its failures faster
+    public int ResubscribeMaxIntervalMs { get; init; } = 60_000; // reached by a listener with stable resubscribes
 }
 
 public interface IRuntimeChannelConfig : IAddressableState<RuntimeChannelOptions>

@@ -1,7 +1,11 @@
-using Internal;
+using System.Diagnostics;
 using FluentAssertions;
-using Infrastructure;
 using Framework.Tests.Fixtures;
+using Infrastructure;
+using Internal;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using Xunit;
 
 namespace Framework.Tests.Messaging;
@@ -141,63 +145,145 @@ public class RuntimeChannelCatchUpTests
         result.Sequence.Should().Be(7);
     }
 
+    // A client of its own with short intervals: the resubscribe loop of the silo client sleeps the shortest interval
+    // of all its listeners (up to a minute once they are stable).
     [Fact]
     public async Task CatchUp_AfterResubscribe_ReplaysFromLastSeen()
     {
         var channelId = new TestChannelId(Guid.NewGuid().ToString());
         var messaging = GetSiloService<IMessaging>();
-        var allReceived = new List<TestMessage>();
-        var firstBatch = new TaskCompletionSource();
-        var secondBatch = new TaskCompletionSource();
+        var client = CreateClient();
+        var received = new List<int>();
+        var failedOnce = 0;
         var lifetime = new Lifetime();
 
-        await messaging.ListenChannel<TestMessage>(lifetime, channelId, msg => {
-            lock (allReceived)
-            {
-                allReceived.Add(msg);
+        await client.Listen<TestMessage>(lifetime, channelId, message => {
+            if (message.Sequence == 3 && Interlocked.Exchange(ref failedOnce, 1) == 0)
+                throw new InvalidOperationException("the channel removes the observer of a failed send");
 
-                if (allReceived.Count >= 3)
-                    firstBatch.TrySetResult();
-            }
+            lock (received)
+                received.Add(message.Sequence);
+
+            return Task.CompletedTask;
         });
 
-        // Publish 3 messages — listener receives them
-        for (var i = 1; i <= 3; i++)
-            await messaging.PublishChannel(channelId, new TestMessage { Text = $"msg-{i}", Sequence = i });
+        // 1 and 2 arrive; 3 fails, the channel removes the observer and drops what is queued for it.
+        for (var i = 1; i <= 6; i++)
+            await messaging.PublishChannel(channelId, new TestMessage { Sequence = i });
 
-        await firstBatch.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
-        allReceived.Should().HaveCount(3);
+        await TestWait.Until(() => Volatile.Read(ref failedOnce) == 1);
 
-        // Terminate listener, publish more messages
+        lock (received)
+            received.Should().Equal(1, 2);
+
+        // The first pass of the loop binds the observer again and replays from the last seen sequence.
+        await client.Start(lifetime);
+        await TestWait.Until(() => Count(received) >= 6);
+
+        // The listener is live again after the resubscribe, the replayed messages come once.
+        await messaging.PublishChannel(channelId, new TestMessage { Sequence = 7 });
+        await TestWait.Until(() => Count(received) >= 7);
+
+        lock (received)
+            received.Should().Equal(1, 2, 3, 4, 5, 6, 7);
+
         lifetime.Terminate();
+    }
 
-        for (var i = 4; i <= 6; i++)
-            await messaging.PublishChannel(channelId, new TestMessage { Text = $"msg-{i}", Sequence = i });
+    [Fact]
+    public async Task ResubscribeLoop_RunsWithTheIntervalsOfTheOptions()
+    {
+        var channelId = new TestChannelId(Guid.NewGuid().ToString());
+        var messaging = GetSiloService<IMessaging>();
+        var client = CreateClient();
+        var seen = 0;
+        var attempts = 0;
+        var lifetime = new Lifetime();
 
-        // Re-subscribe — should trigger catch-up for messages 4-6
-        var catchUpReceived = new List<TestMessage>();
+        // Before the first listener: the loop sleeps the interval of the options with no listeners too.
+        var stopwatch = Stopwatch.StartNew();
+        await client.Start(lifetime);
 
-        await messaging.ListenChannel<TestMessage>(new Lifetime(), channelId, msg => {
-            lock (catchUpReceived)
+        await client.Listen<TestMessage>(lifetime, channelId, message => {
+            if (message.Sequence == 1)
             {
-                catchUpReceived.Add(msg);
-
-                if (catchUpReceived.Count >= 3)
-                    secondBatch.TrySetResult();
+                Volatile.Write(ref seen, 1);
+                return Task.CompletedTask;
             }
+
+            if (Interlocked.Increment(ref attempts) == 1)
+                throw new InvalidOperationException("the channel removes the observer of a failed send");
+
+            return Task.CompletedTask;
         });
 
-        // Force resubscribe by waiting for the resubscribe loop
-        await Task.Delay(TimeSpan.FromSeconds(12), TestContext.Current.CancellationToken);
+        await messaging.PublishChannel(channelId, new TestMessage { Sequence = 1 });
+        await TestWait.Until(() => Volatile.Read(ref seen) == 1);
 
-        // Publish one more to ensure the new listener works
-        await messaging.PublishChannel(channelId, new TestMessage { Text = "msg-7", Sequence = 7 });
-        await Task.Delay(500, TestContext.Current.CancellationToken);
+        await messaging.PublishChannel(channelId, new TestMessage { Sequence = 2 });
+        await TestWait.Until(() => Volatile.Read(ref attempts) >= 1);
 
-        // The new listener should have received msg-7 at minimum
-        lock (catchUpReceived)
+        // Only a later pass of the loop brings the message again. With the default interval the second pass comes
+        // 10 s after the start.
+        await TestWait.Until(() => Volatile.Read(ref attempts) >= 2);
+
+        stopwatch.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(8));
+        lifetime.Terminate();
+    }
+
+    [Fact]
+    public async Task Listen_AfterPreviousListenerTerminated_NewListenerReceives()
+    {
+        var channelId = new TestChannelId(Guid.NewGuid().ToString());
+        var messaging = GetSiloService<IMessaging>();
+        var first = new List<int>();
+        var second = new List<int>();
+        var firstLifetime = new Lifetime();
+        var secondLifetime = new Lifetime();
+
+        await messaging.ListenChannel<TestMessage>(firstLifetime, channelId, message => {
+            lock (first)
+                first.Add(message.Sequence);
+        });
+
+        for (var i = 1; i <= 3; i++)
+            await messaging.PublishChannel(channelId, new TestMessage { Sequence = i });
+
+        await TestWait.Until(() => Count(first) == 3);
+        firstLifetime.Terminate();
+
+        await messaging.ListenChannel<TestMessage>(secondLifetime, channelId, message => {
+            lock (second)
+                second.Add(message.Sequence);
+        });
+
+        await messaging.PublishChannel(channelId, new TestMessage { Sequence = 4 });
+        await TestWait.Until(() => Count(second) == 1);
+
+        lock (second)
+            second.Should().Equal(4);
+
+        Count(first).Should().Be(3, "a terminated listener gets nothing more");
+        secondLifetime.Terminate();
+    }
+
+    private RuntimeChannelClient CreateClient()
+    {
+        var config = Substitute.For<IRuntimeChannelConfig>();
+
+        config.Value.Returns(new RuntimeChannelOptions
         {
-            catchUpReceived.Should().Contain(m => m.Sequence == 7);
-        }
+            ResubscribeMinIntervalMs = 50,
+            ResubscribeMaxIntervalMs = 50
+        });
+
+        var services = new ServiceCollection().AddSingleton(config).BuildServiceProvider();
+        return new RuntimeChannelClient(GetSiloService<IOrleans>(), services, NullLogger<RuntimeChannelClient>.Instance);
+    }
+
+    private static int Count(List<int> received)
+    {
+        lock (received)
+            return received.Count;
     }
 }
