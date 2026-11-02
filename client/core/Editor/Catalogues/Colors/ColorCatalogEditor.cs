@@ -73,8 +73,8 @@ namespace Internal
         private void DrawGroup(Rect rect, int index, bool active, bool focused)
         {
             SerializedProperty group = _groups.GetArrayElementAtIndex(index);
-            SerializedProperty name = group.FindPropertyRelative(nameof(ColorGroup.Name));
-            SerializedProperty entries = group.FindPropertyRelative(nameof(ColorGroup.Entries));
+            SerializedProperty name = group.FindPropertyRelative(ColorGroup.NameKey);
+            SerializedProperty entries = group.FindPropertyRelative(ColorGroup.EntriesKey);
 
             var headerRect = new Rect(rect.x, rect.y + Spacing, rect.width, LineHeight);
             var foldoutRect = new Rect(headerRect.x, headerRect.y, HandleWidth, headerRect.height);
@@ -115,8 +115,8 @@ namespace Internal
             _groups.InsertArrayElementAtIndex(index);
 
             SerializedProperty group = _groups.GetArrayElementAtIndex(index);
-            group.FindPropertyRelative(nameof(ColorGroup.Name)).stringValue = string.Empty;
-            group.FindPropertyRelative(nameof(ColorGroup.Entries)).ClearArray();
+            group.FindPropertyRelative(ColorGroup.NameKey).stringValue = string.Empty;
+            group.FindPropertyRelative(ColorGroup.EntriesKey).ClearArray();
             group.isExpanded = true;
 
             list.index = index;
@@ -124,7 +124,7 @@ namespace Internal
 
         private ReorderableList GetEntryList(SerializedProperty group)
         {
-            SerializedProperty entries = group.FindPropertyRelative(nameof(ColorGroup.Entries));
+            SerializedProperty entries = group.FindPropertyRelative(ColorGroup.EntriesKey);
 
             if (_entryLists.TryGetValue(group.propertyPath, out ReorderableList list) == false)
             {
@@ -149,8 +149,8 @@ namespace Internal
         private static void DrawEntry(SerializedProperty entries, Rect rect, int index)
         {
             SerializedProperty entry = entries.GetArrayElementAtIndex(index);
-            SerializedProperty name = entry.FindPropertyRelative(nameof(ColorEntry.Name));
-            SerializedProperty value = entry.FindPropertyRelative(nameof(ColorEntry.Value));
+            SerializedProperty name = entry.FindPropertyRelative(ColorEntry.NameKey);
+            SerializedProperty value = entry.FindPropertyRelative(ColorEntry.ValueKey);
 
             var row = new Rect(rect.x, rect.y + Gap * 0.5f, rect.width, LineHeight);
 
@@ -169,8 +169,8 @@ namespace Internal
             entries.InsertArrayElementAtIndex(index);
 
             SerializedProperty entry = entries.GetArrayElementAtIndex(index);
-            entry.FindPropertyRelative(nameof(ColorEntry.Name)).stringValue = string.Empty;
-            entry.FindPropertyRelative(nameof(ColorEntry.Value)).colorValue = Color.white;
+            entry.FindPropertyRelative(ColorEntry.NameKey).stringValue = string.Empty;
+            entry.FindPropertyRelative(ColorEntry.ValueKey).colorValue = Color.white;
 
             list.index = index;
         }
@@ -183,7 +183,7 @@ namespace Internal
             for (var groupIndex = 0; groupIndex < _groups.arraySize; groupIndex++)
             {
                 SerializedProperty group = _groups.GetArrayElementAtIndex(groupIndex);
-                string groupName = group.FindPropertyRelative(nameof(ColorGroup.Name)).stringValue;
+                string groupName = group.FindPropertyRelative(ColorGroup.NameKey).stringValue;
                 string groupIdentifier = ColorGenerator.ToIdentifier(groupName);
 
                 if (string.IsNullOrEmpty(groupIdentifier))
@@ -191,13 +191,13 @@ namespace Internal
                 else if (groupNames.Add(groupIdentifier) == false)
                     issues.AppendLine($"Group {groupIndex}: duplicate of Colors.{groupIdentifier}");
 
-                SerializedProperty entries = group.FindPropertyRelative(nameof(ColorGroup.Entries));
+                SerializedProperty entries = group.FindPropertyRelative(ColorGroup.EntriesKey);
                 var entryNames = new HashSet<string>();
 
                 for (var entryIndex = 0; entryIndex < entries.arraySize; entryIndex++)
                 {
                     SerializedProperty entry = entries.GetArrayElementAtIndex(entryIndex);
-                    string entryName = entry.FindPropertyRelative(nameof(ColorEntry.Name)).stringValue;
+                    string entryName = entry.FindPropertyRelative(ColorEntry.NameKey).stringValue;
                     string entryIdentifier = ColorGenerator.ToIdentifier(entryName);
 
                     if (string.IsNullOrEmpty(entryIdentifier))

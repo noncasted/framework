@@ -270,8 +270,8 @@ namespace Internal
                 for (var i = 0; i < group.Properties.Count; i++)
                 {
                     var entry = entries.GetArrayElementAtIndex(i);
-                    entry.FindPropertyRelative("Name").stringValue = group.Properties[i].PropertyName;
-                    entry.FindPropertyRelative("Asset").objectReferenceValue = group.Properties[i].Asset;
+                    entry.FindPropertyRelative(EnvAssetEntry.NameKey).stringValue = group.Properties[i].PropertyName;
+                    entry.FindPropertyRelative(EnvAssetEntry.AssetKey).objectReferenceValue = group.Properties[i].Asset;
                 }
 
                 serialized.ApplyModifiedPropertiesWithoutUndo();
@@ -290,10 +290,10 @@ namespace Internal
             {
                 var entry = entries.GetArrayElementAtIndex(i);
 
-                if (entry.FindPropertyRelative("Name").stringValue != properties[i].PropertyName)
+                if (entry.FindPropertyRelative(EnvAssetEntry.NameKey).stringValue != properties[i].PropertyName)
                     return false;
 
-                if (entry.FindPropertyRelative("Asset").objectReferenceValue != properties[i].Asset)
+                if (entry.FindPropertyRelative(EnvAssetEntry.AssetKey).objectReferenceValue != properties[i].Asset)
                     return false;
             }
 

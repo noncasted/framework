@@ -87,6 +87,15 @@ namespace Global.Localization.Tests
             return options;
         }
 
+        [Test]
+        public void SystemLanguageMapping_Keys_ReachTheFields()
+        {
+            var options = Options(Language.English, SystemLanguage.Russian, Language.Russian);
+
+            Assert.AreEqual(SystemLanguage.Russian, options.SystemLanguages[0].System);
+            Assert.AreEqual(Language.Russian, options.SystemLanguages[0].Language);
+        }
+
         private static LocalizationOptions Options(Language defaultLanguage, SystemLanguage system, Language language)
         {
             var options = Options(defaultLanguage);
@@ -94,8 +103,8 @@ namespace Global.Localization.Tests
             var list = serialized.FindProperty("_systemLanguages");
             list.arraySize = 1;
             var entry = list.GetArrayElementAtIndex(0);
-            entry.FindPropertyRelative("System").intValue = (int)system;
-            entry.FindPropertyRelative("Language").enumValueIndex = (int)language;
+            entry.FindPropertyRelative(SystemLanguageMapping.SystemKey).intValue = (int)system;
+            entry.FindPropertyRelative(SystemLanguageMapping.LanguageKey).enumValueIndex = (int)language;
             serialized.ApplyModifiedPropertiesWithoutUndo();
             return options;
         }

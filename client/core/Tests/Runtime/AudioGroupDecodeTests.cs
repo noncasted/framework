@@ -30,8 +30,8 @@ namespace Internal.Tests
                     .GetField("_entries", BindingFlags.Instance | BindingFlags.NonPublic)
                     .SetValue(group, new[]
                     {
-                        new AudioAssetEntry { Name = "AuditBroken", Encoded = broken },
-                        new AudioAssetEntry { Name = "AuditGood", Encoded = good }
+                        new AudioAssetEntry("AuditBroken", null, broken, 1f),
+                        new AudioAssetEntry("AuditGood", null, good, 1f)
                     });
 
                 try

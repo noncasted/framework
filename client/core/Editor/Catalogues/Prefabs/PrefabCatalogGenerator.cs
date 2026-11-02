@@ -394,13 +394,13 @@ namespace Internal
                 var property = properties[i];
                 var entry = entries.GetArrayElementAtIndex(i);
 
-                if (entry.FindPropertyRelative("Name").stringValue != property.PropertyName)
+                if (entry.FindPropertyRelative(PrefabAssetEntry.NameKey).stringValue != property.PropertyName)
                     return false;
 
-                if (entry.FindPropertyRelative("Prefab").objectReferenceValue != property.Prefab)
+                if (entry.FindPropertyRelative(PrefabAssetEntry.PrefabKey).objectReferenceValue != property.Prefab)
                     return false;
 
-                if (entry.FindPropertyRelative("ComponentType").stringValue != property.ComponentType)
+                if (entry.FindPropertyRelative(PrefabAssetEntry.ComponentTypeKey).stringValue != property.ComponentType)
                     return false;
             }
 
@@ -417,9 +417,9 @@ namespace Internal
             {
                 var property = properties[i];
                 var entry = entries.GetArrayElementAtIndex(i);
-                entry.FindPropertyRelative("Name").stringValue = property.PropertyName;
-                entry.FindPropertyRelative("Prefab").objectReferenceValue = property.Prefab;
-                entry.FindPropertyRelative("ComponentType").stringValue = property.ComponentType;
+                entry.FindPropertyRelative(PrefabAssetEntry.NameKey).stringValue = property.PropertyName;
+                entry.FindPropertyRelative(PrefabAssetEntry.PrefabKey).objectReferenceValue = property.Prefab;
+                entry.FindPropertyRelative(PrefabAssetEntry.ComponentTypeKey).stringValue = property.ComponentType;
             }
 
             serializedObject.ApplyModifiedPropertiesWithoutUndo();

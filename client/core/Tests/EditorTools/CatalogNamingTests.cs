@@ -143,11 +143,7 @@ namespace Internal.EditorTests
 
                 foreach (var (group, color) in entries)
                 {
-                    groups.Add(new ColorGroup
-                    {
-                        Name = group,
-                        Entries = { new ColorEntry { Name = color, Value = Color.red } }
-                    });
+                    groups.Add(new ColorGroup(group, new List<ColorEntry> { new(color, Color.red) }));
                 }
 
                 return ColorGenerator.BuildSource(catalog, out _);

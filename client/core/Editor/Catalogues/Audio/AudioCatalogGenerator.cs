@@ -368,16 +368,16 @@ namespace Internal
                 var property = properties[i];
                 var entry = entries.GetArrayElementAtIndex(i);
 
-                if (entry.FindPropertyRelative("Name").stringValue != property.PropertyName)
+                if (entry.FindPropertyRelative(AudioAssetEntry.NameKey).stringValue != property.PropertyName)
                     return false;
 
-                if (entry.FindPropertyRelative("Clip").objectReferenceValue != property.Clip)
+                if (entry.FindPropertyRelative(AudioAssetEntry.ClipKey).objectReferenceValue != property.Clip)
                     return false;
 
-                if (entry.FindPropertyRelative("Encoded").objectReferenceValue != property.Encoded)
+                if (entry.FindPropertyRelative(AudioAssetEntry.EncodedKey).objectReferenceValue != property.Encoded)
                     return false;
 
-                if (Mathf.Approximately(entry.FindPropertyRelative("Volume").floatValue, property.Volume) == false)
+                if (Mathf.Approximately(entry.FindPropertyRelative(AudioAssetEntry.VolumeKey).floatValue, property.Volume) == false)
                     return false;
             }
 
@@ -394,10 +394,10 @@ namespace Internal
             {
                 var property = properties[i];
                 var entry = entries.GetArrayElementAtIndex(i);
-                entry.FindPropertyRelative("Name").stringValue = property.PropertyName;
-                entry.FindPropertyRelative("Clip").objectReferenceValue = property.Clip;
-                entry.FindPropertyRelative("Encoded").objectReferenceValue = property.Encoded;
-                entry.FindPropertyRelative("Volume").floatValue = property.Volume;
+                entry.FindPropertyRelative(AudioAssetEntry.NameKey).stringValue = property.PropertyName;
+                entry.FindPropertyRelative(AudioAssetEntry.ClipKey).objectReferenceValue = property.Clip;
+                entry.FindPropertyRelative(AudioAssetEntry.EncodedKey).objectReferenceValue = property.Encoded;
+                entry.FindPropertyRelative(AudioAssetEntry.VolumeKey).floatValue = property.Volume;
             }
 
             serializedObject.ApplyModifiedPropertiesWithoutUndo();

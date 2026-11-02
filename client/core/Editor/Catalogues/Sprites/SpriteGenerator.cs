@@ -361,19 +361,19 @@ namespace Internal
                 var property = properties[i];
                 var entry = entries.GetArrayElementAtIndex(i);
 
-                if (entry.FindPropertyRelative("Name").stringValue != property.PropertyName)
+                if (entry.FindPropertyRelative(SpriteEntry.NameKey).stringValue != property.PropertyName)
                     return false;
 
-                if (entry.FindPropertyRelative("Kind").enumValueIndex != (int)property.Kind)
+                if (entry.FindPropertyRelative(SpriteEntry.KindKey).enumValueIndex != (int)property.Kind)
                     return false;
 
-                if (Mathf.Approximately(entry.FindPropertyRelative("Time").floatValue, property.Time) == false)
+                if (Mathf.Approximately(entry.FindPropertyRelative(SpriteEntry.TimeKey).floatValue, property.Time) == false)
                     return false;
 
-                if (entry.FindPropertyRelative("Color").colorValue != property.Color)
+                if (entry.FindPropertyRelative(SpriteEntry.ColorKey).colorValue != property.Color)
                     return false;
 
-                var sprites = entry.FindPropertyRelative("Sprites");
+                var sprites = entry.FindPropertyRelative(SpriteEntry.SpritesKey);
 
                 if (sprites == null || sprites.isArray == false || sprites.arraySize != property.Sprites.Length)
                     return false;
@@ -399,12 +399,12 @@ namespace Internal
             {
                 var property = properties[i];
                 var entry = entries.GetArrayElementAtIndex(i);
-                entry.FindPropertyRelative("Name").stringValue = property.PropertyName;
-                entry.FindPropertyRelative("Kind").enumValueIndex = (int)property.Kind;
-                entry.FindPropertyRelative("Time").floatValue = property.Time;
-                entry.FindPropertyRelative("Color").colorValue = property.Color;
+                entry.FindPropertyRelative(SpriteEntry.NameKey).stringValue = property.PropertyName;
+                entry.FindPropertyRelative(SpriteEntry.KindKey).enumValueIndex = (int)property.Kind;
+                entry.FindPropertyRelative(SpriteEntry.TimeKey).floatValue = property.Time;
+                entry.FindPropertyRelative(SpriteEntry.ColorKey).colorValue = property.Color;
 
-                var sprites = entry.FindPropertyRelative("Sprites");
+                var sprites = entry.FindPropertyRelative(SpriteEntry.SpritesKey);
                 sprites.arraySize = property.Sprites.Length;
 
                 for (var spriteIndex = 0; spriteIndex < property.Sprites.Length; spriteIndex++)
