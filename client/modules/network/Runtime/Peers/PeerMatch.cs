@@ -9,8 +9,8 @@ namespace Internal
     {
         int HostIndex { get; }
 
-        // By the index of the guest: the local one on a guest, every connected guest on the host. A guest that comes
-        // back takes its new route.
+        // By the index of the guest: the local one on a guest (set before its authorization), every connected guest on
+        // the host (a direct one a moment after its first frames are served). A guest that comes back takes its new route.
         IReadOnlyDictionary<int, PeerRoute> Routes { get; }
 
         void SetHost(int hostIndex);

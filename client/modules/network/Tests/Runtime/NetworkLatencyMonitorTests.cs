@@ -393,11 +393,12 @@ namespace Internal.Tests
             Assert.That(server.Monitor.Report, Does.Not.Contain("User 3:"));
         });
 
-        // Fixes a known defect, not a requirement: a guest whose route is not set yet fails the report (the route is
-        // read by index), nothing catches it in the loop of the monitor, so the probes stop for the rest of the session.
+        // A broken report is diagnostics only: a stop of the probes would look like a lost connection to the watchdog. On a
+        // guest a missing route is such a break: PeerHostSocket sets it before the authorization, so before the local user.
         [UnityTest]
-        public IEnumerator KnownDefect_FailedReportStopsTheProbes() => UniTask.ToCoroutine(async () =>
+        public IEnumerator FailedReport_ProbesGoOnAndTheNextReportAppears() => UniTask.ToCoroutine(async () =>
         {
+            LogAssert.Expect(LogType.Exception, new Regex("KeyNotFoundException"));
             LogAssert.Expect(LogType.Exception, new Regex("KeyNotFoundException"));
 
             var harness = Create();
@@ -405,12 +406,46 @@ namespace Internal.Tests
             harness.AddLocal(2);
             harness.Monitor.OnSetup(harness.Lifetime);
 
-            await Frames();
-            harness.Clock.Advance(1.2f);
-            await Frames();
+            await harness.FirstRound();
+            await harness.NextRound();
 
-            Assert.AreEqual(2, harness.Writer.Sent.Count);
-            Assert.AreEqual(Waiting, harness.Monitor.Report);
+            Assert.AreEqual(4, harness.Writer.Sent.Count);
+            Assert.That(harness.Monitor.Report, Does.StartWith("Network: the report failed: "));
+
+            harness.Match.SetRoute(2, PeerRoute.Tunnel);
+            await harness.NextRound();
+
+            Assert.AreEqual(6, harness.Writer.Sent.Count);
+            AssertReport(harness,
+                @"Network \(you: user 2, P2P guest of user 1, tunnel via server\), ms\n"
+                + @"Ping to host: -, lost 0\n"
+                + NoAnswers
+                + Footer);
+        });
+
+        // PeerHost serves the frames of a direct guest from the open of its channel and sets the route when Connect wakes
+        // up later: an echo of the guest may come first.
+        [UnityTest]
+        public IEnumerator HostReport_GuestWithoutRouteYet_RowSaysSoUntilTheRouteIsSet() => UniTask.ToCoroutine(async () =>
+        {
+            var harness = await Started(match => match.SetHost(1));
+            harness.AddRemote(2);
+            harness.Echo(2, 7f, 33f);
+
+            await harness.NextRound();
+
+            AssertReport(harness,
+                @"Network \(you: user 1, P2P host\), ms\n"
+                + @"User 2: you <-> user 2 7 \(avg 7, max 7\), route not known yet\n"
+                + Footer);
+
+            harness.Match.SetRoute(2, PeerRoute.Direct);
+            await harness.NextRound();
+
+            AssertReport(harness,
+                @"Network \(you: user 1, P2P host\), ms\n"
+                + @"User 2: you <-> user 2 7 \(avg 7, max 7\), direct\n"
+                + Footer);
         });
 
         private static void AssertReport(Harness harness, string pattern)

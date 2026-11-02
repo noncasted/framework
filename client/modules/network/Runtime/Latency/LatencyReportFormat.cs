@@ -11,7 +11,8 @@ namespace Internal
             {
                 PeerRoute.Direct => "direct",
                 PeerRoute.Tunnel => "tunnel via server",
-                _ => throw new ArgumentOutOfRangeException(nameof(route), route, "[Network] [Latency] No route")
+                PeerRoute.None => "route not known yet",
+                _ => throw new ArgumentOutOfRangeException(nameof(route), route, "[Network] [Latency] Unknown route")
             };
         }
 

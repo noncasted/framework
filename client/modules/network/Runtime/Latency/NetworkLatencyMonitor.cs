@@ -1,4 +1,5 @@
-﻿using Cysharp.Threading.Tasks;
+﻿using System;
+using Cysharp.Threading.Tasks;
 using Shared;
 using UnityEngine;
 
@@ -84,7 +85,7 @@ namespace Internal
                     _probes.Send();
                     _probes.Expire();
                     _stats.RemoveLeftPeers();
-                    Report = _report.Build();
+                    BuildReport();
                 }
 
                 if (rateTimer >= RateInterval)
@@ -100,6 +101,21 @@ namespace Internal
                 }
 
                 await UniTask.Yield();
+            }
+        }
+
+        // The boundary of the diagnostics: the probes are what keeps the connection alive for the watchdog, a broken text
+        // must not stop them. The failure is logged and shown instead of the last report, the next round builds it anew.
+        private void BuildReport()
+        {
+            try
+            {
+                Report = _report.Build();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+                Report = $"Network: the report failed: {exception.Message}";
             }
         }
     }

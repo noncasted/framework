@@ -17,7 +17,8 @@ namespace Internal
 
             foreach (var (index, peer) in stats.Peers)
             {
-                var route = LatencyReportFormat.Route(routes[index]);
+                // A direct guest is served from the open of its channel, its route is set later (PeerHost).
+                var route = LatencyReportFormat.Route(routes.GetValueOrDefault(index));
                 builder.Append($"User {index}: you <-> user {index} {peer.TheirLeg.Format()}, {route}{LatencyReportFormat.Stale(peer)}\n");
             }
         }
