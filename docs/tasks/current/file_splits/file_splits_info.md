@@ -5,7 +5,7 @@ phase: implementation
 created: 2026-11-02
 updated: 2026-11-02
 total_steps: 9
-completed_steps: [1, 2, 3, 4]
+completed_steps: [1, 2, 3, 4, 5]
 blocked_steps: []
 ---
 
@@ -66,7 +66,7 @@ blocked_steps: []
 - **Зависит от:** 3
 
 #### [5] E11, окна и графы
-- **Статус:** [ ] pending
+- **Статус:** [x] completed
 - **Что:** `ContainerDebuggerWindow`, `ContainerGraphAssetScanner`, `ContainerGraph`, `LifetimeGraph`, `ProfilerTraceWindow`, `ProfilerFrameCapture`, `PrefabScreenshot`
 - **Зависит от:** 4
 
@@ -87,6 +87,6 @@ blocked_steps: []
 
 #### [9] Итоговая проверка
 - **Статус:** [ ] pending
-- **Что:** Пересчёт файлов, все тесты, документация, остаток с причинами
+- **Что:** Пересчёт файлов, все тесты, документация, остаток с причинами; `ContainerGraph.cs` и `LifetimeGraph.cs` переименовать по типам; независимый просмотр границ классов генератора
 - **Зависит от:** 8
 
