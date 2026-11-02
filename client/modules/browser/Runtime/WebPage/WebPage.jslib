@@ -55,13 +55,4 @@ mergeInto(LibraryManager.library,
             }
 
             window.webPageLeaveConfirmation.isEnabled = isEnabled !== 0;
-        },
-
-        // Loads the page again (a new build after a deploy), without the "Leave site?" question.
-        WebPageReload: function () {
-            if (window.webPageLeaveConfirmation !== undefined)
-                window.webPageLeaveConfirmation.isEnabled = false;
-
-            window.location.reload();
-        }
-    });
+        },    });

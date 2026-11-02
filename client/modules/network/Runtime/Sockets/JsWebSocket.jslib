@@ -215,8 +215,8 @@ var LibraryJsWebSocket = {
         }
 
         if (handler.ws) {
-            // Событие close асинхронное, а C# удаляет инстанс сразу после Free.
-            // Без отцепки колбэк прилетит в уже несуществующий обработчик.
+            // The close event is asynchronous, and C# deletes the instance right after Free.
+            // Without detaching, the callback would arrive at a handler that no longer exists.
             handler.ws.onopen = null;
             handler.ws.onmessage = null;
             handler.ws.onerror = null;
@@ -234,20 +234,6 @@ var LibraryJsWebSocket = {
         }
 
         return 0;
-    },
-
-    // Get WebSocket connection state
-    JsWebSocketGetState: function (id) {
-        const handler = jsWebSocketState.handlers[id];
-        if (!handler) {
-            return -1; // Handler not found
-        }
-
-        if (!handler.ws) {
-            return WebSocket.CLOSED; // 3
-        }
-
-        return handler.ws.readyState;
     }
 };
 

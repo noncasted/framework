@@ -62,26 +62,11 @@ namespace Internal
         private void OnEnable()
         {
             ProfilerTraceStorage.Saved += OnTraceSaved;
-            EditorApplication.playModeStateChanged += OnPlayModeChanged;
         }
 
         private void OnDisable()
         {
             ProfilerTraceStorage.Saved -= OnTraceSaved;
-            EditorApplication.playModeStateChanged -= OnPlayModeChanged;
-        }
-
-        /// <summary>
-        /// If Play Mode was exited before reaching the menu, the trace stayed open -
-        /// close it ourselves so an unfinished run is also visible in the window.
-        /// </summary>
-        private static void OnPlayModeChanged(PlayModeStateChange state)
-        {
-            if (state != PlayModeStateChange.ExitingPlayMode)
-                return;
-
-            if (GameProfiler.IsRunning)
-                GameProfiler.Finish();
         }
 
         private void CreateGUI()

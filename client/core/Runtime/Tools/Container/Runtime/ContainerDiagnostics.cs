@@ -35,8 +35,6 @@ namespace Internal
         public IReadOnlyList<RegistrationInfo> Registrations { get; }
         public IReadOnlyList<int> BuildOrder { get; }
         public IReadOnlyList<LoadedAssetInfo> LoadedAssets { get; private set; } = Array.Empty<LoadedAssetInfo>();
-        public bool IsHistoryEnabled { get; set; }
-        public IReadOnlyList<ResolveRecord> History => Array.Empty<ResolveRecord>();
 
         public IReadOnlyList<AllocationRecord> Allocations => (IReadOnlyList<AllocationRecord>)_allocations ??
                                                               Array.Empty<AllocationRecord>();

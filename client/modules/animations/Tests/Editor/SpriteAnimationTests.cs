@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Internal.Tests
 {
-    // SpriteAnimation driven by hand (OnUpdate): a PlayAsync awaited right after another one completes; a loop keeps
+    // SpriteAnimation driven by hand (OnUpdate): a PlayAwaited awaited right after another one completes; a loop keeps
     // the time left over at its wrap and draws the frame it wraps to; the first frame is drawn at the start; an
     // animation without frames is refused.
     public class SpriteAnimationTests
@@ -17,7 +17,7 @@ namespace Internal.Tests
             var (animation, _, frames, lifetime) = Create(2);
             var completed = 0;
 
-            Chain().Forget();
+            Chain().NoAwait();
 
             for (var i = 0; i < 10; i++)
                 animation.OnUpdate(0.3f);
@@ -28,9 +28,9 @@ namespace Internal.Tests
 
             async UniTaskVoid Chain()
             {
-                await animation.PlayAsync(lifetime, 1f);
+                await animation.PlayAwaited(lifetime, 1f);
                 completed++;
-                await animation.PlayAsync(lifetime, 1f);
+                await animation.PlayAwaited(lifetime, 1f);
                 completed++;
             }
         }
@@ -62,7 +62,7 @@ namespace Internal.Tests
         {
             var (animation, _, _, lifetime) = Create(2);
 
-            var wait = animation.PlayAsync(lifetime, 1f);
+            var wait = animation.PlayAwaited(lifetime, 1f);
             lifetime.Terminate();
 
             Assert.AreEqual(UniTaskStatus.Canceled, wait.Status, "the await hangs for good");

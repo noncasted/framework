@@ -10,28 +10,17 @@ using UnityEngine;
 namespace Global.Publisher.Steam
 {
     // The Steam Inventory of the user. Every request is a result handle that Steam fills asynchronously and reports
-    // with SteamInventoryResultReady_t; the handle is destroyed once it is read. Registered on every platform, works
-    // only where Steam is started.
+    // with SteamInventoryResultReady_t; the handle is destroyed once it is read.
     public class SteamPlatformInventory : IPlatformInventory, IScopeSetup
     {
-        public SteamPlatformInventory(ISteamClient client)
-        {
-            _client = client;
-        }
-
-        private readonly ISteamClient _client;
-
 #if UNITY_STANDALONE
         private readonly Dictionary<SteamInventoryResult_t, Action<EResult>> _pending = new();
 #endif
 
-        public bool IsSupported => _client.IsStarted;
+        public bool IsSupported => true;
 
         public void OnSetup(IReadOnlyLifetime lifetime)
         {
-            if (_client.IsStarted == false)
-                return;
-
 #if UNITY_STANDALONE
             var callback = Callback<SteamInventoryResultReady_t>.Create(OnResultReady);
             lifetime.Listen(callback.Dispose);
@@ -40,9 +29,6 @@ namespace Global.Publisher.Steam
 
         public async UniTask<IReadOnlyList<int>> GetOwnedItems(IReadOnlyLifetime lifetime)
         {
-            if (_client.IsStarted == false)
-                throw new InvalidOperationException("[Steam] The inventory is read without Steam");
-
 #if UNITY_STANDALONE
             if (SteamInventory.GetAllItems(out var handle) == false)
                 throw new InvalidOperationException("[Steam] GetAllItems is refused");
@@ -74,9 +60,6 @@ namespace Global.Publisher.Steam
 
         public void TriggerDrops(IReadOnlyList<int> generators)
         {
-            if (_client.IsStarted == false)
-                throw new InvalidOperationException("[Steam] Drops are triggered without Steam");
-
 #if UNITY_STANDALONE
             foreach (var generator in generators)
             {

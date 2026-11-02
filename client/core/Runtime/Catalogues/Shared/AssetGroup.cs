@@ -51,7 +51,7 @@ namespace Internal
             if (_loading == null)
             {
                 _loading = new UniTaskCompletionSource();
-                Load(_loading).Forget();
+                Load(_loading).NoAwait();
             }
 
             await _loading.Task;

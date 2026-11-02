@@ -6,8 +6,6 @@ namespace Global.UI
     [DisallowMultipleComponent]
     public class DesignElement : MonoBehaviour, IDesignElement
     {
-        [SerializeField] private DesignElementBehaviour[] _behaviours;
-
         private readonly ViewableProperty<DesignElementState> _state = new(DesignElementState.Idle);
 
         private IReadOnlyLifetime _lifetime;
@@ -33,34 +31,6 @@ namespace Global.UI
         private void OnEnable()
         {
             _lifetime = this.GetObjectLifetime();
-
-            foreach (var behaviour in _behaviours)
-            {
-                if (behaviour != null)
-                    behaviour.Construct(this);
-            }
-        }
-
-        private void OnValidate()
-        {
-            var behaviours = GetComponentsInChildren<DesignElementBehaviour>(true);
-
-            if (_behaviours == null || _behaviours.Length == 0)
-            {
-                _behaviours = behaviours;
-                return;
-            }
-
-            if (behaviours.Length < _behaviours.Length)
-                return;
-
-            _behaviours = behaviours;
-        }
-
-        [Button("Scan behaviours")]
-        private void ScanBehaviours()
-        {
-            _behaviours = GetComponentsInChildren<DesignElementBehaviour>();
         }
     }
 }

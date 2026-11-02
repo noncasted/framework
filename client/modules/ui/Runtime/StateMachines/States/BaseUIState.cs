@@ -7,7 +7,6 @@ namespace Global.UI
     {
         public BaseUIState(IReadOnlyLifetime parent)
         {
-            OuterLifetime = parent.Child();
             InnerLifetime = parent.Child();
             Recovered = new ViewableDelegate();
         }
@@ -17,7 +16,6 @@ namespace Global.UI
         public IUIConstraints Constraints => new UIConstraints();
 
         public IReadOnlyLifetime InnerLifetime { get; }
-        public IReadOnlyLifetime OuterLifetime { get; }
         public IViewableProperty<bool> IsVisible { get; } = new ViewableProperty<bool>(true);
         public int ChildCount => _childCount;
         public IViewableDelegate Recovered { get; }
@@ -37,10 +35,6 @@ namespace Global.UI
         {
             _childCount++;
             child.InnerLifetime.Listen(() => _childCount--);
-        }
-
-        public void ClearStack()
-        {
         }
     }
 }

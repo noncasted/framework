@@ -45,6 +45,71 @@ namespace Internal
             }
         }
 
+        // The groups by the folder of their class; a group without codegen has none.
+        internal static Dictionary<string, List<TGroup>> GroupByFolder<TGroup>(
+            string logTag,
+            IReadOnlyList<TGroup> groups,
+            Func<TGroup, bool> skip,
+            Func<TGroup, string> getFolder)
+            where TGroup : ICatalogGroupDefinition
+        {
+            var byFolder = new Dictionary<string, List<TGroup>>(StringComparer.Ordinal);
+
+            foreach (var group in groups)
+            {
+                if (skip(group))
+                    continue;
+
+                var folder = getFolder(group);
+
+                if (string.IsNullOrEmpty(folder))
+                {
+                    Debug.LogError($"[{logTag}] Missing generated folder for group '{group.Name}'");
+                    continue;
+                }
+
+                if (byFolder.TryGetValue(folder, out var list) == false)
+                {
+                    list = new List<TGroup>();
+                    byFolder.Add(folder, list);
+                }
+
+                list.Add(group);
+            }
+
+            return byFolder;
+        }
+
+        // The classes of this generator in every other Generated folder of the project.
+        public static void DeleteFromUnusedFolders(
+            string logTag,
+            string internalFolder,
+            string ownedSuffix,
+            HashSet<string> writtenFolders)
+        {
+            if (writtenFolders.Contains(internalFolder) == false)
+                DeleteFolderScripts(logTag, internalFolder, ownedSuffix);
+
+            var assetsRoot = Application.dataPath;
+
+            if (Directory.Exists(assetsRoot) == false)
+                return;
+
+            // A failure to read throws: taken for an empty result, it would delete what the generator did not see.
+            var folders = Directory.GetDirectories(assetsRoot, "Generated", SearchOption.AllDirectories);
+            var projectRoot = Path.GetDirectoryName(Application.dataPath);
+
+            foreach (var directory in folders)
+            {
+                var folder = CatalogPaths.ToAssetPath(projectRoot, directory);
+
+                if (writtenFolders.Contains(folder))
+                    continue;
+
+                DeleteFolderScripts(logTag, folder, ownedSuffix);
+            }
+        }
+
         public static void DeleteFolderScripts(string logTag, string folder, string ownedSuffix)
         {
             foreach (var file in EnumerateScripts(logTag, folder))

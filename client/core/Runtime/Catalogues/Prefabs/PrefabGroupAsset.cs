@@ -38,21 +38,7 @@ namespace Internal
 
         private PrefabAssetEntry FindEntry(string name)
         {
-            if (_entries == null)
-                return null;
-
-            for (var i = 0; i < _entries.Length; i++)
-            {
-                var entry = _entries[i];
-
-                if (entry == null)
-                    continue;
-
-                if (string.Equals(entry.Name, name, StringComparison.Ordinal))
-                    return entry;
-            }
-
-            return null;
+            return GroupEntries.Find(_entries, name, static entry => entry.Name);
         }
 
         private static void ValidateComponent(GameObject prefab, string componentType)

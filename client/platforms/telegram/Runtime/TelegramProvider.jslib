@@ -14,18 +14,6 @@ mergeInto(LibraryManager.library,
             return buffer;
         },
 
-        TelegramLanguageCode: function () {
-            if (window.telegramShell === undefined)
-                throw new Error("[Telegram] telegram-shell.js is not loaded: the Telegram platform needs the Telegram template");
-
-            const value = window.telegramShell.languageCode();
-            const bufferSize = lengthBytesUTF8(value) + 1;
-            const buffer = _malloc(bufferSize);
-            stringToUTF8(value, buffer, bufferSize);
-
-            return buffer;
-        },
-
         TelegramSetBackButtonVisible: function (isVisible) {
             if (window.telegramShell === undefined)
                 throw new Error("[Telegram] telegram-shell.js is not loaded: the Telegram platform needs the Telegram template");

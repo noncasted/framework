@@ -52,7 +52,7 @@ namespace Global.Inputs
     }
 
     // The gamepad through the old Input Manager, by meaning, not by axis names and button numbers: those differ
-    // between WebGL and the Linux editor (table in docs/tasks/current/112_input_platforms/113_input_foundation.md).
+    // between WebGL and the Linux editor.
     // All joysticks are read as one. The state is sampled once a frame, on the first read of the frame, so
     // WasPressed / WasReleased are edges between two sampled frames and do not depend on the update order.
     public interface IGamepadReader
@@ -149,7 +149,7 @@ namespace Global.Inputs
             return Sample().IsPressed(button) == false && _previous.IsPressed(button) == true;
         }
 
-        // Play checks without a gamepad (rule 7 of the stage): while the lifetime lives the state comes from
+        // Play checks without a gamepad: while the lifetime lives the state comes from
         // sample instead of the Input Manager. The edges are still taken by the reader, a frame at a time.
         public void Substitute(IReadOnlyLifetime lifetime, Func<GamepadState> sample)
         {

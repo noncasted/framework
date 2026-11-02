@@ -19,7 +19,7 @@ namespace Internal
 
         // A custom phase: every listener T gets the lifetime, as in the built-in phases.
         void RunCustom<T>(IReadOnlyLifetime lifetime, Action<T, IReadOnlyLifetime> invoker);
-        UniTask RunCustomAsync<T>(IReadOnlyLifetime lifetime, Func<T, IReadOnlyLifetime, UniTask> invoker);
+        UniTask RunCustomAwaited<T>(IReadOnlyLifetime lifetime, Func<T, IReadOnlyLifetime, UniTask> invoker);
         UniTask RunConstruct(IReadOnlyLifetime lifetime);
         UniTask RunLoaded(IReadOnlyLifetime lifetime);
         UniTask RunDispose();
@@ -67,9 +67,9 @@ namespace Internal
             Invoke(ResolveList<T>(), (invoker, lifetime), static (l, state) => state.invoker.Invoke(l, state.lifetime));
         }
 
-        public UniTask RunCustomAsync<T>(IReadOnlyLifetime lifetime, Func<T, IReadOnlyLifetime, UniTask> invoker)
+        public UniTask RunCustomAwaited<T>(IReadOnlyLifetime lifetime, Func<T, IReadOnlyLifetime, UniTask> invoker)
         {
-            return InvokeAsync(
+            return InvokeAwaited(
                 ResolveList<T>(),
                 (invoker, lifetime),
                 static (l, state) => state.invoker.Invoke(l, state.lifetime));
@@ -81,23 +81,23 @@ namespace Internal
             await UniTask.SwitchToMainThread();
 
             Invoke(ResolveList<IScopeBaseSetup>(), lifetime, static (l, lt) => l.OnBaseSetup(lt));
-            await InvokeAsync(ResolveList<IScopeBaseSetupAsync>(), lifetime, static (l, lt) => l.OnBaseSetupAsync(lt));
+            await InvokeAwaited(ResolveList<IScopeBaseSetupAsync>(), lifetime, static (l, lt) => l.OnBaseSetup(lt));
 
             Invoke(ResolveList<IScopeSetup>(), lifetime, static (l, lt) => l.OnSetup(lt));
-            await InvokeAsync(ResolveList<IScopeSetupAsync>(), lifetime, static (l, lt) => l.OnSetupAsync(lt));
+            await InvokeAwaited(ResolveList<IScopeSetupAsync>(), lifetime, static (l, lt) => l.OnSetup(lt));
 
             Invoke(ResolveList<IScopeSetupCompletion>(), lifetime, static (l, lt) => l.OnSetupCompletion(lt));
 
-            await InvokeAsync(
+            await InvokeAwaited(
                 ResolveList<IScopeSetupCompletionAsync>(),
                 lifetime,
-                static (l, lt) => l.OnSetupCompletionAsync(lt));
+                static (l, lt) => l.OnSetupCompletion(lt));
         }
 
         public async UniTask RunLoaded(IReadOnlyLifetime lifetime)
         {
             Invoke(ResolveList<IScopeLoaded>(), lifetime, static (l, lt) => l.OnLoaded(lt));
-            await InvokeAsync(ResolveList<IScopeLoadedAsync>(), lifetime, static (l, lt) => l.OnLoadedAsync(lt));
+            await InvokeAwaited(ResolveList<IScopeLoadedAsync>(), lifetime, static (l, lt) => l.OnLoaded(lt));
         }
 
         public async UniTask RunDispose()
@@ -105,7 +105,7 @@ namespace Internal
             var errors = new List<Exception>();
 
             Invoke(ResolveList<IScopeDispose>(), errors, static (l, e) => DisposeIsolated(l, e));
-            await InvokeAsync(ResolveList<IScopeDisposeAsync>(), errors, static (l, e) => DisposeIsolated(l, e));
+            await InvokeAwaited(ResolveList<IScopeDisposeAsync>(), errors, static (l, e) => DisposeIsolated(l, e));
 
             if (errors.Count == 1)
                 ExceptionDispatchInfo.Capture(errors[0]).Throw();
@@ -131,7 +131,7 @@ namespace Internal
         {
             try
             {
-                await listener.OnDisposeAsync();
+                await listener.OnDispose();
             }
             catch (Exception exception)
             {
@@ -181,41 +181,25 @@ namespace Internal
         private void Invoke<T, TState>(IReadOnlyList<T> listeners, TState state, Action<T, TState> invoker)
         {
             var count = listeners.Count;
-
-#if UNITY_EDITOR
-            if (_container.Diagnostics is ContainerDiagnostics diagnostics)
-            {
-                for (var i = 0; i < count; i++)
-                {
-                    var listener = listeners[i];
-
-                    using (GameProfiler.Scope(listener.GetType().Name))
-                    {
-                        var before = ContainerDiagnostics.AllocatedBytes();
-                        invoker.Invoke(listener, state);
-                        var bytes = ContainerDiagnostics.AllocatedBytes() - before;
-                        diagnostics.RecordAllocation(typeof(T), listener.GetType(), bytes, false);
-                    }
-                }
-
-                return;
-            }
-#endif
-
-            if (GameProfiler.IsRunning == false)
-            {
-                for (var i = 0; i < count; i++)
-                    invoker.Invoke(listeners[i], state);
-
-                return;
-            }
+            var diagnostics = FindDiagnostics();
+            var isMeasured = diagnostics != null || GameProfiler.IsRunning == true;
 
             for (var i = 0; i < count; i++)
             {
                 var listener = listeners[i];
 
-                using (GameProfiler.Scope(listener.GetType().Name))
+                if (isMeasured == false)
+                {
                     invoker.Invoke(listener, state);
+                    continue;
+                }
+
+                using (GameProfiler.Scope(listener.GetType().Name))
+                {
+                    var before = diagnostics != null ? ContainerDiagnostics.AllocatedBytes() : 0;
+                    invoker.Invoke(listener, state);
+                    diagnostics?.RecordAllocation(typeof(T), listener.GetType(), ContainerDiagnostics.AllocatedBytes() - before, false);
+                }
             }
         }
 
@@ -225,7 +209,7 @@ namespace Internal
         /// the first await the listener can grab it via <see cref="GameProfiler.CurrentScope"/>
         /// and attach its own steps to it.
         /// </summary>
-        private UniTask InvokeAsync<T, TState>(
+        private UniTask InvokeAwaited<T, TState>(
             IReadOnlyList<T> listeners,
             TState state,
             Func<T, TState, UniTask> invoker)
@@ -236,55 +220,44 @@ namespace Internal
                 return UniTask.CompletedTask;
 
             var tasks = new UniTask[count];
-
-#if UNITY_EDITOR
-            // For an asynchronous listener only the synchronous prologue up to the first await is measured.
-            if (_container.Diagnostics is ContainerDiagnostics diagnostics)
-            {
-                for (var i = 0; i < count; i++)
-                {
-                    var listener = listeners[i];
-                    var scope = GameProfiler.Concurrent(listener.GetType().Name);
-
-                    UniTask task;
-
-                    using (GameProfiler.Ambient(scope))
-                    {
-                        var before = ContainerDiagnostics.AllocatedBytes();
-                        task = invoker.Invoke(listener, state);
-                        var bytes = ContainerDiagnostics.AllocatedBytes() - before;
-                        diagnostics.RecordAllocation(typeof(T), listener.GetType(), bytes, true);
-                    }
-
-                    tasks[i] = GameProfiler.IsRunning == true ? scope.Track(task) : task;
-                }
-
-                return UniTask.WhenAll(tasks);
-            }
-#endif
-
-            if (GameProfiler.IsRunning == false)
-            {
-                for (var i = 0; i < count; i++)
-                    tasks[i] = invoker.Invoke(listeners[i], state);
-
-                return UniTask.WhenAll(tasks);
-            }
+            var diagnostics = FindDiagnostics();
+            var isMeasured = diagnostics != null || GameProfiler.IsRunning == true;
 
             for (var i = 0; i < count; i++)
             {
                 var listener = listeners[i];
-                var scope = GameProfiler.Concurrent(listener.GetType().Name);
 
+                if (isMeasured == false)
+                {
+                    tasks[i] = invoker.Invoke(listener, state);
+                    continue;
+                }
+
+                var scope = GameProfiler.Concurrent(listener.GetType().Name);
                 UniTask task;
 
+                // For an asynchronous listener only the synchronous prologue up to the first await is measured.
                 using (GameProfiler.Ambient(scope))
+                {
+                    var before = diagnostics != null ? ContainerDiagnostics.AllocatedBytes() : 0;
                     task = invoker.Invoke(listener, state);
+                    diagnostics?.RecordAllocation(typeof(T), listener.GetType(), ContainerDiagnostics.AllocatedBytes() - before, true);
+                }
 
-                tasks[i] = scope.Track(task);
+                tasks[i] = GameProfiler.IsRunning == true ? scope.Track(task) : task;
             }
 
             return UniTask.WhenAll(tasks);
+        }
+
+        // In the editor with diagnostics enabled; null without them and in a build.
+        private ContainerDiagnostics FindDiagnostics()
+        {
+#if UNITY_EDITOR
+            return _container.Diagnostics as ContainerDiagnostics;
+#else
+            return null;
+#endif
         }
 
         private static UniTask InvokeCallbacks(List<Func<UniTask>> callbacks)

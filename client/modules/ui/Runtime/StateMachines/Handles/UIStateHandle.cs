@@ -23,7 +23,6 @@ namespace Global.UI
             Action terminate = _innerLifetime.Terminate;
             lifetime.Listen(terminate);
             _innerLifetime.Listen(() => lifetime.RemoveListener(terminate));
-            _outerLifetime = _innerLifetime.Child();
 
             _isVisible.View(_innerLifetime, isVisible => {
                 if (isVisible == true)
@@ -44,13 +43,11 @@ namespace Global.UI
         private readonly ViewableProperty<bool> _isVisible = new(true);
 
         private readonly ILifetime _innerLifetime;
-        private ILifetime _outerLifetime;
         private int _childCount;
         private bool _isParentVisible = true;
         private int _coveringStacks;
 
         public IReadOnlyLifetime InnerLifetime => _innerLifetime;
-        public IReadOnlyLifetime OuterLifetime => _outerLifetime;
         public IViewableProperty<bool> IsVisible => _isVisible;
         public int ChildCount => _childCount;
         public IUIState State { get; }
@@ -90,12 +87,6 @@ namespace Global.UI
         {
             _childCount++;
             child.InnerLifetime.Listen(() => _childCount--);
-        }
-
-        public void ClearStack()
-        {
-            _outerLifetime.Terminate();
-            _outerLifetime = _innerLifetime.Child();
         }
 
         public void Exit()

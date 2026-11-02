@@ -125,7 +125,7 @@ namespace Internal.Tests
 
     public sealed class ScopeLoaderThrowingAsyncDispose : IScopeDisposeAsync
     {
-        public async UniTask OnDisposeAsync()
+        public async UniTask OnDispose()
         {
             await UniTask.Yield();
             throw new InvalidOperationException("async dispose failed");
@@ -134,7 +134,7 @@ namespace Internal.Tests
 
     public sealed class ScopeLoaderAsyncDispose : IScopeDisposeAsync
     {
-        public async UniTask OnDisposeAsync()
+        public async UniTask OnDispose()
         {
             await UniTask.Yield();
             await UniTask.Yield();

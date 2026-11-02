@@ -172,17 +172,16 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
   - `publish`: platform abstractions (`ISaves`, `IPlatformAuth`, back button, inventory, invites, achievements). The project
     composes its publisher from the platforms; registrations under a runtime `if` around another installer are all
     built by the generator, so a platform choice is made with `#if` or inside one installer.
-  - `browser` (`Internal.Browser`): fullscreen, leave confirmation, reload and clipboard of a web page.
+  - `browser` (`Internal.Browser`): fullscreen, leave confirmation and clipboard of a web page.
   - `network` (`Internal.Network`, namespace `Internal`): see Network client below.
   - `localization` (`AddLocalization(LocalizationOptions)`): texts in several languages from the table asset of the
     game (`Localization.json`, a column per `Language`), `TextKey` declared in code, `LocalizedText` with format
     arguments, the static `Localizer` (current language, `FromSystem`, `Next`), `LocalizedLabel` keeps a TMP text in
     the current language. Depends on TextMeshPro.
   - `settings` (`AddSettings(SettingsOptions)`, `AddSettings<TSettings, TSave, TService>(SettingsOptions<TSave>)`):
-    the settings of the player in the saves (`ISaves`): the volumes as the `IAudioVolume` of `audio`, the language of
-    `localization`, the defaults from the options asset of the game; a game with settings of its own derives
+    the settings of the player in the saves (`ISaves`): the volumes as the `IAudioVolume` of `audio`, the defaults from the options asset of the game; a game with settings of its own derives
     `SettingsSave`, `Settings<TSave>` (`OnPush`) and `SettingsOptions<TSave>` and injects its own interface over
-    `ISettings<TSave>`. Depends on `audio`, `publish`, `localization`.
+    `ISettings<TSave>`. A language is a field of the save of the game (`OnLoad`, `OnPush`). Depends on `audio`, `publish`.
   - `lobbies` (`Internal.Lobbies`, namespace `Global.Lobbies`; `AddMatchmaking`, `AddLobbyNetworkService`):
     `IMatchmaking` (search, solo, lobby create / join / match join, tickets) over the meta socket the game registers
     as `IMetaSocket`; `LobbyNetworkService`, the client of the lobby service of a lobby session (a derived one adds the
@@ -191,7 +190,7 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
 - **Platforms.** `itch` (`AddItchSaves`: saves in PlayerPrefs), `web` (`AddWebLoadingScreen`, `AddWebSafeArea`,
   `WebShell.UseMobileCheck`; needs `window.loadingScreen` and, for the shell, `TemplateData/web-shell.js` in the
   WebGL template; register only under `#if UNITY_WEBGL && !UNITY_EDITOR`; editor: `Internal.WebGlBuild.Build`,
-  the batchmode build with the active build profile inside `PlayerBuildSteps.Run`, exit code 1 on any failure), `steam` (`AddSteam(SteamOptions)`: app id, Web API identity
+  the batchmode build with the active build profile inside `PlayerBuildSteps.Run`, exit code 1 on any failure), `steam` (`AddSteam(SteamOptions, PlatformOptions)`, the `NoPlatform*` variants of `publish` off Steam: app id, Web API identity
   of the backend auth ticket, the connect key of invites; `#if UNITY_STANDALONE`, needs Steamworks.NET), `telegram`
   (`AddTelegramAPI(PlatformOptions)`: the bridge to `window.telegramShell` of the Telegram WebGL template, a debug one in the editor; auth and back button are alternatives the game picks).
 - **Sessions.** Shared types in `shared/Session` (auth, entities, objects, players, services, latency, entity ids:

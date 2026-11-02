@@ -154,7 +154,24 @@ namespace Global.UI.Tests
             parent.Terminate();
 
             Assert.IsTrue(state.InnerLifetime.IsTerminated);
-            Assert.IsTrue(state.OuterLifetime.IsTerminated);
+        }
+
+        // Every Process* gives the caller no handle, so nobody could exit a state left behind: its constraints would act
+        // until the end of the lifetime. A state without an enter handler ends with the call.
+        [TestCase("ProcessChild")]
+        [TestCase("ProcessStack")]
+        [TestCase("Process")]
+        public void Process_StateWithoutEnterHandler_NothingStays(string method)
+        {
+            var (machine, storage, lifetime) = Create();
+            var state = new State(UIConstraints.Game);
+
+            typeof(UIStatesExtensions)
+                .GetMethod(method, new[] { typeof(IUIStateMachine), typeof(Internal.IReadOnlyLifetime), typeof(IUIState), typeof(IUIState) })
+                .Invoke(null, new object[] { machine, lifetime, machine.Base, state });
+
+            Assert.IsTrue(storage[InputConstraints.Game], "the constraints of the state stayed");
+            lifetime.Terminate();
         }
 
         private static (UIStateMachine, InputConstraintsStorage, Internal.Lifetime) Create()

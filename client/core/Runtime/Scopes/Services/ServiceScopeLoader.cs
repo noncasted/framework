@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 
 using Cysharp.Threading.Tasks;
 
@@ -128,52 +127,20 @@ namespace Internal
             IContainer container,
             ServiceScopeSceneLoader sceneLoader)
         {
-            List<Exception> errors = null;
+            var teardown = new ScopeTeardown();
 
             if (builder != null)
-                Step(builder.ScopeLifetime.Terminate);
+                teardown.Step(builder.ScopeLifetime.Terminate);
 
             if (container != null)
-                Step(container.Dispose);
+                teardown.Step(container.Dispose);
 
-            try
-            {
-                await sceneLoader.Results.InvokeAsync(scene => scene.Unload());
-            }
-            catch (Exception exception)
-            {
-                (errors ??= new List<Exception>()).Add(exception);
-            }
+            await teardown.StepAwaited(() => sceneLoader.Results.InvokeAwaited(scene => scene.Unload()));
 
             if (builder != null)
-            {
-                try
-                {
-                    await builder.Events.InvokeAfterDispose();
-                }
-                catch (Exception exception)
-                {
-                    (errors ??= new List<Exception>()).Add(exception);
-                }
-            }
+                await teardown.StepAwaited(builder.Events.InvokeAfterDispose);
 
-            if (errors == null)
-                return;
-
-            errors.Insert(0, failure);
-            throw new AggregateException("Scope load failed, and its teardown failed too.", errors);
-
-            void Step(Action action)
-            {
-                try
-                {
-                    action();
-                }
-                catch (Exception exception)
-                {
-                    (errors ??= new List<Exception>()).Add(exception);
-                }
-            }
+            teardown.ThrowWithLoadFailure(failure);
         }
     }
 }

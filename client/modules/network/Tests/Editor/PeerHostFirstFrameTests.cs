@@ -74,7 +74,7 @@ namespace Internal.Tests
             var writerLifetime = lifetime.Child();
 
             writer.Run(writerLifetime, capture);
-            writer.WriteRequest<SharedSessionAuth.Response>(new SharedSessionAuth.Request { Ticket = ticket }).Forget();
+            writer.WriteRequest<SharedSessionAuth.Response>(new SharedSessionAuth.Request { Ticket = ticket }).NoAwait();
 
             await UniTask.WaitUntil(() => capture.Frame != null).Timeout(TimeSpan.FromSeconds(5));
             return capture.Frame;

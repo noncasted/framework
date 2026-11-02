@@ -15,7 +15,7 @@ namespace Global.Publisher.Telegram
 
         public PlatformAuthType Type => PlatformAuthType.Telegram;
 
-        public string GetTelegramInitData()
+        public UniTask<PlatformCredentials> GetCredentials(IReadOnlyLifetime lifetime)
         {
             var initData = _api.GetInitData();
 
@@ -23,12 +23,7 @@ namespace Global.Publisher.Telegram
             if (string.IsNullOrEmpty(initData) == true)
                 throw new InvalidOperationException("[Telegram] Init data is empty: not inside Telegram");
 
-            return initData;
-        }
-
-        public UniTask<SteamAuthTicket> GetSteamTicket(IReadOnlyLifetime lifetime)
-        {
-            throw new InvalidOperationException("[Telegram] A Steam ticket is requested in Telegram");
+            return UniTask.FromResult(new PlatformCredentials(Type, initData, null));
         }
     }
 }

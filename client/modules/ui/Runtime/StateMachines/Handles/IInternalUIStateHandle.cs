@@ -7,6 +7,5 @@
         // A child (CreateChild) of this state is created: it counts in ChildCount while it lives.
         void OnParent(IInternalUIStateHandle child);
 
-        void ClearStack();
     }
 }

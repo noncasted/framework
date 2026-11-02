@@ -172,11 +172,6 @@
     background-color: rgb(60, 60, 60);
 }
 
-.assets-progress {
-    height: 20px;
-    margin-bottom: 10px;
-}
-
 .assets-run-all-button {
     height: 36px;
     background-color: rgb(80, 120, 200);

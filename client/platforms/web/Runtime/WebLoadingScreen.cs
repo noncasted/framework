@@ -28,19 +28,19 @@ namespace Global.Web
         private static extern bool WebLoadingScreenIsHidden();
 #else
         private static void WebLoadingScreenShow() =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 
         private static void WebLoadingScreenShowInstantly() =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 
         private static void WebLoadingScreenHide() =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 
         private static bool WebLoadingScreenIsShown() =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 
         private static bool WebLoadingScreenIsHidden() =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 #endif
 
         // The page shows it in a fade of its own: a page that never reports it shown (a template without the

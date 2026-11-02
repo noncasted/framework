@@ -43,15 +43,6 @@ namespace Internal
         }
 
 #if UNITY_WEBGL && !UNITY_EDITOR
-        // Web only: outside the web there is no page to load again.
-        public static void Reload()
-        {
-            WebPageReload();
-        }
-
-        [DllImport("__Internal")]
-        private static extern void WebPageReload();
-
         [DllImport("__Internal")]
         private static extern bool WebPageIsFullscreenSupported();
 

@@ -19,7 +19,7 @@ namespace Global.Web
         private static extern bool WebShellIsMobile();
 #else
         private static bool WebShellIsMobile() =>
-            throw new System.PlatformNotSupportedException("[Web] A function of the .jslib outside a WebGL player");
+            throw Internal.JsLibStub.Missing();
 #endif
     }
 }

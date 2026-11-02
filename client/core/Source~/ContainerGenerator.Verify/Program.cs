@@ -1320,8 +1320,6 @@ namespace Internal {
         System.Collections.Generic.IReadOnlyList<RegistrationInfo> Registrations { get; }
         System.Collections.Generic.IReadOnlyList<int> BuildOrder { get; }
         System.Collections.Generic.IReadOnlyList<LoadedAssetInfo> LoadedAssets { get; }
-        bool IsHistoryEnabled { get; set; }
-        System.Collections.Generic.IReadOnlyList<ResolveRecord> History { get; }
     }
     public readonly struct RegistrationInfo {
         public RegistrationInfo(int slot, System.Type implementationType, System.Collections.Generic.IReadOnlyList<System.Type> serviceTypes, ServiceLifetime lifetime, System.Collections.Generic.IReadOnlyList<int> dependencies, bool isInstantiated, bool isExternal) {}
@@ -1335,10 +1333,7 @@ namespace Internal {
         public System.Collections.Generic.IReadOnlyList<RegistrationInfo> Registrations => null;
         public System.Collections.Generic.IReadOnlyList<int> BuildOrder => null;
         public System.Collections.Generic.IReadOnlyList<LoadedAssetInfo> LoadedAssets => null;
-        public bool IsHistoryEnabled { get; set; }
-        public System.Collections.Generic.IReadOnlyList<ResolveRecord> History => null;
     }
-    public readonly struct ResolveRecord {}
     public static class ContainerRegistryDebug {
         public static bool IsEnabled { get; set; } = true;
     }

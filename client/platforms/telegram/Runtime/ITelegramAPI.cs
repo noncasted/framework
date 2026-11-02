@@ -8,7 +8,6 @@ namespace Global.Publisher.Telegram
         string GetInitData();
 
         // initDataUnsafe.user.language_code ("ru", "en", ...), empty when Telegram does not send it.
-        string GetLanguageCode();
 
         void SetBackButtonVisible(bool isVisible);
 

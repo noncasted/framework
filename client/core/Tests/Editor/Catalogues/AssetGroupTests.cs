@@ -31,7 +31,7 @@ namespace Internal.Tests
         {
             var group = new TestGroup();
 
-            group.Retain().Forget();
+            group.Retain().NoAwait();
             group.Release();
             var retain = group.Retain();
 

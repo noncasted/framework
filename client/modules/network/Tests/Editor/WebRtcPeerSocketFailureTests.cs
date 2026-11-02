@@ -48,6 +48,34 @@ namespace Internal.Tests
             }
         });
 
+        // An error of the code above the socket does not stop its loop: the socket would never report anything again.
+        [UnityTest]
+        public IEnumerator HandlerThrows_NextEventsGoOn() => UniTask.ToCoroutine(async () =>
+        {
+            var lifetime = new Lifetime();
+            var signaling = new ThrowingSignaling();
+            var socket = new WebRtcPeerSocket(WebRtcPeerRole.Answer, signaling, Options, lifetime);
+            var events = (IWebRtcPeerEvents)socket;
+
+            try
+            {
+                LogAssert.ignoreFailingMessages = true;
+
+                events.OnLocalCandidate("a", "0");
+                await UniTask.DelayFrame(3);
+
+                events.OnLocalCandidate("b", "0");
+                await UniTask.DelayFrame(3);
+
+                Assert.AreEqual(2, signaling.Sent);
+            }
+            finally
+            {
+                LogAssert.ignoreFailingMessages = false;
+                lifetime.Terminate();
+            }
+        });
+
         // The channel of a guest closed, its Lost is still in the queue: the send to it does not break the loop of the
         // caller over the other guests, the loss comes through Closed.
         [UnityTest]
@@ -137,6 +165,18 @@ namespace Internal.Tests
             public void Dispose()
             {
                 _inner.Dispose();
+            }
+        }
+
+        private class ThrowingSignaling : IWebRtcSignaling
+        {
+            public int Sent { get; private set; }
+            public IViewableDelegate<WebRtcSignal> Received { get; } = new ViewableDelegate<WebRtcSignal>();
+
+            public void Send(WebRtcSignal signal)
+            {
+                Sent++;
+                throw new InvalidOperationException("the signaling failed");
             }
         }
     }

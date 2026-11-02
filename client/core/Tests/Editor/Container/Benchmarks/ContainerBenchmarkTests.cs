@@ -176,17 +176,12 @@ namespace Internal.Tests
         private static void AssertReport(BenchmarkReport report, string containerName)
         {
             Assert.AreEqual(containerName, report.ContainerName);
-            Assert.GreaterOrEqual(report.Build.Ticks, 0);
             Assert.Greater(report.BuildResolved.Ticks, 0);
-            Assert.GreaterOrEqual(report.FirstResolveAll.Ticks, 0);
-            Assert.GreaterOrEqual(report.Singleton10k.Ticks, 0);
-            Assert.GreaterOrEqual(report.Transient10k.Ticks, 0);
+            Assert.Greater(report.Singleton10k.Ticks, 0);
+            Assert.Greater(report.Transient10k.Ticks, 0);
             Assert.Greater(report.Build.AllocatedBytes, 0);
             Assert.Greater(report.BuildResolved.AllocatedBytes, 0);
-            Assert.GreaterOrEqual(report.FirstResolveAll.AllocatedBytes, 0);
-            Assert.GreaterOrEqual(report.Singleton10k.AllocatedBytes, 0);
             Assert.Greater(report.Transient10k.AllocatedBytes, 0);
-            Assert.GreaterOrEqual(report.PhaseItemCount, 0);
         }
     }
 }

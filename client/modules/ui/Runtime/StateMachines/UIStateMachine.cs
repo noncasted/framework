@@ -66,11 +66,6 @@ namespace Global.UI
             return childHandle;
         }
 
-        public void ClearStack(IUIState state)
-        {
-            _handles[state].ClearStack();
-        }
-
         public void Exit(IUIState state)
         {
             _handles[state].Exit();

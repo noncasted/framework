@@ -25,7 +25,7 @@ namespace Internal
         {
             // A platform without a peer leaves the offers unanswered: the guest goes through the tunnel by its timeout.
             if (WebRtcPeers.IsSupported(Application.platform) == true)
-                _control.Signaling.Incoming.Advise(lifetime, index => AcceptDirect(lifetime, index).Forget());
+                _control.Signaling.Incoming.Advise(lifetime, index => AcceptDirect(lifetime, index).NoAwait());
 
             _control.Tunnels.Incoming.Advise(lifetime, index => AcceptTunnel(lifetime, index));
         }

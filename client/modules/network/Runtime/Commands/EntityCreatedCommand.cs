@@ -20,7 +20,7 @@ namespace Internal
 
             var payload = new RemoteEntityData(owner, context.EntityId, context.Properties, context.Payload);
 
-            _factory.CreateRemote(lifetime, payload).Forget();
+            _factory.CreateRemote(lifetime, payload).NoAwait();
         }
     }
 }

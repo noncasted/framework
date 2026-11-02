@@ -10,8 +10,6 @@ namespace Internal
         IReadOnlyList<RegistrationInfo> Registrations { get; }
         IReadOnlyList<int> BuildOrder { get; }
         IReadOnlyList<LoadedAssetInfo> LoadedAssets { get; }
-        bool IsHistoryEnabled { get; set; }
-        IReadOnlyList<ResolveRecord> History { get; }
         IReadOnlyList<AllocationRecord> Allocations { get; }
     }
 }

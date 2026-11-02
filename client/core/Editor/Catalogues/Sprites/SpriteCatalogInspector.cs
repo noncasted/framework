@@ -62,12 +62,7 @@ namespace Internal
             if (importer.assetPath.StartsWith(ArtPrefix, StringComparison.OrdinalIgnoreCase) == false)
                 return false;
 
-            var extension = Path.GetExtension(importer.assetPath);
-
-            return extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
-                   extension.Equals(".psd", StringComparison.OrdinalIgnoreCase) ||
-                   extension.Equals(".aseprite", StringComparison.OrdinalIgnoreCase) ||
-                   extension.Equals(".ase", StringComparison.OrdinalIgnoreCase);
+            return SpriteGenerator.IsSourceFile(importer.assetPath);
         }
 
         private static CatalogStates ResolveStates(IReadOnlyList<AssetImporter> importers)

@@ -57,7 +57,7 @@ namespace Internal
                 ApplicationQuit.Mark();
 
                 Debug.Log("Root scope lifetime terminated, disposing loaded scope.");
-                scope.Dispose().Forget();
+                scope.Dispose().NoAwait();
             }
         }
     }

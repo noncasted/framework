@@ -1,5 +1,4 @@
 using System;
-using Global.Localization;
 using UnityEngine;
 
 namespace Global.Settings
@@ -14,11 +13,6 @@ namespace Global.Settings
         [field: SerializeField] public float MasterVolume { get; set; }
         [field: SerializeField] public float SoundsVolume { get; set; }
         [field: SerializeField] public float MusicVolume { get; set; }
-
-        // The language of the texts. Until the player picks one (IsLanguagePicked) it follows the system language
-        // (Localizer.FromSystem) at every start: saves written before the setting existed are not picked either.
-        [field: SerializeField] public Language Language { get; set; }
-        [field: SerializeField] public bool IsLanguagePicked { get; set; }
 
         // The player applied the settings at least once: a save that was never applied takes the defaults of the
         // options asset at every start (so a changed default reaches the players who never touched the settings).
@@ -39,8 +33,6 @@ namespace Global.Settings
             MasterVolume = source.MasterVolume;
             SoundsVolume = source.SoundsVolume;
             MusicVolume = source.MusicVolume;
-            Language = source.Language;
-            IsLanguagePicked = source.IsLanguagePicked;
         }
     }
 }

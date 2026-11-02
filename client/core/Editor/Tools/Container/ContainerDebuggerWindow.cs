@@ -15,7 +15,6 @@ namespace Internal
         private static readonly string UssPath = FrameworkSettings.Package("Editor/Tools/Container/ContainerDebuggerWindow.uss");
 
         private readonly List<RegistrationInfo> _registrations = new();
-        private readonly List<ResolveRecord> _history = new();
         private readonly Dictionary<int, IContainerDiagnostics> _diagnosticsById = new();
         private readonly Dictionary<int, RegistrationInfo> _registrationsBySlot = new();
         private readonly HashSet<IContainerDiagnostics> _visited = new();
@@ -27,7 +26,6 @@ namespace Internal
         private IContainerDiagnostics _selectedContainer;
         private int _selectedSlot = -1;
         private int _nextId = 1;
-        private bool _historyEnabled;
         private bool _isRefreshing;
 
         private VisualElement _root;
@@ -35,17 +33,14 @@ namespace Internal
         private Label _emptyTreeLabel;
         private Label _emptyDetailsLabel;
         private Label _containerTitle;
-        private Toggle _historyToggle;
         private TreeView _treeView;
         private MultiColumnListView _registrationsView;
-        private MultiColumnListView _historyView;
         private MultiColumnListView _allocationsView;
         private MultiColumnListView _classAllocationsView;
         private Label _allocationsHint;
         private VisualElement _details;
         private VisualElement _graphBody;
         private VisualElement _buildBody;
-        private Label _historyHint;
 
         [MenuItem(FrameworkMenu.Container + "Debugger", priority = FrameworkMenu.GroupPriority)]
         public static void Open()
@@ -116,7 +111,6 @@ namespace Internal
             try
             {
                 RefreshTree();
-                ApplyHistoryFlag();
                 RebuildDetails();
             }
             catch (Exception exception)
@@ -150,15 +144,6 @@ namespace Internal
             var refresh = new Button(Refresh) { text = "Refresh" };
             refresh.AddToClassList("toolbar-button");
             toolbar.Add(refresh);
-
-            _historyToggle = new Toggle("Resolve history")
-            {
-                value = _historyEnabled
-            };
-            _historyToggle.AddToClassList("history-toggle");
-            _historyToggle.tooltip = "When on, writes Resolve timing into IContainerDiagnostics.History";
-            _historyToggle.RegisterValueChangedCallback(OnHistoryToggled);
-            toolbar.Add(_historyToggle);
 
             _root.Add(toolbar);
         }
@@ -239,7 +224,6 @@ namespace Internal
             var bottom = new VisualElement();
             bottom.AddToClassList("bottom");
             bottom.Add(BuildAllocationsSection());
-            bottom.Add(BuildHistorySection());
             _details.Add(bottom);
             pane.Add(_details);
 
@@ -461,64 +445,6 @@ namespace Internal
             };
         }
 
-        private VisualElement BuildHistorySection()
-        {
-            var section = new VisualElement();
-            section.AddToClassList("section");
-            section.AddToClassList("history-section");
-
-            var title = new Label("Resolve history");
-            title.AddToClassList("section-title");
-            section.Add(title);
-
-            _historyHint = new Label();
-            _historyHint.AddToClassList("hint");
-            section.Add(_historyHint);
-
-            var columns = new Columns();
-            columns.Add(MakeHistoryColumn("slot", "Slot", 56, false, record => record.Slot.ToString()));
-            columns.Add(MakeHistoryColumn("type", "Implementation", 220, true, record => TypeNameForSlot(record.Slot)));
-
-            columns.Add(
-                MakeHistoryColumn("milliseconds", "ms", 80, false, record => record.Milliseconds.ToString("F3")));
-            columns.Add(MakeHistoryColumn("frame", "Frame", 70, false, record => record.Frame.ToString()));
-
-            _historyView = new MultiColumnListView(columns)
-            {
-                itemsSource = _history,
-                selectionType = SelectionType.Single,
-                showAlternatingRowBackgrounds = AlternatingRowBackground.All,
-                showBorder = true,
-                fixedItemHeight = 22
-            };
-            _historyView.AddToClassList("table");
-            _historyView.selectedIndicesChanged += OnHistorySelected;
-            section.Add(_historyView);
-
-            return section;
-        }
-
-        private Column MakeHistoryColumn(
-            string name,
-            string title,
-            float width,
-            bool stretchable,
-            Func<ResolveRecord, string> read)
-        {
-            return new Column
-            {
-                name = name,
-                title = title,
-                width = width,
-                minWidth = 48,
-                stretchable = stretchable,
-                resizable = true,
-                sortable = false,
-                makeCell = MakeCell,
-                bindCell = (element, index) => BindHistoryCell(element, index, read)
-            };
-        }
-
         private void BuildFooter()
         {
             var footer = new VisualElement();
@@ -660,7 +586,6 @@ namespace Internal
 
             _selectedContainer = next;
             _selectedSlot = -1;
-            ApplyHistoryFlag();
             RebuildDetails();
         }
 
@@ -675,11 +600,9 @@ namespace Internal
             {
                 _registrations.Clear();
                 _registrationsBySlot.Clear();
-                _history.Clear();
                 _allocations.Clear();
                 _phaseBytesByType.Clear();
                 _registrationsView?.Rebuild();
-                _historyView?.Rebuild();
                 _allocationsView?.Rebuild();
                 _graphBody?.Clear();
                 _buildBody?.Clear();
@@ -713,7 +636,6 @@ namespace Internal
 
             RebuildGraph();
             RebuildBuildOrder();
-            RebuildHistory();
         }
 
         private void OnRegistrationSelected(IEnumerable<int> indices)
@@ -880,66 +802,6 @@ namespace Internal
             }
         }
 
-        private void RebuildHistory()
-        {
-            if (_historyView == null || _historyHint == null)
-                return;
-
-            _history.Clear();
-
-            if (_historyEnabled == false || _selectedContainer == null)
-            {
-                _historyHint.style.display = DisplayStyle.Flex;
-                _historyHint.text = "Turn on Resolve history to record Resolve calls. Structure is always available.";
-                _historyView.style.display = DisplayStyle.None;
-                _historyView.Rebuild();
-                return;
-            }
-
-            foreach (var record in SafeList(() => _selectedContainer.History))
-                _history.Add(record);
-
-            _historyView.Rebuild();
-            _historyView.style.display = DisplayStyle.Flex;
-
-            if (_history.Count == 0)
-            {
-                _historyHint.style.display = DisplayStyle.Flex;
-                _historyHint.text = "No resolve records yet.";
-            }
-            else
-            {
-                _historyHint.style.display = DisplayStyle.None;
-                _historyHint.text = string.Empty;
-            }
-        }
-
-        private void OnHistorySelected(IEnumerable<int> indices)
-        {
-            if (_isRefreshing || _historyEnabled == false)
-                return;
-
-            var index = FirstIndex(indices);
-
-            if (index < 0 || index >= _history.Count)
-                return;
-
-            SelectSlot(_history[index].Slot);
-        }
-
-        private void OnHistoryToggled(ChangeEvent<bool> evt)
-        {
-            _historyEnabled = evt.newValue;
-            ApplyHistoryFlag();
-            RebuildHistory();
-        }
-
-        private void ApplyHistoryFlag()
-        {
-            foreach (var diagnostics in _diagnosticsById.Values)
-                SetHistoryEnabled(diagnostics, _historyEnabled);
-        }
-
         private void SelectSlot(int slot)
         {
             _selectedSlot = slot;
@@ -1037,22 +899,6 @@ namespace Internal
                 $"Build {FormatBytes(totals.BuildBytes)} · Phases {FormatBytes(totals.PhaseBytes)}";
         }
 
-        private void BindHistoryCell(VisualElement element, int index, Func<ResolveRecord, string> read)
-        {
-            var label = (Label)element;
-
-            if ((uint)index >= (uint)_history.Count)
-            {
-                label.text = string.Empty;
-                label.tooltip = string.Empty;
-                return;
-            }
-
-            var record = _history[index];
-            label.text = read(record);
-            label.tooltip = $"Slot {record.Slot} · {record.Milliseconds:F3} ms · frame {record.Frame}";
-        }
-
         private int FindId(IContainerDiagnostics diagnostics)
         {
             if (diagnostics == null)
@@ -1079,13 +925,6 @@ namespace Internal
             }
 
             return -1;
-        }
-
-        private string TypeNameForSlot(int slot)
-        {
-            return _registrationsBySlot.TryGetValue(slot, out var info)
-                ? FormatType(info.ImplementationType)
-                : "(missing)";
         }
 
         private void SetStatus(string message, bool isError)
@@ -1116,24 +955,6 @@ namespace Internal
             var label = new Label(text);
             label.AddToClassList("hint");
             return label;
-        }
-
-        private static void SetHistoryEnabled(IContainerDiagnostics diagnostics, bool enabled)
-        {
-            if (diagnostics == null)
-                return;
-
-            try
-            {
-                if (diagnostics.IsHistoryEnabled == enabled)
-                    return;
-
-                diagnostics.IsHistoryEnabled = enabled;
-            }
-            catch (Exception exception)
-            {
-                Debug.LogException(exception);
-            }
         }
 
         private static string FormatContainerLabel(IContainerDiagnostics diagnostics)

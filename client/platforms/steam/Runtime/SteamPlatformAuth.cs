@@ -12,13 +12,11 @@ namespace Global.Publisher.Steam
     // and the persona name, which becomes the name of the user.
     public class SteamPlatformAuth : IPlatformAuth
     {
-        public SteamPlatformAuth(ISteamClient client, SteamOptions options)
+        public SteamPlatformAuth(SteamOptions options)
         {
-            _client = client;
             _options = options;
         }
 
-        private readonly ISteamClient _client;
         private readonly SteamOptions _options;
 
 #if UNITY_STANDALONE
@@ -27,16 +25,8 @@ namespace Global.Publisher.Steam
 
         public PlatformAuthType Type => PlatformAuthType.Steam;
 
-        public string GetTelegramInitData()
+        public async UniTask<PlatformCredentials> GetCredentials(IReadOnlyLifetime lifetime)
         {
-            throw new InvalidOperationException("[Steam] Telegram init data is requested in Steam");
-        }
-
-        public async UniTask<SteamAuthTicket> GetSteamTicket(IReadOnlyLifetime lifetime)
-        {
-            if (_client.IsStarted == false)
-                throw new InvalidOperationException("[Steam] A ticket is requested before Steam is started");
-
 #if UNITY_STANDALONE
             // The ticket of the previous connect has been checked by the server already.
             if (_ticket != HAuthTicket.Invalid)
@@ -56,7 +46,7 @@ namespace Global.Publisher.Steam
 
             var ticket = await completion.Task.AttachExternalCancellation(lifetime.Token);
 
-            return new SteamAuthTicket(ticket, SteamFriends.GetPersonaName());
+            return new PlatformCredentials(Type, ticket, SteamFriends.GetPersonaName());
 
             void OnTicket(GetTicketForWebApiResponse_t response)
             {

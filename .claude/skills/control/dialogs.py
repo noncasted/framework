@@ -10,6 +10,7 @@ import time
 from common import STATE_DIR, ControlError
 
 ANSWER_WAIT = 3
+SAFE_MODE_TITLE = "Enter Safe Mode?"
 
 
 def _require_tools():
@@ -52,6 +53,15 @@ def capture(pid):
             subprocess.run(["import", "-window", window, image], check=True, capture_output=True)
         result.append({"address": client["address"], "title": client["title"], "image": image})
     return result
+
+
+def ignore_safe_mode(pid):
+    # A compile error at the start stops the editor on this dialog even with -ignoreCompilerErrors. Ignore loses nothing: the editor comes up on
+    # the last good assemblies, the bridge works and the errors can be read and fixed. The buttons by Tab: Enter Safe Mode, Ignore, Quit.
+    for client in floating_windows(pid):
+        if client["title"] == SAFE_MODE_TITLE:
+            return answer(pid, 2, client["address"])["answered"]
+    return False
 
 
 def _active_window():

@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using Global.UI;
 
-namespace Global.Inputs
+namespace Global.UI
 {
     // A kind of input that a visible UI state can disable (IUIConstraints.Input). The framework declares Game; a
     // project declares its own kinds the same way, as static readonly instances in its code (the input of an editor

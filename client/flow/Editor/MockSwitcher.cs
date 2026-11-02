@@ -26,7 +26,7 @@ namespace Internal
             if (mock == null)
                 return;
 
-            mock.Process().Forget();
+            mock.Process().NoAwait();
         }
     }
 }

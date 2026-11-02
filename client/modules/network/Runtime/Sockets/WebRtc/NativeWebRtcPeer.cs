@@ -196,7 +196,7 @@ namespace Internal
             // Errors only: the warnings of the ICE agent (a candidate pair that cannot send) are a normal part of the
             // negotiation.
             NativeWebRtcApi.InitLogger(NativeWebRtcApi.LogLevel.Error, OnLogCallback);
-            WriteLogs().Forget();
+            WriteLogs().NoAwait();
 
 #if UNITY_EDITOR
             // The threads of the library must not call into a domain that is unloaded: every peer goes before a reload.

@@ -68,12 +68,7 @@ namespace Internal
             commands.Add(new HandlerCommand<SharedSessionLatency.Pong>(_ => { }));
 
             // The latency probes of the other players are answered: their overlay measures this leg too.
-            commands.Add(new HandlerCommand<SharedSessionLatency.PeerProbe>(probe => _connection.OneWay(new SharedSessionLatency.PeerEcho
-            {
-                Id = probe.Id,
-                SenderIndex = probe.SenderIndex,
-                ServerTimestamp = probe.ServerTimestamp
-            })));
+            commands.Add(new HandlerCommand<SharedSessionLatency.PeerProbe>(probe => _connection.OneWay(PeerProbeCommand.EchoOf(probe))));
         }
 
         // As NetworkSession: the server sends the local seat right after the authorization.

@@ -31,13 +31,20 @@ namespace Internal
 
         protected override void Execute(IReadOnlyLifetime lifetime, SharedSessionLatency.PeerProbe context)
         {
-            _connection.OneWay(new SharedSessionLatency.PeerEcho()
+            var echo = EchoOf(context);
+            echo.ResponderPingMs = _monitor.PingMs;
+            _connection.OneWay(echo);
+        }
+
+        // The answer to a probe of another player, also from a client without a latency monitor (a peer host).
+        public static SharedSessionLatency.PeerEcho EchoOf(SharedSessionLatency.PeerProbe probe)
+        {
+            return new SharedSessionLatency.PeerEcho
             {
-                Id = context.Id,
-                SenderIndex = context.SenderIndex,
-                ServerTimestamp = context.ServerTimestamp,
-                ResponderPingMs = _monitor.PingMs
-            });
+                Id = probe.Id,
+                SenderIndex = probe.SenderIndex,
+                ServerTimestamp = probe.ServerTimestamp
+            };
         }
     }
 

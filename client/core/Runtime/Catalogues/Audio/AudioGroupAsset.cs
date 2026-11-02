@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
@@ -42,7 +43,7 @@ namespace Internal
         public async UniTask Decode()
         {
             var decoded = new Dictionary<string, AudioClip>(StringComparer.Ordinal);
-            var tasks = new List<UniTask>();
+            var tasks = new List<UniTask<Exception>>();
 
             foreach (var entry in _entries)
             {
@@ -51,7 +52,17 @@ namespace Internal
             }
 
             _decoded = decoded;
-            await UniTask.WhenAll(tasks);
+
+            // WhenAll ends at the first failure and the others would go on writing clips nobody destroys: every
+            // decode is waited for, and a failure leaves no clip behind.
+            var failures = await UniTask.WhenAll(tasks);
+            var failure = Array.Find(failures, exception => exception != null);
+
+            if (failure == null)
+                return;
+
+            ReleaseDecoded();
+            ExceptionDispatchInfo.Capture(failure).Throw();
         }
 
         public void ReleaseDecoded()
@@ -73,9 +84,17 @@ namespace Internal
             return clip;
         }
 
-        private static async UniTask DecodeEntry(AudioAssetEntry entry, Dictionary<string, AudioClip> decoded)
+        private static async UniTask<Exception> DecodeEntry(AudioAssetEntry entry, Dictionary<string, AudioClip> decoded)
         {
-            decoded.Add(entry.Name, await EncodedAudio.Decode(entry.Encoded, entry.Name));
+            try
+            {
+                decoded.Add(entry.Name, await EncodedAudio.Decode(entry.Encoded, entry.Name));
+                return null;
+            }
+            catch (Exception exception)
+            {
+                return exception;
+            }
         }
 
         public float GetVolume(string name, float fallback)
@@ -99,21 +118,7 @@ namespace Internal
 
         private AudioAssetEntry FindEntry(string name)
         {
-            if (_entries == null)
-                return null;
-
-            for (var i = 0; i < _entries.Length; i++)
-            {
-                var entry = _entries[i];
-
-                if (entry == null)
-                    continue;
-
-                if (string.Equals(entry.Name, name, StringComparison.Ordinal))
-                    return entry;
-            }
-
-            return null;
+            return GroupEntries.Find(_entries, name, static entry => entry.Name);
         }
     }
 }

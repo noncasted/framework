@@ -48,12 +48,6 @@
     border-color: rgb(80, 120, 200);
 }
 
-.history-toggle {
-    margin-left: 8px;
-    color: rgb(200, 200, 200);
-    font-size: 12px;
-}
-
 .body {
     flex-grow: 1;
     flex-direction: row;
@@ -159,13 +153,6 @@
     flex-basis: 0;
     flex-direction: column;
     margin-right: 8px;
-    margin-bottom: 0;
-}
-
-.history-section {
-    flex-grow: 1;
-    flex-basis: 0;
-    flex-direction: column;
     margin-bottom: 0;
 }
 

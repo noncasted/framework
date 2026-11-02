@@ -50,6 +50,18 @@ def package_version(folder):
         return json.load(f)['version']
 
 
+def git_commit(source):
+    """Commit of a git source: ref is a branch (its head) or refs/tags/<tag> (a package pinned on a tag)."""
+    ref = source['ref']
+    if ref.startswith('refs/tags/') == False:
+        ref = f'refs/heads/{ref}'
+    # The object of an annotated tag is not a commit: its commit is on the line of the peeled name.
+    lines = run('git', 'ls-remote', source['url'], ref, ref + '^{}').stdout.splitlines()
+    if not lines:
+        raise SystemExit(f'{source["url"]}: {ref} not found')
+    return lines[-1].split()[0]
+
+
 def latest(package):
     """Upstream version (builtin, registry) or commit (git) the package should be on."""
     source = package['source']
@@ -61,7 +73,7 @@ def latest(package):
         with urllib.request.urlopen(f'{source["url"]}/{package["name"]}') as response:
             return json.load(response)['dist-tags']['latest']
     if source['type'] == 'git':
-        return run('git', 'ls-remote', source['url'], f'refs/heads/{source["ref"]}').stdout.split()[0]
+        return git_commit(source)
     if source['type'] == 'repo':
         # No fetchable upstream: a new version is imported by hand, the base stays until then.
         return package['base']

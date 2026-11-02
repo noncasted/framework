@@ -21,7 +21,7 @@ namespace Global.Audio
         // Variations of one sound from the catalogue: a random one is taken so repeats do not sound the same.
         public static void PlayRandomFromGroup(this IAudioPlayer player, IReadOnlyList<Sound> group)
         {
-            player.PlaySound(group[_random.Next(group.Count)]);
+            player.PlaySound(Pick(group));
         }
 
         // The sound by its style: the volume and the pitch with their random spread, the limit of the style. volume and

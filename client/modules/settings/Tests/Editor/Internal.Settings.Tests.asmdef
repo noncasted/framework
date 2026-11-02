@@ -4,7 +4,6 @@
     "references": [
         "Internal",
         "Internal.Settings",
-        "Internal.Localization",
         "Internal.Publish",
         "UniTask",
         "GUID:3ea5c3f1172040daa713d5ad71728b78",

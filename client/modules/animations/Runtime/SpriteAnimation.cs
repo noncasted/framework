@@ -7,7 +7,7 @@ namespace Internal
     public interface IAnimation
     {
         void Play(IReadOnlyLifetime lifetime, float time = 0);
-        UniTask PlayAsync(IReadOnlyLifetime lifetime, float time = 0);
+        UniTask PlayAwaited(IReadOnlyLifetime lifetime, float time = 0);
         void PlayLooped(IReadOnlyLifetime lifetime, float time = 0);
     }
 
@@ -51,26 +51,16 @@ namespace Internal
 
         public void Play(IReadOnlyLifetime lifetime, float time = 0)
         {
-            _current?.Dispose();
-
-            if (Mathf.Approximately(time, 0f) == true)
-                time = _defaultTime;
-
-            _renderer.SetColor(_color);
+            time = Prepare(time);
             _void.Start(time);
             _current = _void;
             Follow(lifetime);
         }
 
-        public async UniTask PlayAsync(IReadOnlyLifetime lifetime, float time = 0)
+        public async UniTask PlayAwaited(IReadOnlyLifetime lifetime, float time = 0)
         {
-            _current?.Dispose();
+            time = Prepare(time);
             _async ??= new SpriteAnimationAsyncUpdatable(_void);
-
-            if (Mathf.Approximately(time, 0f) == true)
-                time = _defaultTime;
-
-            _renderer.SetColor(_color);
             _current = _async;
 
             var process = _async.Process(time);
@@ -82,16 +72,20 @@ namespace Internal
 
         public void PlayLooped(IReadOnlyLifetime lifetime, float time = 0)
         {
-            _current?.Dispose();
+            time = Prepare(time);
             _loop ??= new SpriteAnimationLoopUpdatable(_void);
-
-            if (Mathf.Approximately(time, 0f) == true)
-                time = _defaultTime;
-
-            _renderer.SetColor(_color);
             _loop.Start(time);
             _current = _loop;
             Follow(lifetime);
+        }
+
+        // The previous play ends; returns the time of the new one.
+        private float Prepare(float time)
+        {
+            _current?.Dispose();
+            _renderer.SetColor(_color);
+
+            return Mathf.Approximately(time, 0f) == true ? _defaultTime : time;
         }
 
         public void ManualStop()

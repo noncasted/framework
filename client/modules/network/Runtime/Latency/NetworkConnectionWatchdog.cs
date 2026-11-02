@@ -28,7 +28,7 @@ namespace Internal
 
         public void OnSetup(IReadOnlyLifetime lifetime)
         {
-            Run(lifetime).Forget();
+            Run(lifetime).NoAwait();
         }
 
         private async UniTask Run(IReadOnlyLifetime lifetime)
