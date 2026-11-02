@@ -377,7 +377,7 @@ public class TxSideEffectGrain : Grain, ITxSideEffectGrain
 [GrainEventState(State = "event_test", Lookup = "EventTest", Key = GrainKeyType.Guid)]
 public class EventTestAggregate : IEventStateValue
 {
-    [Id(0)] public string Id { get; set; } = string.Empty;
+    [Id(0)] [JsonProperty] public string Id { get; private set; } = string.Empty;
     [Id(1)] [JsonProperty] public int Counter { get; private set; }
     [Id(2)] [JsonProperty] public string Label { get; private set; } = string.Empty;
     public int Version => 0;
@@ -423,6 +423,7 @@ public interface IEventTestGrain : IGrainWithGuidKey
     Task AppendTwiceInTransaction();
     Task<string> GetStreamId();
     Task<int> GetCounter();
+    Task<EventTestAggregate> GetAggregate();
 }
 
 [Reentrant]
@@ -499,6 +500,11 @@ public class EventTestGrain : Grain, IEventTestGrain
     {
         await _state.Read();
         return _state.Value.Counter;
+    }
+
+    public Task<EventTestAggregate> GetAggregate()
+    {
+        return _state.Read();
     }
 }
 

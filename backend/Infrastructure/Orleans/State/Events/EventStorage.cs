@@ -76,11 +76,7 @@ public class EventStorage : IEventStorage
         // so no second round trip to aggregate mt_events for a new stream.
         var aggregate = await TryLoadAsync<T>(session, streamId);
 
-        if (aggregate == null)
-            return new T();
-
-        SetIdFromStream(aggregate, streamId);
-        return aggregate;
+        return aggregate ?? new T();
     }
 
     public async Task<T> Rebuild<T>(string streamId) where T : class, IEventStateValue, new()
@@ -89,11 +85,7 @@ public class EventStorage : IEventStorage
 
         var aggregate = await session.Events.AggregateStreamAsync<T>(streamId);
 
-        if (aggregate == null)
-            return new T();
-
-        SetIdFromStream(aggregate, streamId);
-        return aggregate;
+        return aggregate ?? new T();
     }
 
     public async Task Append(string streamId, params object[] events)
@@ -187,7 +179,6 @@ public class EventStorage : IEventStorage
         foreach (var aggregate in aggregates)
         {
             var streamId = ((IEventStateValue)aggregate).Id;
-            SetIdFromStream(aggregate, streamId);
             result[ParseStreamKey<TKey>(streamId)] = aggregate;
         }
 
@@ -312,12 +303,6 @@ public class EventStorage : IEventStorage
     {
         var colonIndex = streamId.IndexOf(':');
         return colonIndex >= 0 ? streamId.Substring(colonIndex + 1) : streamId;
-    }
-
-    private static void SetIdFromStream<T>(T aggregate, string streamId) where T : class
-    {
-        if (aggregate is IEventStateValue esv)
-            esv.Id = streamId;
     }
 
     // A snapshot that does not deserialize throws: it is not rebuilt from the events behind the caller's back (Rebuild

@@ -2,6 +2,7 @@ using Common;
 using FluentAssertions;
 using Infrastructure.State;
 using Marten;
+using Newtonsoft.Json.Linq;
 using Shared;
 using Framework.Tests.Fixtures;
 using Framework.Tests.Grains;
@@ -155,5 +156,91 @@ public class EventStorageTests
 
         page.TotalCount.Should().Be(0);
         page.Entries.Should().BeEmpty();
+    }
+
+    // Who writes Id: Marten, through the identity member of the snapshot; the framework does not. The second append goes
+    // through the stored snapshot: an Id the serializer can't restore loses the first event of the snapshot silently.
+    [Fact]
+    public async Task EveryRead_IdIsTheStreamId_AfterSecondAppend()
+    {
+        var eventStorage = GetSiloService<IEventStorage>();
+        var key = Guid.NewGuid();
+        var streamId = $"event_test:{key:D}";
+
+        await eventStorage.Append(streamId, new CounterIncremented { Amount = 3 });
+        await eventStorage.Append(streamId, new CounterIncremented { Amount = 4 });
+
+        var read = await eventStorage.Read<EventTestAggregate>(streamId);
+        read.Id.Should().Be(streamId);
+        read.Counter.Should().Be(7);
+
+        var rebuilt = await eventStorage.Rebuild<EventTestAggregate>(streamId);
+        rebuilt.Id.Should().Be(streamId);
+        rebuilt.Counter.Should().Be(7);
+
+        var batch = await eventStorage.ReadBatch<Guid, EventTestAggregate>([streamId]);
+        batch[key].Id.Should().Be(streamId);
+        batch[key].Counter.Should().Be(7);
+
+        var page = await eventStorage.ReadPage<Guid, EventTestAggregate>(streamId, GrainKeyType.Guid, offset: 0, limit: 10);
+        page.Entries.Should().ContainSingle();
+        page.Entries[0].Key.Should().Be(key);
+        page.Entries[0].Value.Id.Should().Be(streamId);
+        page.Entries[0].Value.Counter.Should().Be(7);
+
+        var all = new List<(Guid Key, EventTestAggregate Aggregate)>();
+
+        await foreach (var entry in eventStorage.ReadAll<Guid, EventTestAggregate>(streamId, GrainKeyType.Guid))
+            all.Add(entry);
+
+        all.Should().ContainSingle();
+        all[0].Key.Should().Be(key);
+        all[0].Aggregate.Id.Should().Be(streamId);
+        all[0].Aggregate.Counter.Should().Be(7);
+    }
+
+    [Fact]
+    public async Task Snapshot_StoresTheStreamIdInItsJson()
+    {
+        var eventStorage = GetSiloService<IEventStorage>();
+        var store = GetSiloService<IDocumentStore>();
+        var streamId = $"event_test:{Guid.NewGuid():D}";
+
+        await eventStorage.Append(streamId, new CounterIncremented { Amount = 1 });
+
+        await using var session = store.QuerySession();
+        var json = await session.Json.FindByIdAsync<EventTestAggregate>(streamId, TestContext.Current.CancellationToken);
+
+        JObject.Parse(json!)["Id"]!.Value<string>().Should().Be(streamId);
+    }
+
+    [Fact]
+    public async Task Read_MissingStream_IdIsEmpty()
+    {
+        var eventStorage = GetSiloService<IEventStorage>();
+
+        var read = await eventStorage.Read<EventTestAggregate>($"event_test:{Guid.NewGuid():D}");
+
+        read.Id.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Grain_IdIsTheStreamId_AfterTransactionalAndStandaloneWrites_AndThroughOrleansCopy()
+    {
+        var transactional = Guid.NewGuid();
+        var transactionalGrain = GetGrain<IEventTestGrain>(transactional);
+        await RunTransaction(() => transactionalGrain.AppendEvents(2, "a"));
+
+        var standalone = Guid.NewGuid();
+        await GetSiloService<IEventStorage>().Append($"event_test:{standalone:D}", new CounterIncremented { Amount = 5 });
+
+        var eventStorage = GetSiloService<IEventStorage>();
+        (await eventStorage.Read<EventTestAggregate>($"event_test:{transactional:D}")).Id
+            .Should().Be($"event_test:{transactional:D}");
+
+        // The first read of this activation goes to the snapshot; the result comes back through the Orleans codec.
+        var aggregate = await GetGrain<IEventTestGrain>(standalone).GetAggregate();
+        aggregate.Id.Should().Be($"event_test:{standalone:D}");
+        aggregate.Counter.Should().Be(5);
     }
 }

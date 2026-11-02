@@ -141,6 +141,11 @@ var state = await _state.Apply(new UserNameChanged(name));    // append event(s)
 var current = await _state.Read();
 ```
 
+`Id` is the stream id, written by Marten only: the inline snapshot and `AggregateStreamAsync` set it through the identity
+member, private setters and `init` included (a get-only `Id` throws on append). The `[JsonProperty]` of a private `Id` is
+required: without it the loaded snapshot has an empty `Id` and Marten restarts the snapshot from the new event, so the
+earlier events drop out of it silently (the stream keeps them, `Rebuild` sees them).
+
 Snapshot table is `mt_doc_<typename lowercase>` (derived by the generator). Real example: `backend/Meta/Users/Entities/User.cs`.
 
 ### Adding New State
