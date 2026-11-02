@@ -184,8 +184,7 @@ namespace Internal.Tests
             var options = new WebRtcPeerOptions(Array.Empty<string>(), Timeout);
             var guestEnd = new SignalingEnd();
             var hostEnd = new SignalingEnd();
-            guestEnd.Other = hostEnd;
-            hostEnd.Other = guestEnd;
+            guestEnd.Connect(hostEnd);
 
             var guest = new WebRtcPeerSocket(WebRtcPeerRole.Offer, guestEnd, options, guestLifetime);
             var host = new WebRtcPeerSocket(WebRtcPeerRole.Answer, hostEnd, options, hostLifetime);
@@ -201,13 +200,20 @@ namespace Internal.Tests
         {
             private readonly ViewableDelegate<WebRtcSignal> _received = new();
 
-            public SignalingEnd Other;
+            private SignalingEnd _other;
 
             public IViewableDelegate<WebRtcSignal> Received => _received;
 
+            // Both ends: each one sends to the other.
+            public void Connect(SignalingEnd other)
+            {
+                _other = other;
+                other._other = this;
+            }
+
             public void Send(WebRtcSignal signal)
             {
-                Other._received.Invoke(signal);
+                _other._received.Invoke(signal);
             }
         }
 

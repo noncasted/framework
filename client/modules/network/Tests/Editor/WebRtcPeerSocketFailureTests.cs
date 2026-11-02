@@ -108,8 +108,7 @@ namespace Internal.Tests
             {
                 var offerEnd = new PeerHostTests.SignalingEnd();
                 var answerEnd = new PeerHostTests.SignalingEnd();
-                offerEnd.Other = answerEnd;
-                answerEnd.Other = offerEnd;
+                offerEnd.Connect(answerEnd);
 
                 var offer = new WebRtcPeerSocket(WebRtcPeerRole.Offer, offerEnd, Options, lifetime);
                 var answer = new WebRtcPeerSocket(WebRtcPeerRole.Answer, answerEnd, Options, lifetime);
