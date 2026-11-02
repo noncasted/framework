@@ -46,7 +46,13 @@ namespace Internal
 
         static CompactMenuBar()
         {
-            if (IsSupported == false)
+            Start();
+        }
+
+        internal static void Start()
+        {
+            // Batchmode has no main toolbar and no native menu: nothing to hide or replace.
+            if (IsSupported == false || Application.isBatchMode == true)
                 return;
 
             Apply(IsEnabled);
