@@ -49,6 +49,23 @@ namespace ContainerGenerator {
             return copy;
         }
 
+        public void AddService(string service, string map = "") {
+            if (string.IsNullOrEmpty(service))
+                return;
+            if (ServiceTypes.Contains(service))
+                return;
+            ServiceTypes.Add(service);
+            while (ServiceMaps.Count < ServiceTypes.Count - 1)
+                ServiceMaps.Add("");
+            ServiceMaps.Add(map ?? "");
+        }
+
+        public void AddHole(string hole) {
+            Hole = CombineHole(Hole, hole);
+            if (Arms.Count == 0 && Origin == "ConstructedType")
+                Origin = "ParameterHole";
+        }
+
         public string FirstService() {
             for (var i = 0; i < ServiceTypes.Count; i++) {
                 if (string.IsNullOrEmpty(ServiceTypes[i]) == false)
@@ -73,6 +90,14 @@ namespace ContainerGenerator {
             if (string.IsNullOrEmpty(type))
                 return "object";
             return type;
+        }
+
+        private static string CombineHole(string existing, string next) {
+            if (string.IsNullOrEmpty(existing))
+                return next;
+            if (string.IsNullOrEmpty(next))
+                return existing;
+            return existing + "; " + next;
         }
     }
 }

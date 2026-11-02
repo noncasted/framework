@@ -19,23 +19,23 @@ namespace ContainerGenerator {
             var service = "";
             var serviceMap = "";
             if (symbol != null && symbol.TypeArguments.Length == 1) {
-                implementation = RegistrationFactory.Format(state, symbol.TypeArguments[0]);
-                implementationMap = RegistrationFactory.Map(state, symbol.TypeArguments[0]);
+                implementation = state.Format(symbol.TypeArguments[0]);
+                implementationMap = state.Map(symbol.TypeArguments[0]);
             }
             else if (symbol != null && symbol.TypeArguments.Length >= 2) {
-                service = RegistrationFactory.Format(state, symbol.TypeArguments[0]);
-                serviceMap = RegistrationFactory.Map(state, symbol.TypeArguments[0]);
-                implementation = RegistrationFactory.Format(state, symbol.TypeArguments[1]);
-                implementationMap = RegistrationFactory.Map(state, symbol.TypeArguments[1]);
+                service = state.Format(symbol.TypeArguments[0]);
+                serviceMap = state.Map(symbol.TypeArguments[0]);
+                implementation = state.Format(symbol.TypeArguments[1]);
+                implementationMap = state.Map(symbol.TypeArguments[1]);
             }
 
             var registration = RegistrationFactory.NewRegistration(state, invocation, "Register", implementation, "ConstructedType");
             registration.TypeMap = implementationMap;
             registration.Lifetime = _lifetimeReader.ReadLifetime(state, invocation, symbol);
             if (string.IsNullOrEmpty(implementation) == false && string.IsNullOrEmpty(service))
-                RegistrationFactory.AddService(registration, implementation, implementationMap);
+                registration.AddService(implementation, implementationMap);
             if (string.IsNullOrEmpty(service) == false)
-                RegistrationFactory.AddService(registration, service, serviceMap);
+                registration.AddService(service, serviceMap);
 
             state.Result.Registrations.Add(registration);
             state.LastRegistration = registration;
@@ -46,8 +46,8 @@ namespace ContainerGenerator {
             _walk.WalkReceiver(state, invocation);
             var argument = invocation.ArgumentList.Arguments.Count > 0 ? invocation.ArgumentList.Arguments[0].Expression : null;
             var implementation = symbol != null && symbol.TypeArguments.Length > 0
-                ? RegistrationFactory.Format(state, symbol.TypeArguments[0])
-                : argument != null ? RegistrationFactory.Format(state, state.Model.GetTypeInfo(argument).Type) : "";
+                ? state.Format(symbol.TypeArguments[0])
+                : argument != null ? state.Format(state.Model.GetTypeInfo(argument).Type) : "";
             var origin = RegistrationFactory.ClassifyValue(state, argument);
             var registration = RegistrationFactory.NewRegistration(state, invocation, "RegisterInstance", implementation, origin);
             registration.Hole = argument != null ? argument.ToString() : "";
@@ -60,8 +60,8 @@ namespace ContainerGenerator {
             _walk.WalkReceiver(state, invocation);
             var argument = invocation.ArgumentList.Arguments.Count > 0 ? invocation.ArgumentList.Arguments[0].Expression : null;
             var implementation = symbol != null && symbol.TypeArguments.Length > 0
-                ? RegistrationFactory.Format(state, symbol.TypeArguments[0])
-                : argument != null ? RegistrationFactory.Format(state, state.Model.GetTypeInfo(argument).Type) : "";
+                ? state.Format(symbol.TypeArguments[0])
+                : argument != null ? state.Format(state.Model.GetTypeInfo(argument).Type) : "";
             var origin = RegistrationFactory.ClassifyValue(state, argument);
             if (argument is ThisExpressionSyntax)
                 origin = "InjectExisting";
@@ -71,7 +71,7 @@ namespace ContainerGenerator {
             registration.Lifetime = _lifetimeReader.ReadLifetime(state, invocation, symbol);
             registration.Hole = argument != null ? argument.ToString() : "";
             if (string.IsNullOrEmpty(implementation) == false)
-                RegistrationFactory.AddService(registration, implementation);
+                registration.AddService(implementation);
             state.Result.Registrations.Add(registration);
             state.LastRegistration = registration;
             state.LastCallIndex = -1;
@@ -82,24 +82,24 @@ namespace ContainerGenerator {
             var service = "";
             var map = "";
             if (symbol != null && symbol.TypeArguments.Length > 0) {
-                service = RegistrationFactory.Format(state, symbol.TypeArguments[0]);
-                map = RegistrationFactory.Map(state, symbol.TypeArguments[0]);
+                service = state.Format(symbol.TypeArguments[0]);
+                map = state.Map(symbol.TypeArguments[0]);
             }
             else if (invocation.ArgumentList.Arguments.Count > 0) {
                 var argument = invocation.ArgumentList.Arguments[0].Expression;
                 if (argument is TypeOfExpressionSyntax typeOf) {
                     var type = state.Model.GetTypeInfo(typeOf.Type).Type;
-                    service = RegistrationFactory.Format(state, type);
-                    map = RegistrationFactory.Map(state, type);
+                    service = state.Format(type);
+                    map = state.Map(type);
                 }
             }
 
             if (string.IsNullOrEmpty(service))
                 return;
 
-            var target = RegistrationFactory.CurrentRegistration(state, invocation);
+            var target = state.CurrentRegistration(invocation);
             if (target != null) {
-                RegistrationFactory.AddService(target, service, map);
+                target.AddService(service, map);
                 return;
             }
 
@@ -112,15 +112,13 @@ namespace ContainerGenerator {
             var argument = invocation.ArgumentList.Arguments.Count > 0 ? invocation.ArgumentList.Arguments[0].Expression : null;
             var hole = argument != null ? argument.ToString() : "";
             var type = symbol != null && symbol.TypeArguments.Length > 0
-                ? RegistrationFactory.Format(state, symbol.TypeArguments[0])
-                : argument != null ? RegistrationFactory.Format(state, state.Model.GetTypeInfo(argument).Type) : "";
-            var target = RegistrationFactory.CurrentRegistration(state, invocation);
+                ? state.Format(symbol.TypeArguments[0])
+                : argument != null ? state.Format(state.Model.GetTypeInfo(argument).Type) : "";
+            var target = state.CurrentRegistration(invocation);
             if (target != null) {
-                target.Hole = RegistrationFactory.CombineHole(target.Hole, hole);
+                target.AddHole(hole);
                 if (string.IsNullOrEmpty(type) == false && target.ParameterTypes.Contains(type) == false)
                     target.ParameterTypes.Add(type);
-                if (target.Arms.Count == 0 && target.Origin == "ConstructedType")
-                    target.Origin = "ParameterHole";
                 return;
             }
 
@@ -133,7 +131,7 @@ namespace ContainerGenerator {
         public void HandleInject(WalkState state, InvocationExpressionSyntax invocation) {
             _walk.WalkReceiver(state, invocation);
             var argument = invocation.ArgumentList.Arguments.Count > 0 ? invocation.ArgumentList.Arguments[0].Expression : null;
-            var implementation = argument != null ? RegistrationFactory.Format(state, state.Model.GetTypeInfo(argument).Type) : "";
+            var implementation = argument != null ? state.Format(state.Model.GetTypeInfo(argument).Type) : "";
             var registration = RegistrationFactory.NewRegistration(state, invocation, "Inject", implementation, "InjectExisting");
             registration.Hole = argument != null ? argument.ToString() : "";
             state.Result.Registrations.Add(registration);
@@ -147,8 +145,8 @@ namespace ContainerGenerator {
             var implementation = "";
             var implementationMap = "";
             if (symbol != null && symbol.TypeArguments.Length == 1) {
-                implementation = RegistrationFactory.Format(state, symbol.TypeArguments[0]);
-                implementationMap = RegistrationFactory.Map(state, symbol.TypeArguments[0]);
+                implementation = state.Format(symbol.TypeArguments[0]);
+                implementationMap = state.Map(symbol.TypeArguments[0]);
             }
 
             var registration = RegistrationFactory.NewRegistration(state, invocation, "Injectable", implementation, "Injectable");
@@ -175,9 +173,20 @@ namespace ContainerGenerator {
             state.Result.Registrations.Add(registration);
         }
 
-        public void HandleCurrent(WalkState state, InvocationExpressionSyntax invocation, Action<GraphRegistration> apply) {
+        public void HandleAsSelf(WalkState state, InvocationExpressionSyntax invocation) {
+            HandleCurrent(state, invocation, registration => {
+                if (string.IsNullOrEmpty(registration.ImplementationType) == false)
+                    registration.AddService(registration.ImplementationType);
+            });
+        }
+
+        public void HandleWithScopeLifetime(WalkState state, InvocationExpressionSyntax invocation) {
+            HandleCurrent(state, invocation, registration => registration.AddHole("builder.Lifetime"));
+        }
+
+        private void HandleCurrent(WalkState state, InvocationExpressionSyntax invocation, Action<GraphRegistration> apply) {
             _walk.WalkReceiver(state, invocation);
-            var target = RegistrationFactory.CurrentRegistration(state, invocation);
+            var target = state.CurrentRegistration(invocation);
             if (target != null)
                 apply(target);
         }

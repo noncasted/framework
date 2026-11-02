@@ -53,10 +53,7 @@ namespace ContainerGenerator {
             }
 
             if (primitive == PrimitiveKind.AsSelf) {
-                _registrationHandlers.HandleCurrent(state, invocation, registration => {
-                    if (string.IsNullOrEmpty(registration.ImplementationType) == false)
-                        RegistrationFactory.AddService(registration, registration.ImplementationType);
-                });
+                _registrationHandlers.HandleAsSelf(state, invocation);
                 return;
             }
 
@@ -71,11 +68,7 @@ namespace ContainerGenerator {
             }
 
             if (primitive == PrimitiveKind.WithScopeLifetime) {
-                _registrationHandlers.HandleCurrent(state, invocation, registration => {
-                    registration.Hole = RegistrationFactory.CombineHole(registration.Hole, "builder.Lifetime");
-                    if (registration.Origin == "ConstructedType")
-                        registration.Origin = "ParameterHole";
-                });
+                _registrationHandlers.HandleWithScopeLifetime(state, invocation);
                 return;
             }
 

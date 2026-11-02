@@ -25,5 +25,39 @@ namespace ContainerGenerator {
             Model = model;
             Result = result;
         }
+
+        // A local names its registration or its installer call; LastRegistration is only for a chain without one.
+        public GraphRegistration? CurrentRegistration(InvocationExpressionSyntax invocation) {
+            var receiver = WalkSyntax.GetReceiver(invocation);
+            if (receiver != null &&
+                WalkSyntax.Unwrap(receiver) is IdentifierNameSyntax identifier &&
+                Locals.TryGetValue(identifier.Identifier.Text, out var local)) {
+                if (local.Registration != null) {
+                    LastRegistration = local.Registration;
+                    LastCallIndex = -1;
+                    return local.Registration;
+                }
+
+                if (local.ReturnedCallIndex >= 0) {
+                    LastRegistration = null;
+                    LastCallIndex = local.ReturnedCallIndex;
+                    return null;
+                }
+            }
+
+            return LastRegistration;
+        }
+
+        public string Format(ITypeSymbol? type) {
+            if (type == null)
+                return "";
+            return TypeSubstitution.Template(Method, type);
+        }
+
+        public string Map(ITypeSymbol? type) {
+            if (type == null)
+                return "";
+            return TypeSubstitution.Map(Method, type);
+        }
     }
 }

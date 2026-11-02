@@ -25,7 +25,7 @@ namespace ContainerGenerator {
                 if (symbol == null || Primitives.OfSymbol(symbol) != PrimitiveKind.Register || symbol.TypeArguments.Length == 0)
                     return false;
 
-                var implementation = RegistrationFactory.Format(state, symbol.TypeArguments[symbol.TypeArguments.Length == 1 ? 0 : 1]);
+                var implementation = state.Format(symbol.TypeArguments[symbol.TypeArguments.Length == 1 ? 0 : 1]);
                 registration.Arms.Add(new GraphSwitchArm {
                     Discriminant = QualifiedPattern(state, arm.Pattern),
                     ImplementationType = implementation,
@@ -62,7 +62,7 @@ namespace ContainerGenerator {
                 if (symbol == null || Primitives.OfSymbol(symbol) != PrimitiveKind.WithParameter)
                     return false;
 
-                var target = RegistrationFactory.CurrentRegistration(state, invocation);
+                var target = state.CurrentRegistration(invocation);
                 if (target == null || target.Origin != "SwitchFactory" && target.Arms.Count == 0)
                     return false;
 
@@ -70,7 +70,7 @@ namespace ContainerGenerator {
                     ? invocation.ArgumentList.Arguments[0].Expression.ToString()
                     : "";
                 var argumentType = invocation.ArgumentList.Arguments.Count > 0
-                    ? RegistrationFactory.Format(state, state.Model.GetTypeInfo(invocation.ArgumentList.Arguments[0].Expression).Type)
+                    ? state.Format(state.Model.GetTypeInfo(invocation.ArgumentList.Arguments[0].Expression).Type)
                     : "";
                 var discriminant = QualifiedPattern(state, arm.Pattern);
                 foreach (var existing in target.Arms) {

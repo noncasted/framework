@@ -60,11 +60,8 @@ namespace ContainerGenerator {
                     ApplyCallAs(returned, asServices);
                     if (string.IsNullOrEmpty(parameters) == false)
                         returned.ParameterTypes.AddRange(parameters.Split(';'));
-                    if (string.IsNullOrEmpty(hole) == false) {
-                        returned.Hole = string.IsNullOrEmpty(returned.Hole) ? hole : returned.Hole + "; " + hole;
-                        if (returned.Arms.Count == 0 && returned.Origin == "ConstructedType")
-                            returned.Origin = "ParameterHole";
-                    }
+                    if (string.IsNullOrEmpty(hole) == false)
+                        returned.AddHole(hole);
                 }
 
                 stack.Remove(method.Id);
