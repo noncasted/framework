@@ -71,7 +71,7 @@ public class StoredStatesFormatTests(OrleansTestClusterFixture fixture)
 
     private const string RuntimeChannelOptionsJson =
         """
-        {"$type":"Infrastructure.RuntimeChannelOptions, Infrastructure","ObserverKeepAliveMinutes":0,"CatchUpBufferSize":21,"DeliveryTimeoutSeconds":22,"ResubscribeMinIntervalMs":23,"ResubscribeMaxIntervalMs":24}
+        {"$type":"Infrastructure.RuntimeChannelOptions, Infrastructure","ObserverKeepAliveMinutes":0,"CatchUpBufferSize":21,"DeliveryTimeoutSeconds":22,"ResubscribeMinIntervalMs":23,"ResubscribeMaxIntervalMs":24,"ResubscribeTimeoutMs":25}
         """;
 
     private const string RuntimePipeOptionsJson =
@@ -252,6 +252,7 @@ public class StoredStatesFormatTests(OrleansTestClusterFixture fixture)
             options.DeliveryTimeoutSeconds.Should().Be(22);
             options.ResubscribeMinIntervalMs.Should().Be(23);
             options.ResubscribeMaxIntervalMs.Should().Be(24);
+            options.ResubscribeTimeoutMs.Should().Be(25);
         });
     }
 
@@ -265,6 +266,7 @@ public class StoredStatesFormatTests(OrleansTestClusterFixture fixture)
         options.DeliveryTimeoutSeconds.Should().Be(22);
         options.ResubscribeMinIntervalMs.Should().Be(10_000);
         options.ResubscribeMaxIntervalMs.Should().Be(60_000);
+        options.ResubscribeTimeoutMs.Should().Be(30_000);
     }
 
     [Fact]

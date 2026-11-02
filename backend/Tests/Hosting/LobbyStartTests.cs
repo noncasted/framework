@@ -681,6 +681,21 @@ public class LobbyStartTests
         lobby.Game.PlayersCount.Should().Be(2);
     }
 
+    // The step of a second that has passed is queued behind a cancel: it changes nothing.
+    [Fact]
+    public async Task CancelQueuedBeforeTheStep_StepIsDropped()
+    {
+        var lobby = await TestLobby.Create(guests: 1);
+        lobby.WriteStart(true);
+
+        lobby.EnqueueWrite(lobby.Session.Owner.Owner.Value!, SharedLobbyService.StartPropertyId, new LobbyStartState());
+        lobby.World.Time.Advance(LobbyService.CountdownStep);
+        lobby.Session.Queue.Drain();
+
+        lobby.Countdown.IsActive.Should().BeFalse();
+        lobby.Countdown.SecondsLeft.Should().Be(0);
+    }
+
     // The countdown of a lobby that has ended waits on nothing: its step queues no action after the end.
     [Fact]
     public async Task LobbyEndsDuringCountdown_StepQueuesNothing()

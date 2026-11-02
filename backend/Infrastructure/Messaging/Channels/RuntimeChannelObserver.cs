@@ -124,7 +124,7 @@ public class RuntimeChannelObserver : IRuntimeChannelObserver
         }
 
         // The first message tells the epoch. A message of another epoch is a late one of a previous activation: the
-        // switch to a new activation happens in the resubscribe, with its catch-up (RuntimeChannelClient.Listener).
+        // switch to a new activation happens in the resubscribe, with its catch-up (RuntimeChannelResubscription).
         if (LastSeenSequence == 0 && LastSeenEpoch == Guid.Empty)
             LastSeenEpoch = sequenced.Epoch;
 

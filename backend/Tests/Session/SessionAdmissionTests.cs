@@ -513,6 +513,113 @@ public class SessionAdmissionTests
         }
     }
 
+    [Fact]
+    public void OnUserJoined_ClosedSession_Throws()
+    {
+        var admission = Create();
+        admission.Close();
+
+        var join = () => admission.OnUserJoined(Guid.NewGuid());
+
+        join.Should().Throw<InvalidOperationException>();
+    }
+
+    // A user that joins without TryAccept consumes its own reservation: only the connection holds the session then.
+    [Fact]
+    public void OnUserJoined_WithoutAccept_ConsumesTheReservation()
+    {
+        var admission = Create();
+        var user = Guid.NewGuid();
+
+        admission.TryReserve(user, MaxUsers, Start).Should().BeTrue();
+        admission.OnUserJoined(user);
+
+        admission.GetPendingUsers(Start).Should().BeEmpty();
+        admission.GetReservationsTimeout(Start).Should().BeNull();
+        admission.OnUserLeft(user, Start).Should().BeTrue();
+    }
+
+    [Fact]
+    public void OnUserAway_ClosedSession_Throws()
+    {
+        var admission = Create(reconnectWindow: ReconnectWindow);
+        var user = Join(admission, Start);
+        admission.Close();
+
+        var away = () => admission.OnUserAway(user, Start);
+
+        away.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void OnUserAway_AlreadyAway_Throws()
+    {
+        var admission = Create(reconnectWindow: ReconnectWindow);
+        var user = Join(admission, Start);
+        admission.OnUserAway(user, Start);
+
+        var away = () => admission.OnUserAway(user, Start);
+
+        away.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void TryExpireAway_UserIsNotAway_False()
+    {
+        var admission = Create(reconnectWindow: ReconnectWindow);
+        var user = Join(admission, Start);
+
+        admission.TryExpireAway(user, Start + ReconnectWindow).Should().BeFalse();
+    }
+
+    // Two returns on their way at once: each one holds the session until it joins or fails.
+    [Fact]
+    public void TwoReturnsOfOneUser_EachHoldsTheSession_TheLastFailureCloses()
+    {
+        var admission = Create(reconnectWindow: ReconnectWindow);
+        var user = Join(admission, Start);
+
+        admission.TryAccept(user, Start, true).Should().BeTrue();
+        admission.TryAccept(user, Start, true).Should().BeTrue();
+        admission.OnUserLeft(user, Start).Should().BeFalse();
+
+        admission.GetPendingUsers(Start).Should().ContainSingle().Which.Should().Be(user);
+
+        admission.OnJoinFailed(user, Start).Should().BeFalse();
+        admission.GetPendingUsers(Start).Should().ContainSingle().Which.Should().Be(user);
+
+        admission.OnJoinFailed(user, Start).Should().BeTrue();
+        admission.IsClosed.Should().BeTrue();
+    }
+
+    // The own away seat of a user that reserves anew is not somebody else holding the session.
+    [Fact]
+    public void AwayUserWithStaleConnection_OwnAwaySeatDoesNotCount_HeldOnlyByIt()
+    {
+        var admission = Create(reconnectWindow: ReconnectWindow);
+        var user = Join(admission, Start);
+        admission.OnUserAway(user, Start);
+
+        admission.IsHeldOnlyBy(user).Should().BeTrue();
+        admission.TryReserve(user, MaxUsers, Start).Should().BeFalse();
+        admission.HasFreePlace(user, MaxUsers, Start).Should().BeFalse();
+    }
+
+    // The away seat of another user holds the session and takes a place.
+    [Fact]
+    public void AwaySeatOfAnotherUser_HoldsTheSession_TakesAPlace()
+    {
+        var admission = Create(reconnectWindow: ReconnectWindow);
+        var user = Join(admission, Start);
+        var other = Join(admission, Start);
+        admission.OnUserAway(other, Start);
+        admission.OnUserLeft(other, Start);
+
+        admission.IsHeldOnlyBy(user).Should().BeFalse();
+        admission.HasFreePlace(Guid.NewGuid(), 2, Start).Should().BeFalse();
+        admission.HasFreePlace(Guid.NewGuid(), 3, Start).Should().BeTrue();
+    }
+
     private static SessionAdmission Create(TimeSpan? joinTimeout = null, TimeSpan? reconnectWindow = null)
     {
         return new SessionAdmission(new SessionCreateOptions

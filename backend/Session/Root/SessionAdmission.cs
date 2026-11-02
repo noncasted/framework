@@ -72,29 +72,18 @@ public interface ISessionAdmission
     TimeSpan? GetReservationsTimeout(DateTime now);
 }
 
+// The rule over the holders of the session: one lock, so the closed flag is set in the same critical section that
+// counts them.
 public class SessionAdmission : ISessionAdmission
 {
     public SessionAdmission(SessionCreateOptions options)
     {
-        _joinTimeout = options.JoinTimeout;
-        _reconnectWindow = options.ReconnectWindow;
+        _holders = new SessionHolders(options.JoinTimeout, options.ReconnectWindow);
     }
 
-    private readonly TimeSpan _joinTimeout;
-    private readonly TimeSpan _reconnectWindow;
-
+    private readonly SessionHolders _holders;
     private readonly Lock _lock = new();
-    private readonly Dictionary<Guid, DateTime> _reservations = new();
-    private readonly Dictionary<Guid, int> _joining = new();
 
-    // Away seats by user: the end of their reconnect window. Removed by a return or by TryExpireAway only.
-    private readonly Dictionary<Guid, DateTime> _away = new();
-
-    // Joined connections by user: a reconnecting user may hold two for a moment (the stale one is being dropped).
-    private readonly Dictionary<Guid, int> _joined = new();
-
-    private int _joiningCount;
-    private int _joinedCount;
     private bool _isClosed;
     private bool _isSealed;
 
@@ -131,12 +120,7 @@ public class SessionAdmission : ISessionAdmission
     public bool IsHeldOnlyBy(Guid userId)
     {
         lock (_lock)
-        {
-            // The same count as the refusal of CanReserve.
-            var stale = _joined.GetValueOrDefault(userId);
-            var awayOthers = _away.Count - (_away.ContainsKey(userId) == true ? 1 : 0);
-            return stale != 0 && _joinedCount - stale + _joiningCount + _reservations.Count + awayOthers == 0;
-        }
+            return _holders.IsHeldOnlyBy(userId);
     }
 
     public bool TryReserve(Guid userId, int maxUsers, DateTime now)
@@ -146,12 +130,12 @@ public class SessionAdmission : ISessionAdmission
             if (_isClosed == true || _isSealed == true)
                 return false;
 
-            RemoveExpired(now);
+            _holders.RemoveExpired(now);
 
-            if (CanReserve(userId, maxUsers) == false)
+            if (_holders.CanReserve(userId, maxUsers) == false)
                 return false;
 
-            _reservations[userId] = now + _joinTimeout;
+            _holders.Reserve(userId, now);
             return true;
         }
     }
@@ -163,9 +147,9 @@ public class SessionAdmission : ISessionAdmission
             if (_isClosed == true || _isSealed == true)
                 return false;
 
-            RemoveExpired(now);
+            _holders.RemoveExpired(now);
 
-            return CanReserve(userId, maxUsers);
+            return _holders.CanReserve(userId, maxUsers);
         }
     }
 
@@ -176,18 +160,9 @@ public class SessionAdmission : ISessionAdmission
             if (_isClosed == true)
                 return false;
 
-            RemoveExpired(now);
+            _holders.RemoveExpired(now);
 
-            var isReserved = _reservations.Remove(userId);
-            var isReturn = allowsReturn == true && (_away.Remove(userId) == true || _joined.ContainsKey(userId) == true);
-
-            if (isReserved == false && isReturn == false)
-                return false;
-
-            _joining[userId] = _joining.GetValueOrDefault(userId) + 1;
-            _joiningCount++;
-
-            return true;
+            return _holders.TryStartJoining(userId, allowsReturn);
         }
     }
 
@@ -198,12 +173,7 @@ public class SessionAdmission : ISessionAdmission
             if (_isClosed == true)
                 throw new InvalidOperationException($"User {userId} joined a closed session");
 
-            // A user may join without TryAccept (tests): then it only consumes its own reservation, if there is one.
-            if (RemoveJoining(userId) == false)
-                _reservations.Remove(userId);
-
-            _joined[userId] = _joined.GetValueOrDefault(userId) + 1;
-            _joinedCount++;
+            _holders.Join(userId);
         }
     }
 
@@ -214,56 +184,33 @@ public class SessionAdmission : ISessionAdmission
             if (_isClosed == true)
                 throw new InvalidOperationException($"User {userId} is away from a closed session");
 
-            if (_joined.ContainsKey(userId) == false)
-                throw new InvalidOperationException($"User {userId} is away from a session it has not joined");
-
-            if (_away.ContainsKey(userId) == true)
-                throw new InvalidOperationException($"User {userId} is already away");
-
-            if (_reconnectWindow == TimeSpan.Zero)
-                throw new InvalidOperationException($"User {userId} is away from a session without a reconnect window");
-
-            _away.Add(userId, now + _reconnectWindow);
+            _holders.MarkAway(userId, now);
         }
     }
 
     public bool IsAway(Guid userId)
     {
         lock (_lock)
-            return _away.ContainsKey(userId);
+            return _holders.IsAway(userId);
     }
 
     public bool TryExpireAway(Guid userId, DateTime now)
     {
         lock (_lock)
-        {
-            if (_away.TryGetValue(userId, out var expiresAt) == false || expiresAt > now)
-                return false;
-
-            _away.Remove(userId);
-            return true;
-        }
+            return _holders.TryExpireAway(userId, now);
     }
 
     public bool IsJoined(Guid userId)
     {
         lock (_lock)
-            return _joined.ContainsKey(userId);
+            return _holders.IsJoined(userId);
     }
 
     public bool OnUserLeft(Guid userId, DateTime now)
     {
         lock (_lock)
         {
-            if (_joined.TryGetValue(userId, out var count) == false)
-                throw new InvalidOperationException($"User {userId} left a session it has not joined");
-
-            if (count == 1)
-                _joined.Remove(userId);
-            else
-                _joined[userId] = count - 1;
-
-            _joinedCount--;
+            _holders.Leave(userId);
             return CloseIfEmpty(now);
         }
     }
@@ -272,7 +219,7 @@ public class SessionAdmission : ISessionAdmission
     {
         lock (_lock)
         {
-            if (RemoveJoining(userId) == false)
+            if (_holders.RemoveJoining(userId) == false)
                 throw new InvalidOperationException($"User {userId} is not joining the session");
 
             return CloseIfEmpty(now);
@@ -289,7 +236,7 @@ public class SessionAdmission : ISessionAdmission
     {
         lock (_lock)
         {
-            if (_reservations.Remove(userId) == false)
+            if (_holders.CancelReservation(userId) == false)
                 return false;
 
             return CloseIfEmpty(now);
@@ -300,17 +247,9 @@ public class SessionAdmission : ISessionAdmission
     {
         lock (_lock)
         {
-            RemoveExpired(now);
+            _holders.RemoveExpired(now);
 
-            var users = new List<Guid>(_reservations.Keys);
-
-            foreach (var userId in _joining.Keys)
-            {
-                if (users.Contains(userId) == false)
-                    users.Add(userId);
-            }
-
-            return users;
+            return _holders.GetPendingUsers();
         }
     }
 
@@ -318,27 +257,10 @@ public class SessionAdmission : ISessionAdmission
     {
         lock (_lock)
         {
-            RemoveExpired(now);
+            _holders.RemoveExpired(now);
 
-            if (_reservations.Count == 0)
-                return null;
-
-            return _reservations.Values.Max() - now;
+            return _holders.GetReservationsTimeout(now);
         }
-    }
-
-    // Not closed, not sealed, no expired reservations: checked by the caller.
-    private bool CanReserve(Guid userId, int maxUsers)
-    {
-        // The joined connections of the user itself are stale: they neither take a place nor hold the session.
-        var stale = _joined.GetValueOrDefault(userId);
-        var awayOthers = _away.Count - (_away.ContainsKey(userId) == true ? 1 : 0);
-        var holders = _joinedCount - stale + _joiningCount + _reservations.Count + awayOthers;
-
-        if (stale != 0 && holders == 0)
-            return false;
-
-        return _reservations.ContainsKey(userId) == true || holders < maxUsers;
     }
 
     private bool CloseIfEmpty(DateTime now)
@@ -346,35 +268,12 @@ public class SessionAdmission : ISessionAdmission
         if (_isClosed == true)
             return false;
 
-        RemoveExpired(now);
+        _holders.RemoveExpired(now);
 
-        if (_joinedCount != 0 || _joiningCount != 0 || _reservations.Count != 0 || _away.Count != 0)
+        if (_holders.IsEmpty == false)
             return false;
 
         _isClosed = true;
         return true;
-    }
-
-    private bool RemoveJoining(Guid userId)
-    {
-        if (_joining.TryGetValue(userId, out var count) == false)
-            return false;
-
-        if (count == 1)
-            _joining.Remove(userId);
-        else
-            _joining[userId] = count - 1;
-
-        _joiningCount--;
-        return true;
-    }
-
-    private void RemoveExpired(DateTime now)
-    {
-        foreach (var (userId, expiresAt) in _reservations)
-        {
-            if (expiresAt <= now)
-                _reservations.Remove(userId);
-        }
     }
 }

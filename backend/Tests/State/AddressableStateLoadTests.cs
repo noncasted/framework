@@ -87,7 +87,7 @@ public class AddressableStateLoadTests
         await _state.OnOrleansStarted(_lifetime);
         _channel.ReportGap();
 
-        await WaitFor(() => _state.Value.LockWaitSeconds == 3);
+        await TestWait.Until(() => _state.Value.LockWaitSeconds == 3);
     }
 
     [Fact]
@@ -113,18 +113,5 @@ public class AddressableStateLoadTests
             UpdateDate = updateDate,
             Value = JsonConvert.SerializeObject(value)
         };
-    }
-
-    private static async Task WaitFor(Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow.AddSeconds(5);
-
-        while (condition() == false)
-        {
-            if (DateTime.UtcNow > deadline)
-                throw new TimeoutException("Condition not met");
-
-            await Task.Delay(10, TestContext.Current.CancellationToken);
-        }
     }
 }

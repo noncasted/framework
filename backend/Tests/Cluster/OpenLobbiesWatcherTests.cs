@@ -39,19 +39,6 @@ public class OpenLobbiesWatcherTests
 
         channel.ReportGap();
 
-        await WaitFor(() => watcher.Lobbies.Value.Version == 3);
-    }
-
-    private static async Task WaitFor(Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow.AddSeconds(5);
-
-        while (condition() == false)
-        {
-            if (DateTime.UtcNow > deadline)
-                throw new TimeoutException("Condition not met");
-
-            await Task.Delay(10, TestContext.Current.CancellationToken);
-        }
+        await TestWait.Until(() => watcher.Lobbies.Value.Version == 3);
     }
 }

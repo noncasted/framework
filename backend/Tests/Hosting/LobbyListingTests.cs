@@ -1,4 +1,6 @@
+using Cluster.Lobbies;
 using FluentAssertions;
+using Framework.Tests.Fixtures;
 using Framework.Tests.Session;
 using Game.Hosting;
 using Game.Lobbies;
@@ -176,7 +178,7 @@ public class LobbyListingTests
         lobby.World.Codes.Calls.Should().NotContain($"Mark {code}");
 
         lobby.World.Codes.MarkStartedGate.SetResult();
-        await WaitFor(() => lobby.World.Codes.Entries[code].Listing.PlayersCount == 1);
+        await TestWait.Until(() => lobby.World.Codes.Entries[code].Listing.PlayersCount == 1);
 
         lobby.World.Codes.FindListed(code)!.PlayersCount.Should().Be(1);
     }
@@ -426,6 +428,146 @@ public class LobbyListingTests
         world.Lobbies.JoinLate(match.Session.Id, Guid.NewGuid()).Status.Should().Be(LobbyJoinStatus.NotFound);
     }
 
+    // The match reports it can't take a new player: Started, for the code and for the match itself.
+    [Fact]
+    public async Task MatchReportedNotJoinable_LatePlayer_GetsStarted()
+    {
+        var world = new HostingTestWorld();
+        var (lobby, match, code) = await StartMatch(world, isOpen: true);
+        var lobbyId = lobby.Session.Session.Id;
+        var late = Guid.NewGuid();
+
+        world.Leases.Report(lobbyId, new LobbyListing
+        {
+            IsOpen = true,
+            MaxPlayers = 4,
+            IsRunning = true,
+            IsJoinable = false
+        });
+
+        world.Lobbies.Join(lobbyId, match.Session.Id, code, late).Status.Should().Be(LobbyJoinStatus.Started);
+        world.Lobbies.JoinMatch(lobbyId, match.Session.Id, late).Should().Be(LobbyJoinStatus.Started);
+    }
+
+    // The lobby of the late players holds no place in the match: it fills up on its own.
+    [Fact]
+    public void LobbyOfLatePlayers_IsFull_NextPlayerGetsFull()
+    {
+        var world = new HostingTestWorld(maxUsers: 2);
+        var match = world.CreatePublicMatch();
+        match.ReserveAndEnter();
+
+        world.Lobbies.JoinLate(match.Session.Id, Guid.NewGuid()).Status.Should().Be(LobbyJoinStatus.Ok);
+        world.Lobbies.JoinLate(match.Session.Id, Guid.NewGuid()).Status.Should().Be(LobbyJoinStatus.Ok);
+        world.Lobbies.JoinLate(match.Session.Id, Guid.NewGuid()).Status.Should().Be(LobbyJoinStatus.Full);
+    }
+
+    // The place checked by the first look is gone when it is taken.
+    [Fact]
+    public void JoinMatch_PlaceTakenBetweenTheCheckAndTheReservation_Full_OrNotFoundWhenClosed()
+    {
+        var world = new HostingTestWorld();
+        var matchId = Guid.NewGuid();
+        var match = Substitute.For<ISession>();
+        match.Type.Returns(SessionType.Match);
+        match.HasFreePlace(Arg.Any<Guid>()).Returns(true);
+        match.TryReserve(Arg.Any<Guid>()).Returns(false);
+        match.IsClosed.Returns(false, false, false, true);
+
+        var collection = Substitute.For<ISessionsCollection>();
+
+        collection.TryGet(matchId, out Arg.Any<ISession>()!).Returns(call => {
+            call[1] = match;
+            return true;
+        });
+
+        var lobbies = Lobbies(world, world, collection);
+
+        lobbies.JoinMatch(Guid.Empty, matchId, Guid.NewGuid()).Should().Be(LobbyJoinStatus.Full);
+        lobbies.JoinMatch(Guid.Empty, matchId, Guid.NewGuid()).Should().Be(LobbyJoinStatus.NotFound);
+    }
+
+    // A lobby of the late players closed under the reservation is replaced once; the old one ending later does not
+    // take the new one out of the map.
+    [Fact]
+    public void LobbyOfLatePlayersClosedUnderTheReservation_IsReplaced_OldOneEndsLater_NewOneStays()
+    {
+        var world = new HostingTestWorld();
+        var match = world.CreatePublicMatch();
+        var closedLifetime = new Lifetime();
+        var closed = LateLobby(closedLifetime, isClosed: true, reserves: false);
+        var replacement = LateLobby(new Lifetime(), isClosed: false, reserves: true);
+        var factory = Substitute.For<ILobbyFactory>();
+        factory.Create(Arg.Any<LobbyCreation>()).Returns(closed, replacement);
+
+        var lobbies = Lobbies(world, factory, world.Collection);
+
+        lobbies.JoinLate(match.Session.Id, Guid.NewGuid()).SessionId.Should().Be(replacement.Id);
+
+        closedLifetime.Terminate();
+
+        lobbies.JoinLate(match.Session.Id, Guid.NewGuid()).SessionId.Should().Be(replacement.Id);
+        factory.ReceivedCalls().Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void LobbyOfLatePlayersClosedUnderTheReservationTwice_Throws()
+    {
+        var world = new HostingTestWorld();
+        var match = world.CreatePublicMatch();
+        var factory = Substitute.For<ILobbyFactory>();
+
+        factory.Create(Arg.Any<LobbyCreation>())
+               .Returns(_ => LateLobby(new Lifetime(), isClosed: true, reserves: false));
+
+        var lobbies = Lobbies(world, factory, world.Collection);
+
+        var join = () => lobbies.JoinLate(match.Session.Id, Guid.NewGuid());
+
+        join.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void LobbyFactoryBuildsAMatchForTheLatePlayers_Throws()
+    {
+        var world = new HostingTestWorld();
+        var match = world.CreatePublicMatch();
+        var built = world.CreatePublicMatch().Session;
+        var factory = Substitute.For<ILobbyFactory>();
+        factory.Create(Arg.Any<LobbyCreation>()).Returns(built);
+
+        var lobbies = Lobbies(world, factory, world.Collection);
+
+        var join = () => lobbies.JoinLate(match.Session.Id, Guid.NewGuid());
+
+        join.Should().Throw<InvalidOperationException>();
+    }
+
+    private static LobbySessions Lobbies(HostingTestWorld world, ILobbyFactory factory, ISessionsCollection collection)
+    {
+        return new LobbySessions(
+            factory,
+            collection,
+            world.Codes,
+            world.Leases,
+            world.EntryPolicy,
+            world.Options,
+            world.Discovery,
+            NullLogger<LobbySessions>.Instance);
+    }
+
+    private static ISession LateLobby(Lifetime lifetime, bool isClosed, bool reserves)
+    {
+        var lobby = Substitute.For<ISession>();
+        lobby.Id.Returns(Guid.NewGuid());
+        lobby.Type.Returns(SessionType.Lobby);
+        lobby.Lifetime.Returns(lifetime);
+        lobby.IsClosed.Returns(isClosed);
+        lobby.TryReserve(Arg.Any<Guid>()).Returns(reserves);
+
+        return lobby;
+    }
+
     // An open lobby with its players moved to the started match: the lobby session is closed.
     private static async Task<(TestLobby Lobby, TestSession Match, string Code)> StartMatch(
         HostingTestWorld world,
@@ -449,14 +591,6 @@ public class LobbyListingTests
         }
 
         return (lobby, match, code);
-    }
-
-    private static async Task WaitFor(Func<bool> condition)
-    {
-        for (var i = 0; i < 100 && condition() == false; i++)
-            await Task.Delay(10);
-
-        condition().Should().BeTrue();
     }
 
     // A bot of the match takes no place: it is neither a player of the listing nor its leader.

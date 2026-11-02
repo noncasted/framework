@@ -36,8 +36,8 @@ public class ClusterFeaturesWriterTests(OrleansTestClusterFixture fixture)
         reloaded.Value.CoordinatorUnhealthy.Should().BeTrue();
         reloaded.IsAcceptingConnections.Should().BeFalse();
 
-        await WaitUntil(() => coordinator.Value.AcceptingConnections && coordinator.Value.CoordinatorUnhealthy);
-        await WaitUntil(() => gateway.Value.SideEffectsEnabled);
+        await TestWait.Until(() => coordinator.Value.AcceptingConnections && coordinator.Value.CoordinatorUnhealthy);
+        await TestWait.Until(() => gateway.Value.SideEffectsEnabled);
 
         lifetime.Terminate();
     }
@@ -85,18 +85,5 @@ public class ClusterFeaturesWriterTests(OrleansTestClusterFixture fixture)
 
         await features.OnDeployChanged(deployId, lifetime);
         return features;
-    }
-
-    private static async Task WaitUntil(Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-
-        while (condition() == false)
-        {
-            if (DateTime.UtcNow > deadline)
-                throw new TimeoutException("Condition was not reached in 10 s");
-
-            await Task.Delay(20, TestContext.Current.CancellationToken);
-        }
     }
 }

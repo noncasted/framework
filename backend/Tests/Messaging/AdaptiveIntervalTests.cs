@@ -133,4 +133,38 @@ public class AdaptiveIntervalTests
 
         delay.TotalSeconds.Should().BeApproximately(35, 0.01);
     }
+
+    [Fact]
+    public async Task ConcurrentOutcomes_NeverLoseBoth()
+    {
+        // No outcome in a row gives exactly the min interval: a success counts as a step, a failure gives the base.
+        var interval = new AdaptiveInterval(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(1),
+            jitterFactor: 0);
+
+        interval.RecordSuccess();
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromMilliseconds(500);
+        var lost = false;
+
+        await Task.WhenAll(Task.Run(Successes), Task.Run(Failures));
+
+        lost.Should().BeFalse("after any order of the outcomes one of them must count");
+
+        void Successes()
+        {
+            while (DateTime.UtcNow < deadline && Volatile.Read(ref lost) == false)
+                interval.RecordSuccess();
+        }
+
+        void Failures()
+        {
+            while (DateTime.UtcNow < deadline && Volatile.Read(ref lost) == false)
+            {
+                interval.RecordFailure();
+
+                if (interval.GetNextDelay() == TimeSpan.FromSeconds(10))
+                    Volatile.Write(ref lost, true);
+            }
+        }
+    }
 }

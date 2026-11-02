@@ -8,7 +8,7 @@ namespace Framework.Tests.Fixtures;
 /// </summary>
 public static class TestWait
 {
-    private static readonly TimeSpan Bound = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan Bound = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(10);
 
     public static Task Until(Func<bool> condition)

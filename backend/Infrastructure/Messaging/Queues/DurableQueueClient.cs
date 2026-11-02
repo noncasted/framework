@@ -35,7 +35,10 @@ public class DurableQueueClient : IDurableQueueClient
 
     public Task Start(IReadOnlyLifetime lifetime)
     {
-        ResubscribeLoop(lifetime).NoAwait();
+        ResubscribeLoop.Run(lifetime,
+            () => _listeners.Values.ToArray(),
+            () => TimeSpan.FromSeconds(10),
+            () => ResubscribeLoop.DefaultTimeout).NoAwait();
         return Task.CompletedTask;
     }
 
@@ -45,8 +48,7 @@ public class DurableQueueClient : IDurableQueueClient
             return;
 
         var rawId = id.ToRaw();
-        var (transportListener, created) = await GetOrCreateListener(id);
-        var handlerId = transportListener.AddHandler(async message => {
+        var (transportListener, handlerId, created) = await AddToListener(id, async message => {
             if (message is not T castedMessage)
                 throw new InvalidCastException($"Expected {typeof(T)}, but got {message.GetType()}");
 
@@ -79,14 +81,14 @@ public class DurableQueueClient : IDurableQueueClient
 
     public void PushTransactional(IDurableQueueId id, object message)
     {
-        if (TransactionContextProvider.Current == null)
-            throw new InvalidOperationException();
+        var transaction = TransactionContextProvider.Current
+            ?? throw new InvalidOperationException($"Transactional push to queue {id.ToRaw()} outside of a transaction");
 
         var sideEffect = new DurableQueueSideEffect()
         {
             QueueName = id.ToRaw(),
             Message = message,
-            CorrelationId = TransactionContextProvider.Current?.Id ?? Guid.NewGuid()
+            CorrelationId = transaction.Id
         };
 
         sideEffect.AddToTransaction();
@@ -100,6 +102,23 @@ public class DurableQueueClient : IDurableQueueClient
             Message = message,
             CorrelationId = Guid.NewGuid()
         });
+    }
+
+    private async Task<(Listener Listener, Guid HandlerId, bool Created)> AddToListener(
+        IDurableQueueId id,
+        Func<object, Task> handler)
+    {
+        while (true)
+        {
+            var (listener, created) = await GetOrCreateListener(id);
+            var handlerId = listener.AddHandler(handler);
+
+            if (handlerId != null)
+                return (listener, handlerId.Value, created);
+
+            // Its last handler has just gone and its removal may not have come yet: the next round finds a new one.
+            RemoveListener(id.ToRaw(), listener);
+        }
     }
 
     private async Task<(Listener Listener, bool Created)> GetOrCreateListener(IDurableQueueId id)
@@ -140,40 +159,7 @@ public class DurableQueueClient : IDurableQueueClient
         return _orleans.GetGrain<IDurableQueue>(rawId);
     }
 
-    private async Task ResubscribeLoop(IReadOnlyLifetime lifetime)
-    {
-        while (lifetime.IsTerminated == false)
-        {
-            var snapshot = _listeners.Values.ToArray();
-
-            foreach (var listener in snapshot)
-            {
-                try
-                {
-                    await listener.Resubscribe();
-                    listener.RecordSuccess();
-                }
-                catch (Exception e)
-                {
-                    listener.RecordFailure(e);
-                }
-            }
-
-            var delay = snapshot.Length == 0
-                ? TimeSpan.FromSeconds(10)
-                : snapshot.Min(l => l.Interval.GetNextDelay());
-
-            try
-            {
-                await Task.Delay(delay, lifetime.Token);
-            }
-            catch (OperationCanceledException) when (lifetime.IsTerminated)
-            {
-            }
-        }
-    }
-
-    public class Listener
+    public class Listener : IResubscribingListener
     {
         public Listener(
             IDurableQueueId id,
@@ -185,15 +171,20 @@ public class DurableQueueClient : IDurableQueueClient
             Queue = queue;
             Orleans = orleans;
             Logger = logger;
-            ObserverSource = new DurableQueueObserver(Deliver);
+            _failures = new ResubscribeFailures(
+                new AdaptiveInterval(minInterval: TimeSpan.FromSeconds(10),
+                    maxInterval: TimeSpan.FromSeconds(60),
+                    failureBaseInterval: TimeSpan.FromSeconds(1)),
+                LogResubscribeFailure);
+            _handlers = new LocalHandlers("durable queue", id.ToRaw(), LogHandlerFailure);
+            ObserverSource = new DurableQueueObserver(_handlers.Deliver);
             ObserverReference = Orleans.Client.CreateObjectReference<IDurableQueueObserver>(ObserverSource);
         }
 
-        private readonly object _gate = new();
-        private readonly Dictionary<Guid, Func<object, Task>> _handlers = new();
+        private readonly ResubscribeFailures _failures;
+        private readonly LocalHandlers _handlers;
 
         private int _cleanupStarted;
-        private int _consecutiveFailures;
 
         public IDurableQueueId Id { get; }
         public DurableQueueObserver ObserverSource { get; }
@@ -202,27 +193,17 @@ public class DurableQueueClient : IDurableQueueClient
         public ILogger Logger { get; }
         public IOrleans Orleans { get; }
 
-        public AdaptiveInterval Interval { get; } = new(minInterval: TimeSpan.FromSeconds(10),
-            maxInterval: TimeSpan.FromSeconds(60),
-            failureBaseInterval: TimeSpan.FromSeconds(1));
+        public AdaptiveInterval Interval => _failures.Interval;
 
-        public Guid AddHandler(Func<object, Task> handler)
+        // Null when the listener is on its way out.
+        public Guid? AddHandler(Func<object, Task> handler)
         {
-            var id = Guid.NewGuid();
-
-            lock (_gate)
-                _handlers[id] = handler;
-
-            return id;
+            return _handlers.Add(handler);
         }
 
         public bool RemoveHandler(Guid id)
         {
-            lock (_gate)
-            {
-                _handlers.Remove(id);
-                return _handlers.Count == 0;
-            }
+            return _handlers.Remove(id);
         }
 
         public async Task Resubscribe()
@@ -232,21 +213,12 @@ public class DurableQueueClient : IDurableQueueClient
 
         public void RecordSuccess()
         {
-            _consecutiveFailures = 0;
-            Interval.RecordSuccess();
+            _failures.RecordSuccess();
         }
 
         public void RecordFailure(Exception e)
         {
-            _consecutiveFailures++;
-            Interval.RecordFailure();
-
-            if (_consecutiveFailures == 1 || _consecutiveFailures % 10 == 0)
-            {
-                Logger.LogError(e,
-                    "[Messaging] [DurableQueue] Failed to rebind observer {ObserverId} (attempt {Count}) to queue {QueueId}",
-                    ObserverSource.Id, _consecutiveFailures, Id.ToRaw());
-            }
+            _failures.RecordFailure(e);
         }
 
         public void Cleanup()
@@ -257,39 +229,18 @@ public class DurableQueueClient : IDurableQueueClient
             CleanupTransport().NoAwait();
         }
 
-        private async Task Deliver(object message)
+        private void LogResubscribeFailure(Exception e, int attempt)
         {
-            KeyValuePair<Guid, Func<object, Task>>[] handlers;
+            Logger.LogError(e,
+                "[Messaging] [DurableQueue] Failed to rebind observer {ObserverId} (attempt {Count}) to queue {QueueId}",
+                ObserverSource.Id, attempt, Id.ToRaw());
+        }
 
-            lock (_gate)
-                handlers = _handlers.ToArray();
-
-            if (handlers.Length == 0)
-                throw new InvalidOperationException($"No local durable queue handlers for {Id.ToRaw()}");
-
-            var successCount = 0;
-            List<Exception>? failures = null;
-
-            foreach (var (handlerId, handler) in handlers)
-            {
-                try
-                {
-                    await handler(message);
-                    successCount++;
-                }
-                catch (Exception e)
-                {
-                    failures ??= [];
-                    failures.Add(e);
-
-                    Logger.LogError(e,
-                        "[Messaging] [DurableQueue] Local handler {HandlerId} failed for queue {QueueId}",
-                        handlerId, Id.ToRaw());
-                }
-            }
-
-            if (successCount == 0 && failures != null)
-                throw new AggregateException($"All local durable queue handlers failed for {Id.ToRaw()}", failures);
+        private void LogHandlerFailure(Exception e, Guid handlerId)
+        {
+            Logger.LogError(e,
+                "[Messaging] [DurableQueue] Local handler {HandlerId} failed for queue {QueueId}",
+                handlerId, Id.ToRaw());
         }
 
         private async Task CleanupTransport()

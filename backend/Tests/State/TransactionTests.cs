@@ -140,7 +140,7 @@ public class TransactionTests
         await hold.Entered;
 
         // The second transaction waits for the lock, then takes the grain over. The grace also bounds its commit
-        // (Transactions.WriteBatch): the values of the fixture are back before that.
+        // (TransactionWriteBatch): the values of the fixture are back before that.
         var fastResult = await transactions.Run(async () => {
             await grain.Increment();
             timings.Dispose();

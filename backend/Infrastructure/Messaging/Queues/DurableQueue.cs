@@ -174,17 +174,14 @@ public class DurableQueue : Grain, IDurableQueue
         {
             Id = id;
             Observer = observer;
-            UpdateDate = DateTime.UtcNow;
         }
 
         public Guid Id { get; }
         public IDurableQueueObserver Observer { get; private set; }
-        public DateTime UpdateDate { get; private set; }
 
         public void Refresh(IDurableQueueObserver observer)
         {
             Observer = observer;
-            UpdateDate = DateTime.UtcNow;
         }
     }
 }

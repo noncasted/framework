@@ -21,11 +21,11 @@ public class RuntimeChannelResubscribeTests
     public async Task Resubscribe_Overlapping_BufferedMessageDelivered()
     {
         var channel = Substitute.For<IRuntimeChannel>();
-        var firstAdd = new TaskCompletionSource();
+        var firstAdd = new TaskCompletionSource<ChannelPosition>();
         var addCalls = 0;
 
         channel.AddObserver(default, default!)
-               .ReturnsForAnyArgs(_ => Interlocked.Increment(ref addCalls) == 1 ? firstAdd.Task : Task.CompletedTask);
+               .ReturnsForAnyArgs(_ => Interlocked.Increment(ref addCalls) == 1 ? firstAdd.Task : Task.FromResult(new ChannelPosition()));
 
         channel.CatchUp(default).ReturnsForAnyArgs(new CatchUpResult { CurrentSequence = 1 });
 
@@ -44,7 +44,7 @@ public class RuntimeChannelResubscribeTests
         await listener.ObserverSource.Send(new SequencedMessage { Sequence = 1, Payload = "a" });
         var second = listener.Resubscribe();
 
-        firstAdd.SetResult();
+        firstAdd.SetResult(new ChannelPosition());
         await Task.WhenAll(first, second);
 
         received.Should().Equal("a");
@@ -76,7 +76,7 @@ public class RuntimeChannelResubscribeTests
         for (var i = 1; i <= 3; i++)
             await messaging.PublishChannel(channelId, new TestMessage { Text = $"old-{i}" });
 
-        await WaitFor(() => Count(received) == 3);
+        await TestWait.Until(() => Count(received) == 3);
 
         // A new activation numbers its messages from 1 again: the listener has seen up to 3.
         await channel.Cast<IGrainManagementExtension>().DeactivateOnIdle();
@@ -87,7 +87,7 @@ public class RuntimeChannelResubscribeTests
 
         await listener.Resubscribe();
 
-        await WaitFor(() => Count(received) == 6);
+        await TestWait.Until(() => Count(received) == 6);
 
         lock (received)
             received.Should().Equal("old-1", "old-2", "old-3", "new-1", "new-2", "new-3");
@@ -95,22 +95,135 @@ public class RuntimeChannelResubscribeTests
         listener.Cleanup();
     }
 
+    [Fact]
+    public async Task Resubscribe_FirstDeliveryOfTheHandlerFailed_ItIsReplayed()
+    {
+        var (channelId, _, listener) = CreateListener();
+        var received = new List<string>();
+        var attempts = 0;
+
+        listener.AddHandler(message => {
+            if (Interlocked.Increment(ref attempts) == 1)
+                throw new InvalidOperationException("the first delivery fails");
+
+            lock (received)
+                received.Add(((TestMessage)message).Text);
+
+            return Task.CompletedTask;
+        }, null);
+
+        await listener.Resubscribe();
+        await GetSiloService<IMessaging>().PublishChannel(channelId, new TestMessage { Text = "first" });
+
+        await TestWait.Until(() => Volatile.Read(ref attempts) == 1);
+
+        await listener.Resubscribe();
+
+        lock (received)
+            received.Should().Equal("first");
+
+        listener.Cleanup();
+    }
+
+    [Fact]
+    public async Task Resubscribe_DroppedBeforeTheFirstMessage_MessageIsCaughtUp()
+    {
+        var (channelId, channel, listener) = CreateListener();
+        var received = new List<string>();
+
+        listener.AddHandler(message => {
+            lock (received)
+                received.Add(((TestMessage)message).Text);
+
+            return Task.CompletedTask;
+        }, null);
+
+        await listener.Resubscribe();
+
+        // What the channel does after a send that did not reach the client.
+        await channel.RemoveObserver(listener.ObserverSource.Id);
+        await GetSiloService<IMessaging>().PublishChannel(channelId, new TestMessage { Text = "first" });
+
+        await listener.Resubscribe();
+
+        lock (received)
+            received.Should().Equal("first");
+
+        listener.Cleanup();
+    }
+
+    [Fact]
+    public async Task Resubscribe_LateSubscriber_GetsNoHistory()
+    {
+        var (channelId, _, listener) = CreateListener();
+        var received = new List<string>();
+        var gaps = 0;
+
+        for (var i = 1; i <= 3; i++)
+            await GetSiloService<IMessaging>().PublishChannel(channelId, new TestMessage { Text = $"history-{i}" });
+
+        listener.AddHandler(message => {
+            lock (received)
+                received.Add(((TestMessage)message).Text);
+
+            return Task.CompletedTask;
+        }, () => gaps++);
+
+        await listener.Resubscribe();
+        await listener.Resubscribe();
+
+        gaps.Should().Be(0);
+
+        await GetSiloService<IMessaging>().PublishChannel(channelId, new TestMessage { Text = "new" });
+        await TestWait.Until(() => Count(received) == 1);
+
+        lock (received)
+            received.Should().Equal("new");
+
+        listener.Cleanup();
+    }
+
+    [Fact]
+    public async Task Delivered_LeavesNoTimerOfTheDeliveryTimeout()
+    {
+        const int messages = 1_000;
+
+        var (channelId, _, listener) = CreateListener();
+        var received = 0;
+
+        listener.AddHandler(_ => {
+            Interlocked.Increment(ref received);
+            return Task.CompletedTask;
+        }, null);
+
+        await listener.Resubscribe();
+
+        var messaging = GetSiloService<IMessaging>();
+        var timersBefore = Timer.ActiveCount;
+
+        // Faster than the 5 s of the timeout: every timer left by a delivery is still alive at the end.
+        for (var i = 0; i < messages; i++)
+            await messaging.PublishChannel(channelId, new TestMessage { Sequence = i });
+
+        await TestWait.Until(() => Volatile.Read(ref received) == messages);
+
+        (Timer.ActiveCount - timersBefore).Should().BeLessThan(messages / 2);
+
+        listener.Cleanup();
+    }
+
+    private (TestChannelId Id, IRuntimeChannel Channel, RuntimeChannelClient.Listener Listener) CreateListener()
+    {
+        var channelId = new TestChannelId(Guid.NewGuid().ToString());
+        var channel = GetGrain<IRuntimeChannel>(channelId.ToRaw());
+
+        return (channelId, channel, new RuntimeChannelClient.Listener(channelId, channel,
+            GetSiloService<IOrleans>(), NullLogger.Instance, new RuntimeChannelOptions()));
+    }
+
     private static int Count(List<string> received)
     {
         lock (received)
             return received.Count;
-    }
-
-    private static async Task WaitFor(Func<bool> condition, TimeSpan? timeout = null)
-    {
-        var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(5));
-
-        while (condition() == false)
-        {
-            if (DateTime.UtcNow > deadline)
-                throw new TimeoutException("Condition not met");
-
-            await Task.Delay(50, TestContext.Current.CancellationToken);
-        }
     }
 }

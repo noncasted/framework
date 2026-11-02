@@ -38,8 +38,11 @@ public class Connection : IConnection
     private readonly ConnectionReader _reader;
     private readonly ConnectionWriter _writer;
 
+    // The read loop of Run is over, or will never start. A close that does not see the start of the loop waits all the
+    // same: the loop may be about to receive, and a receive with a cancelled token aborts the socket.
+    private readonly TaskCompletionSource _readEnded = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     private int _isClosing;
-    private Task _read = Task.CompletedTask;
 
     public IReadOnlyLifetime Lifetime => _lifetime;
     public IConnectionReader Reader => _reader;
@@ -48,7 +51,10 @@ public class Connection : IConnection
     public async Task Run()
     {
         if (_lifetime.IsTerminated == true)
+        {
+            _readEnded.TrySetResult();
             throw new InvalidOperationException("Connection is terminated");
+        }
 
         _writer.Run(_lifetime).NoAwait();
 
@@ -56,11 +62,12 @@ public class Connection : IConnection
         // the socket are not left open behind the exception.
         try
         {
-            _read = _reader.Run(_receiveLifetime);
-            await _read;
+            await _reader.Run(_receiveLifetime);
         }
         finally
         {
+            _readEnded.TrySetResult();
+
             if (_lifetime.IsTerminated == false)
                 _lifetime.Terminate();
 
@@ -93,7 +100,7 @@ public class Connection : IConnection
             // read loop ends. A client that does not answer is cut after the timeout.
             using var timeout = new CancellationTokenSource(CloseTimeout);
             await _webSocket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "User disconnected", timeout.Token);
-            await Task.WhenAny(_read, Task.Delay(CloseTimeout));
+            await Task.WhenAny(_readEnded.Task, Task.Delay(CloseTimeout));
         }
         catch (Exception e) when (e is WebSocketException or ObjectDisposedException or IOException
                                       or OperationCanceledException)

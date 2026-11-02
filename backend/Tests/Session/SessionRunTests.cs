@@ -21,6 +21,74 @@ public class SessionRunTests
         run.IsCompleted.Should().BeTrue();
     }
 
+    // The session has ended before the wait for its users got its turn in the queue.
+    [Fact]
+    public void Run_SessionEndedBeforeTheQueue_RunCompletes_NothingIsWaited()
+    {
+        var session = TestSession.Create(expectedUsers: 1, run: false);
+
+        var run = session.Session.Run();
+        session.Lifetime.Terminate();
+        session.Queue.Drain();
+
+        run.IsCompleted.Should().BeTrue();
+        session.Session.AllUsersConnected.IsCanceled.Should().BeTrue();
+
+        session.Time.Advance(session.Options.JoinTimeout);
+        session.Queue.Count.Should().Be(0);
+    }
+
+    // The check of the last join comes after a leave that was already queued: the next join starts the session.
+    [Fact]
+    public void ExpectedUsers_UserLeftBeforeTheCheckOfTheLastJoin_NextJoinStarts()
+    {
+        var session = TestSession.Create(expectedUsers: 2, run: false);
+        var run = session.Run();
+
+        var first = session.ReserveAndEnter();
+        var second = Guid.NewGuid();
+
+        session.Reserve(second).Should().BeTrue();
+        session.Session.TryAccept(second).Should().BeTrue();
+        session.EnqueueJoin(second);
+        session.Queue.Enqueue(first.Lifetime.Terminate);
+        session.Queue.Drain();
+
+        run.IsCompleted.Should().BeFalse();
+        session.Session.AllUsersConnected.IsCompleted.Should().BeFalse();
+        session.Users.Should().ContainSingle();
+
+        var third = session.ReserveAndEnter();
+
+        run.IsCompletedSuccessfully.Should().BeTrue();
+        ReceivedLocalUpdate(third).Should().BeTrue();
+    }
+
+    // Two joins over the expected number before the first check runs: the second check finds the session started.
+    [Fact]
+    public void ExpectedUsers_TwoChecksQueued_StartsOnce_EveryoneIsHandledOnce()
+    {
+        var session = TestSession.Create(expectedUsers: 1, run: false);
+        var run = session.Run();
+        var users = new List<IUser>();
+
+        for (var i = 0; i < 2; i++)
+        {
+            var userId = Guid.NewGuid();
+            session.Reserve(userId).Should().BeTrue();
+            session.Session.TryAccept(userId).Should().BeTrue();
+            session.EnqueueJoin(userId, users.Add);
+        }
+
+        session.Queue.Drain();
+
+        run.IsCompletedSuccessfully.Should().BeTrue();
+        users.Should().HaveCount(2);
+
+        foreach (var user in users)
+            TestSession.Sent<SharedSessionPlayer.LocalUpdate>(user).Should().ContainSingle();
+    }
+
     [Fact]
     public void ExpectedUsers_NotAllJoined_NobodyIsHandled()
     {

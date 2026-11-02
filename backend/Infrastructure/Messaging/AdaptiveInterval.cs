@@ -19,34 +19,51 @@ public class AdaptiveInterval
     private readonly TimeSpan _failureBaseInterval;
     private readonly double _jitterFactor;
 
+    private readonly object _gate = new();
+
     private int _consecutiveSuccesses;
     private int _consecutiveFailures;
 
     public void RecordSuccess()
     {
-        _consecutiveSuccesses++;
-        _consecutiveFailures = 0;
+        lock (_gate)
+        {
+            _consecutiveSuccesses++;
+            _consecutiveFailures = 0;
+        }
     }
 
     public void RecordFailure()
     {
-        _consecutiveFailures++;
-        _consecutiveSuccesses = 0;
+        lock (_gate)
+        {
+            _consecutiveFailures++;
+            _consecutiveSuccesses = 0;
+        }
     }
 
     public TimeSpan GetNextDelay()
     {
+        int consecutiveSuccesses;
+        int consecutiveFailures;
+
+        lock (_gate)
+        {
+            consecutiveSuccesses = _consecutiveSuccesses;
+            consecutiveFailures = _consecutiveFailures;
+        }
+
         TimeSpan baseDelay;
 
-        if (_consecutiveFailures > 0)
+        if (consecutiveFailures > 0)
         {
-            var exponent = Math.Min(_consecutiveFailures - 1, 5);
+            var exponent = Math.Min(consecutiveFailures - 1, 5);
             var seconds = _failureBaseInterval.TotalSeconds * (1 << exponent);
             baseDelay = TimeSpan.FromSeconds(Math.Min(seconds, _maxInterval.TotalSeconds));
         }
         else
         {
-            var step = Math.Min(_consecutiveSuccesses, 10);
+            var step = Math.Min(consecutiveSuccesses, 10);
             var range = _maxInterval - _minInterval;
             baseDelay = _minInterval + TimeSpan.FromSeconds(range.TotalSeconds * step / 10);
         }

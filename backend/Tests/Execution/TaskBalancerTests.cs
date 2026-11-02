@@ -1,3 +1,4 @@
+using Framework.Tests.Fixtures;
 using Internal;
 using FluentAssertions;
 using Infrastructure.Execution;
@@ -54,7 +55,7 @@ public class TaskBalancerTests
         var lifetime = new Lifetime();
         await balancer.Run(lifetime);
 
-        await WaitUntil(() => executionOrder.Count >= 2, timeoutMs: 3000);
+        await TestWait.Until(() => executionOrder.Count >= 2);
 
         lifetime.Terminate();
 
@@ -73,7 +74,7 @@ public class TaskBalancerTests
         var lifetime = new Lifetime();
         await _balancer.Run(lifetime);
 
-        await WaitUntil(() => task.ExecuteCount >= 2, timeoutMs: 3000);
+        await TestWait.Until(() => task.ExecuteCount >= 2);
 
         lifetime.Terminate();
 
@@ -110,7 +111,7 @@ public class TaskBalancerTests
 
         _queue.Enqueue(highTask);
 
-        await WaitUntil(() => executionOrder.Count >= 2, timeoutMs: 3000);
+        await TestWait.Until(() => executionOrder.Count >= 2);
 
         lifetime.Terminate();
 
@@ -134,7 +135,7 @@ public class TaskBalancerTests
         var lifetime = new Lifetime();
         await _balancer.Run(lifetime);
 
-        await WaitUntil(() => tasks.All(t => t.ExecuteCount >= 1), timeoutMs: 3000);
+        await TestWait.Until(() => tasks.All(t => t.ExecuteCount >= 1));
 
         lifetime.Terminate();
 
@@ -166,21 +167,6 @@ public class TaskBalancerTests
         var config = Substitute.For<ITaskBalancerConfig>();
         config.Value.Returns(options);
         return config;
-    }
-
-    private static async Task WaitUntil(Func<bool> condition, int timeoutMs)
-    {
-        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-
-        while (DateTime.UtcNow < deadline)
-        {
-            if (condition())
-                return;
-
-            await Task.Delay(10);
-        }
-
-        condition().Should().BeTrue("timed out waiting for condition");
     }
 }
 

@@ -220,6 +220,127 @@ public class SessionReconnectTests
         session.Lifetime.IsTerminated.Should().BeFalse();
     }
 
+    // A return while the old connection is still joined: the seat has a connection, a failure of the new one ends nothing.
+    [Fact]
+    public void ReturnWhileStillJoined_JoinFailed_SeatStays()
+    {
+        var (session, first, second) = CreateOfTwo();
+
+        session.Session.TryAccept(first.BackendId).Should().BeTrue();
+
+        session.Queue.Enqueue(() => session.Session.OnJoinFailed(first.BackendId));
+        session.Queue.Drain();
+
+        session.Seats.Entries[first.BackendId].Connected.Should().Be(first);
+        TestSession.Sent<SharedSessionPlayer.RemoteDisconnect>(second).Should().BeEmpty();
+    }
+
+    // A new user that has not made it has no seat: the others are told nothing.
+    [Fact]
+    public void NewUser_JoinFailed_NoSeat_NothingEnds()
+    {
+        var (session, _, second) = CreateOfTwo();
+        var late = Guid.NewGuid();
+
+        session.Reserve(late).Should().BeTrue();
+        session.Session.TryAccept(late).Should().BeTrue();
+
+        session.Session.OnJoinFailed(late);
+        session.Queue.Drain();
+
+        session.Seats.Entries.Should().NotContainKey(late);
+        TestSession.Sent<SharedSessionPlayer.RemoteDisconnect>(second).Should().BeEmpty();
+        session.Lifetime.IsTerminated.Should().BeFalse();
+    }
+
+    // The session has ended before the failure of a returning user got its turn in the queue.
+    [Fact]
+    public void ReturningUser_JoinFailed_SessionEndedBeforeTheQueue_NothingIsSent()
+    {
+        var (session, first, second) = CreateOfTwo();
+
+        session.Lose(first);
+        session.Session.TryAccept(first.BackendId).Should().BeTrue();
+        session.Session.OnJoinFailed(first.BackendId);
+
+        session.Lifetime.Terminate();
+        session.Queue.Drain();
+
+        TestSession.Sent<SharedSessionPlayer.RemoteDisconnect>(second).Should().BeEmpty();
+    }
+
+    // The timer of the first loss fires while the seat is away again: the window of the second loss is what counts,
+    // and the seat ends once though two checks are waiting at its end.
+    [Fact]
+    public void ReturnedThenLostAgain_TheWindowOfTheSecondLossCounts_SeatEndsOnce()
+    {
+        var (session, first, second) = CreateOfTwo();
+        var userId = first.BackendId;
+
+        session.Lose(first);
+        session.Advance(TimeSpan.FromSeconds(40));
+
+        var returned = session.Enter(userId)!;
+        session.Advance(TimeSpan.FromSeconds(10));
+        session.Lose(returned);
+
+        // The first timer ends at 60, the second window at 50 + 60.
+        for (var passed = 50; passed < 109; passed++)
+        {
+            session.Advance(TimeSpan.FromSeconds(1));
+            session.Admission.IsAway(userId).Should().BeTrue();
+        }
+
+        TestSession.Sent<SharedSessionPlayer.RemoteDisconnect>(second).Should().BeEmpty();
+        session.Seats.Entries.Should().ContainKey(userId);
+
+        session.Advance(TimeSpan.FromSeconds(1));
+
+        session.Admission.IsAway(userId).Should().BeFalse();
+        session.Seats.Entries.Should().NotContainKey(userId);
+        TestSession.Sent<SharedSessionPlayer.RemoteDisconnect>(second).Should().ContainSingle();
+    }
+
+    // The timer of the first loss belongs to a window that is over: it ends there, nothing polls until the second window.
+    [Fact]
+    public void ReturnedThenLostAgain_TheOldTimerEnds_NothingPolls()
+    {
+        var (session, first, _) = CreateOfTwo();
+        var userId = first.BackendId;
+
+        session.Lose(first);
+        session.Advance(TimeSpan.FromSeconds(40));
+
+        var returned = session.Enter(userId)!;
+        session.Advance(TimeSpan.FromSeconds(10));
+        session.Lose(returned);
+
+        // The first timer ends at 60.
+        session.Advance(TimeSpan.FromSeconds(11));
+        var timers = session.Time.CreatedTimers;
+
+        session.Advance(TimeSpan.FromSeconds(1));
+        session.Advance(TimeSpan.FromSeconds(1));
+        session.Advance(TimeSpan.FromSeconds(1));
+
+        session.Time.CreatedTimers.Should().Be(timers);
+        session.Admission.IsAway(userId).Should().BeTrue();
+    }
+
+    // The window of an away seat ends while the end of the session is already ahead of the check in the queue.
+    [Fact]
+    public void WindowExpired_SessionEndedBeforeTheCheck_NothingIsSent()
+    {
+        var (session, first, second) = CreateOfTwo();
+
+        session.Lose(first);
+        session.Lifetime.Terminate();
+        session.Time.Advance(Window);
+        session.Queue.Drain();
+
+        TestSession.Sent<SharedSessionPlayer.RemoteDisconnect>(second).Should().BeEmpty();
+    }
+
     // ReconnectWindow = Zero: no away seats, a lost connection is a leave.
     [Fact]
     public void NoWindow_LostConnection_IsLeave()

@@ -58,7 +58,7 @@ public class TaskBalancerFailureTests : IDisposable
 
         var lifetime = new Lifetime();
         await balancer.Run(lifetime);
-        await WaitUntil(() => Volatile.Read(ref lowDone) == 10, TimeSpan.FromSeconds(10));
+        await TestWait.Until(() => Volatile.Read(ref lowDone) == 10);
         var runs = Volatile.Read(ref criticalRuns);
         lifetime.Terminate();
 
@@ -86,7 +86,7 @@ public class TaskBalancerFailureTests : IDisposable
         await Task.Delay(50, TestContext.Current.CancellationToken);
 
         lifetime.Terminate();
-        await WaitUntil(() => Volatile.Read(ref finished) == 4);
+        await TestWait.Until(() => Volatile.Read(ref finished) == 4);
         await Task.Delay(200, TestContext.Current.CancellationToken);
 
         lock (_reported)
@@ -107,19 +107,6 @@ public class TaskBalancerFailureTests : IDisposable
         });
 
         return new TaskBalancer(queue, NullLogger<TaskBalancer>.Instance, config);
-    }
-
-    private static async Task WaitUntil(Func<bool> condition, TimeSpan? timeout = null)
-    {
-        var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(5));
-
-        while (condition() == false)
-        {
-            if (DateTime.UtcNow > deadline)
-                throw new TimeoutException("Condition not met");
-
-            await Task.Delay(10, TestContext.Current.CancellationToken);
-        }
     }
 
     private class LambdaTask(string id, TaskPriority priority, Action action) : IPriorityTask

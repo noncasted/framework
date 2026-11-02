@@ -30,8 +30,37 @@ RuntimeChannelOptions>`). Без него канал падает при пер�
 `LatencyPeerStats` получает его единственным, вне тестов `new LatencyClock()`. `peerStats.LastEchoAt` -> `peerStats.Silence`: секунды
 с последнего ответа, вместо `Time.realtimeSinceStartupAsDouble - peerStats.LastEchoAt`.
 
+### 3. Контракты каналов и труб
+
+Кого касается: бэкенд, свои реализации `IRuntimeChannel` и тестовые двойники, код вокруг `IsPipeExists`, `DurableQueueClient.Listener`. Поиск на
+2026-11-02: только `IsPipeExists` в `backend/Tools/Tests/Messaging/RuntimePipeTests.cs` у mines-leader и peace-data-reborn, правка не нужна.
+
+Поиск: `git grep -nE ':.*\bIRuntimeChannel\b|DurableQueueClient\.Listener|\bIsPipeExists\b|RuntimePipe\.Exists|\bObserverData\b' -- 'backend/*.cs'`
+
+Сделать:
+- `IRuntimeChannel.AddObserver` -> `Task<ChannelPosition>`: реализация возвращает позицию канала, `await` у вызывающих работает как был.
+- `IRuntimePipeClient.Exists`, `IsPipeExists`: сбой проверки теперь исключение, а не `false`. `false` значит только "наблюдателя нет": кто считал сбой отсутствием, ловит его сам.
+- `DurableQueueClient.Listener.AddHandler` -> `Guid?`: `null`, когда слушатель уходит, берётся новый слушатель (пример: `DurableQueueClient.AddToListener`).
+- `ObserverData.UpdateDate` удалён.
+
+### 4. Удалённый API транзакций и состояний
+
+Кого касается: бэкенд. Поиск на 2026-11-02: только `backend/Tools/Tests/Game/SessionTestWorld.cs:141` у peace-data-reborn.
+
+Поиск: `git grep -nE '\b(ILiveState|LiveState|LiveStateChannelId|AddLiveState|DeploymentStateCompat|SetExceptionMessage|TransactionCommitResult|ToDeploymentStateIdentity|ReadDeploymentState|WriteDeploymentState|PublishDeploymentState)\b|\.ExceptionMessage\b|new EventStorage\(|new Session\(' -- 'backend/*.cs'`
+
+Сделать:
+- `new Session(...)` без аргумента `ISessionEntities`, `new EventStorage(store, serializer)` без `ILogger<EventStorage>`.
+- `ILiveState<T>`, `LiveState<T>`, `LiveStateChannelId<T>`, `AddLiveState` -> `DeploymentState<T>`; методы `DeploymentStateCompat` удалены вместе с классом.
+- `TransactionContext.ExceptionMessage`, `SetExceptionMessage` удалены: причину сбоя несёт исключение. `TransactionCommitResult` стал `internal`.
+
 ## Проверить поведение
 
+- Канал: подписчик, не получивший ни одного сообщения, при реактивации зерна канала получает gap (`onGapDetected`) и перечитывает состояние.
+- Переподписка идёт параллельно по слушателям, проход не ждёт одного слушателя дольше `RuntimeChannelOptions.ResubscribeTimeoutMs` (30000).
+- `IRuntimeChannel.AddObserver`: сигнатура метода зерна поменялась; старые и новые узлы при поэтапном деплое, вероятно, несовместимы, вывод из кода, на живом кластере не проверено.
+- `[Transaction]` на цели, которая не `IGrainBase`, падает.
+- `IGrainTransactionHandler.OnFailure` собирает сбои участников в `AggregateException`. Зерно, чей откат упал, остаётся удержанным: его память неизвестна, откат повторяет перехват.
 - WebRTC (`WebRtcPeerSocket`): кандидаты предложения уходят после установки ответа, на один обмен сигналами позже. Сигнал, который закрытый
   пир не принял, теперь потеря соединения: `Connect` падает в запасной путь с предупреждением, исключения в коде сигналинга нет.
 - Ошибки `libdatachannel` пишутся как `Warning`, `Error` остался только у `Fatal`. Кто искал их в логе как ошибки, теперь их не видит.
@@ -44,3 +73,5 @@ RuntimeChannelOptions>`). Без него канал падает при пер�
 - `WebRtcPeerRole`, `WebRtcConnectFailedException` в своих файлах, пространство имён прежнее.
 - `Directory.Build.props`: у сборок framework нет хеша коммита в версии и Source Link в PDB; новый коммит не пересобирает их заново.
 - `com.unity.web.stripping-tool`: нет `FindAssets` на каждое обновление базы.
+- Бэкенд: файлы `MessagePipeClient.cs`, `MessagePipe.cs`, `MessagePipeObserver.cs` -> `RuntimePipeClient.cs`, `RuntimePipe.cs`, `RuntimePipeObserver.cs`, имена типов прежние.
+- `RuntimeChannelOptions.ResubscribeTimeoutMs` 30000; сохранённый конфиг без него читается со значением по умолчанию.

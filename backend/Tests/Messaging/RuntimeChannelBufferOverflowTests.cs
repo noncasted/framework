@@ -117,4 +117,63 @@ public class RuntimeChannelBufferOverflowTests
         result.GapDetected.Should().BeTrue();
         result.CurrentSequence.Should().Be(totalMessages);
     }
+
+    // The observer holds the first message: the queue behind it fills up, the next publish drops the observer. What
+    // was queued before still comes, what is published after the drop does not.
+    [Fact]
+    public async Task Publish_ObserverQueueOverflows_ObserverRemovedAfterDrainingItsQueue()
+    {
+        var channel = GetGrain<IRuntimeChannel>(Guid.NewGuid().ToString());
+        var bufferSize = GetSiloService<IRuntimeChannelConfig>().Value.CatchUpBufferSize;
+        var release = new TaskCompletionSource();
+        var received = new List<int>();
+
+        var observer = new RuntimeChannelObserver(async message => {
+            await release.Task;
+
+            lock (received)
+                received.Add(((TestMessage)message).Sequence);
+        });
+
+        await channel.AddObserver(observer.Id, GrainFactory.CreateObjectReference<IRuntimeChannelObserver>(observer));
+
+        // One message on its way, the whole queue behind it and one more than fits.
+        var overflowing = bufferSize + 2;
+
+        await Task.WhenAll(Enumerable.Range(1, overflowing)
+            .Select(i => channel.Publish(new TestMessage { Sequence = i })));
+
+        release.SetResult();
+
+        await channel.Publish(new TestMessage { Sequence = overflowing + 1 });
+
+        await WaitForStableCount(received);
+
+        lock (received)
+        {
+            received.Count.Should().BeInRange(bufferSize, bufferSize + 1);
+            received.Should().NotContain(overflowing + 1);
+        }
+
+        var result = await channel.CatchUp(overflowing);
+        result.Messages.Select(message => ((TestMessage)message.Payload).Sequence).Should().Equal(overflowing + 1);
+    }
+
+    private static async Task WaitForStableCount(List<int> received)
+    {
+        var last = -1;
+
+        while (true)
+        {
+            await Task.Delay(500, TestContext.Current.CancellationToken);
+
+            lock (received)
+            {
+                if (received.Count == last)
+                    return;
+
+                last = received.Count;
+            }
+        }
+    }
 }

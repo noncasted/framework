@@ -1,50 +1,15 @@
-using Common.Extensions;
 using Infrastructure.State;
 using Microsoft.Extensions.Logging;
-using Orleans.Concurrency;
 
 namespace Infrastructure;
 
-[GenerateSerializer]
-public class TransactionHandlerResult
-{
-    [Id(0)]
-    public required IReadOnlyList<IStateValue> States { get; init; }
-
-    [Id(1)]
-    public required List<GrainEventRecord> Events { get; init; }
-
-    // Monotonic per handler: a later CollectResult on the same participant has a bigger Sequence.
-    [Id(2)]
-    public long Sequence { get; init; }
-}
-
-public interface IGrainTransactionHandler : IGrainExtension
-{
-    [AlwaysInterleave]
-    Task<Guid> Join(Guid transactionId);
-
-    [AlwaysInterleave]
-    Task<TransactionHandlerResult> CollectResult(Guid transactionId);
-
-    // Called by Transactions.Process right before the database commit: fails when the transaction lost this grain
-    // to a stuck-transaction takeover, so its old snapshot never overwrites the commit of the one that took over.
-    [AlwaysInterleave]
-    Task Seal(Guid transactionId);
-
-    [AlwaysInterleave]
-    Task OnSuccess(Guid transactionId);
-
-    [AlwaysInterleave]
-    Task OnFailure(Guid transactionId);
-}
-
 // GrainTransactionHandler is attached to every grain as an IGrainExtension.
-// It serializes access between concurrent transactions on the same grain.
+// It serializes access between concurrent transactions on the same grain: GrainTransactionOwner holds the grain for
+// one transaction, GrainTransactionChanges keeps what that transaction changed.
 //
-// Invariant: _lock is held for the entire duration of an active transaction.
+// Invariant: the lock of the owner is held for the entire duration of an active transaction.
 //   - Acquired in Join() when a new transaction registers this grain
-//   - Released in OnSuccess() / OnFailure() when the transaction ends
+//   - Released in OnSuccess() / OnFailure() when the transaction ends, except a rollback that throws (see OnFailure)
 //
 // All methods are [AlwaysInterleave], meaning Orleans can call them concurrently
 // even if the grain itself is busy — hence the semaphore is required.
@@ -67,140 +32,38 @@ public class GrainTransactionHandler : IGrainTransactionHandler
         ITransactionConfig transactionConfig,
         ILogger<GrainTransactionHandler> logger)
     {
-        _transactionConfig = transactionConfig;
         _logger = logger;
+        _owner = new GrainTransactionOwner(transactionConfig, logger, Rollback);
     }
-
-    // Mutex held for the entire duration of an active transaction.
-    // Initial count 1 = grain is free (unlocked).
-    private readonly SemaphoreSlim _lock = new(1, 1);
 
     // Stable identity returned to Transactions.Process() to track this grain as a participant.
     private readonly Guid _participantId = Guid.NewGuid();
 
-    private readonly ITransactionConfig _transactionConfig;
+    private readonly GrainTransactionChanges _changes = new();
+    private readonly GrainTransactionOwner _owner;
     private readonly ILogger<GrainTransactionHandler> _logger;
-
-    // Id of the transaction currently holding this grain.
-    // Guid.Empty means the grain is free.
-    private Guid _currentTransactionId;
-
-    // Last activity time of the current transaction.
-    // Refreshed on every Join() call (including idempotent re-joins) and on Seal().
-    // Used to detect stuck transactions eligible for takeover.
-    private DateTime _currentTransactionTime;
-
-    private long _resultSequence;
-
-    private readonly HashSet<IGrainStateTransactionParticipant> _states = new();
-    private readonly HashSet<IGrainEventTransactionParticipant> _events = new();
-    private readonly List<GrainEventRecord> _eventRecords = [];
 
     // Called by TransactionAttribute every time a [Transaction] method on this grain is invoked.
     // Returns _participantId so Transactions.Process() can track this grain.
     public async Task<Guid> Join(Guid transactionId)
     {
-        // Same transaction calling again (e.g. multiple [Transaction] methods in one Process).
-        // Refresh timestamp so the stuck-transaction check stays accurate.
-        if (_currentTransactionId == transactionId)
-        {
-            _currentTransactionTime = DateTime.UtcNow;
-            return _participantId;
-        }
-
-        // Grain is free — acquire the lock and register the new transaction.
-        if (_currentTransactionId == Guid.Empty)
-        {
-            await _lock.WaitAsync();
-            _currentTransactionId = transactionId;
-            _currentTransactionTime = DateTime.UtcNow;
-            return _participantId;
-        }
-
-        // Another transaction is active. Wait for it to finish.
-        // The previous transaction releases the lock in OnSuccess/OnFailure.
-        var options = _transactionConfig.Value.ThrowIfNull();
-        var isAcquired = await _lock.WaitAsync(TimeSpan.FromSeconds(options.LockWaitSeconds));
-
-        if (isAcquired == false)
-        {
-            // Timed out. If the stuck transaction is still within its grace period,
-            // we cannot take over — it may still be running normally but slowly.
-            if (_currentTransactionTime.AddSeconds(options.StuckGraceSeconds) >= DateTime.UtcNow)
-            {
-                _logger.LogWarning(
-                    "[Transaction] [Join] Timeout waiting for lock. TransactionId={TransactionId} BlockedBy={BlockedBy}",
-                    transactionId, _currentTransactionId);
-
-                throw new Exception(
-                    $"Handler failed to join transaction id '{transactionId}'. Current transaction in progress '{_currentTransactionId}'.");
-            }
-
-            // The transaction has been inactive for >30s — treat it as stuck.
-            // Force-release its semaphore and acquire for ourselves.
-            // The stuck transaction's eventual OnSuccess/OnFailure will fail the ID check
-            // and exit early without touching the semaphore or state.
-            var stuckAge = (DateTime.UtcNow - _currentTransactionTime).TotalSeconds;
-
-            _logger.LogWarning(
-                "[Transaction] [Takeover] Forcing takeover of stuck transaction. StuckTransactionId={StuckId} AgeSeconds={AgeSeconds} IncomingTransactionId={TransactionId}",
-                _currentTransactionId, stuckAge, transactionId);
-
-            if (_lock.CurrentCount == 0)
-                _lock.Release();
-
-            await _lock.WaitAsync();
-
-            // Roll back any in-memory state left by the stuck transaction.
-            foreach (var state in _states)
-                state.OnTransactionFailure();
-
-            foreach (var ev in _events)
-                ev.OnTransactionFailure();
-
-            _states.Clear();
-            _events.Clear();
-            _eventRecords.Clear();
-
-            _currentTransactionId = transactionId;
-            _currentTransactionTime = DateTime.UtcNow;
-            return _participantId;
-        }
-
-        // Acquired the lock normally — the previous transaction completed while we waited.
-        // Sanity check: _currentTransactionId should be Guid.Empty at this point
-        // (OnSuccess/OnFailure always clear it before releasing the lock).
-        if (_currentTransactionId != Guid.Empty && _currentTransactionId != transactionId)
-        {
-            _lock.Release();
-
-            throw new Exception(
-                $"Handler failed to join transaction id '{transactionId}'. Current transaction in progress '{_currentTransactionId}'.");
-        }
-
-        _currentTransactionId = transactionId;
-        _currentTransactionTime = DateTime.UtcNow;
+        await _owner.Join(transactionId);
         return _participantId;
     }
 
     public void RecordStateChanged(IGrainStateTransactionParticipant state)
     {
-        _states.Add(state);
+        _changes.Record(state);
     }
 
     public void RecordEventStateChanged(IGrainEventTransactionParticipant events)
     {
-        _events.Add(events);
+        _changes.Record(events);
     }
 
     public void RecordEventStateChanged(IGrainEventTransactionParticipant events, IReadOnlyList<EventPayload> payloads)
     {
-        _events.Add(events);
-        _eventRecords.Add(new GrainEventRecord
-        {
-            StreamId = events.StreamId,
-            Events = payloads.ToList()
-        });
+        _changes.Record(events, payloads);
     }
 
     // Called by Transactions.Process() after all grain methods have executed.
@@ -208,41 +71,31 @@ public class GrainTransactionHandler : IGrainTransactionHandler
     // These are then written atomically to Postgres in a single DB transaction.
     public Task<TransactionHandlerResult> CollectResult(Guid transactionId)
     {
-        if (_currentTransactionId != transactionId)
+        if (_owner.Current != transactionId)
         {
             _logger.LogError(
                 "[Transaction] [CollectResult] Transaction ID mismatch. Expected={TransactionId} Current={CurrentId}",
-                transactionId, _currentTransactionId);
+                transactionId, _owner.Current);
 
             throw new Exception(
-                $"Handler failed to complete transaction id '{transactionId}'. Current transaction in progress '{_currentTransactionId}'.");
+                $"Handler failed to complete transaction id '{transactionId}'. Current transaction in progress '{_owner.Current}'.");
         }
 
-        var states = new List<IStateValue>();
-
-        foreach (var state in _states)
-            states.Add(state.GetState());
-
-        return Task.FromResult(new TransactionHandlerResult
-        {
-            States = states,
-            Events = _eventRecords.ToList(),
-            Sequence = ++_resultSequence
-        });
+        return Task.FromResult(_changes.Snapshot());
     }
 
     // A transaction taken over (Join) is rejected here, before its DB commit. A sealed transaction gets a new
-    // StuckGraceSeconds: Transactions.Commit bounds the time between the seal and the commit by the
+    // StuckGraceSeconds: TransactionWriteBatch bounds the time between the seal and the commit by the
     // idle_in_transaction_session_timeout of its DB transaction, so a takeover after that grace cannot race the commit.
     public Task Seal(Guid transactionId)
     {
-        if (_currentTransactionId != transactionId)
+        if (_owner.Current != transactionId)
         {
             throw new Exception(
-                $"Transaction '{transactionId}' lost the grain before its commit. Current transaction '{_currentTransactionId}'.");
+                $"Transaction '{transactionId}' lost the grain before its commit. Current transaction '{_owner.Current}'.");
         }
 
-        _currentTransactionTime = DateTime.UtcNow;
+        _owner.Refresh();
         return Task.CompletedTask;
     }
 
@@ -252,74 +105,48 @@ public class GrainTransactionHandler : IGrainTransactionHandler
     {
         // ID mismatch means this grain was taken over by another transaction.
         // That transaction now owns the lock — do not release it here.
-        if (_currentTransactionId != transactionId)
+        if (_owner.Current != transactionId)
         {
             _logger.LogWarning(
                 "[Transaction] [OnSuccess] Skipped — grain was taken over. ExpectedId={TransactionId} CurrentId={CurrentId}",
-                transactionId, _currentTransactionId);
+                transactionId, _owner.Current);
 
             return Task.CompletedTask;
         }
 
         // The transaction is committed: every participant is confirmed and the grain is released even when
         // one of them throws, otherwise the next transaction waits for the stuck-transaction takeover.
-        List<Exception>? failures = null;
-
-        foreach (var state in _states)
-            Confirm(state.OnTransactionSuccess);
-
-        foreach (var ev in _events)
-            Confirm(ev.OnTransactionSuccess);
-
-        _states.Clear();
-        _events.Clear();
-        _eventRecords.Clear();
-        _currentTransactionId = Guid.Empty;
-
-        if (_lock.CurrentCount == 0)
-            _lock.Release();
+        var failures = _changes.Confirm();
+        _owner.Release();
 
         if (failures != null)
             throw new AggregateException($"Participants failed to confirm committed transaction '{transactionId}'", failures);
 
         return Task.CompletedTask;
-
-        void Confirm(Action onSuccess)
-        {
-            try
-            {
-                onSuccess();
-            }
-            catch (Exception e)
-            {
-                failures ??= [];
-                failures.Add(e);
-            }
-        }
     }
 
     // Called by Transactions.Process() on any exception (before or after DB write).
     // Rolls back in-memory state and releases the lock.
+    // A participant that throws does not stop the others, but the grain stays held: the memory of that participant is
+    // unknown, and the next transaction would read it and could commit it. OnSuccess differs: there the memory is what
+    // the database holds. The takeover in GrainTransactionOwner.Join is the next attempt for the ones that threw.
     public Task OnFailure(Guid transactionId)
     {
         // ID mismatch means this grain was taken over — nothing to roll back here.
-        if (_currentTransactionId != transactionId)
+        if (_owner.Current != transactionId)
             return Task.CompletedTask;
 
-        foreach (var state in _states)
-            state.OnTransactionFailure();
-
-        foreach (var ev in _events)
-            ev.OnTransactionFailure();
-
-        _states.Clear();
-        _events.Clear();
-        _eventRecords.Clear();
-        _currentTransactionId = Guid.Empty;
-
-        if (_lock.CurrentCount == 0)
-            _lock.Release();
+        Rollback();
+        _owner.Release();
 
         return Task.CompletedTask;
+    }
+
+    private void Rollback()
+    {
+        var failures = _changes.Rollback();
+
+        if (failures != null)
+            throw new AggregateException($"Participants failed to roll back transaction '{_owner.Current}'", failures);
     }
 }

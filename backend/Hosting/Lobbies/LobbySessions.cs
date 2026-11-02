@@ -35,20 +35,8 @@ public interface ILobbySessions
     LobbyJoined JoinLate(Guid matchSessionId, Guid userId);
 }
 
-public class LobbyJoined
-{
-    public required LobbyJoinStatus Status { get; init; }
-
-    // Ok only: the session to enter (the lobby or the lobby of the late players).
-    public Guid SessionId { get; init; }
-}
-
-public class LobbyCreated
-{
-    public required Guid SessionId { get; init; }
-    public required string Code { get; init; }
-}
-
+// The composer of the lobby sessions: a lobby is created and entered here, the late players of a running match go to
+// RunningMatchEntry.
 public class LobbySessions : ILobbySessions
 {
     public LobbySessions(
@@ -65,28 +53,25 @@ public class LobbySessions : ILobbySessions
         _collection = collection;
         _codes = codes;
         _codeLeases = codeLeases;
-        _entryPolicy = entryPolicy;
         _maxUsers = options.MaxUsers;
         _serviceDiscovery = serviceDiscovery;
         _logger = logger;
+
+        _reservations = new LobbyReservations(logger);
+
+        var runningLobbies = new RunningLobbies(factory, _reservations, options.MaxUsers, logger);
+        _runningMatches = new RunningMatchEntry(collection, codeLeases, entryPolicy, runningLobbies, _reservations, logger);
     }
 
     private readonly ILobbyFactory _factory;
     private readonly ISessionsCollection _collection;
     private readonly ILobbyCodes _codes;
     private readonly ILobbyCodeLeases _codeLeases;
-    private readonly ILobbyEntryPolicy _entryPolicy;
     private readonly int _maxUsers;
     private readonly IServiceDiscovery _serviceDiscovery;
     private readonly ILogger<LobbySessions> _logger;
-
-    // The lobby each user has reserved a place in last; entries of a closed lobby are removed with it.
-    private readonly Dictionary<Guid, ISession> _reserved = new();
-    private readonly Lock _reservedLock = new();
-
-    // Running match -> the lobby of its late players, while that lobby is alive.
-    private readonly Dictionary<Guid, ISession> _runningLobbies = new();
-    private readonly Lock _runningLock = new();
+    private readonly LobbyReservations _reservations;
+    private readonly RunningMatchEntry _runningMatches;
 
     public async Task<LobbyCreated> Create(Guid userId)
     {
@@ -119,12 +104,12 @@ public class LobbySessions : ILobbySessions
         // The code is released when the lobby is closed (the last user left or nobody entered in time) or,
         // if the lobby has started a match, when that match is closed.
         _codeLeases.Hold(code, session);
-        session.Lifetime.Listen(() => Forget(session));
+        session.Lifetime.Listen(() => _reservations.Forget(session));
 
         if (session.TryReserve(userId) == false)
             throw new InvalidOperationException($"Created lobby session {sessionId} rejected the reservation");
 
-        OnReserved(session, userId);
+        _reservations.OnReserved(session, userId);
 
         _logger.LogInformation("{UserId} [Lobby] Lobby session {SessionID} created with code {Code}",
             userId,
@@ -141,14 +126,14 @@ public class LobbySessions : ILobbySessions
     public LobbyJoined Join(Guid lobbySessionId, Guid matchSessionId, string code, Guid userId)
     {
         if (matchSessionId != Guid.Empty)
-            return JoinRunning(lobbySessionId, matchSessionId, code, userId);
+            return _runningMatches.JoinLobby(lobbySessionId, matchSessionId, code, userId);
 
         if (_collection.TryGet(lobbySessionId, out var session) == false || session.Type != SessionType.Lobby)
-            return Refuse(LobbyJoinStatus.NotFound);
+            return LobbyJoined.Refused(LobbyJoinStatus.NotFound);
 
         if (session.TryReserve(userId) == true)
         {
-            OnReserved(session, userId);
+            _reservations.OnReserved(session, userId);
 
             return new LobbyJoined
             {
@@ -160,169 +145,22 @@ public class LobbySessions : ILobbySessions
         // Sealed at zero of the countdown: the match exists, but the registry has not been told yet - the next
         // join by the code gets to the match. Also for a sealed lobby its users have already left.
         if (session.IsSealed == true)
-            return Refuse(LobbyJoinStatus.Started);
+            return LobbyJoined.Refused(LobbyJoinStatus.Started);
 
         // A closed session keeps its code until its lifetime is terminated from the session queue.
         if (session.IsClosed == true)
-            return Refuse(LobbyJoinStatus.NotFound);
+            return LobbyJoined.Refused(LobbyJoinStatus.NotFound);
 
-        return Refuse(LobbyJoinStatus.Full);
+        return LobbyJoined.Refused(LobbyJoinStatus.Full);
     }
 
     public LobbyJoinStatus JoinMatch(Guid lobbySessionId, Guid matchSessionId, Guid userId)
     {
-        var status = CheckMatch(lobbySessionId, matchSessionId, userId, out var match);
-
-        if (status != LobbyJoinStatus.Ok)
-            return status;
-
-        if (_entryPolicy.CanEnterMatchNow(matchSessionId) == false)
-            return LobbyJoinStatus.Started;
-
-        if (match!.TryReserve(userId) == true)
-        {
-            _logger.LogInformation("{UserId} [Lobby] A late player takes a place in match {SessionID}",
-                userId,
-                matchSessionId);
-
-            return LobbyJoinStatus.Ok;
-        }
-
-        return match.IsClosed == true ? LobbyJoinStatus.NotFound : LobbyJoinStatus.Full;
+        return _runningMatches.JoinMatch(lobbySessionId, matchSessionId, userId);
     }
 
     public LobbyJoined JoinLate(Guid matchSessionId, Guid userId)
     {
-        return JoinRunning(Guid.Empty, matchSessionId, string.Empty, userId);
-    }
-
-    // lobbySessionId empty: a public match of the search (no code).
-    private LobbyJoined JoinRunning(Guid lobbySessionId, Guid matchSessionId, string code, Guid userId)
-    {
-        // Checked again when the match lets the player in: the lobby of the late players does not hold a place in
-        // the match.
-        var status = CheckMatch(lobbySessionId, matchSessionId, userId, out _);
-
-        if (status != LobbyJoinStatus.Ok)
-            return Refuse(status);
-
-        // A lobby that is being closed is replaced: the reservation is refused only by a closed session.
-        for (var attempt = 0; attempt < 2; attempt++)
-        {
-            var lobby = GetOrCreateRunningLobby(lobbySessionId, matchSessionId, code);
-
-            if (lobby.TryReserve(userId) == true)
-            {
-                OnReserved(lobby, userId);
-
-                return new LobbyJoined
-                {
-                    Status = LobbyJoinStatus.Ok,
-                    SessionId = lobby.Id
-                };
-            }
-
-            if (lobby.IsClosed == false)
-                return Refuse(LobbyJoinStatus.Full);
-        }
-
-        throw new InvalidOperationException($"The lobby of the late players of match {matchSessionId} rejected the reservation");
-    }
-
-    private LobbyJoinStatus CheckMatch(Guid lobbySessionId, Guid matchSessionId, Guid userId, out ISession? match)
-    {
-        if (_collection.TryGet(matchSessionId, out match) == false ||
-            match.Type != SessionType.Match ||
-            match.IsClosed == true ||
-            _entryPolicy.IsMatchOver(matchSessionId) == true)
-            return LobbyJoinStatus.NotFound;
-
-        if (lobbySessionId != Guid.Empty && _codeLeases.IsMatchJoinable(lobbySessionId) == false)
-            return LobbyJoinStatus.Started;
-
-        if (match.HasFreePlace(userId) == false)
-            return LobbyJoinStatus.Full;
-
-        return LobbyJoinStatus.Ok;
-    }
-
-    private ISession GetOrCreateRunningLobby(Guid lobbySessionId, Guid matchSessionId, string code)
-    {
-        lock (_runningLock)
-        {
-            if (_runningLobbies.TryGetValue(matchSessionId, out var existing) == true && existing.IsClosed == false)
-                return existing;
-
-            var lobby = _factory.Create(new LobbyCreation
-            {
-                Id = Guid.NewGuid(),
-                Code = code,
-                MaxUsers = _maxUsers,
-                LobbySessionId = lobbySessionId,
-                RunningMatchId = matchSessionId
-            });
-
-            if (lobby.Type != SessionType.Lobby)
-                throw new InvalidOperationException($"The lobby factory built {lobby.Type} session {lobby.Id} for the late players of match {matchSessionId}");
-
-            _runningLobbies[matchSessionId] = lobby;
-
-            lobby.Lifetime.Listen(() => {
-                Forget(lobby);
-
-                lock (_runningLock)
-                {
-                    if (_runningLobbies.TryGetValue(matchSessionId, out var current) == true && current == lobby)
-                        _runningLobbies.Remove(matchSessionId);
-                }
-            });
-
-            _logger.LogInformation("[Lobby] Lobby {SessionID} of the late players of match {MatchSessionID} created",
-                lobby.Id,
-                matchSessionId);
-
-            return lobby;
-        }
-    }
-
-    private static LobbyJoined Refuse(LobbyJoinStatus status)
-    {
-        return new LobbyJoined
-        {
-            Status = status
-        };
-    }
-
-    private void OnReserved(ISession session, Guid userId)
-    {
-        ISession? previous;
-
-        lock (_reservedLock)
-        {
-            _reserved.TryGetValue(userId, out previous);
-            _reserved[userId] = session;
-        }
-
-        if (previous == null || previous == session)
-            return;
-
-        _logger.LogInformation("{UserId} [Lobby] The place in lobby session {SessionID} is dropped: " +
-                               "the user took a place in another lobby",
-            userId,
-            previous.Id);
-
-        previous.CancelReservation(userId);
-    }
-
-    private void Forget(ISession session)
-    {
-        lock (_reservedLock)
-        {
-            foreach (var (userId, reserved) in _reserved)
-            {
-                if (reserved == session)
-                    _reserved.Remove(userId);
-            }
-        }
+        return _runningMatches.JoinLobby(Guid.Empty, matchSessionId, string.Empty, userId);
     }
 }

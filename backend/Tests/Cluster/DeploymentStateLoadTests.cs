@@ -56,7 +56,7 @@ public class DeploymentStateLoadTests
         await state.OnDeployChanged(Guid.NewGuid(), _lifetime);
         _channel.ReportGap();
 
-        await WaitFor(() => state.Value.Value == 3);
+        await TestWait.Until(() => state.Value.Value == 3);
     }
 
     [Fact]
@@ -126,19 +126,6 @@ public class DeploymentStateLoadTests
             UpdateDate = updateDate,
             Value = JsonConvert.SerializeObject(new Marker { Value = value })
         };
-    }
-
-    private static async Task WaitFor(Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow.AddSeconds(5);
-
-        while (condition() == false)
-        {
-            if (DateTime.UtcNow > deadline)
-                throw new TimeoutException("Condition not met");
-
-            await Task.Delay(10, TestContext.Current.CancellationToken);
-        }
     }
 
     private class TestState(IOrleans orleans, IMessaging messaging)

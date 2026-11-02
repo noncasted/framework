@@ -303,7 +303,7 @@ on a message reaching every subscriber.
 `DelayDeactivation` called inside `OnDeactivateAsync` has no effect: request keep-alive on the calls that should keep
 the activation (see `RuntimeChannel.KeepAlive`).
 
-**StateCollection, AddressableState, DeploymentState / LiveState use messaging internally.** You only write messaging
+**StateCollection, AddressableState, DeploymentState use messaging internally.** You only write messaging
 directly if building a custom sync mechanism.
 
 ---
@@ -312,7 +312,7 @@ directly if building a custom sync mechanism.
 
 Standard Orleans overrides: `OnActivateAsync(CancellationToken)` and
 `OnDeactivateAsync(DeactivationReason, CancellationToken)`. Examples in this repo: the messaging grains
-`backend/Infrastructure/Messaging/Channels/RuntimeChannel.cs`, `Queues/DurableQueue.cs`, `Pipes/MessagePipe.cs`.
+`backend/Infrastructure/Messaging/Channels/RuntimeChannel.cs`, `Queues/DurableQueue.cs`, `Pipes/RuntimePipe.cs`.
 
 Use `OnActivateAsync` for: starting timers, loading supplementary data not in state.
 Use `OnDeactivateAsync` for: flushing pending writes, releasing observers.
@@ -383,7 +383,7 @@ Task<string> ReadRawJson(StateIdentity identity);
 | `backend/Infrastructure/Data/State/AddressableState.cs` | Singleton persistent `IViewableProperty<T>` synced via channel |
 | `backend/Infrastructure/Orleans/Utils/OrleansUtils.cs` | `IOrleans` implementation + extension methods |
 | `backend/Infrastructure/Messaging/MessagingExtensions.cs` | Messaging extension methods |
-| `backend/Cluster/Deploy/DeploymentState.cs` | Deploy-scoped persistent `IViewableProperty<T>` (table `cluster` + channel), `LiveState<T>` |
+| `backend/Cluster/Deploy/DeploymentState.cs` | Deploy-scoped persistent `IViewableProperty<T>` (table `cluster` + channel) |
 | `backend/Cluster/Deploy/ServiceSlicedState.cs` | DeploymentState written by several services: one slice per service id via the `ServiceSlicesWriter` grain |
 | `backend/Meta/Users/Telegram/TelegramUserLink.cs` | Grain + `State<T>` example |
 | `backend/Meta/Users/Entities/User.cs` | Grain + `EventState<T>` + StateCollection example |

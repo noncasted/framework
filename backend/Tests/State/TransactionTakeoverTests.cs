@@ -7,7 +7,7 @@ using Xunit;
 namespace Framework.Tests.State;
 
 /// <summary>
-/// The stuck-transaction takeover of GrainTransactionHandler.Join: a transaction taken over must not commit its old
+/// The stuck-transaction takeover of GrainTransactionOwner.Join: a transaction taken over must not commit its old
 /// snapshot over the one of the transaction that took the grain.
 /// </summary>
 [Collection(nameof(OrleansIntegrationCollection))]
@@ -41,7 +41,7 @@ public class TransactionTakeoverTests
 
         await joined.Task;
 
-        // The grace also bounds the commit (Transactions.WriteBatch): the values of the fixture are back before that.
+        // The grace also bounds the commit (TransactionWriteBatch): the values of the fixture are back before that.
         var takeover = await transactions.Run(async () => {
             await grain.Increment();
             timings.Dispose();

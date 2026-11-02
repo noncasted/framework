@@ -1,5 +1,4 @@
 using Cluster.Lobbies;
-using Common.Extensions;
 using Game.Session;
 using Internal;
 using Microsoft.Extensions.Logging;
@@ -47,55 +46,36 @@ public class LobbyService : Service
 
         _owner = owner;
         _users = users;
-        _admission = admission;
         _matches = matches;
-        _listings = listings;
         _executionQueue = executionQueue;
-        _time = time;
         _info = info;
         _logger = logger;
 
-        _lobby = new ValueProperty<LobbyState>(SharedLobbyService.LobbyPropertyId, new LobbyState
-        {
-            Code = info.Code,
-            IsRunning = info.IsRunning
-        });
+        _properties = new LobbyProperties(owner, info);
 
-        // One writer for every property: the start flag and the visibility - the client of the current leader (of
-        // a lobby that has a start), the rest - only the backend (SetPropertyCommand drops the writes of anybody
-        // else).
-        _lobby.RestrictWriter(_ => false);
-        _start.RestrictWriter(user => info.IsRunning == false && user == _owner.Owner.Value);
-        _countdown.RestrictWriter(_ => false);
-        _game.RestrictWriter(_ => false);
-        _visibility.RestrictWriter(user => info.IsRunning == false && user == _owner.Owner.Value);
+        BindProperty(_properties.Lobby);
+        BindProperty(_properties.Start);
+        BindProperty(_properties.Countdown);
+        BindProperty(_properties.Game);
+        BindProperty(_properties.Visibility);
 
-        BindProperty(_lobby);
-        BindProperty(_start);
-        BindProperty(_countdown);
-        BindProperty(_game);
-        BindProperty(_visibility);
+        var matchStart = new LobbyMatchStart(_properties, users, admission, matches, time, info, logger);
+
+        _countdown = new LobbyCountdown(_properties, matchStart, executionQueue, time, CountdownStep, logger);
+        _listing = new LobbyListingReporter(_properties, owner, users, listings, info, logger);
     }
 
     public static readonly TimeSpan CountdownStep = TimeSpan.FromSeconds(1);
 
     private readonly ISessionOwner _owner;
     private readonly ISessionUsers _users;
-    private readonly ISessionAdmission _admission;
     private readonly ILobbyMatches _matches;
-    private readonly ILobbyListings _listings;
     private readonly IExecutionQueue _executionQueue;
-    private readonly TimeProvider _time;
     private readonly LobbySessionInfo _info;
     private readonly ILogger<LobbyService> _logger;
-
-    private readonly ValueProperty<LobbyState> _lobby;
-    private readonly ValueProperty<LobbyStartState> _start = new(SharedLobbyService.StartPropertyId);
-    private readonly ValueProperty<LobbyCountdownState> _countdown = new(SharedLobbyService.CountdownPropertyId);
-    private readonly ValueProperty<LobbyGameState> _game = new(SharedLobbyService.GamePropertyId);
-    private readonly ValueProperty<LobbyVisibilityState> _visibility = new(SharedLobbyService.VisibilityPropertyId);
-
-    private ILifetime? _countdownLifetime;
+    private readonly LobbyProperties _properties;
+    private readonly LobbyCountdown _countdown;
+    private readonly LobbyListingReporter _listing;
 
     protected LobbySessionInfo Info => _info;
     protected ISessionUsers Users => _users;
@@ -103,14 +83,14 @@ public class LobbyService : Service
     protected ILogger Logger => _logger;
 
     // The match is written to Game: the users are on their way to it.
-    protected bool IsGameStarted => _game.Value.SessionId != Guid.Empty;
+    protected bool IsGameStarted => _properties.IsGameStarted;
 
     // Running mode: the match has ended before the late players got in.
-    protected bool IsRunOver => _lobby.Value.IsRunOver;
+    protected bool IsRunOver => _properties.Lobby.Value.IsRunOver;
 
     protected override void OnStarted(IReadOnlyLifetime lifetime)
     {
-        _logger.LogInformation("[Lobby] Lobby code {Code}", _lobby.Value.Code);
+        _logger.LogInformation("[Lobby] Lobby code {Code}", _properties.Lobby.Value.Code);
 
         _owner.Owner.View(lifetime, OnOwnerChanged);
 
@@ -120,19 +100,8 @@ public class LobbyService : Service
             return;
         }
 
-        _start.Written.Advise(lifetime, OnStartWritten);
-        _visibility.Written.Advise(lifetime, OnVisibilityWritten);
-
-        // The list lifetime of a user ends after the user is removed from the list - or with the service (the
-        // lifetime given by View is bounded by the subscriber one): the end of the session reports nothing.
-        _users.View(lifetime, (userLifetime, _) => {
-            ReportListing();
-
-            userLifetime.Listen(() => {
-                if (lifetime.IsTerminated == false)
-                    ReportListing();
-            });
-        });
+        _properties.Start.Written.Advise(lifetime, state => _countdown.OnStartWritten(lifetime, state));
+        _listing.Start(lifetime);
     }
 
     // The lobby of the late players of a running match is started: the game decides when its users get a place in the
@@ -162,7 +131,7 @@ public class LobbyService : Service
         if (IsGameStarted == true)
             return;
 
-        _game.Set(new LobbyGameState
+        _properties.Game.Set(new LobbyGameState
         {
             ServerUrl = match.ServerUrl,
             SessionId = match.SessionId,
@@ -175,7 +144,7 @@ public class LobbyService : Service
     protected void ClearGame()
     {
         if (IsGameStarted == true)
-            _game.Set(new LobbyGameState());
+            _properties.Game.Set(new LobbyGameState());
     }
 
     // Running mode, in the session queue: the match has ended (won, lost or closed) before the late players got in.
@@ -183,7 +152,7 @@ public class LobbyService : Service
     {
         _logger.LogInformation("[Lobby] Match {SessionID} is over: the late players go back", _info.RunningMatchId);
 
-        _lobby.Update(state => state.IsRunOver = true);
+        _properties.Lobby.Update(state => state.IsRunOver = true);
         ClearGame();
     }
 
@@ -191,12 +160,12 @@ public class LobbyService : Service
     {
         // The countdown belongs to the leader that started it. After the match is created the users leave
         // the lobby one by one: nothing to reset.
-        if (_start.Value.IsStarting == true && IsGameStarted == false)
+        if (_properties.Start.Value.IsStarting == true && IsGameStarted == false)
         {
             _logger.LogInformation("[Lobby] The leader has changed during the countdown: the start is reset");
 
-            StopCountdown();
-            _start.Set(new LobbyStartState());
+            _countdown.Stop();
+            _properties.Start.Set(new LobbyStartState());
         }
 
         // Nobody is connected: the last index stays, nobody reads it; the next user to join becomes the leader.
@@ -204,145 +173,7 @@ public class LobbyService : Service
             return;
 
         _logger.LogInformation("[Lobby] Lobby leader: user {Index}", owner.Index);
-        _lobby.Update(state => state.OwnerIndex = owner.Index);
-        ReportListing();
-    }
-
-    private void OnVisibilityWritten(LobbyVisibilityState state)
-    {
-        _logger.LogInformation("[Lobby] Lobby {Code} is {Visibility}", _lobby.Value.Code, state.IsOpen ? "open" : "closed");
-        ReportListing();
-    }
-
-    // From the start of the match on, the match reports the code.
-    private void ReportListing()
-    {
-        if (_info.IsRunning == true || IsGameStarted == true)
-            return;
-
-        var owner = _owner.Owner.Value;
-
-        _listings.Report(_info.SessionId, new LobbyListing
-        {
-            IsOpen = _visibility.Value.IsOpen,
-            LeaderUserId = owner?.BackendId ?? Guid.Empty,
-            PlayersCount = _users.CountPlayers(),
-            MaxPlayers = _info.MaxUsers,
-            IsRunning = false,
-            IsJoinable = true
-        });
-    }
-
-    private void OnStartWritten(LobbyStartState state)
-    {
-        // "Cancel" that came after zero: the match exists, the users are on their way to it.
-        if (IsGameStarted == true)
-            return;
-
-        if (state.IsStarting == _countdown.Value.IsActive)
-            return;
-
-        if (state.IsStarting == true)
-            StartCountdown();
-        else
-            StopCountdown();
-    }
-
-    private void StartCountdown()
-    {
-        var countdownLifetime = Lifetime.Child();
-        _countdownLifetime = countdownLifetime;
-
-        _logger.LogInformation("[Lobby] Start countdown: {Seconds} s", LobbyCountdownState.Seconds);
-
-        _countdown.Set(new LobbyCountdownState
-        {
-            IsActive = true,
-            SecondsLeft = LobbyCountdownState.Seconds
-        });
-
-        ScheduleStep(countdownLifetime);
-    }
-
-    private void StopCountdown()
-    {
-        if (_countdown.Value.IsActive == false)
-            return;
-
-        _logger.LogInformation("[Lobby] Start countdown is cancelled at {Seconds} s", _countdown.Value.SecondsLeft);
-
-        _countdownLifetime!.Terminate();
-        _countdownLifetime = null;
-
-        _countdown.Set(new LobbyCountdownState());
-    }
-
-    private void ScheduleStep(IReadOnlyLifetime countdownLifetime)
-    {
-        Wait().NoAwait();
-
-        async Task Wait()
-        {
-            // Cancelled with the countdown (a cancel, the end of the session): nothing waits for a dead step.
-            await Task.Delay(CountdownStep, _time, countdownLifetime.Token).ConfigureAwait(false);
-            _executionQueue.Enqueue(() => OnStep(countdownLifetime));
-        }
-    }
-
-    private void OnStep(IReadOnlyLifetime countdownLifetime)
-    {
-        // cancelled (or the session is closed) while the step was waiting
-        if (countdownLifetime.IsTerminated == true)
-            return;
-
-        var secondsLeft = _countdown.Value.SecondsLeft - 1;
-
-        _countdown.Set(new LobbyCountdownState
-        {
-            IsActive = true,
-            SecondsLeft = secondsLeft
-        });
-
-        if (secondsLeft > 0)
-        {
-            ScheduleStep(countdownLifetime);
-            return;
-        }
-
-        StartGame();
-    }
-
-    private void StartGame()
-    {
-        _countdownLifetime!.Terminate();
-        _countdownLifetime = null;
-
-        // Sealed first: nobody can take a place in the lobby after the list of its users is read.
-        _admission.Seal();
-
-        // Everybody the lobby has let in: the connected users and those still on their way to it (a place
-        // reserved by the code a moment ago) - the latter read the address as soon as they connect. A user is listed
-        // once, whatever number of its connections are joined (a stale one is being dropped); a bot has no place.
-        var userIds = _users.GetPlayerIds().ToList();
-
-        foreach (var userId in _admission.GetPendingUsers(_time.GetUtcNow().UtcDateTime))
-        {
-            if (userIds.Contains(userId) == false)
-                userIds.Add(userId);
-        }
-
-        var match = _matches.Create(_info.SessionId, userIds, _visibility.Value.IsOpen);
-
-        _logger.LogInformation("[Lobby] Lobby {Code} starts the match {SessionID} for {Count} users",
-            _lobby.Value.Code,
-            match.SessionId,
-            userIds.Count);
-
-        _game.Set(new LobbyGameState
-        {
-            ServerUrl = match.ServerUrl,
-            SessionId = match.SessionId,
-            PlayersCount = userIds.Count
-        });
+        _properties.Lobby.Update(state => state.OwnerIndex = owner.Index);
+        _listing.Report();
     }
 }

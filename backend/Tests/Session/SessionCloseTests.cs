@@ -458,6 +458,23 @@ public class SessionCloseTests
         session.Lifetime.IsTerminated.Should().BeTrue();
     }
 
+    // Coming anew drops the connections of that user, not the bots of the session.
+    [Fact]
+    public void DropConnections_BotStays()
+    {
+        var session = TestSession.Create();
+        var bot = session.AddBot();
+        var user = session.ReserveAndEnter();
+        var other = session.ReserveAndEnter();
+
+        session.Session.DropConnections(user.BackendId);
+        session.Queue.Drain();
+
+        user.Lifetime.IsTerminated.Should().BeTrue();
+        bot.Lifetime.IsTerminated.Should().BeFalse();
+        other.Lifetime.IsTerminated.Should().BeFalse();
+    }
+
     // Whatever the run of a connection ends with, its user is removed: a failed run is a disconnect.
     [Fact]
     public void ConnectionRunFails_UserIsRemoved_SessionCloses()

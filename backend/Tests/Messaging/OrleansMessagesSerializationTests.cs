@@ -145,13 +145,9 @@ public class OrleansMessagesSerializationTests(OrleansTestClusterFixture fixture
     }
 
     [Fact]
-    public void TransactionContext_KeepsTheExceptionMessage()
+    public void TransactionContext_KeepsItsId()
     {
-        var context = new TransactionContext { Id = SomeId };
-
-        context.SetExceptionMessage("failed");
-
-        Check(context);
+        Check(new TransactionContext { Id = SomeId });
     }
 
     private void Check<T>(T value) where T : class

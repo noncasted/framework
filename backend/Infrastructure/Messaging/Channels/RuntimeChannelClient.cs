@@ -39,7 +39,11 @@ public class RuntimeChannelClient : IRuntimeChannelClient
 
     public Task Start(IReadOnlyLifetime lifetime)
     {
-        ResubscribeLoop(lifetime).NoAwait();
+        ResubscribeLoop.Run(lifetime,
+            () => _listeners.Values.ToArray(),
+            () => TimeSpan.FromMilliseconds(_config.Value.Value.ResubscribeMinIntervalMs),
+            () => TimeSpan.FromMilliseconds(_config.Value.Value.ResubscribeTimeoutMs)).NoAwait();
+
         return Task.CompletedTask;
     }
 
@@ -99,40 +103,7 @@ public class RuntimeChannelClient : IRuntimeChannelClient
         return _orleans.GetGrain<IRuntimeChannel>(id.ToRaw());
     }
 
-    private async Task ResubscribeLoop(IReadOnlyLifetime lifetime)
-    {
-        while (lifetime.IsTerminated == false)
-        {
-            var snapshot = _listeners.Values.ToArray();
-
-            foreach (var listener in snapshot)
-            {
-                try
-                {
-                    await listener.Resubscribe();
-                    listener.RecordSuccess();
-                }
-                catch (Exception e)
-                {
-                    listener.RecordFailure(e);
-                }
-            }
-
-            var delay = snapshot.Length == 0
-                ? TimeSpan.FromMilliseconds(_config.Value.Value.ResubscribeMinIntervalMs)
-                : snapshot.Min(l => l.Interval.GetNextDelay());
-
-            try
-            {
-                await Task.Delay(delay, lifetime.Token);
-            }
-            catch (OperationCanceledException) when (lifetime.IsTerminated)
-            {
-            }
-        }
-    }
-
-    public class Listener
+    public class Listener : IResubscribingListener
     {
         public Listener(
             IRuntimeChannelId id,
@@ -145,19 +116,25 @@ public class RuntimeChannelClient : IRuntimeChannelClient
             Channel = channel;
             Orleans = orleans;
             Logger = logger;
-            Interval = new AdaptiveInterval(minInterval: TimeSpan.FromMilliseconds(options.ResubscribeMinIntervalMs),
-                maxInterval: TimeSpan.FromMilliseconds(options.ResubscribeMaxIntervalMs),
-                failureBaseInterval: TimeSpan.FromSeconds(1));
-            ObserverSource = new RuntimeChannelObserver(Deliver);
+            _failures = new ResubscribeFailures(
+                new AdaptiveInterval(minInterval: TimeSpan.FromMilliseconds(options.ResubscribeMinIntervalMs),
+                    maxInterval: TimeSpan.FromMilliseconds(options.ResubscribeMaxIntervalMs),
+                    failureBaseInterval: TimeSpan.FromSeconds(1)),
+                LogResubscribeFailure);
+            _handlers = new LocalHandlers("channel", id.ToRaw(), LogHandlerFailure);
+            _gapHandlers = new RuntimeChannelGapHandlers(id, logger);
+            ObserverSource = new RuntimeChannelObserver(_handlers.Deliver);
             ObserverReference = Orleans.Client.CreateObjectReference<IRuntimeChannelObserver>(ObserverSource);
+            _resubscription = new RuntimeChannelResubscription(id, channel, ObserverSource, ObserverReference,
+                _gapHandlers, logger);
         }
 
-        private readonly object _gate = new();
-        private readonly Dictionary<Guid, HandlerData> _handlers = new();
-        private readonly SemaphoreSlim _resubscribeLock = new(1, 1);
+        private readonly ResubscribeFailures _failures;
+        private readonly LocalHandlers _handlers;
+        private readonly RuntimeChannelGapHandlers _gapHandlers;
+        private readonly RuntimeChannelResubscription _resubscription;
 
         private int _cleanupStarted;
-        private int _consecutiveFailures;
 
         public IRuntimeChannelId Id { get; }
         public RuntimeChannelObserver ObserverSource { get; }
@@ -166,117 +143,36 @@ public class RuntimeChannelClient : IRuntimeChannelClient
         public ILogger Logger { get; }
         public IOrleans Orleans { get; }
 
-        public AdaptiveInterval Interval { get; }
+        public AdaptiveInterval Interval => _failures.Interval;
 
         public Guid AddHandler(Func<object, Task> handler, Action? onGapDetected)
         {
-            var id = Guid.NewGuid();
+            var id = _handlers.Add(handler)
+                ?? throw new InvalidOperationException($"The last handler of channel {Id.ToRaw()} has gone");
 
-            lock (_gate)
-            {
-                _handlers[id] = new HandlerData
-                {
-                    Handler = handler,
-                    OnGapDetected = onGapDetected
-                };
-            }
-
+            _gapHandlers.Add(id, onGapDetected);
             return id;
         }
 
         public bool RemoveHandler(Guid id)
         {
-            lock (_gate)
-            {
-                _handlers.Remove(id);
-                return _handlers.Count == 0;
-            }
+            _gapHandlers.Remove(id);
+            return _handlers.Remove(id);
         }
 
-        // One at a time: the first Listen and the resubscribe loop can run it together, and a second BeginBuffering
-        // in the middle of the first one dropped the messages the first one had buffered.
-        public async Task Resubscribe()
+        public Task Resubscribe()
         {
-            await _resubscribeLock.WaitAsync();
-
-            try
-            {
-                await ResubscribeLocked();
-            }
-            finally
-            {
-                _resubscribeLock.Release();
-            }
-        }
-
-        private async Task ResubscribeLocked()
-        {
-            ObserverSource.BeginBuffering();
-            var lastSeenSequence = ObserverSource.LastSeenSequence;
-            var lastSeenEpoch = ObserverSource.LastSeenEpoch;
-
-            try
-            {
-                await Channel.AddObserver(ObserverSource.Id, ObserverReference);
-
-                if (lastSeenSequence == 0)
-                    return;
-
-                var catchUp = await Channel.CatchUp(lastSeenSequence);
-
-                if (catchUp.Epoch != lastSeenEpoch)
-                {
-                    // A new activation of the channel numbers from 1 again: everything it has is new here, and what
-                    // the previous one published after lastSeenSequence is lost.
-                    Logger.LogWarning(
-                        "[Messaging] [Channel] Channel {ChannelId} reactivated, last seen seq {LastSeq} of the previous activation, current seq {CurrentSeq}",
-                        Id.ToRaw(), lastSeenSequence, catchUp.CurrentSequence);
-
-                    ObserverSource.ResetLastSeen(catchUp.Epoch, 0);
-                    catchUp = await Channel.CatchUp(0);
-
-                    if (catchUp.Epoch != ObserverSource.LastSeenEpoch)
-                        throw new InvalidOperationException($"Channel {Id.ToRaw()} reactivated again during the catch-up");
-
-                    InvokeGapDetected();
-                }
-                else if (catchUp.GapDetected)
-                {
-                    Logger.LogWarning(
-                        "[Messaging] [Channel] Gap detected on {ChannelId}, last seen seq {LastSeq}, current seq {CurrentSeq}, replaying {Count} messages",
-                        Id.ToRaw(), lastSeenSequence, catchUp.CurrentSequence, catchUp.Messages.Count);
-
-                    if (lastSeenSequence > catchUp.CurrentSequence)
-                        ObserverSource.ResetLastSeen(0);
-
-                    InvokeGapDetected();
-                }
-
-                await ObserverSource.ReplayCatchUp(catchUp.Messages);
-            }
-            finally
-            {
-                await ObserverSource.EndBuffering();
-            }
+            return _resubscription.Run();
         }
 
         public void RecordSuccess()
         {
-            _consecutiveFailures = 0;
-            Interval.RecordSuccess();
+            _failures.RecordSuccess();
         }
 
         public void RecordFailure(Exception e)
         {
-            _consecutiveFailures++;
-            Interval.RecordFailure();
-
-            if (_consecutiveFailures == 1 || _consecutiveFailures % 10 == 0)
-            {
-                Logger.LogError(e,
-                    "[Messaging] [Channel] Failed to rebind observer {ObserverId} (attempt {Count}) to channel {ChannelId}",
-                    ObserverSource.Id, _consecutiveFailures, Id.ToRaw());
-            }
+            _failures.RecordFailure(e);
         }
 
         public void Cleanup()
@@ -287,61 +183,18 @@ public class RuntimeChannelClient : IRuntimeChannelClient
             CleanupTransport().NoAwait();
         }
 
-        private async Task Deliver(object message)
+        private void LogResubscribeFailure(Exception e, int attempt)
         {
-            KeyValuePair<Guid, HandlerData>[] handlers;
-
-            lock (_gate)
-                handlers = _handlers.ToArray();
-
-            if (handlers.Length == 0)
-                throw new InvalidOperationException($"No local channel handlers for {Id.ToRaw()}");
-
-            var successCount = 0;
-            List<Exception>? failures = null;
-
-            foreach (var (handlerId, data) in handlers)
-            {
-                try
-                {
-                    await data.Handler(message);
-                    successCount++;
-                }
-                catch (Exception e)
-                {
-                    failures ??= [];
-                    failures.Add(e);
-
-                    Logger.LogError(e,
-                        "[Messaging] [Channel] Local handler {HandlerId} failed for channel {ChannelId}",
-                        handlerId, Id.ToRaw());
-                }
-            }
-
-            if (successCount == 0 && failures != null)
-                throw new AggregateException($"All local channel handlers failed for {Id.ToRaw()}", failures);
+            Logger.LogError(e,
+                "[Messaging] [Channel] Failed to rebind observer {ObserverId} (attempt {Count}) to channel {ChannelId}",
+                ObserverSource.Id, attempt, Id.ToRaw());
         }
 
-        private void InvokeGapDetected()
+        private void LogHandlerFailure(Exception e, Guid handlerId)
         {
-            HandlerData[] handlers;
-
-            lock (_gate)
-                handlers = _handlers.Values.ToArray();
-
-            foreach (var handler in handlers)
-            {
-                try
-                {
-                    handler.OnGapDetected?.Invoke();
-                }
-                catch (Exception e)
-                {
-                    Logger.LogError(e,
-                        "[Messaging] [Channel] Gap handler failed for channel {ChannelId}",
-                        Id.ToRaw());
-                }
-            }
+            Logger.LogError(e,
+                "[Messaging] [Channel] Local handler {HandlerId} failed for channel {ChannelId}",
+                handlerId, Id.ToRaw());
         }
 
         private async Task CleanupTransport()
@@ -367,12 +220,6 @@ public class RuntimeChannelClient : IRuntimeChannelClient
                     "[Messaging] [Channel] Failed to delete object reference for observer {ObserverId} on channel {ChannelId}",
                     ObserverSource.Id, Id.ToRaw());
             }
-        }
-
-        private class HandlerData
-        {
-            public required Func<object, Task> Handler { get; init; }
-            public Action? OnGapDetected { get; init; }
         }
     }
 }

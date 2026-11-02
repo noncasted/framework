@@ -5,53 +5,13 @@ using Microsoft.Extensions.Logging;
 
 namespace Infrastructure;
 
-public interface IRuntimeChannelId
-{
-    string ToRaw();
-}
-
-public class RuntimeChannelId : IRuntimeChannelId
-{
-    public RuntimeChannelId(string id)
-    {
-        _id = id;
-    }
-
-    private readonly string _id;
-
-    public string ToRaw()
-    {
-        return _id;
-    }
-}
-
-[GenerateSerializer]
-public class SequencedMessage
-{
-    [Id(0)] public long Sequence { get; init; }
-    [Id(1)] public object Payload { get; init; } = null!;
-
-    // The activation of the channel that numbered the message: a new activation numbers from 1 again.
-    [Id(2)] public Guid Epoch { get; init; }
-}
-
-[GenerateSerializer]
-public class CatchUpResult
-{
-    [Id(0)] public IReadOnlyList<SequencedMessage> Messages { get; init; } = Array.Empty<SequencedMessage>();
-    [Id(1)] public bool GapDetected { get; init; }
-    [Id(2)] public long CurrentSequence { get; init; }
-    [Id(3)] public Guid Epoch { get; init; }
-}
-
 public interface IRuntimeChannel : IGrainWithStringKey
 {
-    Task AddObserver(Guid id, IRuntimeChannelObserver observer);
+    Task<ChannelPosition> AddObserver(Guid id, IRuntimeChannelObserver observer);
     Task RemoveObserver(Guid id);
 
-    /// <summary>
-    /// Publishes messages in Orleans grain turn order. Concurrent callers should not infer ordering from caller-side task creation order.
-    /// </summary>
+    // Publishes messages in Orleans grain turn order. Concurrent callers should not infer ordering from caller-side
+    // task creation order.
     Task Publish(object message);
 
     Task<CatchUpResult> CatchUp(long lastSeenSequence);
@@ -74,19 +34,17 @@ public class RuntimeChannel : Grain, IRuntimeChannel
     private readonly IRuntimeChannelConfig _config;
     private readonly ConcurrentDictionary<Guid, ObserverData> _observers = new();
 
-    private long _sequenceNumber;
-
-    // The sequence numbers live in this activation only: the epoch tells a client that saw the numbers of another
-    // activation that its LastSeenSequence means nothing here (RuntimeChannelClient.Listener.Resubscribe).
-    private readonly Guid _epoch = Guid.NewGuid();
-    private SequencedMessage?[] _buffer = null!;
+    private RuntimeChannelCatchUpBuffer _catchUpBuffer = null!;
+    private RuntimeChannelDelivery _delivery = null!;
     private int _bufferSize;
     private DateTime _keepAliveUntil;
 
     public override Task OnActivateAsync(CancellationToken cancellationToken)
     {
         _bufferSize = _config.Value.CatchUpBufferSize;
-        _buffer = new SequencedMessage?[_bufferSize];
+        var channelName = this.GetPrimaryKeyString();
+        _catchUpBuffer = new RuntimeChannelCatchUpBuffer(_bufferSize, channelName, _logger);
+        _delivery = new RuntimeChannelDelivery(channelName, _config, _logger, Remove);
         return Task.CompletedTask;
     }
 
@@ -104,7 +62,7 @@ public class RuntimeChannel : Grain, IRuntimeChannel
         await Task.WhenAny(deliveries, Task.Delay(Timeout.Infinite, cancellationToken));
     }
 
-    public Task AddObserver(Guid id, IRuntimeChannelObserver observer)
+    public Task<ChannelPosition> AddObserver(Guid id, IRuntimeChannelObserver observer)
     {
         if (_observers.TryGetValue(id, out var data) == false)
         {
@@ -119,7 +77,7 @@ public class RuntimeChannel : Grain, IRuntimeChannel
 
             _observers[id] = data;
 
-            data.SetDelivery(Task.Factory.StartNew(() => DeliverTo(data), CancellationToken.None,
+            data.SetDelivery(Task.Factory.StartNew(() => _delivery.Run(data), CancellationToken.None,
                 TaskCreationOptions.None, TaskScheduler.Current).Unwrap());
         }
 
@@ -129,7 +87,7 @@ public class RuntimeChannel : Grain, IRuntimeChannel
         // catch-up buffer alive between refreshes.
         KeepAlive(TimeSpan.FromMinutes(_config.Value.ObserverKeepAliveMinutes));
 
-        return Task.CompletedTask;
+        return Task.FromResult(_catchUpBuffer.Position);
     }
 
     public Task RemoveObserver(Guid id)
@@ -151,9 +109,7 @@ public class RuntimeChannel : Grain, IRuntimeChannel
         BackendMetrics.ChannelPublished.Add(1);
         BackendMetrics.ChannelObserverCount.Record(_observers.Count);
 
-        _sequenceNumber++;
-        var sequenced = new SequencedMessage { Sequence = _sequenceNumber, Payload = message, Epoch = _epoch };
-        _buffer[_sequenceNumber % _bufferSize] = sequenced;
+        var sequenced = _catchUpBuffer.Add(message);
         activity?.SetTag("messaging.sequence", sequenced.Sequence);
 
         foreach (var data in _observers.Values)
@@ -177,6 +133,11 @@ public class RuntimeChannel : Grain, IRuntimeChannel
         return Task.CompletedTask;
     }
 
+    public Task<CatchUpResult> CatchUp(long lastSeenSequence)
+    {
+        return Task.FromResult(_catchUpBuffer.CatchUp(lastSeenSequence));
+    }
+
     // DelayDeactivation replaces the previous request: never shorten a longer keep-alive.
     private void KeepAlive(TimeSpan duration)
     {
@@ -195,142 +156,23 @@ public class RuntimeChannel : Grain, IRuntimeChannel
         data.Queue.Writer.TryComplete();
     }
 
-    private async Task DeliverTo(ObserverData data)
-    {
-        await foreach (var sequenced in data.Queue.Reader.ReadAllAsync())
-        {
-            if (await TrySend(data, sequenced) == true)
-                continue;
-
-            Remove(data);
-            return;
-        }
-    }
-
-    private async Task<bool> TrySend(ObserverData data, SequencedMessage sequenced)
-    {
-        var channelName = this.GetPrimaryKeyString();
-
-        try
-        {
-            var timeout = TimeSpan.FromSeconds(_config.Value.DeliveryTimeoutSeconds);
-            var deliveryTask = data.Observer.Send(sequenced);
-
-            if (await Task.WhenAny(deliveryTask, Task.Delay(timeout)) != deliveryTask)
-            {
-                BackendMetrics.ChannelDeliveryTimeout.Add(1);
-
-                _logger.LogWarning(
-                    "[Messaging] [Channel] Delivery timeout on {ChannelName} to observer {ObserverId} at sequence {Sequence}",
-                    channelName, data.Id, sequenced.Sequence);
-                return false;
-            }
-
-            await deliveryTask;
-            return true;
-        }
-        catch (Exception e)
-        {
-            BackendMetrics.ChannelDeliveryFailure.Add(1);
-
-            _logger.LogError(e,
-                "[Messaging] [Channel] Delivering message from {ChannelName} to observer {ObserverId} failed at sequence {Sequence}",
-                channelName, data.Id, sequenced.Sequence);
-            return false;
-        }
-    }
-
-    public Task<CatchUpResult> CatchUp(long lastSeenSequence)
-    {
-        var channelName = this.GetPrimaryKeyString();
-
-        if (lastSeenSequence > _sequenceNumber)
-        {
-            BackendMetrics.ChannelGapDetected.Add(1);
-
-            _logger.LogWarning(
-                "[Messaging] [Channel] Sequence reset/gap detected on {ChannelName}: requested seq {RequestedSeq}, current seq {CurrentSeq}",
-                channelName, lastSeenSequence, _sequenceNumber);
-
-            return Task.FromResult(new CatchUpResult
-            {
-                GapDetected = true,
-                CurrentSequence = _sequenceNumber,
-                Epoch = _epoch
-            });
-        }
-
-        if (lastSeenSequence == _sequenceNumber)
-        {
-            return Task.FromResult(new CatchUpResult
-            {
-                CurrentSequence = _sequenceNumber,
-                Epoch = _epoch
-            });
-        }
-
-        var oldestInBuffer = _sequenceNumber - _bufferSize + 1;
-
-        if (oldestInBuffer < 1)
-            oldestInBuffer = 1;
-
-        var gapDetected = lastSeenSequence < oldestInBuffer - 1;
-        var startSequence = Math.Max(lastSeenSequence + 1, oldestInBuffer);
-
-        var messages = new List<SequencedMessage>();
-
-        for (var seq = startSequence; seq <= _sequenceNumber; seq++)
-        {
-            var entry = _buffer[seq % _bufferSize];
-
-            if (entry != null && entry.Sequence == seq)
-                messages.Add(entry);
-        }
-
-        if (messages.Count > 0)
-        {
-            BackendMetrics.ChannelCatchUpExecuted.Add(1);
-            BackendMetrics.ChannelCatchUpMessages.Record(messages.Count);
-        }
-
-        if (gapDetected)
-        {
-            BackendMetrics.ChannelGapDetected.Add(1);
-
-            _logger.LogWarning(
-                "[Messaging] [Channel] Gap detected on {ChannelName}: requested seq {RequestedSeq}, oldest available {OldestSeq}, current seq {CurrentSeq}",
-                channelName, lastSeenSequence, oldestInBuffer, _sequenceNumber);
-        }
-
-        return Task.FromResult(new CatchUpResult
-        {
-            Messages = messages,
-            GapDetected = gapDetected,
-            CurrentSequence = _sequenceNumber,
-            Epoch = _epoch
-        });
-    }
-
     public class ObserverData
     {
         public ObserverData(Guid id, IRuntimeChannelObserver observer, Channel<SequencedMessage> queue)
         {
             Id = id;
             Observer = observer;
-            UpdateDate = DateTime.UtcNow;
             Queue = queue;
         }
 
         public Guid Id { get; }
         public IRuntimeChannelObserver Observer { get; private set; }
-        public DateTime UpdateDate { get; private set; }
         public Channel<SequencedMessage> Queue { get; }
         public Task DeliveryTask { get; private set; } = Task.CompletedTask;
 
         public void Refresh(IRuntimeChannelObserver observer)
         {
             Observer = observer;
-            UpdateDate = DateTime.UtcNow;
         }
 
         public void SetDelivery(Task task)

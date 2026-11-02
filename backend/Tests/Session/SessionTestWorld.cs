@@ -11,7 +11,7 @@ namespace Framework.Tests.Session;
 // One real session container (AddSessionServices) on a manual execution queue and manual time: no threads and no
 // real delays. A user is created by the real UserFactory, over a TestConnection instead of a WebSocket;
 // what the game gateway does (TryAccept, then the creation in the queue) is Enter. A connection ends through
-// IConnection.Run, so a user leaves the session the way it does after a real disconnect (Session.HandleUser).
+// IConnection.Run, so a user leaves the session the way it does after a real disconnect (SessionUserRuns.Run).
 public class TestSession
 {
     // configure: what the host of a session of a game adds to its container (the services of the session, the
@@ -325,7 +325,7 @@ public class TestConnection : IConnection, IConnectionReader, IConnectionWriter
 }
 
 // Single consumer at a time, like the real ExecutionQueue, but pumped by the test. Actions run without a
-// synchronization context: an await inside the session (Session.HandleUser) continues inline when its task completes,
+// synchronization context: an await inside the session (SessionUserRuns.Run) continues inline when its task completes,
 // not on a context of the test runner.
 public class ManualExecutionQueue : IExecutionQueue
 {
@@ -387,6 +387,16 @@ public class ManualTimeProvider : TimeProvider
 {
     private readonly List<ManualTimer> _timers = new();
     private DateTimeOffset _now = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+    private int _createdTimers;
+
+    public int CreatedTimers
+    {
+        get
+        {
+            lock (_timers)
+                return _createdTimers;
+        }
+    }
 
     public override DateTimeOffset GetUtcNow()
     {
@@ -400,6 +410,7 @@ public class ManualTimeProvider : TimeProvider
         {
             var timer = new ManualTimer(callback, state, _now + dueTime);
             _timers.Add(timer);
+            _createdTimers++;
             return timer;
         }
     }

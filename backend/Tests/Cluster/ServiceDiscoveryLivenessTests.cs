@@ -2,6 +2,7 @@ using Cluster.Coordination;
 using Cluster.Deploy;
 using Cluster.Discovery;
 using Cluster.Monitoring;
+using Common.Extensions;
 using FluentAssertions;
 using Framework.Tests.Fixtures;
 using Infrastructure;
@@ -97,6 +98,9 @@ public class ServiceDiscoveryLivenessTests
     [Fact]
     public async Task WaitClusterReady_MissingService_WarnsOnce()
     {
+        // The startup installs its handler of the unobserved tasks when it finds none: static, the test puts it back.
+        var previousHandler = NoAwaitExceptions.Handler;
+
         var logger = new CountingLogger();
 
         var loopObserver = Substitute.For<IServiceLoopObserver>();
@@ -127,11 +131,18 @@ public class ServiceDiscoveryLivenessTests
             Substitute.For<IHostApplicationLifetime>(),
             logger);
 
-        await startup.StartAsync(TestContext.Current.CancellationToken);
+        try
+        {
+            await startup.StartAsync(TestContext.Current.CancellationToken);
 
-        // Polls of the same missing set: the first logs, the next ones must not (the 25th logs again, 5 s later).
-        await TestWait.Until(() => discovery.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(discovery.Push)) >= 4);
-        await startup.StopAsync(TestContext.Current.CancellationToken);
+            // Polls of the same missing set: the first logs, the next ones must not (the 25th logs again, 5 s later).
+            await TestWait.Until(() => discovery.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(discovery.Push)) >= 4);
+            await startup.StopAsync(TestContext.Current.CancellationToken);
+        }
+        finally
+        {
+            NoAwaitExceptions.SetHandler(previousHandler);
+        }
 
         logger.Count("cluster not ready").Should().BeLessThanOrEqualTo(1,
             "the missing services are logged when they change, not on every poll");

@@ -289,6 +289,61 @@ public class LobbySessionsTests
     }
 
     [Fact]
+    public async Task Create_FactoryBuildsAnotherSession_Throws_CodeIsReleased()
+    {
+        var world = new HostingTestWorld();
+        var built = world.CreatePublicMatch().Session;
+        var factory = Substitute.For<ILobbyFactory>();
+        factory.Create(Arg.Any<LobbyCreation>()).Returns(built);
+
+        var lobbies = Lobbies(world, factory);
+
+        var create = () => lobbies.Create(Guid.NewGuid());
+
+        await create.Should().ThrowAsync<InvalidOperationException>();
+        world.Codes.Entries.Should().BeEmpty();
+    }
+
+    // A factory that gives the lobby no place for its creator.
+    [Fact]
+    public async Task Create_LobbyRefusesItsCreator_Throws()
+    {
+        var world = new HostingTestWorld();
+        var factory = Substitute.For<ILobbyFactory>();
+
+        factory.Create(Arg.Any<LobbyCreation>()).Returns(call => {
+            return new TestSession(new SessionCreateOptions
+            {
+                Id = call.Arg<LobbyCreation>().Id,
+                Type = SessionType.Lobby,
+                ExpectedUsers = 0,
+                MaxUsers = 0,
+                IsPrivate = true,
+                Time = world.Time
+            }).Session;
+        });
+
+        var lobbies = Lobbies(world, factory);
+
+        var create = () => lobbies.Create(Guid.NewGuid());
+
+        await create.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    private static LobbySessions Lobbies(HostingTestWorld world, ILobbyFactory factory)
+    {
+        return new LobbySessions(
+            factory,
+            world.Collection,
+            world.Codes,
+            world.Leases,
+            world.EntryPolicy,
+            world.Options,
+            world.Discovery,
+            NullLogger<LobbySessions>.Instance);
+    }
+
+    [Fact]
     public void LobbyService_WithoutCode_Throws()
     {
         var world = new HostingTestWorld();

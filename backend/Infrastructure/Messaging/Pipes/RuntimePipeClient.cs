@@ -28,84 +28,35 @@ public class RuntimePipeClient : IRuntimePipeClient
         ILogger<RuntimePipeClient> logger)
     {
         _orleans = orleans;
-        _config = new Lazy<IRuntimePipeConfig>(() => services.GetRequiredService<IRuntimePipeConfig>());
+        _sender = new RuntimePipeSender(
+            new Lazy<IRuntimePipeConfig>(() => services.GetRequiredService<IRuntimePipeConfig>()),
+            logger);
         _logger = logger;
     }
 
     private readonly IOrleans _orleans;
-    private readonly Lazy<IRuntimePipeConfig> _config;
+    private readonly RuntimePipeSender _sender;
     private readonly ILogger<RuntimePipeClient> _logger;
 
     private readonly ConcurrentDictionary<Guid, Listener> _listeners = new();
 
     public Task Start(IReadOnlyLifetime lifetime)
     {
-        ResubscribeLoop(lifetime).NoAwait();
+        ResubscribeLoop.Run(lifetime,
+            () => _listeners.Values.ToArray(),
+            () => TimeSpan.FromSeconds(10),
+            () => ResubscribeLoop.DefaultTimeout).NoAwait();
         return Task.CompletedTask;
     }
 
     public async Task<TResponse> Send<TResponse>(IRuntimePipeId id, object message)
     {
-        var pipe = GetPipe(id);
-        var options = _config.Value.Value;
-
-        Exception? lastException = null;
-
-        for (var attempt = 0; attempt <= options.SendRetryCount; attempt++)
-        {
-            try
-            {
-                return await pipe.Send<TResponse>(message);
-            }
-            catch (Exception e) when (IsTransient(e))
-            {
-                lastException = e;
-
-                if (attempt < options.SendRetryCount)
-                {
-                    BackendMetrics.PipeRetry.Add(1);
-                    var delay = options.SendRetryBaseDelayMs * (1 << attempt);
-
-                    _logger.LogWarning(e,
-                        "[Messaging] [Pipe] Send to {PipeId} failed (attempt {Attempt}/{Max}), retrying in {Delay}ms",
-                        id.ToRaw(), attempt + 1, options.SendRetryCount + 1, delay);
-
-                    await Task.Delay(delay);
-                }
-            }
-        }
-
-        throw lastException!;
+        return await _sender.Send<TResponse>(id, GetPipe(id), message);
     }
 
-    // Only a request that reached no handler is sent again. A timeout or a transport failure may come after the
-    // handler ran: repeating it would run a non-idempotent handler twice.
-    private static bool IsTransient(Exception e)
+    public Task<bool> Exists(IRuntimePipeId id)
     {
-        var current = e;
-
-        while (current != null)
-        {
-            if (current.Message.Contains(RuntimePipe.NoObserverPrefix, StringComparison.Ordinal))
-                return true;
-
-            current = current.InnerException;
-        }
-
-        return false;
-    }
-
-    public async Task<bool> Exists(IRuntimePipeId id)
-    {
-        try
-        {
-            return await GetPipe(id).HasObserver();
-        }
-        catch (Exception e)
-        {
-            _logger.LogWarning(e, "[Messaging] [Pipe] Exists check for {PipeId} failed", id.ToRaw());
-            return false;
-        }
+        return GetPipe(id).HasObserver();
     }
 
     public async Task AddHandler<TRequest, TResponse>(
@@ -137,15 +88,8 @@ public class RuntimePipeClient : IRuntimePipeClient
         var observerId = Guid.NewGuid();
         var observerReference = _orleans.Client.CreateObjectReference<IRuntimePipeObserver>(observer);
 
-        foreach (var (checkId, checkListener) in _listeners.ToArray())
-        {
-            if (checkListener.Id.ToRaw() != id.ToRaw())
-                continue;
-
-            _logger.LogWarning("[Messaging] [RuntimePipe] Removing duplicate observer {ObserverId} for pipe {PipeId}",
-                checkListener.ObserverId, id.ToRaw());
-            RemoveListener(checkId, checkListener);
-        }
+        // Taken before the new one is known: of two registrations together the later one stays.
+        var replaced = _listeners.ToArray().Where(pair => pair.Value.Id.ToRaw() == id.ToRaw()).ToArray();
 
         var transportListener = new Listener(
             id,
@@ -170,6 +114,14 @@ public class RuntimePipeClient : IRuntimePipeClient
             RemoveListener(observerId, transportListener);
             throw;
         }
+
+        // Only now: a new observer that failed to bind leaves the pipe with the old one.
+        foreach (var (replacedId, replacedListener) in replaced)
+        {
+            _logger.LogWarning("[Messaging] [RuntimePipe] Removing duplicate observer {ObserverId} for pipe {PipeId}",
+                replacedListener.ObserverId, id.ToRaw());
+            RemoveListener(replacedId, replacedListener);
+        }
     }
 
     private void RemoveListener(Guid listenerId, Listener listener)
@@ -186,53 +138,7 @@ public class RuntimePipeClient : IRuntimePipeClient
         return _orleans.GetGrain<IRuntimePipe>(rawId);
     }
 
-    private async Task ResubscribeLoop(IReadOnlyLifetime lifetime)
-    {
-        while (lifetime.IsTerminated == false)
-        {
-            if (_listeners.IsEmpty)
-            {
-                try
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(10), lifetime.Token);
-                }
-                catch (OperationCanceledException) when (lifetime.IsTerminated)
-                {
-                }
-
-                continue;
-            }
-
-            var snapshot = _listeners.Values.ToArray();
-
-            foreach (var listener in snapshot)
-            {
-                try
-                {
-                    await listener.Resubscribe();
-                    listener.RecordSuccess();
-                }
-                catch (Exception e)
-                {
-                    listener.RecordFailure(e);
-                }
-            }
-
-            var delay = snapshot.Length == 0
-                ? TimeSpan.FromSeconds(10)
-                : snapshot.Min(l => l.Interval.GetNextDelay());
-
-            try
-            {
-                await Task.Delay(delay, lifetime.Token);
-            }
-            catch (OperationCanceledException) when (lifetime.IsTerminated)
-            {
-            }
-        }
-    }
-
-    public class Listener
+    public class Listener : IResubscribingListener
     {
         public Listener(
             IRuntimePipeId id,
@@ -250,10 +156,16 @@ public class RuntimePipeClient : IRuntimePipeClient
             Pipe = pipe;
             Orleans = orleans;
             Logger = logger;
+            _failures = new ResubscribeFailures(
+                new AdaptiveInterval(minInterval: TimeSpan.FromSeconds(10),
+                    maxInterval: TimeSpan.FromSeconds(60),
+                    failureBaseInterval: TimeSpan.FromSeconds(1)),
+                LogResubscribeFailure);
         }
 
+        private readonly ResubscribeFailures _failures;
+
         private int _cleanupStarted;
-        private int _consecutiveFailures;
 
         public IRuntimePipeId Id { get; }
         public Guid ObserverId { get; }
@@ -263,9 +175,7 @@ public class RuntimePipeClient : IRuntimePipeClient
         public IOrleans Orleans { get; }
         public ILogger Logger { get; }
 
-        public AdaptiveInterval Interval { get; } = new(minInterval: TimeSpan.FromSeconds(10),
-            maxInterval: TimeSpan.FromSeconds(60),
-            failureBaseInterval: TimeSpan.FromSeconds(1));
+        public AdaptiveInterval Interval => _failures.Interval;
 
         public async Task Resubscribe()
         {
@@ -274,21 +184,12 @@ public class RuntimePipeClient : IRuntimePipeClient
 
         public void RecordSuccess()
         {
-            _consecutiveFailures = 0;
-            Interval.RecordSuccess();
+            _failures.RecordSuccess();
         }
 
         public void RecordFailure(Exception e)
         {
-            _consecutiveFailures++;
-            Interval.RecordFailure();
-
-            if (_consecutiveFailures == 1 || _consecutiveFailures % 10 == 0)
-            {
-                Logger.LogError(e,
-                    "[Messaging] [RuntimePipe] Failed to rebind observer {ObserverId} (attempt {Count}) to pipe {PipeId}",
-                    ObserverId, _consecutiveFailures, Id.ToRaw());
-            }
+            _failures.RecordFailure(e);
         }
 
         public void Cleanup()
@@ -297,6 +198,13 @@ public class RuntimePipeClient : IRuntimePipeClient
                 return;
 
             CleanupTransport().NoAwait();
+        }
+
+        private void LogResubscribeFailure(Exception e, int attempt)
+        {
+            Logger.LogError(e,
+                "[Messaging] [RuntimePipe] Failed to rebind observer {ObserverId} (attempt {Count}) to pipe {PipeId}",
+                ObserverId, attempt, Id.ToRaw());
         }
 
         private async Task CleanupTransport()

@@ -555,6 +555,13 @@ public class TestLobby
 
     public void Write<T>(IUser writer, int propertyId, T value)
     {
+        EnqueueWrite(writer, propertyId, value);
+        Session.Queue.Drain();
+    }
+
+    // Only queued: the test decides what runs after it.
+    public void EnqueueWrite<T>(IUser writer, int propertyId, T value)
+    {
         var context = new SharedSessionObject.SetProperty
         {
             ObjectId = Service.Id,
@@ -563,7 +570,6 @@ public class TestLobby
         };
 
         Session.Queue.Enqueue(() => Session.Execute(writer, context));
-        Session.Queue.Drain();
     }
 
     // In steps of 100 ms: a countdown step schedules the next one when it runs.

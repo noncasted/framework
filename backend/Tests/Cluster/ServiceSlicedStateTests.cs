@@ -40,8 +40,8 @@ public class ServiceSlicedStateTests(OrleansTestClusterFixture fixture)
         reloaded.State.Value.AllUsers().Select(u => u.UserId).Should()
                 .BeEquivalentTo([firstUser.UserId, secondUser.UserId]);
 
-        await WaitUntil(() => first.State.Value.AllUsers().Count == 2);
-        await WaitUntil(() => second.State.Value.AllUsers().Count == 2);
+        await TestWait.Until(() => first.State.Value.AllUsers().Count == 2);
+        await TestWait.Until(() => second.State.Value.AllUsers().Count == 2);
 
         lifetime.Terminate();
     }
@@ -130,19 +130,6 @@ public class ServiceSlicedStateTests(OrleansTestClusterFixture fixture)
                 Tag = service.Tag,
                 UpdateTime = DateTime.UtcNow
             });
-        }
-    }
-
-    private static async Task WaitUntil(Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-
-        while (condition() == false)
-        {
-            if (DateTime.UtcNow > deadline)
-                throw new TimeoutException("Condition was not reached in 10 s");
-
-            await Task.Delay(20, TestContext.Current.CancellationToken);
         }
     }
 
