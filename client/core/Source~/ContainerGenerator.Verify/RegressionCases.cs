@@ -8,8 +8,8 @@ namespace ContainerGenerator.Verify {
         private static void RunRegressionCases() {
             Run("WithParameter of one type is bound to its own registration", TestParameterPerRegistration);
             Run("two instances of one type get two slots", TestInstancePerRegistration);
-            Run("registration shape is passed to GeneratedScopes.Register", TestRegistrationShape);
-            Run("if without else does not throw when nothing depends on it", TestOptionalAlternative);
+            Run("two instances of one type reach the list in their order", () => RunScenario(InstancesInOrderScenario));
+            Run("if without else builds, only its dependent throws", () => RunScenario(OptionalAlternativeScenario));
             Run("Dispose runs every step and terminates the lifetime first", TestDisposeRunsEverything);
             Run("Resolve after Dispose throws", TestResolveAfterDispose);
             Run("[Inject] of a base class is called", TestBaseClassInject);
@@ -43,23 +43,6 @@ namespace ContainerGenerator.Verify {
                     emitted.IndexOf("request.GetInstance<global::Sample.IDep>(1)", StringComparison.Ordinal) >= 0,
                 "each RegisterInstance must have its own slot:\n" + emitted);
             RequireCompiles(emitted, InstancePerRegistrationSource);
-        }
-
-        private static void TestRegistrationShape() {
-            var emitted = EmitRoot(InstancePerRegistrationSource, "InstanceRoot", out _);
-            Require(emitted.IndexOf("new global::System.Type[] { typeof(global::Sample.DepList) },", StringComparison.Ordinal) >= 0,
-                "constructed registrations must be passed to Register:\n" + emitted);
-            Require(emitted.IndexOf("new global::System.Type[] { typeof(global::Sample.IDep), typeof(global::Sample.IDep), typeof(global::Internal.IEventLoop) });", StringComparison.Ordinal) >= 0,
-                "every instance slot must be passed to Register:\n" + emitted);
-        }
-
-        private static void TestOptionalAlternative() {
-            var emitted = EmitRoot(OptionalAlternativeSource, "OptionalRoot", out _);
-            Require(emitted.IndexOf("throw new global::System.InvalidOperationException(\"No alternative of", StringComparison.Ordinal) < 0,
-                "an if without else must not throw while nothing needs it:\n" + emitted);
-            Require(emitted.IndexOf("global::Internal.GeneratedScopes.RequireAlternative(_optional, @\"Sample.Optional\")", StringComparison.Ordinal) >= 0,
-                "a dependent of an alternative must require it:\n" + emitted);
-            RequireCompiles(emitted, OptionalAlternativeSource);
         }
 
         private static void TestDisposeRunsEverything() {
@@ -211,21 +194,50 @@ namespace Sample {
 }
 ";
 
-        private const string OptionalAlternativeSource = @"
-using Internal;
+        private const string OptionalAlternativeScenario = Usings + @"
 namespace Sample {
     public class Optional {}
-    public class NeedsOptional { public NeedsOptional(Optional optional) {} }
-    public static class OptionalRoot {
+    public class NeedsOptional { public readonly Optional Value; public NeedsOptional(Optional optional) { Value = optional; } }
+    public static class Root {
         public static bool Flag;
         public static void Construct(IScopeBuilder builder) {
             if (Flag == true)
                 builder.Register<Optional>();
-            builder.Register<NeedsOptional>();
+            builder.Register<NeedsOptional>(ServiceLifetime.Transient);
         }
     }
-}
-";
+    public static class Scenario {
+        public static void Run() {
+            Root.Flag = false;
+            var without = TestHost.Build(Root.Construct);
+            Check.Throws(() => without.Resolve<NeedsOptional>(), ""No alternative of"", ""the if did not run: the dependent throws"");
+            Root.Flag = true;
+            var with = TestHost.Build(Root.Construct);
+            Check.True(with.Resolve<NeedsOptional>().Value != null, ""the if ran: the dependent gets it"");
+        }
+    }
+}";
+
+        private const string InstancesInOrderScenario = Usings + @"
+namespace Sample {
+    public interface IDep { string Name { get; } }
+    public class Dep : IDep { public Dep(string name) { Name = name; } public string Name { get; } }
+    public class DepList { public readonly IReadOnlyList<IDep> Deps; public DepList(IReadOnlyList<IDep> deps) { Deps = deps; } }
+    public static class Root {
+        public static void Construct(IScopeBuilder builder) {
+            builder.RegisterInstance<IDep>(new Dep(""first""));
+            builder.RegisterInstance<IDep>(new Dep(""second""));
+            builder.Register<DepList>();
+        }
+    }
+    public static class Scenario {
+        public static void Run() {
+            var deps = TestHost.Build(Root.Construct).Resolve<DepList>().Deps;
+            Check.Equal(""2"", deps.Count.ToString(), ""each instance has its slot"");
+            Check.Equal(""first,second"", deps[0].Name + "","" + deps[1].Name, ""the slots keep the order"");
+        }
+    }
+}";
 
         private const string DisposeSource = @"
 using Internal;

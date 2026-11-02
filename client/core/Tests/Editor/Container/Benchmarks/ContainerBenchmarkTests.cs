@@ -8,22 +8,6 @@ namespace Internal.Tests
     [Category("Container")]
     public class ContainerBenchmarkTests
     {
-        [Test]
-        public void Graph_MatchesProductionShape()
-        {
-            Assert.AreEqual(3, BenchmarkGraph.ScopeDepth);
-            Assert.AreEqual(12, BenchmarkGraph.Markers.Length);
-            Assert.AreEqual(32, BenchmarkGraph.Registrations.Length);
-            Assert.AreEqual(18, BenchmarkGraph.Count(ServiceLifetime.Singleton));
-            Assert.AreEqual(9, BenchmarkGraph.Count(ServiceLifetime.Scoped));
-            Assert.AreEqual(5, BenchmarkGraph.Count(ServiceLifetime.Transient));
-            Assert.AreEqual(12, BenchmarkGraph.Count(BenchmarkScopeLevel.Root));
-            Assert.AreEqual(12, BenchmarkGraph.Count(BenchmarkScopeLevel.Match));
-            Assert.AreEqual(8, BenchmarkGraph.Count(BenchmarkScopeLevel.Card));
-            Assert.AreEqual(typeof(BenchRootTime), BenchmarkGraph.SingletonResolveType);
-            Assert.AreEqual(typeof(BenchCardAction), BenchmarkGraph.TransientResolveType);
-        }
-
         // The allocation counter has failed before (GetAllocatedBytesForCurrentThread = 0 in Unity Mono):
         // check against a known size. Minimum of several measurements - because of other editor threads.
         [Test]

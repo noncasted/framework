@@ -127,20 +127,6 @@ namespace Internal.Tests
             }
         }
 
-        public static int Count(ServiceLifetime lifetime)
-        {
-            var count = 0;
-            var registrations = Registrations;
-
-            for (var i = 0; i < registrations.Length; i++)
-            {
-                if (registrations[i].Lifetime == lifetime)
-                    count++;
-            }
-
-            return count;
-        }
-
         public static int Count(BenchmarkScopeLevel scope)
         {
             var count = 0;

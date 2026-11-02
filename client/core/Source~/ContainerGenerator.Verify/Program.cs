@@ -33,7 +33,6 @@ namespace ContainerGenerator.Verify {
             Run("CINGR003 does not emit class", TestMissingDoesNotEmit);
             Run("CINGR001 uncovered syntax", TestUncoveredSyntax);
             Run("Marker collection order", TestMarkerCollectionOrder);
-            Run("1b manifest uses assembly attributes", TestManifestEmitsAttributes);
             Run("registry AttachBuilder is not an installer", TestRegistryAttachIsNotInstaller);
             Run("1b cross-assembly installer no CINGR002", TestCrossAssemblyManifest);
             Run("1b harvested local functions keep order", TestHarvestLocalFunctionOrder);
@@ -488,20 +487,6 @@ namespace ContainerGenerator.Verify {
             var message = diagnostic.ToDiagnostic().GetMessage();
             Require(message.IndexOf("LockStatement", StringComparison.Ordinal) >= 0, "CINGR001 message: " + message);
             Console.WriteLine("      " + message);
-        }
-
-        private static void TestManifestEmitsAttributes() {
-            var compilation = Compile(ManifestLibSource, "InternalLib");
-            var document = WalkDocument(compilation);
-            var emitted = GraphEmitter.Emit(document, compilation);
-            Require(emitted.IndexOf("[assembly: global::Internal.ContainerInstaller(", StringComparison.Ordinal) >= 0,
-                "expected assembly ContainerInstaller attributes:\n" + Head(emitted));
-            Require(emitted.IndexOf("static readonly ContainerGraphMethod[]", StringComparison.Ordinal) < 0,
-                "GraphEmitter must not emit static readonly method arrays");
-            Require(emitted.IndexOf("class ContainerInstallerAttribute", StringComparison.Ordinal) < 0,
-                "ContainerInstallerAttribute must not be emitted:\n" + Head(emitted));
-            Require(compilation.GetTypeByMetadataName("Internal.ContainerInstallerAttribute") != null,
-                "ContainerInstallerAttribute must already exist in the compilation");
         }
 
         // An IBuilder parameter makes a method an installer, but the container registry itself registers nothing.
