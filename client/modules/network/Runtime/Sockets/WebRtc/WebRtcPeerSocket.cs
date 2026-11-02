@@ -74,11 +74,15 @@ namespace Internal
                                        cancellationToken: _lifetime.Token)
                                    .TimeoutWithoutException(_options.ConnectTimeout, DelayType.Realtime);
 
+            // In this order: TimeoutWithoutException reports a cancellation as a timeout, and a loss right after the open
+            // ends the lifetime before this wakes up. Only the end of the lifetime from outside is not a failed channel.
+            if (_lostReason != null)
+                throw new WebRtcConnectFailedException(_lostReason);
+
+            _lifetime.Token.ThrowIfCancellationRequested();
+
             if (isTimedOut == true)
                 throw new WebRtcConnectFailedException($"the channel did not open in {_options.ConnectTimeout.TotalSeconds} s");
-
-            if (_isOpen == false)
-                throw new WebRtcConnectFailedException(_lostReason);
 
             Debug.Log($"[Network] [WebRtc] Connected: {_role}, part payload {_payloadSize} B");
         }

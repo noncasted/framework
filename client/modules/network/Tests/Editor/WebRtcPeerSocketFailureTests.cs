@@ -38,13 +38,34 @@ namespace Internal.Tests
                     await connect.Timeout(TimeSpan.FromSeconds(5));
                     Assert.Fail("Connect succeeded over a lost channel");
                 }
-                catch (WebRtcConnectFailedException)
+                catch (WebRtcConnectFailedException exception)
                 {
+                    StringAssert.Contains("closed right after the open", exception.Message, "the real reason, not a timeout");
                 }
             }
             finally
             {
                 lifetime.Terminate();
+            }
+        });
+
+        // The end of the lifetime is no failure of the channel: a fallback would open a tunnel on a dead lifetime.
+        [UnityTest]
+        public IEnumerator LifetimeEndsDuringConnect_NoFallback() => UniTask.ToCoroutine(async () =>
+        {
+            var lifetime = new Lifetime();
+            var socket = new WebRtcPeerSocket(WebRtcPeerRole.Answer, new PeerHostTests.SignalingEnd(), Options, lifetime);
+            var connect = socket.Connect();
+
+            lifetime.Terminate();
+
+            try
+            {
+                await connect.Timeout(TimeSpan.FromSeconds(5));
+                Assert.Fail("Connect succeeded after the end of its lifetime");
+            }
+            catch (OperationCanceledException)
+            {
             }
         });
 
