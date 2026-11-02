@@ -38,7 +38,7 @@ def parse():
     copy.add_argument("--no-save", action="store_true")
     copy.add_argument("--no-wait", action="store_true", help="create: return before the editor is ready")
     copy.add_argument("--no-editor", action="store_true", help="create: only the files")
-    copy.add_argument("--window", action="store_true", help="start with a window: by default a copy has none and takes no focus")
+    copy.add_argument("--window", action="store_true", help="start with a window on the hidden workspace: by default a copy has none")
     copy.add_argument("--force", action="store_true", help="start with little free memory")
     copy.add_argument("--hung-after", type=int, default=editor.HUNG_AFTER)
     copy.add_argument("--timeout", type=int, default=editor.WAIT_TIMEOUT)

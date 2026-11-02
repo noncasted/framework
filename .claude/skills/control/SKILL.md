@@ -48,6 +48,12 @@ $C editor all
 - A compile error at the start stops the editor on the dialog `Enter Safe Mode?`, with or without `-ignoreCompilerErrors`. `start`, `restart` and `wait` press `Ignore` there: the
   bridge comes up on the last good assemblies, `note` says so, the errors are read through MCP and fixed. An editor nobody waits for stays on the dialog: `$C editor wait`.
 
+## Hidden windows
+
+An editor with a window started here, the editor of the project included, has `CONTROL_HIDE_WINDOWS=1` in its environment. A `window.open` handler of the Hyprland
+config of the user moves every window of such a process, dialogs included, to `special:agents` before it is drawn, and the focus stays where it was; `SUPER+ALT+A` shows that
+workspace. Without the handler the windows appear on the current workspace. Measured there: MCP, Play at 60 fps, `CaptureScreenshot`, `editor dialog`, `editor answer`. An editor started before this variable keeps its window where it is until a restart.
+
 ## When the editor falls
 
 `$C editor watch [--copy NAME]` with `run_in_background`, right after the editor is ready and for as long as the work needs it: it blocks while the
@@ -74,7 +80,7 @@ $C editor answer --button N [--address A] [--copy NAME]
 2. Choose the button that loses nothing: `Keep Changes` over `Discard Changes`, `Cancel` over a destructive action. When every button loses work of someone else, stop and report; use `restart` only for an editor of your own copy.
 3. Buttons count by Tab from the one focused when the dialog opens: with two buttons left to right, with three (`DisplayDialogComplex`) ok, alt, cancel, which is not always the order on screen. 0 is Escape, it gives the cancel answer. `answered: false` means the window stayed: capture again.
 
-The dialog takes the focus for about a second, on another workspace the view jumps there and back; the focus then returns. An editor without a window has no dialogs: `DisplayDialog` returns `false` at once, the second button. So in a copy without a window `Keep Changes` / `Discard Changes` means discard, and a dialog with a destructive second button does it silently.
+To answer, the dialog takes the focus for about a second: `special:agents` opens over the monitor of the user and closes, the focus then returns. An editor without a window has no dialogs: `DisplayDialog` returns `false` at once, the second button. So in a copy without a window `Keep Changes` / `Discard Changes` means discard, and a dialog with a destructive second button does it silently.
 - Before a third restart of the same failure in an hour, read the log: `.claude/docs/UNITY_EDITOR_WORKFLOW.md` of the game has the known hangs.
 
 ## Own copy for parallel work
@@ -92,8 +98,7 @@ $C editor restart --copy <name>     # every editor command takes --copy
   Never use `set_active_instance`: subagents of a session share one MCP server, and the choice of one would redirect the others.
 - Edit the files under `root`, not the main tree. Inside the copy: `cd <root>`, `git switch -c <branch>`, commit. In the main tree: `git fetch <root> <branch>`.
 - Check before a run: the result of `Application.dataPath` in `execute_code` must be inside `root`.
-- Without a window Play works and input does not; screenshots need what the docs of the game say. `--window` starts with a window, which appears on
-  the current workspace of the user.
+- Without a window Play works and input does not; screenshots need what the docs of the game say. `--window` starts with a window on the hidden workspace (see below).
 - An editor needs about 6 GB free, `start` refuses below that (`--force` overrides). `remove` a copy when done: it stops the editor and deletes the folder with
   everything uncommitted in it.
 - The cluster is not copied: all agents of the project share one.

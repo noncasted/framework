@@ -198,7 +198,8 @@ def launch(project, client, headless):
         # Without -nographics: the Tilemap renderer crashes with it. The bridge refuses a batch editor unless it is allowed.
         spawn_detached(args + ["-batchmode", "-logFile", str(client / "Logs" / "Editor.log")], log, client, {**env, "UNITY_MCP_ALLOW_BATCH": "1"})
         return
-    spawn_detached(args, log, client, env)
+    # The Hyprland config moves every window of a process with this variable to special:agents: the window of an agent stays off the screen of the user.
+    spawn_detached(args, log, client, {**env, "CONTROL_HIDE_WINDOWS": "1"})
 
 
 def start(project, client, headless, force, hung_after, timeout):
