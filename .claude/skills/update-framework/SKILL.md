@@ -14,7 +14,7 @@ reconstruct the steps from commits.
 ```
 git -C tools/framework fetch --tags origin
 TARGET=$(git -C tools/framework tag -l 'v*' --sort=-v:refname | head -1)   # or v<version>, or origin/main
-git -C tools/framework show $TARGET:.claude/skills/update-framework/status.sh | bash -s -- $TARGET
+git -C tools/framework show "${TARGET}:.claude/skills/update-framework/status.sh" | bash -s -- "$TARGET"
 ```
 
 `status.sh` comes from the target, so a pin older than this skill works too. Act on what it prints:
@@ -33,8 +33,8 @@ git -C tools/framework show $TARGET:.claude/skills/update-framework/status.sh | 
 Oldest first, each pending release and, for `origin/main`, the unreleased steps:
 
 ```
-git -C tools/framework show $TARGET:releases/<version>.md
-git -C tools/framework show $TARGET:releases/unreleased.md
+git -C tools/framework show "${TARGET}:releases/<version>.md"
+git -C tools/framework show "${TARGET}:releases/unreleased.md"
 ```
 
 The notes hold the steps (each with a search command), the changes of behaviour to check, the section for pins older than the base.
