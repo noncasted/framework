@@ -59,13 +59,15 @@ namespace Internal
 
         private static SpriteCatalogKind ParseKind(string kind)
         {
-            if (string.Equals(kind, nameof(SpriteCatalogKind.Animation), StringComparison.Ordinal))
-                return SpriteCatalogKind.Animation;
+            return kind switch
+            {
+                null or nameof(SpriteCatalogKind.Sheet) => SpriteCatalogKind.Sheet,
+                nameof(SpriteCatalogKind.Animation) => SpriteCatalogKind.Animation,
+                nameof(SpriteCatalogKind.MultipleAnimations) => SpriteCatalogKind.MultipleAnimations,
 
-            if (string.Equals(kind, nameof(SpriteCatalogKind.MultipleAnimations), StringComparison.Ordinal))
-                return SpriteCatalogKind.MultipleAnimations;
-
-            return SpriteCatalogKind.Sheet;
+                // Taken for a sheet, it would be written back as a sheet for good.
+                _ => throw new InvalidOperationException($"An unknown kind of the sprite markup: {kind}")
+            };
         }
 
         private static List<SpriteCatalogAnimation> ReadAnimations(JToken token)
@@ -81,7 +83,7 @@ namespace Internal
                     continue;
 
                 animations.Add(new SpriteCatalogAnimation(
-                    animation.Value<string>("tag") ?? string.Empty,
+                    Required(animation, "tag"),
                     ReadStrings(animation["layers"])));
             }
 
@@ -101,8 +103,8 @@ namespace Internal
                     continue;
 
                 animations.Add(new SpriteCatalogCustomAnimation(
-                    animation.Value<string>("name") ?? string.Empty,
-                    animation.Value<string>("source") ?? string.Empty,
+                    Required(animation, "name"),
+                    Required(animation, "source"),
                     ReadStrings(animation["layers"])));
             }
 
@@ -121,13 +123,18 @@ namespace Internal
                 if (item is not JObject speed)
                     continue;
 
-                // A speed of no tag is applied to nothing and is written back for good: a broken markup, not a default.
-                var tag = speed.Value<string>("tag") ?? throw new InvalidOperationException($"A tag speed of the sprite markup has no tag: {speed}");
-
-                speeds.Add(new SpriteCatalogTagSpeed(tag, speed.Value<float>("fps")));
+                speeds.Add(new SpriteCatalogTagSpeed(Required(speed, "tag"), speed.Value<float>("fps")));
             }
 
             return speeds;
+        }
+
+        // An entry without its name applies to nothing, is never found and is written back for good: a broken markup, not
+        // a default.
+        private static string Required(JObject entry, string key)
+        {
+            return entry.Value<string>(key)
+                   ?? throw new InvalidOperationException($"An entry of the sprite markup has no {key}: {entry}");
         }
 
         private static JArray WriteTagSpeeds(IReadOnlyList<SpriteCatalogTagSpeed> speeds)

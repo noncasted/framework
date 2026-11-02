@@ -77,8 +77,6 @@ namespace Internal.EditorTests
         [TestCase("Animation", SpriteCatalogKind.Animation)]
         [TestCase("MultipleAnimations", SpriteCatalogKind.MultipleAnimations)]
         [TestCase("Sheet", SpriteCatalogKind.Sheet)]
-        [TestCase("animation", SpriteCatalogKind.Sheet)]
-        [TestCase("Unknown", SpriteCatalogKind.Sheet)]
         public void TryRead_Kind(string kind, SpriteCatalogKind expected)
         {
             SpriteCatalogMetadata.TryRead(Importer($@"{{ ""spriteCatalog"": {{ ""kind"": ""{kind}"" }} }}"), out var metadata);
@@ -99,13 +97,13 @@ namespace Internal.EditorTests
         public void TryRead_ListsOfAnotherShape_AreSkipped()
         {
             SpriteCatalogMetadata.TryRead(Importer(@"{ ""spriteCatalog"": {
-                ""animations"": [ 1, { ""layers"": [ ""A"", 2 ] } ],
+                ""animations"": [ 1, { ""tag"": ""Run"", ""layers"": [ ""A"", 2 ] } ],
                 ""customAnimations"": 5,
                 ""tagSpeeds"": [ ""x"", { ""tag"": ""Idle"", ""fps"": 6 } ]
             } }"), out var metadata);
 
             Assert.That(metadata.Animations.Count, Is.EqualTo(1));
-            Assert.That(metadata.Animations[0].Tag, Is.Empty);
+            Assert.That(metadata.Animations[0].Tag, Is.EqualTo("Run"));
             Assert.That(metadata.Animations[0].Layers, Is.EqualTo(new[] { "A" }));
             Assert.That(metadata.CustomAnimations, Is.Empty);
             Assert.That(metadata.TagSpeeds.Count, Is.EqualTo(1));
