@@ -37,23 +37,23 @@ namespace Internal
     {
         private const string SessionKey = "Internal.HierarchyBindings.PendingRequests";
 
-        public List<HierarchyBindingsRequest> Requests = new();
+        [SerializeField] private List<HierarchyBindingsRequest> _requests = new();
 
         public static void Enqueue(HierarchyBindingsRequest request)
         {
             var queue = Read();
-            queue.Requests.Add(request);
+            queue._requests.Add(request);
             SessionState.SetString(SessionKey, JsonUtility.ToJson(queue));
         }
 
         public static List<HierarchyBindingsRequest> Load()
         {
-            return Read().Requests;
+            return Read()._requests;
         }
 
         public static bool IsEmpty()
         {
-            return Read().Requests.Count == 0;
+            return Read()._requests.Count == 0;
         }
 
         // Without parsing: the menu asks it on every repaint, and a queue that cannot be read must still be resettable.

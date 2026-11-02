@@ -209,6 +209,74 @@ namespace Internal.EditorTests
                 "ProjectSettings/ProjectVersion.txt/X.cs", "x"));
         }
 
+        // Every operation of the queue goes through its json in SessionState, so this is the round trip a domain
+        // reload relies on: each Enqueue reads the earlier requests back and Load reads all of them.
+        [Test]
+        public void EnqueuedRequests_AreReadBackInOrder()
+        {
+            Assert.That(HierarchyBindingsQueue.HasData(), Is.False);
+            Assert.That(HierarchyBindingsQueue.IsEmpty(), Is.True);
+
+            HierarchyBindingsQueue.Enqueue(new HierarchyBindingsRequest
+            {
+                AssetPath = "Assets/First.prefab",
+                ObjectPath = "1/0",
+                ObjectNames = "Root/Panel",
+                TypeName = "FirstBindings",
+                Namespace = MenuNamespace,
+                IsPrefabAsset = true,
+                IsSceneService = false,
+                IsEntityComponent = true,
+                StructureHash = "first-hash"
+            });
+
+            HierarchyBindingsQueue.Enqueue(new HierarchyBindingsRequest
+            {
+                AssetPath = "Assets/Second.unity",
+                ObjectPath = string.Empty,
+                ObjectNames = "Scene",
+                TypeName = "SecondBindings",
+                Namespace = GamePlayNamespace,
+                IsPrefabAsset = false,
+                IsSceneService = true,
+                IsEntityComponent = false,
+                StructureHash = "second-hash"
+            });
+
+            Assert.That(HierarchyBindingsQueue.HasData(), Is.True);
+            Assert.That(HierarchyBindingsQueue.IsEmpty(), Is.False);
+
+            var requests = HierarchyBindingsQueue.Load();
+            Assert.That(requests, Has.Count.EqualTo(2));
+
+            var first = requests[0];
+            Assert.That(first.AssetPath, Is.EqualTo("Assets/First.prefab"));
+            Assert.That(first.ObjectPath, Is.EqualTo("1/0"));
+            Assert.That(first.ObjectNames, Is.EqualTo("Root/Panel"));
+            Assert.That(first.TypeName, Is.EqualTo("FirstBindings"));
+            Assert.That(first.Namespace, Is.EqualTo(MenuNamespace));
+            Assert.That(first.IsPrefabAsset, Is.True);
+            Assert.That(first.IsSceneService, Is.False);
+            Assert.That(first.IsEntityComponent, Is.True);
+            Assert.That(first.StructureHash, Is.EqualTo("first-hash"));
+
+            var second = requests[1];
+            Assert.That(second.AssetPath, Is.EqualTo("Assets/Second.unity"));
+            Assert.That(second.ObjectPath, Is.Empty);
+            Assert.That(second.ObjectNames, Is.EqualTo("Scene"));
+            Assert.That(second.TypeName, Is.EqualTo("SecondBindings"));
+            Assert.That(second.Namespace, Is.EqualTo(GamePlayNamespace));
+            Assert.That(second.IsPrefabAsset, Is.False);
+            Assert.That(second.IsSceneService, Is.True);
+            Assert.That(second.IsEntityComponent, Is.False);
+            Assert.That(second.StructureHash, Is.EqualTo("second-hash"));
+
+            HierarchyBindingsQueue.Clear();
+
+            Assert.That(HierarchyBindingsQueue.HasData(), Is.False);
+            Assert.That(HierarchyBindingsQueue.Load(), Is.Empty);
+        }
+
         // A queue that cannot be read is an error, not an empty queue: its requests would be lost silently.
         [Test]
         public void CorruptQueue_Throws()

@@ -85,7 +85,9 @@ constructor (optional named arguments for a style of many values) and does not a
 The exceptions, the only ones:
 - a `[MemoryPackable]` type (network payloads and contexts): its public setters are allowed;
 - a `[Serializable]` type without logic that only `JsonUtility` reads and writes (a trace file, `SessionState` data): the
-  names of its public fields are the format of the file, and `JsonUtility` sees neither properties nor `init`;
+  names of its public fields are the format of the file, and `JsonUtility` sees neither properties nor `init`. A computed
+  getter (`ProfilerSpanData.EndMs => StartMs + DurationMs`) is not logic; a method that changes state and a static
+  operation over the data are, and such a type keeps `[SerializeField] private` fields;
 - a Blazor `[Parameter]`: the framework throws on a non-public setter (`[Inject]` needs none, it stays non-public);
 - a named argument of an attribute: C# requires a public setter;
 - an `override` of a public property of a foreign type.
