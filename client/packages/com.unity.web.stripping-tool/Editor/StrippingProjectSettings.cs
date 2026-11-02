@@ -146,7 +146,8 @@ namespace Unity.Web.Stripping.Editor
                 string[] movedFromAssetPaths,
                 bool didDomainReload)
             {
-                if (deletedAssets.Contains(DefaultSettingsPath) || FindSettings().Length > 0)
+                // ActiveSettings first: FindSettings searches the project, 27 ms on every refresh of the database.
+                if (deletedAssets.Contains(DefaultSettingsPath) || ActiveSettings != null || FindSettings().Length > 0)
                     return;
 
                 // PVP-300-4 requires an empty console after a package has been added to a project
