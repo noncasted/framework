@@ -4,7 +4,7 @@
 #   control editor all
 #   control editor watch|crash [--copy NAME]
 #   control editor dialog [--copy NAME] | control editor answer --button N [--address A] [--copy NAME]
-#   control copy create|start|stop|sync|remove NAME [--all] | control copy list
+#   control copy create|start|stop|sync|save|remove|drop NAME [--all] [--force] | control copy list|sweep|install
 #   control cluster status|start|stop|restart|rebuild|logs [--lines N] [--timeout S]
 import argparse
 import json
@@ -32,14 +32,14 @@ def parse():
     edit.add_argument("--address", help="answer: the window, from `editor dialog`, when there are several")
 
     copy = groups.add_parser("copy")
-    copy.add_argument("action", choices=["create", "start", "stop", "sync", "remove", "list"])
+    copy.add_argument("action", choices=["create", "start", "stop", "sync", "save", "remove", "drop", "list", "sweep", "install"])
     copy.add_argument("name", nargs="?")
     copy.add_argument("--all", action="store_true", help="sync: all files of the assets, not only the code")
     copy.add_argument("--no-save", action="store_true")
     copy.add_argument("--no-wait", action="store_true", help="create: return before the editor is ready")
     copy.add_argument("--no-editor", action="store_true", help="create: only the files")
     copy.add_argument("--window", action="store_true", help="start with a window on the hidden workspace: by default a copy has none")
-    copy.add_argument("--force", action="store_true", help="start with little free memory")
+    copy.add_argument("--force", action="store_true", help="start: with little free memory; remove: although work is not delivered (it stays saved in the project)")
     copy.add_argument("--hung-after", type=int, default=editor.HUNG_AFTER)
     copy.add_argument("--timeout", type=int, default=editor.WAIT_TIMEOUT)
 
@@ -52,6 +52,8 @@ def parse():
 
 def main():
     args = parse()
+    if args.group == "copy" and args.action in ("sweep", "install"):
+        return copies.run_without_project(args)
     project = Project.detect()
     if args.group == "editor":
         return editor.run(project, args)

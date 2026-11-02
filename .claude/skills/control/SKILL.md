@@ -89,19 +89,28 @@ The editor of the project is shared. An agent that changes scenes or assets, ent
 
 ```
 $C copy create <name>     # seconds on btrfs: files, .git and uncommitted changes, Library, then an editor without a window
-$C copy list | start <name> | stop <name> | remove <name>
+$C copy list | start <name> | stop <name> | remove <name> [--force] | save <name> | drop <name>
 $C copy sync <name> [--all]         # project -> copy: the code, with --all also the assets; nothing is deleted, a file edited in the copy later than in the project stays
 $C editor restart --copy <name>     # every editor command takes --copy
 ```
 
 - `create` prints `root`, `project`, `port` and `unity_instance`. **Pass `unity_instance` in every MCP call** (`client@<hash>`, or the port).
   Never use `set_active_instance`: subagents of a session share one MCP server, and the choice of one would redirect the others.
-- Edit the files under `root`, not the main tree. Inside the copy: `cd <root>`, `git switch -c <branch>`, commit. In the main tree: `git fetch <root> <branch>`.
+- Edit the files under `root`, not the main tree. Inside the copy: `cd <root>`, `git switch -c <branch>`, commit. Every commit is at once in the project as the branch `copy/<name>/<branch>`: take it from there (`git merge copy/<name>/<branch>`), no fetch needed.
 - Check before a run: the result of `Application.dataPath` in `execute_code` must be inside `root`.
 - Without a window Play works and input does not; screenshots need what the docs of the game say. `--window` starts with a window on the hidden workspace (see below).
-- An editor needs about 6 GB free, `start` refuses below that (`--force` overrides). `remove` a copy when done: it stops the editor and deletes the folder with
-  everything uncommitted in it.
+- An editor needs about 6 GB free, `start` refuses below that (`--force` overrides). `remove` a copy when done: it stops the editor and deletes the folder; see below what it keeps.
 - The cluster is not copied: all agents of the project share one.
+
+### Work of a copy is not lost
+
+A copy has its own `.git`, so the project would know nothing of it. `control` keeps the work in the repository of the project (each submodule in the same submodule there), without touching the files or the index of the copy:
+
+- Commits: a `post-commit` hook of the copy and every save push the branch to `copy/<name>/<branch>` of the project. Nothing goes to `origin`, the `main` of the project does not move. `git branch --list 'copy/*'` shows what is not delivered; a branch goes by itself once its commits are reachable from the project or have the same patch there (rebase, cherry-pick).
+- Uncommitted files: a save writes a snapshot to `refs/copies/<name>/wip`. `git diff refs/copies/<name>/wip^2 refs/copies/<name>/wip` is the work of the agent (the second parent is the state at `create`, so what the project had uncommitted then is not counted; an older copy has no such parent and counts it), `git restore --source=refs/copies/<name>/wip -- <path>` brings a file back.
+- A save runs on `copy list`, `copy save`, `copy remove` and every 10 minutes by a systemd user timer over the copies of all projects (`control copy sweep`, installed once per machine with `control copy install`, run from the main checkout of the framework: the timer keeps this path). The result is in `~/.cache/claude-control/copies.json` (`updated`, `pending`, `unknown`: folders without a marker, `errors`) for the status line.
+- `pending` of `copy list`: the commits and files not delivered. A file counts when it differs from `HEAD` of the copy, from the state at `create` and from `HEAD` of the project. So `copy sync` shows files the project has not committed yet: a false alarm, the safe way round.
+- `remove` refuses a copy with `pending` and says what is there. `--force` removes it, the saved work stays in the project; `copy list` shows it as `removed`, `copy drop <name>` deletes it. `create` refuses the name of a removed copy until then.
 
 ## Values of the project
 

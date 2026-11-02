@@ -234,11 +234,11 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
 ## Tests
 
 `tools/scripts/test-all.sh` runs the whole suite on the current tree, uncommitted edits included: `dotnet build
-framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to them Unity EditMode (`client/project`, needs
+framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to them `control` (python, the copies of the skill), Unity EditMode (`client/project`, needs
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1102, common 92, Verify 166, EditMode 645 (4 of them skipped, the
+Release build replaces it. The expected numbers: backend 1102, common 92, Verify 166, control 23, EditMode 645 (4 of them skipped, the
 benchmarks of `ContainerBenchmarkTests`), PlayMode 77; the script does not check them, a smaller number is a lost test.
 
 One suite by hand: `.build/bin/Tests/Debug/net10.0/Framework.Tests` (backend),

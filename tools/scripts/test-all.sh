@@ -3,6 +3,7 @@
 #
 #   copy, then in parallel:
 #     build -> backend, common, verify (dotnet, after the build)
+#     control (python, the copies of the control skill)
 #     editmode (Unity, client/project)
 #     playmode (Unity, the second copy of the project)
 #
@@ -211,6 +212,18 @@ stage_copy() {
     record copy PASS - ""
 }
 
+stage_control() {
+    local code=0 tests
+    PYTHONDONTWRITEBYTECODE=1 limited control python3 -m unittest discover -s "$ROOT/.claude/skills/control/tests" >"$LOGS/control.log" 2>&1 || code=$?
+    tests="$(sed -n 's/^Ran \([0-9]*\) tests\? .*/\1/p' "$LOGS/control.log")"
+    if (( code == 0 )) && [[ -n "$tests" ]]; then
+        record control PASS "$tests" ""
+    else
+        record control FAIL "${tests:--}" "exit code $code"
+        grep -E '^(FAIL|ERROR):' "$LOGS/control.log" >"$LOGS/control.failed" || true
+    fi
+}
+
 # Runs a stage as a job of its own and writes its time.
 start_stage() {
     local stage="$1"
@@ -242,13 +255,14 @@ stage_copy 9>&-
 write_time copy "$begin"
 
 stage_dotnet 9>&- &
+start_stage control stage_control
 start_stage editmode stage_unity editmode "$PROJECT" EditMode
 start_stage playmode stage_unity playmode "$COPY/client/project" PlayMode
 wait
 
 failed=0
 printf '\n%-10s %8s  %-24s %s\n' stage "time, s" tests result
-for stage in copy build backend common verify editmode playmode; do
+for stage in copy build backend common verify control editmode playmode; do
     status=FAIL tests=- reason="did not finish"
     [[ -e "$LOGS/$stage.result" ]] && IFS='|' read -r status tests reason <"$LOGS/$stage.result"
     passed "$stage" || failed=1
@@ -256,7 +270,7 @@ for stage in copy build backend common verify editmode playmode; do
 done
 echo "wall $(seconds_since "$BEGIN_ALL") s, load: $(uptime | sed 's/.*load average: //')"
 
-for stage in copy build backend common verify editmode playmode; do
+for stage in copy build backend common verify control editmode playmode; do
     passed "$stage" && continue
     echo
     echo "$stage failed, log: $LOGS/$stage.log"

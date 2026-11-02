@@ -1,6 +1,7 @@
 # Copies of a project for agents that work in parallel: each has its own files and its own editor with its own MCP bridge.
 # On btrfs a reflink copy, Library included, takes seconds and almost no disk. The copy holds .git and the uncommitted changes,
-# so an agent commits there on its branch and the main tree takes the branch with `git fetch <copy> <branch>`.
+# so an agent commits there on its branch and the main tree takes the branch. What the copy has not delivered is kept in the
+# project by saves.py.
 import json
 import os
 import shutil
@@ -9,13 +10,23 @@ import time
 from pathlib import Path
 
 import editor
+import saves
 from common import ControlError
+from saves import MARKER
 
-MARKER = ".control-copy.json"
+DEFAULT_BASE = "/var/tmp/unity-copies"
+SWEEP_MINUTES = 10
 SKIP_TOP = {"builds", ".build"}
 SKIP_CLIENT = {"Temp", "Logs", "Build", "BuildTelegram", "Builds", "MemoryCaptures", "ProfilerCaptures", "Recordings", "traces", "obj", "Library"}
 SKIP_LIBRARY = {"BuildCache", "BuildHistory", "BuildPlayerData", "PlayerDataCache", "com.unity.web.stripping-tool", "ManagedCapture", "VP"}
 CODE_FILES = ["*.cs", "*.cs.meta", "*.asmdef", "*.asmdef.meta", "*.asmref", "*.asmref.meta"]
+
+
+def run_without_project(args):
+    # The timer has no project: it walks all of them.
+    if args.action == "sweep":
+        return saves.sweep(default_base())
+    return install()
 
 
 def run(project, args):
@@ -25,6 +36,8 @@ def run(project, args):
         raise ControlError(f"copy {args.action} needs a name")
     if args.action == "create":
         return create(project, args)
+    if args.action == "drop":
+        return drop(project, args.name)
     client = client_of(project, args.name)
     if args.action == "start":
         return editor.start(project, client, not args.window, args.force, args.hung_after, args.timeout)
@@ -32,11 +45,17 @@ def run(project, args):
         return editor.stop(project, client, not args.no_save)
     if args.action == "sync":
         return sync(project, args.name, args.all)
-    return remove(project, args.name, not args.no_save)
+    if args.action == "save":
+        return save(project, args.name)
+    return remove(project, args.name, not args.no_save, args.force)
+
+
+def default_base():
+    return os.environ.get("CONTROL_COPY_DIR") or DEFAULT_BASE
 
 
 def copies_dir(project):
-    base = os.environ.get("CONTROL_COPY_DIR") or project.config.get("editor", {}).get("copies", "/var/tmp/unity-copies")
+    base = os.environ.get("CONTROL_COPY_DIR") or project.config.get("editor", {}).get("copies", DEFAULT_BASE)
     return Path(base) / source_root(project).name
 
 
@@ -64,6 +83,8 @@ def create(project, args):
     if root.exists():
         raise ControlError(f"{root} exists: `control copy start {args.name}` or `control copy remove {args.name}`")
     source = source_root(project)
+    if args.name in saves.leftovers(source):
+        raise ControlError(f"the project keeps saved work of a removed copy {args.name} and a new one would overwrite it: take the work, `control copy drop {args.name}`, or another name")
     client_name = str(project.client.relative_to(project.root))
     started = time.time()
     root.mkdir(parents=True)
@@ -74,6 +95,7 @@ def create(project, args):
         raise ControlError(f"a reflink copy failed (a copy without reflinks would be gigabytes): {error.stderr.strip()[:300]}") from error
     _clean(root, client_name)
     (root / MARKER).write_text(json.dumps({"source": str(source), "commit": _head(source), "created": time.strftime("%F %T")}, indent=2))
+    saves.prepare(root, args.name, source)
     client = root / client_name
     result = {"copy": args.name, "root": str(root), "project": str(client), "seconds": round(time.time() - started)}
     if args.no_editor:
@@ -136,23 +158,63 @@ def sync(project, name, everything):
     return {"copy": name, "synced": synced, "mode": "all" if everything else "code", "note": "the editor of the copy picks it up on refresh_unity"}
 
 
-def remove(project, name, save):
+def save(project, name):
+    client_of(project, name)
+    return {"copy": name, "pending": saves.save(copy_root(project, name), name, source_root(project))}
+
+
+def remove(project, name, save_open_work, force):
     client = client_of(project, name)
     root = copy_root(project, name)
-    stopped = editor.stop(project, client, save)
+    source = source_root(project)
+    _refuse_pending(saves.save(root, name, source), name, force)
+    stopped = editor.stop(project, client, save_open_work)
+    # The stop has just saved the open scenes.
+    pending = saves.save(root, name, source)
+    _refuse_pending(pending, name, force)
     file, digest = editor.status_file(client)
     file.unlink(missing_ok=True)
     (editor.STATUS_DIR / f"unity-mcp-port-{digest}.json").unlink(missing_ok=True)
     shutil.rmtree(root)
-    return {"copy": name, "removed": str(root), "editor": stopped.get("was", "down")}
+    return {"copy": name, "removed": str(root), "editor": stopped.get("was", "down"), "saved": pending if saves.is_pending(pending) else None}
+
+
+def _refuse_pending(pending, name, force):
+    if saves.is_pending(pending) and not force:
+        raise ControlError(f"copy {name} holds work not delivered to the project ({len(pending['commits'])} commits, {pending['changed']} files): {pending['commits'][:5]} {pending['files'][:5]}. Take it into the main tree, or pass --force: the saved work stays in the project (copy/{name}/<branch>, refs/copies/{name}/wip)")
+
+
+def drop(project, name):
+    if (copy_root(project, name) / MARKER).exists():
+        raise ControlError(f"copy {name} still exists: `control copy remove {name}` first")
+    saves.drop(source_root(project), name)
+    return {"copy": name, "dropped": True}
+
+
+def install():
+    # A systemd user timer of `copy sweep`. A later version of the script runs from the same path.
+    script = Path(__file__).resolve().parent / "control"
+    units = Path.home() / ".config" / "systemd" / "user"
+    units.mkdir(parents=True, exist_ok=True)
+    (units / "control-copy-sweep.service").write_text(f"[Unit]\nDescription=Save the work of the copies of the projects\n\n[Service]\nType=oneshot\nNice=15\nIOSchedulingClass=idle\nExecStart={script} copy sweep\n")
+    (units / "control-copy-sweep.timer").write_text(f"[Unit]\nDescription=Save the work of the copies of the projects\n\n[Timer]\nOnStartupSec=1min\nOnUnitActiveSec={SWEEP_MINUTES}min\nPersistent=false\n\n[Install]\nWantedBy=timers.target\n")
+    subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
+    subprocess.run(["systemctl", "--user", "enable", "--now", "control-copy-sweep.timer"], check=True, capture_output=True)
+    return {"timer": "control-copy-sweep.timer", "every_minutes": SWEEP_MINUTES, "script": str(script)}
 
 
 def list_copies(project, hung_after):
     base = copies_dir(project)
+    source = source_root(project)
     result = []
     for root in sorted(base.iterdir()) if base.exists() else []:
         if (root / MARKER).exists():
             client = root / project.client.relative_to(project.root)
             info = json.loads((root / MARKER).read_text())
-            result.append({"copy": root.name, "root": str(root), "created": info["created"], "commit": info["commit"][:8], **editor.status(client, hung_after)})
+            result.append({"copy": root.name, "root": str(root), "created": info["created"], "commit": info["commit"][:8], "pending": saves.save(root, root.name, source), **editor.status(client, hung_after)})
+        elif root.is_dir():
+            result.append({"copy": root.name, "root": str(root), "state": "no marker: being created, or made by hand and not saved"})
+    known = {item["copy"] for item in result}
+    for name in sorted(saves.leftovers(source) - known):
+        result.append({"copy": name, "state": "removed", "saved": f"branches copy/{name}/*, snapshot refs/copies/{name}/wip; `control copy drop {name}` deletes them"})
     return result
