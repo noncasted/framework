@@ -15,8 +15,8 @@ updated: 2026-11-02
 | 4 | 3 | 3 | ORCH-file_splits-4-g1 / a44bdae0b26261e22, 4b: ORCH-file_splits-4b-g1 / a1b35b8973c45a50e | 1 | done | — |
 | 5 | 4 | 4 | ORCH-file_splits-5-g1 / a00cf987c6b964fc4 | 1 | done | — |
 | 6 | 5 | 5 | ORCH-file_splits-6-g1 / a9f9984558a973612 | 1 | done | — |
-| 7 | 6 | 6 | ORCH-file_splits-7-g1 | 1 | in_progress | — |
-| 8 | 2, 7 | 7 | — | 1 | pending | — |
+| 7 | 6 | 6 | ORCH-file_splits-7-g1 / a1625a314b6bcfb34 | 1 | done | — |
+| 8 | 2, 7 | 7 | ORCH-file_splits-8-g1 | 1 | in_progress | — |
 | 9 | 8 | 8 | — | 1 | pending | — |
 
 ## Ресурсы

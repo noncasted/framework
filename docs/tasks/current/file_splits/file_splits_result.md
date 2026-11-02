@@ -3,6 +3,7 @@
 ### Статус: В работе
 
 ### Что сделано
+- Каталоги: восемь файлов разрезаны, самый длинный 257 строк, 34 теста на старом коде, дамп вывода побайтно прежний.
 - HierarchyBindings: четыре файла разрезаны, самый длинный 221 строка, вывод генератора привязок побайтно прежний.
 - E11: `ContainerDebuggerWindow` и ещё шесть файлов окон и графов разрезаны, дубли `ContainerGraphRead` убраны, 28 тестов на старом коде.
 - N8, N9: файлы модуля `network` разрезаны, 15 PlayMode-тестов монитора на старом коде. `BREAKING:` конструктор `NetworkConnection` принимает `IWebSocketFactory`; игры его напрямую не вызывают.
@@ -13,6 +14,7 @@
 
 | Файл | Что изменено | Шаг | Evidence |
 |------|-------------|-----|----------|
+| `client/core/Editor/Catalogues/{Sprites,Prefabs,Assets,Audio}/**` | разрез восьми файлов, тесты | 7 | EditMode 542, дамп md5 `d3fb2151...` |
 | `client/core/Editor/Tools/HierarchyBindings/**` | разрез четырёх файлов, 44 теста | 6 | EditMode 507, дамп md5 `5dc361be...` |
 | `client/core/Editor/Tools/{Container,ContainerCodegen,ContainerGraph,LifetimeGraph,Profiling,GraphWindows}/**`, `PrefabScreenshot*` | разрез семи файлов | 5 | EditMode 463, PlayMode 71/71, дампы окон |
 | `client/modules/network/**` | разрез пяти файлов, тесты монитора | 4 | PlayMode 71/71, сборка WebGL-ветки Roslyn |
@@ -25,6 +27,8 @@
 - С шага 5 по решению пользователя тесты прогоняются в конце шага, а не после каждого класса. Промежуточные коммиты шага отдельно не проверяются.
 
 ### Нерешенные вопросы
+- `SpriteGenerator.GenerateInternal` не сбрасывает реестр групп, в отличие от других генераторов; возможный дефект.
+- Полный путь `GenerateInternal` каталогов не проверен: нужен проект с Addressables.
 - Ложное падение тестов из-за `[SharedAddressablesSync] Addressable settings are missing` в `client/project`.
 - `PrefabScreenshot.Capture` логирует ошибку освобождения `RenderTexture` при каждом снимке.
 - Открытие графа пачкает `client/project` файлами `Transient`.
