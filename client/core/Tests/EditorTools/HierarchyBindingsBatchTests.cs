@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Internal.EditorTests.Menu;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
 
@@ -316,6 +319,317 @@ namespace Internal.EditorTests
             var copied = AssetDatabase.LoadAssetAtPath<GameObject>(copy).GetComponent<ShopBindings>();
 
             Assert.That(HierarchyBindingsWindow.IsForeignLayer(copied, copy), Is.False);
+        }
+
+        // The whole batch on a prefab whose code does not change: the phase binds without a compile, the plan ends.
+        [Test]
+        public void RegeneratePrefabs_BindsThePhaseAndEnds()
+        {
+            var shop = MakePrefab(TempRoot + "/Menu/Shop.prefab", root => root.AddComponent<ShopBindings>());
+
+            var status = HierarchyBindingsBatch.RegeneratePrefabs(new[] { shop, shop });
+
+            Assert.That(status, Is.EqualTo("Phase 1 of 1 is binding."));
+            Assert.That(HierarchyBindingsBatch.IsRunning, Is.True);
+            Assert.That(HierarchyBindingsGenerator.HasPending(), Is.True);
+
+            Assert.That(HierarchyBindingsGenerator.PumpPending(), Is.EqualTo("Idle."));
+
+            var bindings = AssetDatabase.LoadAssetAtPath<GameObject>(shop).GetComponent<ShopBindings>();
+            Assert.That(HierarchyBindingsBatch.IsRunning, Is.False);
+            Assert.That(HierarchyBindingsGenerator.HasPending(), Is.False);
+            Assert.That(bindings.StructureHash, Is.EqualTo("9809dfaf8e9b1aa55835ef9f03679833"));
+            Assert.That(bindings.Transform, Is.EqualTo(bindings.transform));
+            Assert.That(bindings.LayerAssetGuid, Is.EqualTo(AssetDatabase.AssetPathToGUID(shop)));
+        }
+
+        [Test]
+        public void RegeneratePrefabs_TypeOnTwoObjects_NothingRuns()
+        {
+            var first = MakePrefab(TempRoot + "/First.prefab", root => root.AddComponent<ShopBindings>());
+            var second = MakePrefab(TempRoot + "/Second.prefab", root => root.AddComponent<ShopBindings>());
+
+            LogAssert.Expect(LogType.Error, new Regex("declared on more than one object"));
+            var result = HierarchyBindingsBatch.RegeneratePrefabs(new[] { first, second });
+
+            Assert.That(result, Is.EqualTo("Duplicate bindings types. See the console."));
+            Assert.That(HierarchyBindingsBatch.IsRunning, Is.False);
+            Assert.That(HierarchyBindingsQueue.IsEmpty(), Is.True);
+        }
+
+        [Test]
+        public void RegeneratePrefabs_QueueNotEmpty_IsRefused()
+        {
+            HierarchyBindingsQueue.Enqueue(new HierarchyBindingsRequest { AssetPath = Fixture, TypeName = "X" });
+
+            Assert.Throws<InvalidOperationException>(() => HierarchyBindingsBatch.RegeneratePrefabs(new string[0]));
+        }
+
+        [Test]
+        public void RegeneratePrefabs_NoBindings_EndsAtOnce()
+        {
+            var plain = MakePrefab(TempRoot + "/Plain.prefab", _ => { });
+
+            Assert.That(HierarchyBindingsBatch.RegeneratePrefabs(new[] { plain }), Is.EqualTo("Idle."));
+        }
+
+        [Test]
+        public void Cancel_DropsThePlanAndTheRequests()
+        {
+            var shop = MakePrefab(TempRoot + "/Menu/Shop.prefab", root => root.AddComponent<ShopBindings>());
+            HierarchyBindingsBatch.RegeneratePrefabs(new[] { shop });
+
+            HierarchyBindingsBatch.Cancel();
+
+            Assert.That(HierarchyBindingsBatch.Status(), Is.EqualTo("Idle."));
+            Assert.That(HierarchyBindingsGenerator.HasPending(), Is.False);
+        }
+
+        [Test]
+        public void PumpPending_AwaitingReload_DoesNotBind()
+        {
+            HierarchyBindingsQueue.Enqueue(new HierarchyBindingsRequest { AssetPath = Fixture, TypeName = "X" });
+            SessionState.SetBool("Internal.HierarchyBindings.AwaitingReload", true);
+
+            Assert.That(HierarchyBindingsGenerator.PumpPending(), Is.EqualTo("Waiting for compilation. Idle."));
+            Assert.That(HierarchyBindingsQueue.IsEmpty(), Is.False);
+
+            HierarchyBindingsGenerator.ResetPending();
+            Assert.That(HierarchyBindingsGenerator.HasPending(), Is.False);
+        }
+
+        [Test]
+        public void GeneratedType_IsFoundUnderTheUserClass()
+        {
+            var root = new GameObject("Shop");
+
+            try
+            {
+                var type = HierarchyBindingsGenerator.ResolveGeneratedType(root.AddComponent<UserShopBindings>());
+
+                Assert.That(type, Is.EqualTo(typeof(ShopBindings)));
+                Assert.That(HierarchyBindingsGenerator.ResolveGeneratedType(null), Is.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [TestCase("Shop", "ShopBindings")]
+        [TestCase("ShopBindings", "ShopBindings")]
+        [TestCase("my shop", "MyShopBindings")]
+        [TestCase("!!!", "")]
+        public void TypeName_FromTheBindingsName(string bindingsName, string expected)
+        {
+            Assert.That(HierarchyBindingsGenerator.ToTypeName(bindingsName), Is.EqualTo(expected));
+        }
+
+        // The documented way to bind from MCP while the editor is unfocused (HIERARCHY_BINDINGS.md).
+        [Test]
+        public void ProcessPending_IsReachableByReflection()
+        {
+            var method = typeof(HierarchyBindingsGenerator)
+                .GetMethod("ProcessPending", BindingFlags.Static | BindingFlags.NonPublic);
+
+            Assert.That(method, Is.Not.Null);
+        }
+
+        [Test]
+        public void Prepare_NotAnIdentifier_IsRefused()
+        {
+            var shop = MakePrefab(TempRoot + "/Menu/Shop.prefab", _ => { });
+            var root = AssetDatabase.LoadAssetAtPath<GameObject>(shop);
+
+            LogAssert.Expect(LogType.Error, new Regex("is not a C# identifier"));
+
+            Assert.That(HierarchyBindingsGenerator.Prepare(root, "!!!", MenuNamespace, false, false, out _), Is.False);
+        }
+
+        // Without bindUnchanged the same code binds again only for a stale object.
+        [Test]
+        public void Prepare_SameCode_BindsOnlyAStaleObject()
+        {
+            var shop = MakePrefab(TempRoot + "/Menu/Shop.prefab", root => root.AddComponent<ShopBindings>());
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>(shop);
+
+            Assert.That(HierarchyBindingsGenerator.Prepare(asset, "ShopBindings", MenuNamespace, false, false,
+                out var changed, false), Is.True);
+            Assert.That(changed, Is.False);
+            Assert.That(HierarchyBindingsQueue.Load(), Has.Count.EqualTo(1));
+
+            HierarchyBindingsGenerator.PumpPending();
+            Assert.That(HierarchyBindingsQueue.IsEmpty(), Is.True);
+
+            asset = AssetDatabase.LoadAssetAtPath<GameObject>(shop);
+            Assert.That(HierarchyBindingsGenerator.Prepare(asset, "ShopBindings", MenuNamespace, false, false,
+                out changed, false), Is.True);
+            Assert.That(changed, Is.False);
+            Assert.That(HierarchyBindingsQueue.IsEmpty(), Is.True);
+        }
+
+        [Test]
+        public void Scene_CountAndRegenerate()
+        {
+            Assert.That(HierarchyBindingsBatch.Count(default), Is.EqualTo(0));
+            Assert.That(HierarchyBindingsBatch.RegenerateScene(default), Is.EqualTo("No loaded scene."));
+
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            try
+            {
+                Assert.That(HierarchyBindingsBatch.RegenerateScene(scene), Does.StartWith("No bindings found"));
+
+                var root = new GameObject("Shop");
+                root.AddComponent<ShopBindings>();
+                SceneManager.MoveGameObjectToScene(root, scene);
+
+                EnsureFolder(TempRoot);
+                Assert.That(EditorSceneManager.SaveScene(scene, TempRoot + "/Scene.unity"), Is.True);
+                Assert.That(HierarchyBindingsBatch.Count(scene), Is.EqualTo(1));
+
+                var result = HierarchyBindingsBatch.RegenerateScene(scene);
+
+                Assert.That(result, Is.EqualTo("Regenerating 1 bindings in 'Scene'..."));
+                Assert.That(HierarchyBindingsQueue.Load().Single().AssetPath, Is.EqualTo(TempRoot + "/Scene.unity"));
+            }
+            finally
+            {
+                // The only scene cannot be closed, and its file goes away with TempRoot.
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            }
+        }
+
+        // One class - one object, in a scene the second one is skipped loudly.
+        [Test]
+        public void Scene_TypeOnTwoObjects_TheSecondIsSkipped()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            try
+            {
+                foreach (var name in new[] { "Shop", "Other" })
+                {
+                    var root = new GameObject(name);
+                    root.AddComponent<ShopBindings>();
+                    SceneManager.MoveGameObjectToScene(root, scene);
+                }
+
+                EnsureFolder(TempRoot);
+                Assert.That(EditorSceneManager.SaveScene(scene, TempRoot + "/Scene.unity"), Is.True);
+
+                LogAssert.Expect(LogType.Error, new Regex("is used by more than one object"));
+
+                Assert.That(HierarchyBindingsBatch.RegenerateScene(scene), Does.StartWith("Regenerating 1 bindings"));
+            }
+            finally
+            {
+                // The only scene cannot be closed, and its file goes away with TempRoot.
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            }
+        }
+
+        [Test]
+        public void PrepareProject_QueueNotEmpty_IsRefused()
+        {
+            HierarchyBindingsQueue.Enqueue(new HierarchyBindingsRequest { AssetPath = Fixture, TypeName = "X" });
+
+            Assert.Throws<InvalidOperationException>(() => HierarchyBindingsBatch.PrepareProject(out _));
+        }
+
+        [Test]
+        public void PrepareProject_StaleObject_IsQueuedWithoutACompile()
+        {
+            var shop = MakePrefab(TempRoot + "/Menu/Shop.prefab", root => root.AddComponent<ShopBindings>());
+
+            var prepared = HierarchyBindingsBatch.PrepareProject(out var changed);
+
+            Assert.That(prepared, Is.EqualTo(1));
+            Assert.That(changed, Is.False);
+            Assert.That(HierarchyBindingsQueue.Load().Single().AssetPath, Is.EqualTo(shop));
+            Assert.That(HierarchyBindingsBatch.IsRunning, Is.False);
+        }
+
+        [Test]
+        public void PrepareProject_TypeOnTwoObjects_Throws()
+        {
+            MakePrefab(TempRoot + "/First.prefab", root => root.AddComponent<ShopBindings>());
+            MakePrefab(TempRoot + "/Second.prefab", root => root.AddComponent<ShopBindings>());
+
+            LogAssert.Expect(LogType.Error, new Regex("declared on more than one object"));
+
+            Assert.Throws<InvalidOperationException>(() => HierarchyBindingsBatch.PrepareProject(out _));
+        }
+
+        // A variant declares only what it added: the bindings of the base stay in the base, and they plan deeper.
+        [Test]
+        public void Variant_CollectsOnlyItsOwnBindings()
+        {
+            var (_, variant) = MakeVariant(added => added.AddComponent<ExtraBindings>());
+
+            var items = new List<HierarchyBindingsBatch.PrefabItem>();
+            HierarchyBindingsBatch.CollectPrefab(variant, items);
+
+            var item = items.Single();
+            Assert.That(item.FullTypeName, Is.EqualTo(typeof(ExtraBindings).FullName));
+            Assert.That(item.VariantDepth, Is.EqualTo(1));
+            Assert.That(item.HierarchyDepth, Is.EqualTo(2));
+        }
+
+        // The layer of a variant: what it added, reached through a pass-through node without a reference to the object.
+        [Test]
+        public void Variant_MirrorsOnlyItsLayer()
+        {
+            var (_, variant) = MakeVariant(_ => { });
+            var contents = PrefabUtility.LoadPrefabContents(variant);
+
+            try
+            {
+                var errors = new List<string>();
+                var layer = HierarchyBindingsLayer.Resolve(variant, true);
+                var node = HierarchyBindingsScanner.Scan(contents, "VariantBindings", layer, errors, false, false);
+
+                Assert.That(errors, Is.Empty);
+                Assert.That(node.Fields.Select(field => field.PropertyName), Is.EqualTo(new[] { "GameObject" }));
+
+                var holder = node.Children.Single();
+                Assert.That(holder.PropertyName, Is.EqualTo("Holder"));
+                Assert.That(holder.Fields, Is.Empty);
+
+                var added = holder.Children.Single();
+                Assert.That(added.PropertyName, Is.EqualTo("Added"));
+                Assert.That(added.Fields.Select(field => field.PropertyName),
+                    Is.EqualTo(new[] { "GameObject", "Transform" }));
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(contents);
+            }
+        }
+
+        // Base: root with the Holder/Inherited and Untouched branches and ShopBindings; variant: Holder/Added.
+        private static (string basePath, string variantPath) MakeVariant(Action<GameObject> onAdded)
+        {
+            var basePath = MakePrefab(TempRoot + "/Base.prefab", root =>
+            {
+                root.AddComponent<ShopBindings>();
+                Child(Child(root, "Holder"), "Inherited");
+                Child(root, "Untouched");
+            });
+            var variantPath = TempRoot + "/Variant.prefab";
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(basePath));
+
+            try
+            {
+                onAdded(Child(instance.transform.Find("Holder").gameObject, "Added"));
+                PrefabUtility.SaveAsPrefabAsset(instance, variantPath, out var success);
+                Assert.That(success, Is.True, variantPath);
+                return (basePath, variantPath);
+            }
+            finally
+            {
+                Object.DestroyImmediate(instance);
+            }
         }
 
         private static HierarchyBindingsBatch.PrefabItem Item(string assetPath, string namespaceName)
