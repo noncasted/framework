@@ -1,6 +1,6 @@
 ---
 name: release-framework
-description: Cut a release of the framework - choose the version, write releases/<version>.md with what a game must do to update, check it against the consumer projects, commit and tag. Use when the user runs /release-framework or asks to make a release, a changelog or a new version of the framework.
+description: Cut a release of the framework - choose the version, write releases/<version>.md with what a game must do to update, check it against the consumer projects, commit, tag and push. Use when the user runs /release-framework or asks to make a release, a changelog or a new version of the framework.
 ---
 
 # Release the framework
@@ -51,7 +51,7 @@ dotnet build <scratch>/<game>/backend/backend.slnx
 Every error must be covered by a step. Say in the notes what was built and what was only searched: the client of a game is checked by
 the first game that updates.
 
-## 4. Write and tag
+## 4. Write, tag and push
 
 1. The version: `0.MINOR.0` if a game must do anything, else `0.MINOR.PATCH`.
 2. `releases/<version>.md`, the row in the table of `releases/README.md`, `releases/unreleased.md` back to its header.
@@ -64,7 +64,9 @@ git tag -a v<version> -m "<version>: <summary>"
 
 `base` in the notes is the previous tag (the commit before the range for the first one).
 
-4. Push (`git push origin main v<version>`) only when asked. Until then no game can see the release: say so in the report.
+4. Push right away, without asking: `git push --atomic origin main v<version>`. Atomic, so that a game never sees the release commit
+without its tag. Rejected because another session pushed to `main`: `git pull --rebase origin main`, `git tag -f -a v<version> -m "<version>: <summary>"`
+on the rebased commit, push again.
 
 ## 5. Report
 
