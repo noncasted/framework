@@ -106,3 +106,4 @@ RuntimeChannelOptions>`). Без него канал падает при пер�
 - `RuntimeChannelOptions.ResubscribeTimeoutMs` 30000; сохранённый конфиг без него читается со значением по умолчанию.
 - `InputManager.asset`: оси `Gamepad Axis 1..10` добавлены в `client/project`, требование к игре прежнее.
 - `SharedAddressablesSync`: выбор ассетов и групп вынесен в `SharedAddressablesTargets`, API прежний.
+- `core`: `Common/DataTypes/Structs` -> `Common/Math`, `Common/DataTypes/Collections` -> `Common/Collections`, `RootScopeExtensions` в `Scopes`. `network`: команды сущностей в `Entities/Commands`, `PlayerDisconnectedCommand` в `Session/Users`, `Events`, `Objects`, `Properties` наверху `Runtime`. Пространства имён и guid прежние, в играх ссылок на эти пути нет.
