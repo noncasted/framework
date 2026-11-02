@@ -111,6 +111,11 @@
     margin: 6px 4px;
 }
 
+.scene-list-title {
+    margin-left: 7px;
+    margin-bottom: 0;
+}
+
 .scene-button {
     min-width: 120px;
     height: 28px;

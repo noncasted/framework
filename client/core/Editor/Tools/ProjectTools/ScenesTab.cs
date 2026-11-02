@@ -35,6 +35,7 @@ namespace Internal
             var scenes = FindAllScenes();
             var favorites = new List<string>();
             var others = new List<string>();
+            var tests = new List<string>();
 
             foreach (var scene in scenes)
             {
@@ -42,6 +43,8 @@ namespace Internal
 
                 if (FavoriteSceneNames.Contains(sceneName))
                     favorites.Add(scene);
+                else if (IsTestScene(scene))
+                    tests.Add(scene);
                 else
                     others.Add(scene);
             }
@@ -50,18 +53,43 @@ namespace Internal
                         .OrderBy(s => FavoriteSceneNames.ToList().IndexOf(Path.GetFileNameWithoutExtension(s)))
                         .ToList();
 
-            if (favorites.Count > 0)
+            AddSceneList(parent, favorites);
+            AddSceneList(parent, others);
+
+            if (tests.Count > 0)
             {
-                var favoritesGrid = BuildSceneGrid(favorites);
-                parent.Add(favoritesGrid);
+                AddSeparator(parent);
 
-                var separator = new VisualElement();
-                separator.AddToClassList("scene-separator");
-                parent.Add(separator);
+                var title = new Label("Test");
+                title.AddToClassList("section-title");
+                title.AddToClassList("scene-list-title");
+                parent.Add(title);
+
+                parent.Add(BuildSceneGrid(tests));
             }
+        }
 
-            var othersGrid = BuildSceneGrid(others);
-            parent.Add(othersGrid);
+        private void AddSceneList(VisualElement parent, IReadOnlyCollection<string> scenes)
+        {
+            if (scenes.Count == 0)
+                return;
+
+            if (parent.childCount > 0)
+                AddSeparator(parent);
+
+            parent.Add(BuildSceneGrid(scenes));
+        }
+
+        private static void AddSeparator(VisualElement parent)
+        {
+            var separator = new VisualElement();
+            separator.AddToClassList("scene-separator");
+            parent.Add(separator);
+        }
+
+        private static bool IsTestScene(string scenePath)
+        {
+            return FrameworkSettings.TestSceneFolders.Any(folder => scenePath.StartsWith(folder + "/", StringComparison.Ordinal));
         }
 
         private void OnSceneOpened(Scene scene, OpenSceneMode mode) => RefreshSceneButtons();

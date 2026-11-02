@@ -48,6 +48,9 @@ namespace Internal
         // Scenes pinned in Project Tools.
         public static IReadOnlyList<string> FavoriteScenes => Get().FavoriteScenes;
 
+        // Folders of the scenes that Project Tools lists apart from the working ones, at the bottom.
+        public static IReadOnlyList<string> TestSceneFolders => Get().TestSceneFolders;
+
         // Shared_* addressable groups: assets under these prefixes go to Shared_Common.
         public static IReadOnlyList<string> SharedCommonPaths => Get().SharedCommonPaths;
 
@@ -115,6 +118,7 @@ namespace Internal
             public string SoundsFolder = string.Empty;
             public string MusicFolder = string.Empty;
             public List<string> FavoriteScenes = new();
+            public List<string> TestSceneFolders = new();
             public List<string> SharedCommonPaths = new() { "Packages/", "Assets/Plugins/" };
             public Dictionary<string, string> GroupPhases = new(StringComparer.Ordinal);
             public List<string> StrippedPlayerAssemblies = new();
