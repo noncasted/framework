@@ -76,7 +76,12 @@ public class EventStorage : IEventStorage
         // so no second round trip to aggregate mt_events for a new stream.
         var aggregate = await TryLoadAsync<T>(session, streamId);
 
-        return aggregate ?? new T();
+        if (aggregate == null)
+            return new T();
+
+        RestoredId(aggregate, id => id == streamId, $"the stream id '{streamId}'");
+
+        return aggregate;
     }
 
     public async Task<T> Rebuild<T>(string streamId) where T : class, IEventStateValue, new()
@@ -175,10 +180,11 @@ public class EventStorage : IEventStorage
 
         // One query for all snapshots. Missing snapshot = missing stream (same rule as Read).
         var aggregates = await session.LoadManyAsync<TValue>(streamIds);
+        var requested = streamIds.ToHashSet();
 
         foreach (var aggregate in aggregates)
         {
-            var streamId = ((IEventStateValue)aggregate).Id;
+            var streamId = RestoredId(aggregate, requested.Contains, "one of the requested stream ids");
             result[ParseStreamKey<TKey>(streamId)] = aggregate;
         }
 
@@ -205,7 +211,7 @@ public class EventStorage : IEventStorage
 
 	        foreach (var aggregate in aggregates)
 	        {
-	            var id = ((IEventStateValue)aggregate).Id;
+	            var id = RestoredIdByPrefix(aggregate, streamPrefix);
 	            var grainKey = ExtractGrainKey(id);
 	            var key = ParseKey<TKey>(grainKey, keyType);
 	            yield return (key, aggregate);
@@ -238,7 +244,7 @@ public class EventStorage : IEventStorage
         // page (the total count would still include it).
         foreach (var aggregate in aggregates)
         {
-            var id = ((IEventStateValue)aggregate).Id;
+            var id = RestoredIdByPrefix(aggregate, streamPrefix);
             var key = ParseKey<TKey>(ExtractGrainKey(id), keyType);
             entries.Add((key, aggregate));
         }
@@ -310,6 +316,30 @@ public class EventStorage : IEventStorage
     private static Task<T?> TryLoadAsync<T>(IQuerySession session, string streamId) where T : class, new()
     {
         return session.LoadAsync<T>(streamId);
+    }
+
+    private static string RestoredIdByPrefix(object aggregate, string streamPrefix)
+    {
+        return RestoredId(
+            aggregate,
+            id => id.StartsWith(streamPrefix, StringComparison.Ordinal),
+            $"a stream id with the prefix '{streamPrefix}'");
+    }
+
+    // Marten keeps the stream id in the id column and writes it into the json of the snapshot; a loaded snapshot takes Id
+    // from the json alone. An Id the serializer can't restore means an empty Id on every read and a snapshot Marten
+    // restarts from each new event: the state is stale with no error of its own, so the read throws.
+    private static string RestoredId(object aggregate, Func<string, bool> isExpected, string expected)
+    {
+        var id = ((IEventStateValue)aggregate).Id;
+
+        if (isExpected(id))
+            return id;
+
+        throw new InvalidOperationException(
+            $"[EventStorage] The snapshot of {aggregate.GetType().Name} is read with Id '{id}' instead of {expected}. " +
+            "An Id with a non-public setter needs [JsonProperty], otherwise the serializer does not restore it " +
+            "and the snapshot is stale.");
     }
 
     private static TKey ParseKey<TKey>(string value, GrainKeyType keyType) => keyType switch

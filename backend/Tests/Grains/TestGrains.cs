@@ -386,6 +386,22 @@ public class EventTestAggregate : IEventStateValue
     public void Apply(LabelChanged e) => Label = e.Label;
 }
 
+// Id with a private setter and no [JsonProperty]: the serializer does not restore it, EventStorage throws on the read.
+[GrainEventState(State = "event_lost_id_test", Lookup = "EventLostIdTest", Key = GrainKeyType.Guid)]
+public class EventLostIdAggregate : IEventStateValue
+{
+    public string Id { get; private set; } = string.Empty;
+    [JsonProperty] public int Counter { get; private set; }
+    public int Version => 0;
+
+    public void Apply(LostIdCounterIncremented e) => Counter += e.Amount;
+}
+
+public class LostIdCounterIncremented
+{
+    public int Amount { get; init; }
+}
+
 public class CounterIncremented
 {
     public int Amount { get; init; }

@@ -225,6 +225,91 @@ public class EventStorageTests
     }
 
     [Fact]
+    public async Task Read_MissingStream_IdNotRestorable_ReturnsNewAggregate()
+    {
+        var eventStorage = GetSiloService<IEventStorage>();
+
+        var read = await eventStorage.Read<EventLostIdAggregate>($"event_lost_id_test:{Guid.NewGuid():D}");
+
+        read.Id.Should().BeEmpty();
+        read.Counter.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Read_IdNotRestorable_Throws()
+    {
+        var eventStorage = GetSiloService<IEventStorage>();
+        var streamId = await AppendLostIdStream(eventStorage, $"event_lost_id_test:{Guid.NewGuid():D}");
+
+        var read = () => eventStorage.Read<EventLostIdAggregate>(streamId);
+
+        await ShouldThrowLostId(read);
+    }
+
+    [Fact]
+    public async Task ReadBatch_IdNotRestorable_Throws()
+    {
+        var eventStorage = GetSiloService<IEventStorage>();
+        var streamId = await AppendLostIdStream(eventStorage, $"event_lost_id_test:{Guid.NewGuid():D}");
+
+        var read = () => eventStorage.ReadBatch<string, EventLostIdAggregate>([streamId]);
+
+        await ShouldThrowLostId(read);
+    }
+
+    [Fact]
+    public async Task ReadAll_IdNotRestorable_Throws()
+    {
+        var eventStorage = GetSiloService<IEventStorage>();
+        var streamId = await AppendLostIdStream(eventStorage, $"event_lost_id_test:{Guid.NewGuid():D}");
+
+        var read = async () => {
+            await foreach (var _ in eventStorage.ReadAll<string, EventLostIdAggregate>(streamId, GrainKeyType.String))
+            {
+            }
+        };
+
+        await ShouldThrowLostId(read);
+    }
+
+    [Fact]
+    public async Task ReadPage_IdNotRestorable_Throws()
+    {
+        var eventStorage = GetSiloService<IEventStorage>();
+        var streamId = await AppendLostIdStream(eventStorage, $"event_lost_id_test:{Guid.NewGuid():D}");
+
+        var read = () => eventStorage.ReadPage<string, EventLostIdAggregate>(streamId, GrainKeyType.String, offset: 0, limit: 10);
+
+        await ShouldThrowLostId(read);
+    }
+
+    // The way out of a stale snapshot: the events are whole and Marten sets the Id of the aggregate it builds.
+    [Fact]
+    public async Task Rebuild_IdNotRestorable_SeesEveryEvent()
+    {
+        var eventStorage = GetSiloService<IEventStorage>();
+        var streamId = await AppendLostIdStream(eventStorage, $"event_lost_id_test:{Guid.NewGuid():D}");
+
+        var rebuilt = await eventStorage.Rebuild<EventLostIdAggregate>(streamId);
+
+        rebuilt.Id.Should().Be(streamId);
+        rebuilt.Counter.Should().Be(7);
+    }
+
+    private static async Task<string> AppendLostIdStream(IEventStorage eventStorage, string streamId)
+    {
+        await eventStorage.Append(streamId, new LostIdCounterIncremented { Amount = 3 });
+        await eventStorage.Append(streamId, new LostIdCounterIncremented { Amount = 4 });
+        return streamId;
+    }
+
+    private static async Task ShouldThrowLostId(Func<Task> read)
+    {
+        var thrown = await read.Should().ThrowAsync<InvalidOperationException>();
+        thrown.Which.Message.Should().Contain(nameof(EventLostIdAggregate)).And.Contain("[JsonProperty]");
+    }
+
+    [Fact]
     public async Task Grain_IdIsTheStreamId_AfterTransactionalAndStandaloneWrites_AndThroughOrleansCopy()
     {
         var transactional = Guid.NewGuid();
