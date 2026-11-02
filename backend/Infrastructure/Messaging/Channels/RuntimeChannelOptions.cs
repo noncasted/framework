@@ -7,9 +7,9 @@ namespace Infrastructure;
     Key = GrainKeyType.String)]
 public class RuntimeChannelOptions
 {
-    public int ObserverKeepAliveMinutes { get; set; } = 3;
-    public int CatchUpBufferSize { get; set; } = 1024;
-    public int DeliveryTimeoutSeconds { get; set; } = 5;
+    public int ObserverKeepAliveMinutes { get; init; } = 3;
+    public int CatchUpBufferSize { get; init; } = 1024;
+    public int DeliveryTimeoutSeconds { get; init; } = 5;
 }
 
 public interface IRuntimeChannelConfig : IAddressableState<RuntimeChannelOptions>

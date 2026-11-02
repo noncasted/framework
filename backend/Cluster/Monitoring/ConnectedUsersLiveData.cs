@@ -12,7 +12,7 @@ namespace Cluster.Monitoring;
 [GrainState(Table = "cluster", State = "deployment_state_ConnectedUsersLiveData", Lookup = "ConnectedUsersLive", Key = GrainKeyType.Guid)]
 public class ConnectedUsersLiveData : IServiceSlices<List<ConnectedUserEntry>>, IDirectStateValue, IDeployScopedState
 {
-    [Id(2)] public Dictionary<Guid, List<ConnectedUserEntry>> Slices { get; set; } = new();
+    [Id(2)] public Dictionary<Guid, List<ConnectedUserEntry>> Slices { get; init; } = new();
 
     public int Version => 0;
 
@@ -25,5 +25,5 @@ public class ConnectedUsersLiveData : IServiceSlices<List<ConnectedUserEntry>>, 
 [GenerateSerializer]
 public class ConnectedUserEntry
 {
-    [Id(0)] public Guid UserId { get; set; }
+    [Id(0)] public Guid UserId { get; init; }
 }

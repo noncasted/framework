@@ -12,7 +12,7 @@ namespace Cluster.Monitoring;
 [GrainState(Table = "cluster", State = "deployment_state_LiveSessionsData", Lookup = "LiveSessions", Key = GrainKeyType.Guid)]
 public class LiveSessionsData : IServiceSlices<List<LiveSessionEntry>>, IDirectStateValue, IDeployScopedState
 {
-    [Id(1)] public Dictionary<Guid, List<LiveSessionEntry>> Slices { get; set; } = new();
+    [Id(1)] public Dictionary<Guid, List<LiveSessionEntry>> Slices { get; init; } = new();
 
     public int Version => 0;
 }
@@ -20,7 +20,7 @@ public class LiveSessionsData : IServiceSlices<List<LiveSessionEntry>>, IDirectS
 [GenerateSerializer]
 public class LiveSessionEntry
 {
-    [Id(0)] public Guid Id { get; set; }
-    [Id(1)] public List<Guid> UserIds { get; set; } = [];
-    [Id(2)] public DateTime CreatedAt { get; set; }
+    [Id(0)] public Guid Id { get; init; }
+    [Id(1)] public List<Guid> UserIds { get; init; } = [];
+    [Id(2)] public DateTime CreatedAt { get; init; }
 }

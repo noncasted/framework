@@ -5,9 +5,10 @@ namespace Infrastructure;
 
 [GrainState(Table = "configs", State = "message_queue_config", Lookup = "DurableQueueConfig",
     Key = GrainKeyType.String)]
-public class DurableQueueOptions
+// A record: the console edits a config with `with` on its own copy.
+public record DurableQueueOptions
 {
-    public int ObserverKeepAliveMinutes { get; set; } = 3;
+    public int ObserverKeepAliveMinutes { get; init; } = 3;
 }
 
 public interface IDurableQueueConfig : IAddressableState<DurableQueueOptions>

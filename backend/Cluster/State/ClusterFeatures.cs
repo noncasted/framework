@@ -7,6 +7,7 @@ using Infrastructure.State;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using Shared;
 
 namespace Cluster.State;
@@ -136,18 +137,18 @@ public class ClusterFeaturesPatch
     public void ApplyTo(ClusterFeaturesState state)
     {
         if (AcceptingConnections is { } accepting)
-            state.AcceptingConnections = accepting;
+            state.SetAcceptingConnections(accepting);
 
         if (SideEffectsEnabled is { } sideEffects)
-            state.SideEffectsEnabled = sideEffects;
+            state.SetSideEffectsEnabled(sideEffects);
 
         if (CoordinatorUnhealthy is { } unhealthy)
-            state.CoordinatorUnhealthy = unhealthy;
+            state.SetCoordinatorUnhealthy(unhealthy);
 
         if (GameFlags != null)
         {
             foreach (var (name, enabled) in GameFlags)
-                state.GameFlags[name] = enabled;
+                state.SetGameFlag(name, enabled);
         }
     }
 
@@ -227,17 +228,37 @@ public class ClusterFeaturesWriter : Grain, IClusterFeaturesWriter
 [GrainState(Table = "cluster", State = "cluster_features", Lookup = "ClusterFeatures", Key = GrainKeyType.Guid)]
 public class ClusterFeaturesState : IDirectStateValue, IDeployScopedState
 {
-    [Id(0)] public bool AcceptingConnections { get; set; } = false;
-    [Id(1)] public bool SideEffectsEnabled { get; set; } = false;
+    [Id(0)] [JsonProperty] public bool AcceptingConnections { get; private set; } = false;
+    [Id(1)] [JsonProperty] public bool SideEffectsEnabled { get; private set; } = false;
 
     // Set by gateways while the coordinator heartbeat is stale, cleared by any service once it is fresh
     // again. Kept apart from AcceptingConnections so that recovery does not override the operator switch.
-    [Id(2)] public bool CoordinatorUnhealthy { get; set; } = false;
+    [Id(2)] [JsonProperty] public bool CoordinatorUnhealthy { get; private set; } = false;
 
     // Switches of the game by name, set through IClusterFeatures.SetGameFlag (the console, the coordinator).
-    [Id(3)] public Dictionary<string, bool> GameFlags { get; set; } = new();
+    [Id(3)] public Dictionary<string, bool> GameFlags { get; init; } = new();
 
     public int Version => 0;
+
+    public void SetAcceptingConnections(bool accepting)
+    {
+        AcceptingConnections = accepting;
+    }
+
+    public void SetSideEffectsEnabled(bool enabled)
+    {
+        SideEffectsEnabled = enabled;
+    }
+
+    public void SetCoordinatorUnhealthy(bool unhealthy)
+    {
+        CoordinatorUnhealthy = unhealthy;
+    }
+
+    public void SetGameFlag(string name, bool enabled)
+    {
+        GameFlags[name] = enabled;
+    }
 }
 
 public static class ClusterFeaturesExtensions

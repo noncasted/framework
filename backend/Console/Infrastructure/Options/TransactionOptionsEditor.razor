@@ -10,13 +10,13 @@
         <div class="flex items-center gap-3 py-1.5 border-b border-border/60">
             <LucideIcon Name="timer" Size="12" class="text-muted-foreground shrink-0" />
             <span class="text-sm flex-1">Lock Wait (sec)</span>
-            <input type="number" @bind="Value.LockWaitSeconds" step="0.5"
+            <input type="number" @bind:get="Value.LockWaitSeconds" @bind:set="v => ValueChanged.InvokeAsync(Value with { LockWaitSeconds = v })" step="0.5"
                    class="w-24 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm" />
         </div>
         <div class="flex items-center gap-3 py-1.5">
             <LucideIcon Name="clock" Size="12" class="text-muted-foreground shrink-0" />
             <span class="text-sm flex-1">Stuck Grace Period (sec)</span>
-            <input type="number" @bind="Value.StuckGraceSeconds" step="1"
+            <input type="number" @bind:get="Value.StuckGraceSeconds" @bind:set="v => ValueChanged.InvokeAsync(Value with { StuckGraceSeconds = v })" step="1"
                    class="w-24 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm" />
         </div>
     </div>
@@ -24,4 +24,5 @@
 
 @code {
     [Parameter, EditorRequired] public TransactionOptions Value { get; set; } = null!;
+    [Parameter, EditorRequired] public EventCallback<TransactionOptions> ValueChanged { get; set; }
 }

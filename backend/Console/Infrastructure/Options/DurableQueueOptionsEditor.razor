@@ -10,7 +10,7 @@
         <div class="flex items-center gap-3 py-1.5">
             <LucideIcon Name="clock" Size="12" class="text-muted-foreground shrink-0" />
             <span class="text-sm flex-1">Observer Keep-Alive (minutes)</span>
-            <input type="number" @bind="Value.ObserverKeepAliveMinutes"
+            <input type="number" @bind:get="Value.ObserverKeepAliveMinutes" @bind:set="v => ValueChanged.InvokeAsync(Value with { ObserverKeepAliveMinutes = v })"
                    class="w-24 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm" />
         </div>
     </div>
@@ -18,4 +18,5 @@
 
 @code {
     [Parameter, EditorRequired] public DurableQueueOptions Value { get; set; } = null!;
+    [Parameter, EditorRequired] public EventCallback<DurableQueueOptions> ValueChanged { get; set; }
 }

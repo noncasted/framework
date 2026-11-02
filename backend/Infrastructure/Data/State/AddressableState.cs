@@ -9,13 +9,13 @@ namespace Infrastructure;
 public class AddressableStateValue : IDirectStateValue
 {
     [Id(0)]
-    public string Value { get; set; } = string.Empty;
+    public string Value { get; init; } = string.Empty;
 
     [Id(1)]
-    public bool IsInitialized { get; set; }
+    public bool IsInitialized { get; init; }
 
     [Id(2)]
-    public DateTime UpdateDate { get; set; }
+    public DateTime UpdateDate { get; init; }
 
     public int Version => 0;
 }

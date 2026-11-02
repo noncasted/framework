@@ -15,7 +15,7 @@ namespace Framework.Tests.Cluster;
 public class DeployHealthCheckerTests
 {
     private readonly Guid _deployId = Guid.NewGuid();
-    private readonly ClusterFeaturesState _features = new() { AcceptingConnections = true };
+    private readonly ClusterFeaturesState _features = new();
     private readonly IClusterFeatures _clusterFeatures = Substitute.For<IClusterFeatures>();
     private readonly IDeployManagement _deployGrain = Substitute.For<IDeployManagement>();
     private readonly IDeployContext _deployContext = Substitute.For<IDeployContext>();
@@ -24,17 +24,18 @@ public class DeployHealthCheckerTests
 
     public DeployHealthCheckerTests()
     {
+        _features.SetAcceptingConnections(true);
         _clusterFeatures.Value.Returns(_ => _features);
         _clusterFeatures.SetCoordinatorUnhealthy(Arg.Any<bool>()).Returns(call => {
-            _features.CoordinatorUnhealthy = call.Arg<bool>();
+            _features.SetCoordinatorUnhealthy(call.Arg<bool>());
             return Task.CompletedTask;
         });
 
-        _deployGrain.GetState().Returns(_ => new DeployState
-        {
-            DeployId = _deployId,
-            LastHeartbeat = _lastHeartbeat,
-            CoordinatorReady = true
+        _deployGrain.GetState().Returns(_ => {
+            var state = new DeployState();
+            state.Init(_deployId, _lastHeartbeat);
+            state.MarkCoordinatorReady(_lastHeartbeat);
+            return state;
         });
 
         _deployContext.DeployId.Returns(_ => _deployId);
@@ -64,7 +65,7 @@ public class DeployHealthCheckerTests
     [Fact]
     public async Task FreshHeartbeat_ReopensDeploy_ClosedByAnotherService()
     {
-        _features.CoordinatorUnhealthy = true;
+        _features.SetCoordinatorUnhealthy(true);
         _lastHeartbeat = DateTime.UtcNow;
 
         // The coordinator never closes the deploy itself, but reopens it like everyone else.

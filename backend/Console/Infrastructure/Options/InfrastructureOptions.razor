@@ -22,10 +22,10 @@
         </BbButton>
     </div>
 
-    <SideEffectsOptionsEditor Value="_sideEffectsValue"/>
-    <DurableQueueOptionsEditor Value="_durableQueueValue"/>
-    <TaskBalancerOptionsEditor Value="_taskBalancerValue"/>
-    <TransactionOptionsEditor Value="_transactionValue"/>
+    <SideEffectsOptionsEditor @bind-Value="_sideEffectsValue"/>
+    <DurableQueueOptionsEditor @bind-Value="_durableQueueValue"/>
+    <TaskBalancerOptionsEditor @bind-Value="_taskBalancerValue"/>
+    <TransactionOptionsEditor @bind-Value="_transactionValue"/>
 </div>
 
 @code {
@@ -50,19 +50,11 @@
 
     private void Reload()
     {
-        ReloadField(SideEffectsConfig.Value, ref _sideEffectsValue);
-        ReloadField(DurableQueueConfig.Value, ref _durableQueueValue);
-        ReloadField(TaskBalancerConfig.Value, ref _taskBalancerValue);
-        ReloadField(TransactionConfig.Value, ref _transactionValue);
+        _sideEffectsValue = SideEffectsConfig.Value;
+        _durableQueueValue = DurableQueueConfig.Value;
+        _taskBalancerValue = TaskBalancerConfig.Value;
+        _transactionValue = TransactionConfig.Value;
         InvokeAsync(StateHasChanged);
-
-        return;
-
-        void ReloadField<T>(T current, ref T field)
-        {
-            var raw = JsonUtils.Serialize(current!);
-            field = JsonUtils.Deserialize<T>(raw);
-        }
     }
 
     private async Task Save()

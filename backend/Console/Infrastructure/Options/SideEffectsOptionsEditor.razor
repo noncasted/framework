@@ -10,31 +10,31 @@
         <div class="flex items-center gap-3 py-1.5 border-b border-border/60">
             <LucideIcon Name="timer" Size="12" class="text-muted-foreground shrink-0" />
             <span class="text-sm flex-1">Scan Delay (ms)</span>
-            <input type="number" @bind="Value.ScanDelay"
+            <input type="number" @bind:get="Value.ScanDelay" @bind:set="v => ValueChanged.InvokeAsync(Value with { ScanDelay = v })"
                    class="w-24 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm" />
         </div>
         <div class="flex items-center gap-3 py-1.5 border-b border-border/60">
             <LucideIcon Name="timer" Size="12" class="text-muted-foreground shrink-0" />
             <span class="text-sm flex-1">Empty Scan Delay (ms)</span>
-            <input type="number" @bind="Value.EmptyScanDelay"
+            <input type="number" @bind:get="Value.EmptyScanDelay" @bind:set="v => ValueChanged.InvokeAsync(Value with { EmptyScanDelay = v })"
                    class="w-24 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm" />
         </div>
         <div class="flex items-center gap-3 py-1.5 border-b border-border/60">
             <LucideIcon Name="layers" Size="12" class="text-muted-foreground shrink-0" />
             <span class="text-sm flex-1">Concurrent Executions</span>
-            <input type="number" @bind="Value.ConcurrentExecutions"
+            <input type="number" @bind:get="Value.ConcurrentExecutions" @bind:set="v => ValueChanged.InvokeAsync(Value with { ConcurrentExecutions = v })"
                    class="w-24 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm" />
         </div>
         <div class="flex items-center gap-3 py-1.5 border-b border-border/60">
             <LucideIcon Name="refresh-cw" Size="12" class="text-muted-foreground shrink-0" />
             <span class="text-sm flex-1">Max Retry Count</span>
-            <input type="number" @bind="Value.MaxRetryCount"
+            <input type="number" @bind:get="Value.MaxRetryCount" @bind:set="v => ValueChanged.InvokeAsync(Value with { MaxRetryCount = v })"
                    class="w-24 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm" />
         </div>
         <div class="flex items-center gap-3 py-1.5">
             <LucideIcon Name="clock" Size="12" class="text-muted-foreground shrink-0" />
             <span class="text-sm flex-1">Incremental Retry Delay (sec × retry)</span>
-            <input type="number" @bind="Value.IncrementalRetryDelay" step="0.5"
+            <input type="number" @bind:get="Value.IncrementalRetryDelay" @bind:set="v => ValueChanged.InvokeAsync(Value with { IncrementalRetryDelay = v })" step="0.5"
                    class="w-24 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm" />
         </div>
     </div>
@@ -42,4 +42,5 @@
 
 @code {
     [Parameter, EditorRequired] public SideEffectsOptions Value { get; set; } = null!;
+    [Parameter, EditorRequired] public EventCallback<SideEffectsOptions> ValueChanged { get; set; }
 }

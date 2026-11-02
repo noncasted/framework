@@ -245,9 +245,14 @@ public class LobbyRegistryTests(OrleansTestClusterFixture fixture) : Integration
         Listing(Guid.NewGuid(), isOpen: true, players: MaxPlayers).IsListed.Should().BeFalse();
         Listing(Guid.Empty, isOpen: true, players: 1).IsListed.Should().BeFalse();
 
-        var notJoinable = Listing(Guid.NewGuid(), isOpen: true, players: 1);
-        notJoinable.IsJoinable = false;
-        notJoinable.IsListed.Should().BeFalse();
+        new LobbyListing
+        {
+            IsOpen = true,
+            IsJoinable = false,
+            PlayersCount = 1,
+            MaxPlayers = MaxPlayers,
+            LeaderUserId = Guid.NewGuid()
+        }.IsListed.Should().BeFalse();
 
         // A listing without the places of its lobby is never shown.
         new LobbyListing { IsOpen = true, IsJoinable = true, PlayersCount = 1, LeaderUserId = Guid.NewGuid() }

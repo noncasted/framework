@@ -24,11 +24,9 @@ public class ClusterFeaturesStateSerializationTests(OrleansTestClusterFixture fi
             received.TrySetResult(msg);
         });
 
-        var state = new ClusterFeaturesState
-        {
-            AcceptingConnections = true,
-            SideEffectsEnabled = true
-        };
+        var state = new ClusterFeaturesState();
+        state.SetAcceptingConnections(true);
+        state.SetSideEffectsEnabled(true);
 
         await messaging.PublishChannel(channelId, state);
 

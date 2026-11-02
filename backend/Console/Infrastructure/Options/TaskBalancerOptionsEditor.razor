@@ -10,31 +10,31 @@
         <div class="flex items-center gap-3 py-1.5 border-b border-border/60">
             <LucideIcon Name="timer" Size="12" class="text-muted-foreground shrink-0" />
             <span class="text-sm flex-1">Empty Queue Delay (ms)</span>
-            <input type="number" @bind="Value.EmptyDelayMs"
+            <input type="number" @bind:get="Value.EmptyDelayMs" @bind:set="v => ValueChanged.InvokeAsync(Value with { EmptyDelayMs = v })"
                    class="w-24 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm" />
         </div>
         <div class="flex items-center gap-3 py-1.5 border-b border-border/60">
             <LucideIcon Name="skip-forward" Size="12" class="text-muted-foreground shrink-0" />
             <span class="text-sm flex-1">Next Task Delay (ms)</span>
-            <input type="number" @bind="Value.NextDelayMs"
+            <input type="number" @bind:get="Value.NextDelayMs" @bind:set="v => ValueChanged.InvokeAsync(Value with { NextDelayMs = v })"
                    class="w-24 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm" />
         </div>
         <div class="flex items-center gap-3 py-1.5 border-b border-border/60">
             <LucideIcon Name="plus" Size="12" class="text-muted-foreground shrink-0" />
             <span class="text-sm flex-1">Iteration Score</span>
-            <input type="number" @bind="Value.IterationScore"
+            <input type="number" @bind:get="Value.IterationScore" @bind:set="v => ValueChanged.InvokeAsync(Value with { IterationScore = v })"
                    class="w-24 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm" />
         </div>
         <div class="flex items-center gap-3 py-1.5 border-b border-border/60">
             <LucideIcon Name="minus" Size="12" class="text-muted-foreground shrink-0" />
             <span class="text-sm flex-1">Exception Penalty</span>
-            <input type="number" @bind="Value.ExceptionPenalty"
+            <input type="number" @bind:get="Value.ExceptionPenalty" @bind:set="v => ValueChanged.InvokeAsync(Value with { ExceptionPenalty = v })"
                    class="w-24 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm" />
         </div>
         <div class="flex items-center gap-3 py-1.5">
             <LucideIcon Name="layers" Size="12" class="text-muted-foreground shrink-0" />
             <span class="text-sm flex-1">Concurrent Tasks</span>
-            <input type="number" @bind="Value.ConcurrentTasks"
+            <input type="number" @bind:get="Value.ConcurrentTasks" @bind:set="v => ValueChanged.InvokeAsync(Value with { ConcurrentTasks = v })"
                    class="w-24 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm" />
         </div>
     </div>
@@ -42,4 +42,5 @@
 
 @code {
     [Parameter, EditorRequired] public TaskBalancerOptions Value { get; set; } = null!;
+    [Parameter, EditorRequired] public EventCallback<TaskBalancerOptions> ValueChanged { get; set; }
 }

@@ -33,26 +33,19 @@ public class DeployManagement : Grain, IDeployManagement
     {
         var deployId = this.GetPrimaryKey();
 
-        await _state.Write(s => {
-            s.DeployId = deployId;
-            s.LastHeartbeat = DateTime.UtcNow;
-            s.CoordinatorReady = false;
-        });
+        await _state.Write(s => s.Init(deployId, DateTime.UtcNow));
 
         _logger.LogInformation("[DeployManagement] Initialized deploy {DeployId}", deployId);
     }
 
     public async Task Heartbeat()
     {
-        await _state.Write(s => s.LastHeartbeat = DateTime.UtcNow);
+        await _state.Write(s => s.Heartbeat(DateTime.UtcNow));
     }
 
     public async Task MarkCoordinatorReady()
     {
-        await _state.Write(s => {
-            s.CoordinatorReady = true;
-            s.LastHeartbeat = DateTime.UtcNow;
-        });
+        await _state.Write(s => s.MarkCoordinatorReady(DateTime.UtcNow));
 
         _logger.LogInformation("[DeployManagement] Coordinator marked ready for deploy {DeployId}",
             this.GetPrimaryKey());

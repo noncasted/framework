@@ -187,7 +187,9 @@ public class DeployCleanupTests(OrleansTestClusterFixture fixture) : Integration
     {
         var memberId = Guid.NewGuid();
 
-        await Write(storage, deployId, new DeployState { DeployId = deployId, LastHeartbeat = DateTime.UtcNow });
+        var deployState = new DeployState();
+        deployState.Init(deployId, DateTime.UtcNow);
+        await Write(storage, deployId, deployState);
         await Write(storage, deployId, new ServiceDiscoveryStorageState
         {
             Members = new Dictionary<Guid, IServiceOverview>
@@ -195,11 +197,15 @@ public class DeployCleanupTests(OrleansTestClusterFixture fixture) : Integration
                 [memberId] = new ServiceOverview { Id = memberId, Tag = TestRoles.Silo, UpdateTime = DateTime.UtcNow }
             }
         });
-        await Write(storage, deployId, new LobbyRegistryState { ListingVersion = 1 });
+        var lobbies = new LobbyRegistryState();
+        lobbies.AdvanceListingVersion();
+        await Write(storage, deployId, lobbies);
 
         // The production format of the DeploymentState rows: the value is wrapped into an AddressableStateValue
         // (ClusterFeaturesWriter, ServiceSlicesWriter).
-        await WriteAddressable(storage, deployId, new ClusterFeaturesState { AcceptingConnections = true });
+        var features = new ClusterFeaturesState();
+        features.SetAcceptingConnections(true);
+        await WriteAddressable(storage, deployId, features);
         await WriteAddressable(storage, deployId, new LiveSessionsData
         {
             Slices = { [Guid.NewGuid()] = [new LiveSessionEntry { Id = Guid.NewGuid(), CreatedAt = DateTime.UtcNow }] }

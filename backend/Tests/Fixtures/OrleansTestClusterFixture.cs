@@ -166,20 +166,22 @@ public class OrleansTestClusterFixture : IAsyncLifetime
     private static void RegisterTestConfigs(IServiceCollection services)
     {
         // The worker scans fast enough for the tests to drain within their waits.
-        RegisterConfig<ISideEffectsConfig, SideEffectsOptions>(services, o => {
-            o.ScanDelay = 50;
-            o.EmptyScanDelay = 500;
+        RegisterConfig<ISideEffectsConfig, SideEffectsOptions>(services, new SideEffectsOptions
+        {
+            ScanDelay = 50,
+            EmptyScanDelay = 500
         });
 
-        RegisterConfig<ITransactionConfig, TransactionOptions>(services, o => {
-            o.LockWaitSeconds = 2f;
-            o.StuckGraceSeconds = 5f;
+        RegisterConfig<ITransactionConfig, TransactionOptions>(services, new TransactionOptions
+        {
+            LockWaitSeconds = 2f,
+            StuckGraceSeconds = 5f
         });
 
         RegisterConfig<IDurableQueueConfig, DurableQueueOptions>(services);
         RegisterConfig<ITaskBalancerConfig, TaskBalancerOptions>(services);
         // A timed-out request of the pipe tests ends within their waits.
-        RegisterConfig<IRuntimePipeConfig, RuntimePipeOptions>(services, o => o.SendTimeoutSeconds = 2);
+        RegisterConfig<IRuntimePipeConfig, RuntimePipeOptions>(services, new RuntimePipeOptions { SendTimeoutSeconds = 2 });
         RegisterConfig<IRuntimeChannelConfig, RuntimeChannelOptions>(services);
 
         // Cluster features
@@ -193,14 +195,11 @@ public class OrleansTestClusterFixture : IAsyncLifetime
 
     private static void RegisterConfig<TInterface, TOptions>(
         IServiceCollection services,
-        Action<TOptions>? configure = null)
+        TOptions? value = null)
         where TInterface : class, IAddressableState<TOptions>
         where TOptions : class, new()
     {
-        var value = new TOptions();
-        configure?.Invoke(value);
-
-        var state = new TestAddressableState<TOptions>(value);
+        var state = new TestAddressableState<TOptions>(value ?? new TOptions());
         var mock = Substitute.For<TInterface>();
         mock.Value.Returns(state.Value);
         mock.IsInitialized.Returns(true);

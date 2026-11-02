@@ -364,7 +364,7 @@ public class FakeLobbyCodes : ILobbyCodes
             if (Entries.TryGetValue(code, out var entry) == false || entry.SessionId != sessionId)
                 throw new InvalidOperationException($"Lobby code {code} is not held by session {sessionId}");
 
-            entry.Listing = listing;
+            entry.UpdateListing(listing);
             Calls.Add($"Listing {code}");
             return Task.CompletedTask;
         }
@@ -440,7 +440,7 @@ public class FakeLobbyCodes : ILobbyCodes
             if (entry.MatchSessionId != Guid.Empty)
                 throw new InvalidOperationException($"Lobby code {code} is already marked as started");
 
-            entry.MatchSessionId = matchSessionId;
+            entry.MarkStarted(matchSessionId);
             Calls.Add($"Mark {code}");
         }
     }

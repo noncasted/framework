@@ -109,7 +109,7 @@ public class LobbyRegistry : Grain, ILobbyRegistry
                 $"Lobby code {code} is already marked as started with match {entry.MatchSessionId}");
         }
 
-        await _state.Write(value => value.Entries[code].MatchSessionId = matchSessionId);
+        await _state.Write(value => value.Entries[code].MarkStarted(matchSessionId));
 
         _logger.LogInformation("[LobbyRegistry] Code {Code} of session {SessionId} is held for match {MatchSessionId}",
             code,
@@ -130,7 +130,7 @@ public class LobbyRegistry : Grain, ILobbyRegistry
             value.Entries.Remove(code);
 
             if (wasListed == true)
-                value.ListingVersion++;
+                value.AdvanceListingVersion();
         });
 
         _logger.LogInformation("[LobbyRegistry] Code {Code} released by session {SessionId}", code, sessionId);
@@ -150,10 +150,10 @@ public class LobbyRegistry : Grain, ILobbyRegistry
         var isListChanged = entry.Listing.IsListed == true || listing.IsListed == true;
 
         await _state.Write(value => {
-            value.Entries[code].Listing = listing;
+            value.Entries[code].UpdateListing(listing);
 
             if (isListChanged == true)
-                value.ListingVersion++;
+                value.AdvanceListingVersion();
         });
 
         if (isListChanged == true)

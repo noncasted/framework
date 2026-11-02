@@ -71,7 +71,7 @@ public class ClusterFeaturesWriterTests(OrleansTestClusterFixture fixture)
     {
         var features = await Attach(Guid.NewGuid(), new Lifetime());
 
-        var act = () => features.SetValue(new ClusterFeaturesState { AcceptingConnections = true });
+        var act = () => features.SetValue(new ClusterFeaturesState());
 
         await act.Should().ThrowAsync<NotSupportedException>();
     }
