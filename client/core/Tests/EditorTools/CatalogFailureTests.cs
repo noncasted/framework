@@ -56,21 +56,21 @@ namespace Internal.EditorTests
         public void Scan_Failure_Prefabs_Throws()
         {
             LockFolder(FullPath(LockedRoot));
-            AssertThrows(() => Invoke(typeof(PrefabCatalogGenerator), "CollectSources"));
+            AssertThrows(() => Invoke(typeof(PrefabSourceCollector), "CollectSources"));
         }
 
         [Test]
         public void Scan_Failure_Assets_Throws()
         {
             LockFolder(FullPath(LockedRoot));
-            AssertThrows(() => Invoke(typeof(AssetCatalogGenerator), "CollectSources"));
+            AssertThrows(() => Invoke(typeof(AssetSourceCollector), "CollectSources"));
         }
 
         [Test]
         public void Scan_Failure_Audio_Throws()
         {
             LockFolder(FullPath(LockedRoot));
-            AssertThrows(() => AudioCatalogGenerator.EnumerateMarked("test").ToList());
+            AssertThrows(() => AudioSourceCollector.EnumerateMarked("test").ToList());
         }
 
         [Test]
@@ -78,7 +78,7 @@ namespace Internal.EditorTests
         {
             UseArtFolder();
             LockFolder(FullPath(ArtFolder));
-            AssertThrows(() => Invoke(typeof(SpriteGenerator), "CollectSources"));
+            AssertThrows(() => Invoke(typeof(SpriteSourceCollector), "CollectSources"));
         }
 
         [Test]
@@ -179,7 +179,7 @@ namespace Internal.EditorTests
                 metadata.SetGroup("ArtFolderTest");
                 SpriteCatalogMetadata.Write(importer, metadata);
 
-                var sources = (IEnumerable<object>)Invoke(typeof(SpriteGenerator), "CollectSources");
+                var sources = (IEnumerable<object>)Invoke(typeof(SpriteSourceCollector), "CollectSources");
                 Assert.AreEqual(1, sources.Count(), "the art of a game in another folder is taken for no art: all its sprites are deleted");
 
                 CollectionAssert.Contains(Discover(SpriteGroupsRegistry.Instance), "ArtFolderTest");
@@ -194,7 +194,7 @@ namespace Internal.EditorTests
         [Test]
         public void Sprites_AseIsASource()
         {
-            Assert.IsTrue((bool)Invoke(typeof(SpriteGenerator), "IsSourceFile", "Assets/Art/Hero.ase"));
+            Assert.IsTrue((bool)Invoke(typeof(SpriteSourcePaths), "IsSourceFile", "Assets/Art/Hero.ase"));
         }
 
         private string TempAssets()

@@ -30,13 +30,13 @@ namespace Internal.EditorTests
         [Test]
         public void PrefabsWithTheSameName_Throw()
         {
-            var sources = new List<PrefabCatalogGenerator.PrefabSource>
+            var sources = new List<PrefabSource>
             {
                 new("Assets/Menu/Shop.prefab", Group, "Shop", null, ""),
                 new("Assets/GamePlay/Shop.prefab", Group, "Shop", null, "")
             };
 
-            Assert.Throws<InvalidOperationException>(() => PrefabCatalogGenerator.BuildGroups(sources));
+            Assert.Throws<InvalidOperationException>(() => PrefabGroupBuilder.BuildGroups(sources));
         }
 
         // The root type of a prefab is the type of its catalogue property: losing it silently changes the API.
@@ -50,31 +50,31 @@ namespace Internal.EditorTests
             metadata.SetRoot("Game.HeroView, Game", string.Empty);
 
             Assert.Throws<InvalidOperationException>(() =>
-                PrefabCatalogGenerator.ResolveComponentType("Assets/Hero.prefab", prefab, metadata));
+                PrefabRootResolver.ResolveComponentType("Assets/Hero.prefab", prefab, metadata));
         }
 
         [Test]
         public void AssetsWithTheSameName_Throw()
         {
-            var sources = new List<AssetCatalogGenerator.AssetSource>
+            var sources = new List<AssetSource>
             {
                 new("Assets/A/Config.asset", Group, "Config", MakeAsset()),
                 new("Assets/B/Config.asset", Group, "Config", MakeAsset())
             };
 
-            Assert.Throws<InvalidOperationException>(() => AssetCatalogGenerator.BuildGroups(sources));
+            Assert.Throws<InvalidOperationException>(() => AssetGroupBuilder.BuildGroups(sources));
         }
 
         [Test]
         public void SoundsWithTheSameName_Throw()
         {
-            var sources = new List<AudioCatalogGenerator.ClipSource>
+            var sources = new List<ClipSource>
             {
                 new("Assets/A/Click.wav", Group, "Click", null, null, null, 0f),
                 new("Assets/B/Click.wav", Group, "Click", null, null, null, 0f)
             };
 
-            Assert.Throws<InvalidOperationException>(() => AudioCatalogGenerator.BuildGroups(sources));
+            Assert.Throws<InvalidOperationException>(() => AudioGroupBuilder.BuildGroups(sources));
         }
 
         // Scripts without an asmdef compile into Assembly-CSharp: no generated class can live next to them in an
@@ -93,7 +93,7 @@ namespace Internal.EditorTests
             group.AddProperty(new AssetPropertyDefinition("Config", "_config", null, "Config", "Assembly-CSharp"));
 
             Assert.Throws<InvalidOperationException>(() =>
-                AssetCatalogGenerator.AssignGeneratedTargets(new List<AssetGroupDefinition> { group }));
+                AssetGroupBuilder.AssignGeneratedTargets(new List<AssetGroupDefinition> { group }));
         }
 
         private EnvAsset MakeAsset()
