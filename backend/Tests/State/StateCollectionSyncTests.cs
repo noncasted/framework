@@ -115,20 +115,25 @@ public class StateCollectionSyncTests
 
         var keys = Enumerable.Range(0, 200).Select(_ => Guid.NewGuid()).ToArray();
         using var stop = new CancellationTokenSource();
+        var reading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var reader = Task.Run(() => {
             var reads = 0;
 
-            while (stop.IsCancellationRequested == false)
+            do
             {
                 foreach (var (key, value) in collection)
                     value.Id.Should().Be(key);
 
                 reads++;
-            }
+                reading.TrySetResult();
+            } while (stop.IsCancellationRequested == false);
 
             return reads;
         });
+
+        // The updates start when the reader is running: on a loaded machine its task may start after all of them.
+        await Task.WhenAny(reading.Task, reader).WaitAsync(Wait, TestContext.Current.CancellationToken);
 
         await Task.WhenAll(keys.Select(key => Task.Run(async () => {
             utils.Storage[key] = Value(key, "x");
