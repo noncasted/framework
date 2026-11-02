@@ -30,10 +30,11 @@ public class Connection : IConnection
 
     private readonly ILifetime _lifetime;
 
-    // The pending ReceiveAsync is cancelled only after the close frame went out: cancelling it aborts the socket
+    // The ReceiveAsync and the SendAsync in flight are cancelled only after the close: cancelling either aborts the socket
     // (Kestrel), and a disconnect reached the client as 1006 instead of a close. So it is no child of the parent: the end
-    // of the parent reaches the socket through the close (_lifetime), as a forced disconnect does.
-    private readonly ILifetime _receiveLifetime = new Lifetime();
+    // of the parent reaches the socket through the close (_lifetime), as a forced disconnect does. The timeout of the
+    // close bounds a send stuck on a client that does not read: the close frame waits behind it.
+    private readonly ILifetime _socketLifetime = new Lifetime();
 
     private readonly ConnectionReader _reader;
     private readonly ConnectionWriter _writer;
@@ -63,13 +64,13 @@ public class Connection : IConnection
         }
 
         _lifetime.Listen(OnDisconnected);
-        _writer.Run(_lifetime).NoAwait();
+        _writer.Run(_lifetime, _socketLifetime).NoAwait();
 
         // A failure of the read loop (a handler of a message that throws) ends the connection too: its lifetime and
         // the socket are not left open behind the exception.
         try
         {
-            await _reader.Run(_receiveLifetime);
+            await _reader.Run(_socketLifetime);
         }
         finally
         {
@@ -118,7 +119,7 @@ public class Connection : IConnection
         finally
         {
             _closed.TrySetResult();
-            _receiveLifetime.Terminate();
+            _socketLifetime.Terminate();
         }
     }
 }

@@ -77,7 +77,9 @@ public class ConnectionWriter : IConnectionWriter
 
     public int PendingRequestsCount => _pendingRequests.Count;
 
-    public async Task Run(IReadOnlyLifetime lifetime)
+    // The end of lifetime stops the loop after the send in flight. The end of socketLifetime cancels that send, which
+    // aborts the socket: it comes after the close of the socket, or the close frame dies with it.
+    public async Task Run(IReadOnlyLifetime lifetime, IReadOnlyLifetime socketLifetime)
     {
         var reader = _queue.Reader;
         var buffer = new MemoryStream();
@@ -111,7 +113,7 @@ public class ConnectionWriter : IConnectionWriter
                 await MemoryPackSerializer.SerializeAsync(buffer, message, cancellationToken: cancellation);
 
                 var sendBuffer = new ReadOnlyMemory<byte>(buffer.GetBuffer(), 0, (int)buffer.Position);
-                await _webSocket.SendAsync(sendBuffer, WebSocketMessageType.Binary, true, cancellation);
+                await _webSocket.SendAsync(sendBuffer, WebSocketMessageType.Binary, true, socketLifetime.Token);
             }
             catch (OperationCanceledException) when (lifetime.IsTerminated == true)
             {

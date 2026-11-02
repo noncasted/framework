@@ -1,6 +1,7 @@
 using System.Net.WebSockets;
 using Common.Network;
 using FluentAssertions;
+using Framework.Tests.Fixtures;
 using Framework.Tests.Security;
 using Internal;
 using MemoryPack;
@@ -18,6 +19,9 @@ namespace Framework.Tests.Network;
 /// </summary>
 public class ConnectionCloseTests
 {
+    // No send and receive buffers of a loopback socket hold it: a send of it waits for the client to read.
+    private const int LargerThanTheSocketBuffers = 64 * 1024 * 1024;
+
     [Fact]
     public async Task ForceDisconnect_ClientGetsCloseFrame()
     {
@@ -179,6 +183,89 @@ public class ConnectionCloseTests
             .Should().BeNull();
     }
 
+    // A send in flight when the connection ends: the client that reads on gets the message and then the close frame. A
+    // cancellation of the send aborts the socket (ManagedWebSocket) and takes both with it.
+    [Theory]
+    [InlineData(ConnectionEnd.ForceDisconnect)]
+    [InlineData(ConnectionEnd.Parent)]
+    public async Task End_SendInFlight_ClientGetsTheMessageAndTheCloseFrame(ConnectionEnd end)
+    {
+        var parent = new Lifetime();
+
+        await using var server = await ConnectionServer.Start(parent: parent);
+        using var client = await server.Connect();
+        var connection = await server.Accepted.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        connection.Writer.WriteOneWay(new SharedSessionPeer.Tunnel { Frame = new byte[LargerThanTheSocketBuffers] });
+        await TestWait.Until(() => server.IsSendInFlight);
+
+        if (end == ConnectionEnd.ForceDisconnect)
+            connection.ForceDisconnect();
+        else
+            parent.Terminate();
+
+        var buffer = new byte[1024 * 1024];
+        var received = 0L;
+        WebSocketReceiveResult result;
+
+        do
+        {
+            result = await client.ReceiveAsync(buffer, TestContext.Current.CancellationToken)
+                                 .WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+            received += result.Count;
+        }
+        while (result.MessageType != WebSocketMessageType.Close);
+
+        result.CloseStatus.Should().Be(WebSocketCloseStatus.NormalClosure);
+        received.Should().BeGreaterThan(LargerThanTheSocketBuffers);
+    }
+
+    // A client that does not read holds the send and the close frame behind it: the close does not wait for it forever.
+    [Fact]
+    public async Task ForceDisconnect_SendStuckOnAClientThatDoesNotRead_RunEnds()
+    {
+        await using var server = await ConnectionServer.Start(closeTimeoutReachesTheSocket: true);
+        using var client = await server.Connect();
+        var connection = await server.Accepted.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        connection.Writer.WriteOneWay(new SharedSessionPeer.Tunnel { Frame = new byte[LargerThanTheSocketBuffers] });
+        await TestWait.Until(() => server.IsSendInFlight);
+
+        connection.ForceDisconnect();
+
+        await server.Finished.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        await TestWait.Until(() => server.IsSendInFlight == false);
+    }
+
+    // The read loop is over, so no cancelled receive aborts the socket, and the handler keeps it after the Run: the send
+    // ends with the close all the same.
+    [Fact]
+    public async Task Run_HandlerThrows_SendStuckOnAClientThatDoesNotRead_TheSendEndsWithTheClose()
+    {
+        var hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await using var server = await ConnectionServer.Start(
+            connection => connection.Reader.OneWay.Advise(connection.Lifetime, _ => throw new InvalidOperationException("handler bug")),
+            closeTimeoutReachesTheSocket: true,
+            holdSocket: hold.Task);
+
+        using var client = await server.Connect();
+        var connection = await server.Accepted.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        connection.Writer.WriteOneWay(new SharedSessionPeer.Tunnel { Frame = new byte[LargerThanTheSocketBuffers] });
+        await TestWait.Until(() => server.IsSendInFlight);
+
+        var message = MemoryPackSerializer.Serialize<IMessageFromClient>(
+            new OneWayMessageFromClient { Context = new SharedSessionLatency.Ping { Id = 1 } });
+
+        await client.SendAsync(message, WebSocketMessageType.Binary, true, TestContext.Current.CancellationToken);
+
+        await server.Finished.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        await TestWait.Until(() => server.IsSendInFlight == false);
+
+        hold.SetResult();
+    }
+
     private static async Task AssertCloseFrame(ClientWebSocket client)
     {
         var result = await client.ReceiveAsync(new byte[64], TestContext.Current.CancellationToken)
@@ -186,6 +273,12 @@ public class ConnectionCloseTests
 
         result.MessageType.Should().Be(WebSocketMessageType.Close);
         result.CloseStatus.Should().Be(WebSocketCloseStatus.NormalClosure);
+    }
+
+    public enum ConnectionEnd
+    {
+        ForceDisconnect,
+        Parent
     }
 
     public enum ForceDisconnectMoment
@@ -203,6 +296,8 @@ public class ConnectionCloseTests
 
         private readonly TestWebHost _host;
 
+        private Task? _send;
+
         public TaskCompletionSource<IConnection> Accepted { get; } = new();
 
         public TaskCompletionSource<bool> FirstReceiveCancelled { get; } = new();
@@ -214,13 +309,22 @@ public class ConnectionCloseTests
 
         public TaskCompletionSource SocketDisposed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+        public bool IsSendInFlight => _send is { IsCompleted: false };
+
+        public void OnSend(Task send)
+        {
+            _send = send;
+        }
+
         public static async Task<ConnectionServer> Start(
             Action<IConnection>? setup = null,
             ForceDisconnectMoment? forceDisconnect = null,
             bool disconnectBeforeFirstReceive = false,
             Task? holdClose = null,
             bool terminatedParent = false,
-            Lifetime? parent = null)
+            Lifetime? parent = null,
+            bool closeTimeoutReachesTheSocket = false,
+            Task? holdSocket = null)
         {
             var builder = TestWebHost.CreateBuilder("Development");
             var app = builder.Build();
@@ -236,7 +340,7 @@ public class ConnectionCloseTests
                 }
 
                 using var socket = await context.WebSockets.AcceptWebSocketAsync();
-                var hooked = new HookedSocket(socket, server!);
+                var hooked = new HookedSocket(socket, server!, closeTimeoutReachesTheSocket);
                 var connectionParent = parent ?? new Lifetime();
 
                 var connection = new Connection(hooked, connectionParent, NullLogger.Instance);
@@ -278,6 +382,9 @@ public class ConnectionCloseTests
                 {
                     server!.Finished.SetResult(e);
                 }
+
+                if (holdSocket != null)
+                    await holdSocket;
             });
 
             server = new ConnectionServer(await TestWebHost.Start(app));
@@ -328,7 +435,7 @@ public class ConnectionCloseTests
     }
 
     // A real socket with a moment to step in right before the first receive and a close frame that goes out late.
-    private sealed class HookedSocket(WebSocket socket, ConnectionServer server) : WebSocket
+    private sealed class HookedSocket(WebSocket socket, ConnectionServer server, bool closeTimeoutReachesTheSocket) : WebSocket
     {
         private Action<CancellationToken>? _beforeFirstReceive;
         private Task _holdClose = Task.CompletedTask;
@@ -364,7 +471,9 @@ public class ConnectionCloseTests
 
         public override ValueTask SendAsync(ReadOnlyMemory<byte> buffer, WebSocketMessageType messageType, bool endOfMessage, CancellationToken cancellationToken)
         {
-            return socket.SendAsync(buffer, messageType, endOfMessage, cancellationToken);
+            var send = socket.SendAsync(buffer, messageType, endOfMessage, cancellationToken).AsTask();
+            server.OnSend(send);
+            return new ValueTask(send);
         }
 
         public override Task SendAsync(ArraySegment<byte> buffer, WebSocketMessageType messageType, bool endOfMessage, CancellationToken cancellationToken)
@@ -377,8 +486,9 @@ public class ConnectionCloseTests
             server.CloseStarted.TrySetResult();
             await _holdClose;
 
-            // Past the hold the time of the test is not the time of the socket: the timeout of the close is not its point.
-            await socket.CloseOutputAsync(closeStatus, statusDescription, CancellationToken.None);
+            // Past the hold the time of the test is not the time of the socket: the timeout of the close is not the point
+            // of a test, unless it asks for it.
+            await socket.CloseOutputAsync(closeStatus, statusDescription, closeTimeoutReachesTheSocket ? cancellationToken : CancellationToken.None);
         }
 
         public override Task CloseAsync(WebSocketCloseStatus closeStatus, string? statusDescription, CancellationToken cancellationToken)

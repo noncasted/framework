@@ -117,3 +117,11 @@ RuntimeChannelOptions>`). Без него канал падает при пер�
 Поиск: `git grep -nE ': *ISessionAdmission\b|RuntimePipeClient\.Listener\(' -- 'backend/*.cs'`, `git grep -n 'ILobbyMatches' -- 'backend/*.cs'`
 
 Сделать: реализация `ISessionAdmission` получает `void Unseal()`; `new Listener(id, observerId, source, observer, pipe, orleans, logger)` получает `SemaphoreSlim bindOrder` после `pipe`, для тестового двойника `new SemaphoreSlim(1, 1)`. `ILobbyMatches.Create`, бросивший исключение, теперь оставляет лобби живым: отсчёт и флаг старта сброшены, лидер может начать снова, значит `Create` не оставляет после провала созданную сессию и переданный код.
+
+### 9. `ConnectionWriter.Run` получает lifetime сокета
+
+Кого касается: бэкенд, код или тесты, запускающие `ConnectionWriter` руками; через `Connection` ничего менять не надо. На 2026-11-02 это тесты `backend/Tools/Tests/Network/ConnectionWriterTests.cs` в mines-leader и peace-data-reborn, в pixel-swarm и storytale-workshop совпадений нет.
+
+Поиск: `git grep -nE 'riter\.Run\(' -- 'backend/*.cs'`
+
+Сделать: `writer.Run(lifetime)` -> `writer.Run(lifetime, lifetime)`. Второй аргумент отменяет отправку в полёте, что обрывает сокет: `Connection` передаёт lifetime, который заканчивается после close-кадра, поэтому клиент, читающий на момент закрытия, получает сообщение и close, а не обрыв (1006). Зависшую отправку клиента, который не читает, по-прежнему ограничивает таймаут закрытия.

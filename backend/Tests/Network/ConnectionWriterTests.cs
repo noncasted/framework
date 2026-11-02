@@ -25,7 +25,7 @@ public class ConnectionWriterTests
         var socket = new FakeWebSocket();
         var lifetime = new Lifetime();
         var writer = new ConnectionWriter(socket, NullLogger.Instance);
-        var run = writer.Run(lifetime);
+        var run = writer.Run(lifetime, lifetime);
 
         const int count = 200;
 
@@ -63,7 +63,7 @@ public class ConnectionWriterTests
         {
             RequestTimeout = TimeSpan.FromMilliseconds(200)
         });
-        var run = writer.Run(lifetime);
+        var run = writer.Run(lifetime, lifetime);
 
         var request = writer.WriteRequest<SharedSessionLatency.Pong>(new SharedSessionLatency.Ping());
         var sent = (RequestMessageFromServer)await socket.ReadSent(Wait);
@@ -86,7 +86,7 @@ public class ConnectionWriterTests
             var socket = new FakeWebSocket();
             var lifetime = new Lifetime();
             var writer = new ConnectionWriter(socket, NullLogger.Instance);
-            var run = writer.Run(lifetime);
+            var run = writer.Run(lifetime, lifetime);
 
             var request = writer.WriteRequest<SharedSessionLatency.Pong>(new SharedSessionLatency.Ping());
             var sent = (RequestMessageFromServer)await socket.ReadSent(Wait);
@@ -110,7 +110,7 @@ public class ConnectionWriterTests
         var socket = new FakeWebSocket();
         var lifetime = new Lifetime();
         var writer = new ConnectionWriter(socket, NullLogger.Instance);
-        var run = writer.Run(lifetime);
+        var run = writer.Run(lifetime, lifetime);
 
         var request = writer.WriteRequest<SharedSessionLatency.Pong>(new SharedSessionLatency.Ping());
         await socket.ReadSent(Wait);
@@ -142,7 +142,7 @@ public class ConnectionWriterTests
         {
             QueueCapacity = capacity
         });
-        var run = writer.Run(lifetime);
+        var run = writer.Run(lifetime, lifetime);
 
         // The first message is taken by the stuck send, the next `capacity` fill the queue; every write returns
         // immediately instead of waiting for the socket.
@@ -177,7 +177,7 @@ public class ConnectionWriterTests
         var socket = new FakeWebSocket { SendFailure = new WebSocketException("send failed") };
         var lifetime = new Lifetime();
         var writer = new ConnectionWriter(socket, NullLogger.Instance);
-        var run = writer.Run(lifetime);
+        var run = writer.Run(lifetime, lifetime);
 
         var request = writer.WriteRequest<SharedSessionLatency.Pong>(new SharedSessionLatency.Ping());
 
@@ -194,7 +194,7 @@ public class ConnectionWriterTests
         var socket = new FakeWebSocket();
         var lifetime = new Lifetime();
         var writer = new ConnectionWriter(socket, NullLogger.Instance);
-        var run = writer.Run(lifetime);
+        var run = writer.Run(lifetime, lifetime);
 
         var request = writer.WriteRequest<SharedSessionLatency.Pong>(new SharedSessionLatency.Ping());
         var sent = (RequestMessageFromServer)await socket.ReadSent(Wait);
@@ -217,7 +217,7 @@ public class ConnectionWriterTests
         var socket = new FakeWebSocket();
         var lifetime = new Lifetime();
         var writer = new ConnectionWriter(socket, NullLogger.Instance);
-        var run = writer.Run(lifetime);
+        var run = writer.Run(lifetime, lifetime);
 
         var request = writer.WriteRequest<SharedSessionLatency.Pong>(new SharedSessionLatency.Ping());
         var sent = (RequestMessageFromServer)await socket.ReadSent(Wait);
