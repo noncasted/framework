@@ -74,6 +74,8 @@ public class ConnectionCloseTests
         // Completes with the exception of Connection.Run, null when it returned.
         public TaskCompletionSource<Exception?> Finished { get; } = new();
 
+        private TaskCompletionSource TestEnded { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
         public static async Task<ConnectionServer> Start(Action<IConnection>? setup = null)
         {
             var builder = TestWebHost.CreateBuilder("Development");
@@ -92,20 +94,24 @@ public class ConnectionCloseTests
                 using var socket = await context.WebSockets.AcceptWebSocketAsync();
                 var connection = new Connection(socket, new Lifetime(), NullLogger.Instance);
                 setup?.Invoke(connection);
-                server!.Accepted.SetResult(connection);
 
                 try
                 {
-                    await connection.Run();
-                    server.Finished.SetResult(null);
+                    // The read loop is running when the test gets the connection: a ForceDisconnect before it would
+                    // end the receive at once, and the abort of that receive may reset the socket under the close frame.
+                    var run = connection.Run();
+                    server!.Accepted.SetResult(connection);
+                    await run;
+                    server!.Finished.SetResult(null);
                 }
                 catch (Exception e)
                 {
-                    server.Finished.SetResult(e);
+                    server!.Finished.SetResult(e);
                 }
 
-                // The socket stays open while the close handshake runs.
-                await Task.Delay(500);
+                // The socket stays open until the test is over: the close of the connection is not awaited by Run, and
+                // a handler that ended before it would reset the socket.
+                await server.TestEnded.Task;
             });
 
             server = new ConnectionServer(await TestWebHost.Start(app));
@@ -122,6 +128,7 @@ public class ConnectionCloseTests
 
         public ValueTask DisposeAsync()
         {
+            TestEnded.SetResult();
             return _host.DisposeAsync();
         }
     }
