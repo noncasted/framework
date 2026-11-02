@@ -40,6 +40,11 @@
 - **N11, I13.** `PeerProbeCommand.EchoOf`, `SpriteAnimation.Prepare`, `Pick` в `PlayRandomFromGroup`, `JsLibStub.Missing` вместо 20 копий. `ForwardAnimationAsset` и `ForwardAnimationData` не объединены: это ломает сериализованные ассеты игр, а это не API. Ожидание места в `SessionControl` и `NetworkSession` не объединено: условия разные.
 - **N15, I14.** Комментарии переведены и очищены от ссылок на игры. Осталось на русском вне находок аудита: `ProfilerTraceDownload.jslib`, тексты `ProfilerTraceWindow` и `ProfilerFrameCapture`.
 
+Третий заход, закрывает оставшееся:
+- **N6, часть.** Откат на туннель работал, но случайно: `TimeoutWithoutException` выдаёт отмену за таймаут. Поэтому `Lost` сразу после `Open` писал в лог «не открылся за 10 с» вместо причины, а конец lifetime снаружи давал `WebRtcConnectFailedException`, и `PeerHostSocket` открывал туннель на мёртвом lifetime. Оба теста падали, после правки `WebRtcPeerSocket.Connect` прошли.
+- **G12, остаток.** Текстовые `TestOptionalAlternative` и `TestRegistrationShape` заменены сценариями, которые запускают сгенерированный код. Мутация генератора (слот 0 для всех экземпляров, без `RequireAlternative`) роняет оба. `TestManifestEmitsAttributes` удалён: запись и чтение манифеста проверяет `TestCrossAssemblyManifest`. `Graph_MatchesProductionShape` и ставший ненужным `BenchmarkGraph.Count(ServiceLifetime)` удалены.
+- **N12.** Исключение записано в P3: то, что framework показывает без ассета игры, собирается из кода (оверлей задержки, уведомление об устаревшем клиенте).
+
 ## Что должны поменять игры (`BREAKING:`)
 - `IScope*Async`: методы без суффикса (`OnSetup`, `OnBaseSetup`, `OnSetupCompletion`, `OnLoaded`, `OnDispose`). Класс не может реализовать `IScopeSetup` и `IScopeSetupAsync` одновременно.
 - `IAnimation.PlayAsync` стал `PlayAwaited`, `IEventLoop.RunCustomAsync` стал `RunCustomAwaited`.
@@ -52,22 +57,11 @@
 - `_behaviours` у `DesignElement`, `WebPage.Reload`, `ITelegramAPI.GetLanguageCode`, `IContainerDiagnostics.History` и остальной мёртвый код удалены.
 
 ## Итог
-Осталось: баг 1 (N6) и часть G12, 4 слабо подтверждённых исправления, C13 и зависимость `telegram` от `inputs` (отложены решением), архитектура 2 пункта (C12, N12), мелких 8 пунктов (3 из них массовый стиль).
+Осталось: 4 слабо подтверждённых исправления, C13 и зависимость `telegram` от `inputs` (отложены решением), архитектура 1 пункт (C12), мелких 8 пунктов (3 из них массовый стиль).
 
 Вынесено в задачи: разрез файлов `docs/tasks/current/file_splits` (P11, G11, U7, E11, I6, I7, N8, N9, C11), сеттеры и поля `docs/tasks/current/public_setters` (P6).
 
 ## Баги
-
-### Не воспроизведены, код не менялся
-
-#### N6, часть. `Lost` в одном кадре с `Open`
-- Где: `client/modules/network/Runtime/Peers/PeerHostSocket.cs`, `Runtime/Sockets/WebRtc/WebRtcPeerSocket.cs`
-- Проблема: `Lost` приходит до пробуждения `Connect`. Остальное из N6 исправлено.
-- Состояние: тест не упал, код этой части не менялся. Нужно решить: сценарий невозможен, или тест его не воспроизводит.
-
-### Не исправлены, тестов нет
-
-- **G12, остаток.** `client/core/Source~/ContainerGenerator.Verify/RegressionCases.cs:58`, `Verify/Program.cs:498` и `Graph_MatchesProductionShape` в `ContainerBenchmarkTests`: проверяют текст или константы, а не поведение. Посмотрены, не менялись.
 
 ### Исправлены, но подтверждены слабо
 Код менять не нужно, нужен более сильный тест.
@@ -83,7 +77,6 @@
 
 ### Зависимости и варианты
 - **C12.** `ObjectLifetime/GameObjectLifetimeExtensions.cs:20`, `Catalogues/Audio/ButtonSounds.cs`, `Tools/Profiling/ProfilerScope.cs:61`: утилиты знают фичи (P14). `ListenClick` и `ButtonSounds` в `ui`, счётчик в `AllocationCounter`.
-- **N12.** `client/modules/network/Runtime/Latency/NetworkLatencyOverlay.cs:30`: экран собран из кода (P3), исключения в правилах нет. Префаб от проекта или записать исключение для отладочного оверлея.
 
 ## Мелкие
 
