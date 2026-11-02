@@ -24,7 +24,7 @@ Internal  (InternalScopeExtensions.Construct)          client/Assets/Common/Inte
 
 ### Service scope (`IScopeBuilder`)
 
-A root is a static non-generic `Construct` method of a non-generic type taking `IScopeBuilder` (optionally plus one argument). It is passed to `ScopeLoadOptions` as a **method group**, never a lambda: the generator finds the scope class by the method (`GeneratedScopes.RootId`). The parent is declared twice: at runtime by the `ILoadedScope parent` argument and at compile time by `[ContainerScopeParent]`.
+A root is a static non-generic `Construct` method of a non-generic type taking `IScopeBuilder` (optionally plus one argument). The type may be nested: the generated class stays in the namespace of the type, as `{Outer}_{Type}{Method}Container`. It is passed to `ScopeLoadOptions` as a **method group**, never a lambda: the generator finds the scope class by the method (`GeneratedScopes.RootId`). The parent is declared twice: at runtime by the `ILoadedScope parent` argument and at compile time by `[ContainerScopeParent]`.
 
 ```csharp
 public static async UniTask<ILoadedScope> LoadGlobal(this IServiceScopeLoader loader, ILoadedScope parent)
@@ -184,7 +184,7 @@ public void Construct(ISettings settings, IUpdater updater)
 }
 ```
 
-Example: `tools/framework/client/modules/audio/Runtime/AudioPlayer.cs`. Make the method `public` when the type is registered from another assembly: the generator does not see an `internal` method of a foreign assembly and silently skips the call (no diagnostic). Add `.As<IScopeSetup>()` (and implement it) when the component needs setup.
+Example: `tools/framework/client/modules/audio/Runtime/AudioPlayer.cs`. Make the method `public` when the type is registered from another assembly: the generator cannot call an `internal` method of a foreign assembly (CINGR010). Add `.As<IScopeSetup>()` (and implement it) when the component needs setup.
 
 **Prefab instance.** `builder.Instantiate(prefab)` instantiates and moves it to the scope scene; then `builder.Inject(instance)` and/or `builder.RegisterInstance(instance).As<...>()` (see `AddLoadingScreen` in `tools/framework/client/modules/ui/Runtime/UIExtensions.cs`).
 
@@ -223,6 +223,13 @@ The generator reports errors at compile time; the Unity console shows them as co
 | CINGR006 | One `ScopeEntityView` type used by two assets | One view subtype per prefab |
 | CINGR007 | Declared parent scope manifest not found | Check `[ContainerScopeParent]` type and method name |
 | CINGR008 | `builder.Injectable<T>` type has no visible `[Inject]` method | Add the method; `internal` methods of other assemblies are not visible |
+| CINGR009 | Warning: a constructor / `[Inject]` parameter takes the last of several registrations of its type (`Resolve` gives the same one) | Take `IReadOnlyList<T>` to get all of them, or register one |
+| CINGR010 | The `[Inject]` method cannot be called: several of them on the type and its base classes, generic, not accessible, `internal` or private in another assembly | Keep one non-generic `public` method |
+| CINGR011 | The registered type cannot be constructed: struct, interface, abstract, static, not accessible, no accessible constructor, several constructors with the longest parameter count | Register a concrete class with one longest accessible constructor |
+| CINGR012 | A transient registration listens to several scope phases: each phase would get a new instance | Register it as a singleton or scoped |
+| CINGR013 | A scope root is overloaded: the runtime finds a root by its name only | Rename one of the methods |
+| CINGR014 | Several `WithParameter` values of one registration fit one parameter and none has exactly its type | Pass one, or one of exactly the type of the parameter |
+| CINGR015 | Warning: no parameter of the registered type can take a `WithParameter` value, it is not used | Remove the value or fix its type |
 | CINGR016 | Scope root is generic: the method, a method around it or a type around it has type parameters | A non-generic root that calls a generic installer |
 
 - `Tools/Container Debugger` (Play mode): live containers, registrations, resolve history, allocations per phase and per listener.

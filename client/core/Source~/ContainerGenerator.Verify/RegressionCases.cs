@@ -7,6 +7,7 @@ namespace ContainerGenerator.Verify {
     internal static partial class Program {
         private static void RunRegressionCases() {
             RunGenericRootCases();
+            RunNestedRootCases();
             Run("WithParameter of one type is bound to its own registration", TestParameterPerRegistration);
             Run("two instances of one type get two slots", TestInstancePerRegistration);
             Run("two instances of one type reach the list in their order", () => RunScenario(InstancesInOrderScenario));

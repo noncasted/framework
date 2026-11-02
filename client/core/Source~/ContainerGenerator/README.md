@@ -56,7 +56,7 @@ through `InternalsVisibleTo`.
    `ContainerGraphPostprocessor` (also scene services of `SceneServicesFactory`).
 5. **Resolve** (`Scope/Resolve`, composed by `EdgeResolver`; `Scope/Plan`: the model `ScopePlan` and `ScopePlanBuilder`). Binds every constructor / `[Inject]` parameter to a
    registration, a parent export (typed hole), a collection, or a builder parameter; reports CINGR diagnostics.
-6. **Emit** (`Scope/Emit`, composed by `ScopeEmitter`). One `{Type}{Method}Container.g.cs` per root (and per entity variant):
+6. **Emit** (`Scope/Emit`, composed by `ScopeEmitter`). One `{Namespace}.{Type}{Method}Container.g.cs` per root (and per entity variant; a nested type is `{Outer}_{Type}`):
    `internal sealed class {Type}{Method}Container : Internal.IContainer, Internal.IProvides<T>...` with a field per
    registration, ctor-time construction in dependency order, a static export table for `Resolve` / `TryResolve`
    (falls back to the parent), `Dispose`, and

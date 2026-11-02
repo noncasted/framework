@@ -60,8 +60,6 @@ namespace ContainerGenerator {
             Location = location;
         }
 
-        public string HintName => TypeNames.SafeHint(FullTypeName) + "GeneratedInjector.g.cs";
-
         public bool Equals(InjectorModel? other) {
             if (other == null)
                 return false;

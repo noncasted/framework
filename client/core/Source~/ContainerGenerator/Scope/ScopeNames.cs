@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Microsoft.CodeAnalysis;
 
 namespace ContainerGenerator {
     internal static class ScopeNames {
@@ -14,41 +15,28 @@ namespace ContainerGenerator {
             "using", "virtual", "void", "volatile", "while"
         };
 
+        // The namespace comes from the symbol: in the id (the type with dots, as the runtime builds it) a namespace and a
+        // type around the root look the same, and a class generated in a namespace named after a type does not compile.
         public static void ParseRoot(
+            IMethodSymbol root,
             string rootId,
             out string ns,
             out string typeName,
             out string methodName,
             out string className) {
-            ns = "";
-            typeName = "Scope";
-            methodName = "Construct";
-            if (string.IsNullOrEmpty(rootId)) {
-                className = typeName + methodName + "Container";
-                return;
-            }
+            var type = root.ContainingType;
+            ns = type.ContainingNamespace.IsGlobalNamespace ? "" : type.ContainingNamespace.ToDisplayString();
+            typeName = NestedTypeName(type);
 
             var plus = rootId.IndexOf('+');
             var head = plus >= 0 ? rootId.Substring(0, plus) : rootId;
-            var lastDot = head.LastIndexOf('.');
-            if (lastDot < 0) {
-                methodName = head;
-                className = typeName + methodName + "Container";
-                return;
-            }
-
-            methodName = head.Substring(lastDot + 1);
-            var typePart = head.Substring(0, lastDot);
-            var typeDot = typePart.LastIndexOf('.');
-            if (typeDot < 0) {
-                typeName = typePart;
-            }
-            else {
-                typeName = typePart.Substring(typeDot + 1);
-                ns = typePart.Substring(0, typeDot);
-            }
-
+            methodName = head.Substring(head.LastIndexOf('.') + 1);
             className = typeName + methodName + "Container";
+        }
+
+        // With the types around it: roots of one type name in two outer types are in one namespace now.
+        private static string NestedTypeName(INamedTypeSymbol type) {
+            return type.ContainingType == null ? type.Name : NestedTypeName(type.ContainingType) + "_" + type.Name;
         }
 
         public static string Short(string fullyQualified) {

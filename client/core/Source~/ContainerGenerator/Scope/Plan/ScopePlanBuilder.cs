@@ -33,7 +33,7 @@ namespace ContainerGenerator {
                 throw new InvalidOperationException(
                     "Scope root '" + graph.RootId + "' has no source in this assembly: the assembly that declares it has to build the scope.");
 
-            ScopeNames.ParseRoot(graph.RootId, out var ns, out var typeName, out var methodName, out var className);
+            ScopeNames.ParseRoot(method, graph.RootId, out var ns, out var typeName, out var methodName, out var className);
             // Named by the outer method while it has one root. Variants and several roots that are local
             // functions of one method are named by the local function, otherwise the class and the hint would collide.
             if (string.IsNullOrEmpty(graph.Variant) == false || HasSiblingRoots(document, graph.RootId)) {
