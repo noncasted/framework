@@ -25,7 +25,7 @@ namespace Internal.Tests
             var (writer, socket, lifetime) = Create();
 
             writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.Ok });
-            await Frames();
+            await Until(() => socket.Sent.Count > 0);
 
             Assert.AreEqual(1, socket.Sent.Count);
             lifetime.Terminate();
@@ -39,7 +39,7 @@ namespace Internal.Tests
 
             writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.Ok });
             await writer.ForceSendAll();
-            await Frames();
+            await LoopTurns();
 
             Assert.AreEqual(1, socket.Sent.Count);
             lifetime.Terminate();
@@ -149,7 +149,7 @@ namespace Internal.Tests
             Assert.IsFalse(writer.IsClosed);
 
             writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.Ok });
-            await Frames();
+            await Until(() => socket.Sent.Count > 0);
 
             Assert.AreEqual(1, socket.Sent.Count);
             Assert.AreEqual(0, lostSocket.Sent.Count);
@@ -168,7 +168,7 @@ namespace Internal.Tests
 
             writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.Ok });
             writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.Ok });
-            await Frames();
+            await Until(() => lostSocket.Started > 0);
 
             Assert.AreEqual(1, lostSocket.Started);
 
@@ -180,13 +180,13 @@ namespace Internal.Tests
             writer.Run(lifetime, socket);
 
             writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.NoReservation });
-            await Frames();
+            await Until(() => socket.Sent.Count > 0);
 
+            // The lost loop goes on from here, before the turn of the new loop that sends the next message.
             lostSocket.CompleteAll();
-            await Frames();
 
             writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.NoReservation });
-            await Frames();
+            await Until(() => socket.Sent.Count > 1);
 
             Assert.AreEqual(1, lostSocket.Started);
             Assert.AreEqual(2, socket.Sent.Count);
@@ -205,18 +205,18 @@ namespace Internal.Tests
             writer.Run(lifetime, socket);
 
             writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.Ok });
-            await Frames();
+            await Until(() => socket.Started > 0);
 
             Assert.AreEqual(1, socket.Started);
 
             writer.WriteOneWay(new SharedSessionPlayer.Leave());
             var force = writer.ForceSendAll();
 
-            await Frames();
+            await LoopTurns();
             Assert.AreEqual(1, socket.Started, "a send started while another one is outstanding");
 
             socket.CompleteAll();
-            await Frames();
+            await Until(() => socket.Started > 1);
             socket.CompleteAll();
 
             await force.Timeout(TimeSpan.FromSeconds(2));
@@ -252,11 +252,11 @@ namespace Internal.Tests
 
             writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.Ok });
             writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.Ok });
-            await Frames();
+            await Until(() => socket.Started > 0);
 
             lifetime.Terminate();
             socket.Dispose();
-            await Frames();
+            await LoopTurns();
 
             Assert.AreEqual(1, socket.Started);
             LogAssert.NoUnexpectedReceived();
@@ -306,8 +306,14 @@ namespace Internal.Tests
             return (writer, socket, lifetime);
         }
 
-        // The idle send loop sleeps 50 ms between checks of the queue.
-        private static UniTask Frames()
+        // What must happen: the wait ends with it, a loaded machine only makes it longer.
+        private static async UniTask Until(Func<bool> condition)
+        {
+            await UniTask.WaitUntil(condition).Timeout(TimeSpan.FromSeconds(10));
+        }
+
+        // What must not happen has no event to wait for. The idle send loop sleeps 50 ms between checks of the queue.
+        private static UniTask LoopTurns()
         {
             return UniTask.Delay(200, DelayType.Realtime);
         }
@@ -322,7 +328,7 @@ namespace Internal.Tests
 
             LogAssert.Expect(LogType.Error, new Regex("Failed to send message to server.*the encoder broke"));
             writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.Ok });
-            await Frames();
+            await Until(() => lifetime.IsTerminated);
         });
 
         // The browser peer exists only in a WebGL player: its __Internal imports do not link anywhere else.

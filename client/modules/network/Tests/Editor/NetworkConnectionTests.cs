@@ -202,6 +202,21 @@ namespace Internal.Tests
             await webSocketContext.WebSocket.CloseOutputAsync((WebSocketCloseStatus)ProtocolVersion.ClientOutdatedCloseCode,
                 ProtocolVersion.ClientOutdatedReason,
                 timeout.Token);
+
+            await FinishClose(webSocketContext.WebSocket, timeout.Token);
+        }
+
+        // Takes the Close answer of the client, then ends the connection as a real server does: after the handshake
+        // ClientWebSocket waits for that end for 1 s.
+        private static async UniTask FinishClose(WebSocket webSocket, CancellationToken cancellation)
+        {
+            var buffer = new ArraySegment<byte>(new byte[256]);
+
+            while ((await webSocket.ReceiveAsync(buffer, cancellation)).MessageType != WebSocketMessageType.Close)
+            {
+            }
+
+            webSocket.Dispose();
         }
 
         private static NetworkConnection CreateConnection(IClientOutdatedNotice notice = null)

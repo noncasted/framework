@@ -77,6 +77,16 @@ namespace Internal.Tests
 
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             await webSocket.CloseOutputAsync((WebSocketCloseStatus)ServerCloseCode, "client outdated", timeout.Token);
+
+            // Takes the Close answer of the client, then ends the connection as a real server does: after the handshake
+            // ClientWebSocket waits for that end for 1 s.
+            var buffer = new ArraySegment<byte>(new byte[256]);
+
+            while ((await webSocket.ReceiveAsync(buffer, timeout.Token)).MessageType != WebSocketMessageType.Close)
+            {
+            }
+
+            webSocket.Dispose();
         }
 
         private static int GetFreePort()
