@@ -49,13 +49,16 @@ namespace Internal
         }
 
         // The callbacks run on the threads of the library: an exception must not cross into native code.
-        private static void Dispatch(IntPtr user, Action<NativeWebRtcPeer> action)
+        private static void Dispatch(IntPtr user, Action<NativeWebRtcPeer> action, Action onNoPeer = null)
         {
             try
             {
                 // A peer disposed while the library was calling back: its events are no longer wanted.
                 if (Peers.TryGetValue((int)user, out var peer) == false)
+                {
+                    onNoPeer?.Invoke();
                     return;
+                }
 
                 action(peer);
             }
@@ -95,7 +98,10 @@ namespace Internal
         [MonoPInvokeCallback(typeof(NativeWebRtcApi.DataChannelCallback))]
         private static void OnDataChannel(int pc, int dc, IntPtr user)
         {
-            Dispatch(user, peer => peer.SetupChannel(dc));
+            // The library keeps a channel it handed over until it is deleted, and a disposed peer will not do that.
+            Dispatch(user,
+                peer => peer.SetupChannel(dc),
+                () => NativeWebRtcApi.Check(NativeWebRtcApi.Delete(dc), "delete a channel of a disposed peer"));
         }
 
         [MonoPInvokeCallback(typeof(NativeWebRtcApi.ChannelCallback))]

@@ -9,6 +9,9 @@ namespace Internal
     // own threads: the events go to IWebRtcPeerEvents from there, WebRtcPeerSocket queues them for the main thread.
     public class NativeWebRtcPeer : IWebRtcPeer
     {
+        private const int NoChannel = -1;
+        private const int ChannelOfDisposedPeer = -2;
+
         public NativeWebRtcPeer(WebRtcPeerOptions options, IWebRtcPeerEvents events)
         {
             NativeWebRtcLibrary.Initialize();
@@ -30,8 +33,9 @@ namespace Internal
         private readonly int _connection;
 
         // Set on the main thread (the offering side) or on a thread of the library (the answering side, the channel of
-        // the peer); read on both.
-        private int _channel = -1;
+        // the peer); read on both. Dispose takes it with one exchange: of a channel and a Dispose that race, whichever
+        // comes second sees the other and deletes the channel.
+        private int _channel = NoChannel;
 
         // Once each: the open of a channel may be seen both by its callback and by the check after the callbacks are set.
         private int _isOpened;
@@ -78,8 +82,10 @@ namespace Internal
             // Out of the table first: a callback that is still running finds no peer and drops its event.
             NativeWebRtcCallbacks.Unregister(_key);
 
-            if (_channel >= 0)
-                NativeWebRtcApi.Delete(_channel);
+            var channel = Interlocked.Exchange(ref _channel, ChannelOfDisposedPeer);
+
+            if (channel >= 0)
+                NativeWebRtcApi.Delete(channel);
 
             NativeWebRtcApi.DeletePeerConnection(_connection);
         }
@@ -96,8 +102,18 @@ namespace Internal
 
         internal void SetupChannel(int channel)
         {
-            if (Interlocked.CompareExchange(ref _channel, channel, -1) != -1)
+            var current = Interlocked.CompareExchange(ref _channel, channel, NoChannel);
+
+            if (current != NoChannel)
+            {
+                // The library keeps a channel it handed over until it is deleted, and this peer will not hold it.
+                Check(NativeWebRtcApi.Delete(channel), "delete a channel the peer does not keep");
+
+                if (current == ChannelOfDisposedPeer)
+                    return;
+
                 throw new InvalidOperationException($"[Network] [NativeWebRtc] A second data channel: {channel}");
+            }
 
             NativeWebRtcApi.SetUserPointer(channel, (IntPtr)_key);
 

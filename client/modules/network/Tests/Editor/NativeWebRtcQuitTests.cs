@@ -11,35 +11,12 @@ namespace Internal.Tests
     {
         private static readonly Type LibraryType = typeof(IWebRtcPeer).Assembly.GetType("Internal.NativeWebRtcLibrary", true);
 
-        private class SilentEvents : IWebRtcPeerEvents
-        {
-            public void OnLocalDescription(string type, string sdp)
-            {
-            }
-
-            public void OnLocalCandidate(string candidate, string mid)
-            {
-            }
-
-            public void OnOpen()
-            {
-            }
-
-            public void OnMessage(byte[] bytes)
-            {
-            }
-
-            public void OnLost(string reason)
-            {
-            }
-        }
-
         // A connection alive at exit is destroyed by the static destructors of the library, which can crash on the way out
         // (code 139 of the editor). The handler of the quit must delete it before that.
         [Test]
         public void Quit_DeletesTheLivePeers()
         {
-            var peer = WebRtcPeers.Create(new WebRtcPeerOptions(Array.Empty<string>(), TimeSpan.FromSeconds(10)), new SilentEvents());
+            var peer = WebRtcPeers.Create(new WebRtcPeerOptions(Array.Empty<string>(), TimeSpan.FromSeconds(10)), new SilentWebRtcPeerEvents());
 
             try
             {
