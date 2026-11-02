@@ -21,14 +21,6 @@ namespace Internal
 
         private const double SyncInterval = 0.5;
 
-        private const float OriginX = 40f;
-        private const float OriginY = 40f;
-
-        // The tree grows left to right: the column is the lifetime depth, the row is a subtree leaf.
-        private const float ColumnWidth = 420f;
-        private const float RowHeight = 110f;
-        private const float RootGap = 60f;
-
         [NonSerialized]
         private Dictionary<int, LifetimeNode> _nodes;
 
@@ -42,7 +34,7 @@ namespace Internal
         private bool _isSyncing;
 
         [NonSerialized]
-        private HashSet<int> _collapsed;
+        private LifetimeCollapsedSet _collapsed;
 
         public string Status { get; private set; } = "No lifetimes";
 
@@ -61,7 +53,7 @@ namespace Internal
             base.OnEnable();
 
             _nodes = null;
-            _collapsed ??= new HashSet<int>();
+            _collapsed ??= new LifetimeCollapsedSet();
             _syncedVersion = -1;
             EditorApplication.update -= OnUpdate;
             EditorApplication.update += OnUpdate;
@@ -95,8 +87,7 @@ namespace Internal
         // Button on a node: the sync is deferred so nodes are not recreated inside their own view handler.
         internal void ToggleCollapsed(int lifetimeId)
         {
-            if (_collapsed.Remove(lifetimeId) == false)
-                _collapsed.Add(lifetimeId);
+            _collapsed.Toggle(lifetimeId);
 
             EditorApplication.delayCall += ForceSync;
         }
@@ -111,7 +102,7 @@ namespace Internal
             if (LifetimeTracking.Version == _syncedVersion)
                 return;
 
-            if (IsDisplayed() == false)
+            if (GraphWindows.IsDisplayed(this) == false)
                 return;
 
             Sync();
@@ -147,39 +138,18 @@ namespace Internal
                 _nodes = new Dictionary<int, LifetimeNode>();
             }
 
-            _collapsed.RemoveWhere(id => alive.ContainsKey(id) == false);
+            _collapsed.RemoveDead(alive);
 
             var tree = new LifetimeTree(alive);
-            var visible = CollectVisible(tree);
+            var visible = _collapsed.CollectVisible(tree);
 
             RemoveHidden(visible);
             AddVisible(visible, tree, alive);
             var orphans = RefreshPresentation(tree, alive);
-            Layout(tree);
+            LifetimeTreeLayout.Apply(tree, _nodes, _collapsed);
 
             _syncedVersion = LifetimeTracking.Version;
             Status = FormatStatus(alive, visible.Count, orphans);
-        }
-
-        // Visible are the roots and everything under them, except subtrees of collapsed nodes (the collapsed node itself is visible).
-        private HashSet<int> CollectVisible(LifetimeTree tree)
-        {
-            var visible = new HashSet<int>();
-            var pending = new Stack<int>(tree.Roots);
-
-            while (pending.Count > 0)
-            {
-                var id = pending.Pop();
-                visible.Add(id);
-
-                if (_collapsed.Contains(id) == true)
-                    continue;
-
-                foreach (var child in tree.ChildrenOf(id))
-                    pending.Push(child);
-            }
-
-            return visible;
         }
 
         private void RemoveHidden(HashSet<int> visible)
@@ -278,56 +248,12 @@ namespace Internal
             return orphans;
         }
 
-        private void Layout(LifetimeTree tree)
-        {
-            var cursorY = OriginY;
-
-            foreach (var root in tree.Roots)
-            {
-                var height = PlaceTree(root, 0, cursorY, tree);
-                cursorY += height + RootGap;
-            }
-        }
-
-        // Returns the subtree height; a node sits at the level of its first child. A collapsed one is a leaf.
-        private float PlaceTree(int id, int depth, float y, LifetimeTree tree)
-        {
-            var position = new Vector2(OriginX + depth * ColumnWidth, y);
-            var node = _nodes[id];
-
-            if (node.Position != position)
-                node.Position = position;
-
-            var children = tree.ChildrenOf(id);
-
-            if (children.Count == 0 || _collapsed.Contains(id) == true)
-                return RowHeight;
-
-            var childY = y;
-
-            foreach (var child in children)
-                childY += PlaceTree(child, depth + 1, childY, tree);
-
-            return childY - y;
-        }
-
         private void ClearNodes()
         {
             var existing = new List<INode>(GetNodes());
 
             foreach (var node in existing)
                 RemoveNode(node);
-        }
-
-        private bool IsDisplayed()
-        {
-            foreach (var window in Resources.FindObjectsOfTypeAll<EditorWindow>())
-            {
-                if (window is IGraphWindow graphWindow && ReferenceEquals(graphWindow.Graph, this))
-                    return true;
-            }
-
-            return false;
         }
 
         private static bool IsOrphan(LifetimeRecord record, IReadOnlyDictionary<int, LifetimeRecord> alive)
