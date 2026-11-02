@@ -148,6 +148,11 @@ public interface ITxTestGrain : IGrainWithGuidKey
     [Transaction]
     Task IncrementWithDelay(int delayMs);
 
+    [Transaction]
+    Task IncrementAndHold(Guid gateId);
+
+    Task<Guid> GetActivationId();
+
     Task<int> Get();
     Task Deactivate();
 }
@@ -161,6 +166,7 @@ public class TxTestGrain : Grain, ITxTestGrain
     }
 
     private readonly State<TxTestState> _state;
+    private readonly Guid _activationId = Guid.NewGuid();
 
     public Task Increment()
     {
@@ -171,6 +177,17 @@ public class TxTestGrain : Grain, ITxTestGrain
     {
         await _state.Write(s => s.Increment());
         await Task.Delay(delayMs);
+    }
+
+    public async Task IncrementAndHold(Guid gateId)
+    {
+        await _state.Write(s => s.Increment());
+        await TestGate.EnterAndWait(gateId);
+    }
+
+    public Task<Guid> GetActivationId()
+    {
+        return Task.FromResult(_activationId);
     }
 
     public async Task<int> Get()

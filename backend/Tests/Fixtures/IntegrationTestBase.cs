@@ -79,6 +79,16 @@ public abstract class IntegrationTestBase<TFixture> : IAsyncLifetime
     }
 
     /// <summary>
+    /// Other options of a config of the first silo until the result is disposed.
+    /// </summary>
+    protected ConfigOverride<TOptions> OverrideConfig<TConfig, TOptions>(TOptions options)
+        where TConfig : IAddressableState<TOptions>
+        where TOptions : class, new()
+    {
+        return new ConfigOverride<TOptions>(GetSiloService<TConfig>(), options);
+    }
+
+    /// <summary>
     /// Settle and drain all side effects (requires SideEffectTestFixture).
     /// </summary>
     protected async Task<DrainResult> DrainSideEffectsAsync()

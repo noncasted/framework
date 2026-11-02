@@ -20,21 +20,39 @@ public class TransactionTakeoverTests
         var grain = GetGrain<ITxTestGrain>(Guid.NewGuid());
         var transactions = GetSiloService<ITransactions>();
 
-        // The fixture: LockWaitSeconds 2, StuckGraceSeconds 5. The first transaction joins at 0 s and stalls; the
-        // second one joins at 4 s, times out at 6 s and takes the grain over; the first one resumes at 8 s.
-        var stalled = transactions.Run(async () => {
-            await grain.Increment();
-            await Task.Delay(TimeSpan.FromSeconds(8));
+        var joined = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var resume = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // The lock wait is longer than the grace: when the second Join times out the first transaction is past its
+        // grace however late the second one came, so the takeover does not depend on the speed of the machine.
+        using var timings = OverrideConfig<ITransactionConfig, TransactionOptions>(new TransactionOptions
+        {
+            LockWaitSeconds = 0.4f,
+            StuckGraceSeconds = 0.2f
         });
 
-        await Task.Delay(TimeSpan.FromSeconds(4), TestContext.Current.CancellationToken);
-        var takeover = await transactions.Run(() => grain.Increment());
+        // The first transaction joins and stalls; the second one times out and takes the grain over; only then the
+        // first one resumes.
+        var stalled = transactions.Run(async () => {
+            await grain.Increment();
+            joined.SetResult();
+            await resume.Task;
+        });
+
+        await joined.Task;
+
+        // The grace also bounds the commit (Transactions.WriteBatch): the values of the fixture are back before that.
+        var takeover = await transactions.Run(async () => {
+            await grain.Increment();
+            timings.Dispose();
+        });
+
+        resume.SetResult();
         var stalledResult = await stalled;
 
         takeover.IsSuccess.Should().BeTrue();
 
-        await grain.Deactivate();
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+        await grain.DeactivateAndWaitNewActivation();
 
         var succeeded = (stalledResult.IsSuccess ? 1 : 0) + 1;
         var value = await grain.Get();

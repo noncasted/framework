@@ -125,20 +125,31 @@ public class TransactionTests
         var grain = GetGrain<ITxTestGrain>(id);
 
         var transactions = GetSiloService<ITransactions>();
+        var hold = TestGate.Create();
 
-        // Start slow transaction that holds grain lock for 15s (> 5s StuckGraceSeconds test threshold)
-        var slowTask = transactions.Run(() => grain.IncrementWithDelay(15_000));
+        // The lock wait is longer than the grace: when the second Join times out the first transaction is past its
+        // grace however late the second one came, so the takeover does not depend on the speed of the machine.
+        using var timings = OverrideConfig<ITransactionConfig, TransactionOptions>(new TransactionOptions
+        {
+            LockWaitSeconds = 0.4f,
+            StuckGraceSeconds = 0.2f
+        });
 
-        // Wait long enough so that by the time the fast transaction's lock-wait
-        // times out (LockWaitSeconds=2s), the total elapsed time exceeds StuckGraceSeconds (5s).
-        // 4s wait + 2s lock timeout = 6s > 5s grace period → takeover triggers.
-        await Task.Delay(4000, TestContext.Current.CancellationToken);
+        // The slow transaction holds the grain inside a grain call until the takeover is done.
+        var slowTask = transactions.Run(() => grain.IncrementAndHold(hold.Id));
+        await hold.Entered;
 
-        // Second transaction should wait, then takeover after StuckGraceSeconds
-        var fastResult = await transactions.Run(() => grain.Increment());
+        // The second transaction waits for the lock, then takes the grain over. The grace also bounds its commit
+        // (Transactions.WriteBatch): the values of the fixture are back before that.
+        var fastResult = await transactions.Run(async () => {
+            await grain.Increment();
+            timings.Dispose();
+        });
+
+        hold.Release();
         fastResult.IsSuccess.Should().BeTrue();
 
-        // Wait for slow transaction to complete (should have been taken over)
+        // The slow transaction was taken over: it must not commit.
         var slowResult = await slowTask;
         slowResult.IsSuccess.Should().BeFalse();
 
@@ -156,9 +167,8 @@ public class TransactionTests
         await RunTransaction(() => grain.Increment());
         await RunTransaction(() => grain.Increment());
 
-        // Force grain deactivation — next call will reload from DB
-        await grain.Deactivate();
-        await Task.Delay(2000, TestContext.Current.CancellationToken);
+        // The next call reloads from the database.
+        await grain.DeactivateAndWaitNewActivation();
 
         var value = await grain.Get();
         value.Should().Be(3);
@@ -423,8 +433,7 @@ public class TransactionTests
             await grain.Increment();
         });
 
-        await grain.Deactivate();
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+        await grain.DeactivateAndWaitNewActivation();
 
         var value = await grain.Get();
         value.Should().Be(2);
@@ -440,8 +449,7 @@ public class TransactionTests
         // snapshot depending on scheduling. Either way the DB must end up with both increments.
         await RunTransaction(() => Task.WhenAll(grain.IncrementWithDelay(200), grain.Increment()));
 
-        await grain.Deactivate();
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+        await grain.DeactivateAndWaitNewActivation();
 
         var value = await grain.Get();
         value.Should().Be(2);
