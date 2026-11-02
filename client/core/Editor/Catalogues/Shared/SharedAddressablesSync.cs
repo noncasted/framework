@@ -5,7 +5,9 @@ using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
+using UnityEditor.U2D;
 using UnityEngine;
+using UnityEngine.U2D;
 
 namespace Internal
 {
@@ -14,6 +16,8 @@ namespace Internal
     // and consumer bundles get a dependency on them instead of a copy.
     // A bundle pulls its dependencies whole, so shared assets are split by consumer phase
     // (FrameworkSettings.GroupPhases): the menu must not load a bundle with content that only the game needs.
+    // A sprite atlas is not a dependency of its sprites, yet every bundle with one of the sprites gets the whole atlas with
+    // its pages: an atlas with sprites used by several groups becomes an entry too, its used sprites next to it.
     [NoAutoStaticsCleanup]
     public static class SharedAddressablesSync
     {
@@ -71,7 +75,7 @@ namespace Internal
         private static Dictionary<string, string> CollectTargets(AddressableAssetSettings settings)
         {
             var roots = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-            var explicitGuids = new HashSet<string>(StringComparer.Ordinal);
+            var entryGroups = new Dictionary<string, string>(StringComparer.Ordinal);
 
             foreach (var group in settings.groups)
             {
@@ -85,7 +89,7 @@ namespace Internal
                     if (entry == null)
                         continue;
 
-                    explicitGuids.Add(entry.guid);
+                    entryGroups.Add(entry.guid, group.Name);
                     paths.Add(entry.AssetPath);
                 }
 
@@ -116,7 +120,7 @@ namespace Internal
                             continue;
 
                         // An entry of another group is a dependency on its bundle; that group accounts for its own content.
-                        if (explicitGuids.Contains(AssetDatabase.AssetPathToGUID(dependency)))
+                        if (entryGroups.ContainsKey(AssetDatabase.AssetPathToGUID(dependency)))
                             continue;
 
                         if (consumers.TryGetValue(dependency, out var groups) == false)
@@ -141,7 +145,67 @@ namespace Internal
                 targets.Add(AssetDatabase.AssetPathToGUID(consumer.Key), ResolveGroup(consumer.Key, consumer.Value));
             }
 
+            AddAtlases(targets, consumers, entryGroups);
             return targets;
+        }
+
+        private static void AddAtlases(
+            Dictionary<string, string> targets,
+            Dictionary<string, HashSet<string>> consumers,
+            Dictionary<string, string> entryGroups)
+        {
+            foreach (var atlasGuid in AssetDatabase.FindAssets("t:SpriteAtlas"))
+            {
+                var atlasPath = AssetDatabase.GUIDToAssetPath(atlasGuid);
+
+                if (CanBeEntry(atlasPath) == false)
+                    continue;
+
+                var packed = PackedTextures(AssetDatabase.LoadAssetAtPath<SpriteAtlas>(atlasPath));
+                var groups = new HashSet<string>(StringComparer.Ordinal);
+
+                foreach (var path in packed)
+                {
+                    if (consumers.TryGetValue(path, out var pathGroups) == true)
+                        groups.UnionWith(pathGroups);
+
+                    if (entryGroups.TryGetValue(AssetDatabase.AssetPathToGUID(path), out var entryGroup) == true)
+                        groups.Add(entryGroup);
+                }
+
+                if (groups.Count < 2)
+                    continue;
+
+                var target = ResolveGroup(atlasPath, groups);
+                targets[atlasGuid] = target;
+
+                foreach (var path in packed)
+                {
+                    if (consumers.ContainsKey(path) == true)
+                        targets[AssetDatabase.AssetPathToGUID(path)] = target;
+                }
+            }
+        }
+
+        private static List<string> PackedTextures(SpriteAtlas atlas)
+        {
+            var result = new List<string>();
+
+            foreach (var packable in atlas.GetPackables())
+            {
+                var path = AssetDatabase.GetAssetPath(packable);
+
+                if (AssetDatabase.IsValidFolder(path) == false)
+                {
+                    result.Add(path);
+                    continue;
+                }
+
+                foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { path }))
+                    result.Add(AssetDatabase.GUIDToAssetPath(guid));
+            }
+
+            return result;
         }
 
         private static string ResolveGroup(string path, HashSet<string> consumers)
