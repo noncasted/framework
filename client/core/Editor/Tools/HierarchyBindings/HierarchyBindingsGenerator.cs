@@ -1,7 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEngine;
@@ -13,25 +10,14 @@ namespace Internal
     // because the domain reloads in between.
     public static class HierarchyBindingsGenerator
     {
-        public const string TypeNameSuffix = "Bindings";
+        public const string TypeNameSuffix = HierarchyBindingsGeneratedTypes.TypeNameSuffix;
 
-        private const string LogTag = "HierarchyBindingsGenerator";
+        private const string LogTag = HierarchyBindingsLog.Tag;
         private const string AwaitingReloadKey = "Internal.HierarchyBindings.AwaitingReload";
-
-        // The namespace line HierarchyBindingsCodeGenerator writes; a class without a namespace has none.
-        private static readonly Regex DeclaredNamespace = new(@"^namespace (\S+) \{", RegexOptions.Multiline);
 
         public static string ToTypeName(string bindingsName)
         {
-            var identifier = HierarchyBindingsNaming.ToIdentifier(bindingsName);
-
-            if (string.IsNullOrEmpty(identifier))
-                return string.Empty;
-
-            if (identifier.EndsWith(TypeNameSuffix, StringComparison.Ordinal))
-                return identifier;
-
-            return identifier + TypeNameSuffix;
+            return HierarchyBindingsGeneratedTypes.ToTypeName(bindingsName);
         }
 
         public static void Regenerate(ObjectBindings bindings)
@@ -53,19 +39,9 @@ namespace Internal
                 );
         }
 
-        // The user class inherits the generated one, so from the component on the object we
-        // have to walk up to the type directly under ObjectBindings - that is the generated one.
         public static Type ResolveGeneratedType(Component bindings)
         {
-            if (bindings == null)
-                return null;
-
-            var type = bindings.GetType();
-
-            while (type != null && type.BaseType != typeof(ObjectBindings))
-                type = type.BaseType;
-
-            return type;
+            return HierarchyBindingsGeneratedTypes.ResolveGeneratedType(bindings);
         }
 
         public static void Generate(
@@ -81,10 +57,7 @@ namespace Internal
             Flush(changed);
         }
 
-        // Code is written separately from triggering compilation: batch regeneration writes all the
-        // classes and only then calls Refresh once - otherwise the domain would reload mid-traversal.
-        // bindUnchanged = false skips the binding phase when the generated code did not change (Regenerate All:
-        // the same code means the same structure, and binding would re-save every prefab).
+        // See HierarchyBindingsPreparation: code is written separately from triggering compilation.
         public static bool Prepare(
             GameObject root,
             string bindingsName,
@@ -94,124 +67,8 @@ namespace Internal
             out bool changed,
             bool bindUnchanged = true)
         {
-            changed = false;
-
-            var typeName = ToTypeName(bindingsName);
-
-            if (string.IsNullOrEmpty(typeName))
-            {
-                Debug.LogError($"[{LogTag}] '{bindingsName}' is not a C# identifier.");
-                return false;
-            }
-
-            if (HierarchyBindingsTarget.TryDescribe(root, out var assetPath, out var objectPath, out var isPrefab,
-                    out var describeError) ==
-                false)
-            {
-                Debug.LogError($"[{LogTag}] {describeError}", root);
-                return false;
-            }
-
-            var errors = new List<string>();
-            string code = null;
-            string structureHash = null;
-            string boundHash = null;
-
-            using (var target = HierarchyBindingsTarget.OpenForScan(root, assetPath, objectPath, isPrefab,
-                       out var openError))
-            {
-                if (target == null)
-                {
-                    Debug.LogError($"[{LogTag}] {openError}", root);
-                    return false;
-                }
-
-                // The node holds references to objects of the loaded contents, so the code is built
-                // before they are unloaded.
-                var node = Scan(target.Root, typeName, namespaceName, assetPath, isPrefab, isSceneService,
-                    isEntityComponent, errors);
-
-                if (node != null)
-                {
-                    structureHash = HierarchyBindingsStructure.ComputeHash(node);
-                    boundHash = FindBindings(target.Root, typeName, namespaceName)?.StructureHash;
-                    code = HierarchyBindingsCodeGenerator.Build(
-                            node,
-                            namespaceName,
-                            structureHash,
-                            isSceneService,
-                            isEntityComponent
-                        );
-                }
-            }
-
-            if (code == null)
-            {
-                Report(errors, root);
-                return false;
-            }
-
-            var folder = HierarchyBindingsPaths.ResolveGeneratedFolder(root, assetPath);
-            var filePath = ToFilePath(folder, typeName);
-            var fileConflict = FindFileConflict(filePath, typeName, namespaceName);
-
-            if (fileConflict != null)
-            {
-                Debug.LogError($"[{LogTag}] {fileConflict}", root);
-                return false;
-            }
-
-            // The code is written before the request is queued: a failed write throws and leaves no request waiting
-            // for a reload that never comes. Changed means written, so a reload follows.
-            CatalogPaths.EnsureFolder(folder);
-            changed = GeneratedFile.WriteIfChanged(LogTag, filePath, code);
-
-            // Same code but a stale hash on the object: an earlier binding failed or never ran (the object was
-            // saved with old references). Bind again, otherwise the object never catches up with its code.
-            var isBoundStale = boundHash != structureHash;
-
-            if (changed || bindUnchanged || isBoundStale)
-            {
-                HierarchyBindingsQueue.Enqueue(new HierarchyBindingsRequest
-                {
-                    AssetPath = assetPath,
-                    ObjectPath = objectPath,
-                    ObjectNames = HierarchyBindingsTarget.NamePath(root),
-                    TypeName = typeName,
-                    Namespace = namespaceName,
-                    IsPrefabAsset = isPrefab,
-                    IsSceneService = isSceneService,
-                    IsEntityComponent = isEntityComponent,
-                    StructureHash = structureHash
-                });
-            }
-
-            return true;
-        }
-
-        // The file of a class is named by the short type name: classes of one name from different namespaces
-        // (Menu/Shop.prefab and GamePlay/Shop.prefab, both ShopBindings) that resolve to one folder share it.
-        internal static string ToFilePath(string folder, string typeName)
-        {
-            return $"{folder}/{typeName}.g.cs";
-        }
-
-        // The file at the path is generated for another class: writing would silently replace that class.
-        private static string FindFileConflict(string filePath, string typeName, string namespaceName)
-        {
-            var fullPath = CatalogPaths.ToFullPath(filePath);
-
-            if (File.Exists(fullPath) == false)
-                return null;
-
-            var match = DeclaredNamespace.Match(File.ReadAllText(fullPath));
-            var declared = match.Success ? match.Groups[1].Value : string.Empty;
-
-            if (string.Equals(declared, namespaceName, StringComparison.Ordinal))
-                return null;
-
-            var declaredName = string.IsNullOrEmpty(declared) ? typeName : declared + "." + typeName;
-            return $"{filePath} already holds {declaredName} of another object. Give these bindings another name.";
+            return HierarchyBindingsPreparation.Prepare(root, bindingsName, namespaceName, isSceneService, isEntityComponent,
+                out changed, bindUnchanged);
         }
 
         // Without code changes there is no compilation, so DidReloadScripts will not fire either,
@@ -259,76 +116,10 @@ namespace Internal
             SessionState.EraseBool(AwaitingReloadKey);
         }
 
-        // The bindings of this class on the object, if any: the existing component may be a user class
-        // that inherits the generated one.
-        private static ObjectBindings FindBindings(GameObject root, string typeName, string namespaceName)
-        {
-            foreach (var bindings in root.GetComponents<ObjectBindings>())
-            {
-                if (IsGeneratedAs(bindings, typeName, namespaceName))
-                    return bindings;
-            }
-
-            return null;
-        }
-
         [InitializeOnLoadMethod]
         private static void InstallRegenerateHandler()
         {
             ObjectBindings.SetRegenerateHandler(Regenerate);
-        }
-
-        private static HierarchyBindingsNode Scan(
-            GameObject root,
-            string typeName,
-            string namespaceName,
-            string assetPath,
-            bool isPrefab,
-            bool isSceneService,
-            bool isEntityComponent,
-            List<string> errors)
-        {
-            if (ValidateLayer(root, typeName, namespaceName, assetPath, errors) == false)
-                return null;
-
-            var layer = HierarchyBindingsLayer.Resolve(assetPath, isPrefab);
-            return HierarchyBindingsScanner.Scan(root, typeName, layer, errors, isSceneService, isEntityComponent);
-        }
-
-        // Bindings already on the object under this name are regenerated only in the asset where they
-        // were declared. Base bindings seen from a variant would otherwise be written into the variant as
-        // overrides of every reference, and prefab bindings seen from a scene - as overrides of the instance.
-        private static bool ValidateLayer(
-            GameObject root,
-            string typeName,
-            string namespaceName,
-            string assetPath,
-            List<string> errors)
-        {
-            foreach (var bindings in root.GetComponents<ObjectBindings>())
-            {
-                if (IsGeneratedAs(bindings, typeName, namespaceName) == false)
-                    continue;
-
-                var declaringAsset = HierarchyBindingsLayer.ResolveDeclaringAsset(bindings, assetPath);
-
-                if (declaringAsset == assetPath)
-                    continue;
-
-                errors.Add($"{typeName} on '{root.name}' is declared in {declaringAsset}. Open it and regenerate there.");
-                return false;
-            }
-
-            return true;
-        }
-
-        private static bool IsGeneratedAs(ObjectBindings bindings, string typeName, string namespaceName)
-        {
-            var type = ResolveGeneratedType(bindings);
-
-            return type != null &&
-                   string.Equals(type.Name, typeName, StringComparison.Ordinal) &&
-                   string.Equals(type.Namespace ?? string.Empty, namespaceName, StringComparison.Ordinal);
         }
 
         [DidReloadScripts]
@@ -363,7 +154,7 @@ namespace Internal
             {
                 foreach (var request in requests)
                 {
-                    if (Process(request))
+                    if (HierarchyBindingsRequestProcessor.Process(request))
                         bound++;
                 }
             }
@@ -384,58 +175,6 @@ namespace Internal
             }
 
             HierarchyBindingsBatch.OnPendingProcessed();
-        }
-
-        private static bool Process(HierarchyBindingsRequest request)
-        {
-            var type = FindType(request);
-
-            if (type == null)
-            {
-                Debug.LogError(
-                    $"[{LogTag}] Generated type '{request.TypeName}' not found. Fix compilation errors and generate again.");
-                return false;
-            }
-
-            using var target = HierarchyBindingsTarget.Resolve(request, out var resolveError);
-
-            if (target == null)
-            {
-                Debug.LogError($"[{LogTag}] {resolveError}");
-                return false;
-            }
-
-            var errors = new List<string>();
-
-            if (HierarchyBindingsBinder.Bind(target.Root, type, request, errors) == false)
-            {
-                Report(errors, target.Root);
-                return false;
-            }
-
-            target.Commit();
-            return true;
-        }
-
-        private static Type FindType(HierarchyBindingsRequest request)
-        {
-            var fullName = string.IsNullOrEmpty(request.Namespace)
-                ? request.TypeName
-                : request.Namespace + "." + request.TypeName;
-
-            foreach (var candidate in TypeCache.GetTypesDerivedFrom<MonoBehaviour>())
-            {
-                if (string.Equals(candidate.FullName, fullName, StringComparison.Ordinal))
-                    return candidate;
-            }
-
-            return null;
-        }
-
-        private static void Report(List<string> errors, UnityEngine.Object context)
-        {
-            foreach (var error in errors)
-                Debug.LogError($"[{LogTag}] {error}", context);
         }
     }
 }

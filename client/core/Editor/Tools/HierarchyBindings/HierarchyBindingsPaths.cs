@@ -40,6 +40,13 @@ namespace Internal
                 "(FrameworkSettings.ModuleRoots) or add a script of that module to the object.");
         }
 
+        // The file of a class is named by the short type name: classes of one name from different namespaces
+        // (Menu/Shop.prefab and GamePlay/Shop.prefab, both ShopBindings) that resolve to one folder share it.
+        public static string ToFilePath(string folder, string typeName)
+        {
+            return $"{folder}/{typeName}.g.cs";
+        }
+
         public static string ResolveDefaultNamespace(GameObject root)
         {
             var owner = FindOwner(root);
