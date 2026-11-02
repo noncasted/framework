@@ -46,7 +46,7 @@ namespace Internal
         {
             try
             {
-                var graph = EnsureGraph();
+                var graph = ContainerLiveGraphAsset.Ensure();
 
                 if (graph == null)
                     return;
@@ -134,7 +134,7 @@ namespace Internal
         {
             _rebuildScheduled = false;
 
-            if (IsDisplayed() == false)
+            if (GraphWindows.IsDisplayed(this) == false)
                 return;
 
             Rebuild();
@@ -258,19 +258,6 @@ namespace Internal
                 RemoveNode(node);
         }
 
-        private bool IsDisplayed()
-        {
-            var windows = Resources.FindObjectsOfTypeAll<EditorWindow>();
-
-            foreach (var window in windows)
-            {
-                if (window is IGraphWindow graphWindow && ReferenceEquals(graphWindow.Graph, this))
-                    return true;
-            }
-
-            return false;
-        }
-
         private static string FormatStatus(int rootCount, int containerCount)
         {
             if (rootCount == 0 || containerCount == 0)
@@ -282,137 +269,6 @@ namespace Internal
 
             var mode = EditorApplication.isPlaying ? "Play Mode" : "Edit Mode";
             return $"{rootCount} root(s) · {containerCount} container(s) · {mode}";
-        }
-
-        private static ContainerLiveGraph EnsureGraph()
-        {
-            var directory = CatalogPaths.ToFullPath(Path.GetDirectoryName(AssetPath));
-
-            Directory.CreateDirectory(directory);
-
-            try
-            {
-                if (File.Exists(Path.Combine(directory, "ContainerLiveGraph.containergraph")))
-                {
-                    var loaded = GraphDatabase.LoadGraph<ContainerLiveGraph>(AssetPath);
-
-                    if (loaded != null)
-                        return loaded;
-                }
-            }
-            catch (Exception exception)
-            {
-                Debug.LogException(exception);
-            }
-
-            return GraphDatabase.CreateGraph<ContainerLiveGraph>(AssetPath);
-        }
-    }
-
-    internal static class ContainerGraphRead
-    {
-        public static IReadOnlyList<T> List<T>(Func<IReadOnlyList<T>> read)
-        {
-            try
-            {
-                return read() ?? Array.Empty<T>();
-            }
-            catch (Exception exception)
-            {
-                Debug.LogException(exception);
-                return Array.Empty<T>();
-            }
-        }
-
-        public static IContainerDiagnostics Parent(IContainerDiagnostics diagnostics)
-        {
-            if (diagnostics == null)
-                return null;
-
-            try
-            {
-                return diagnostics.Parent;
-            }
-            catch (Exception exception)
-            {
-                Debug.LogException(exception);
-                return null;
-            }
-        }
-
-        public static string Name(IContainerDiagnostics diagnostics)
-        {
-            if (diagnostics == null)
-                return "(none)";
-
-            try
-            {
-                return string.IsNullOrEmpty(diagnostics.Name) ? "(unnamed)" : diagnostics.Name;
-            }
-            catch (Exception exception)
-            {
-                Debug.LogException(exception);
-                return "(error)";
-            }
-        }
-
-        public static string TypeName(Type type)
-        {
-            if (type == null)
-                return "—";
-
-            if (type.IsGenericType == false)
-                return type.Name;
-
-            var tick = type.Name.IndexOf('`');
-            var name = tick >= 0 ? type.Name.Substring(0, tick) : type.Name;
-            var arguments = type.GetGenericArguments();
-            var inner = new string[arguments.Length];
-
-            for (var i = 0; i < arguments.Length; i++)
-                inner[i] = TypeName(arguments[i]);
-
-            return $"{name}<{string.Join(", ", inner)}>";
-        }
-
-        public static string Registration(RegistrationInfo info)
-        {
-            var implementation = TypeName(info.ImplementationType);
-            var services = ServiceTypes(info.ServiceTypes);
-            return $"[{info.Slot}] {implementation} : {services} · {info.Lifetime}";
-        }
-
-        public static string Asset(LoadedAssetInfo info)
-        {
-            var label = string.IsNullOrEmpty(info.Label) ? "(no label)" : info.Label;
-            var group = string.IsNullOrEmpty(info.GroupName) ? "(no group)" : info.GroupName;
-            return $"{label} · {group}";
-        }
-
-        public static string PathOf(IContainerDiagnostics diagnostics, IContainerDiagnostics parent)
-        {
-            var name = Name(diagnostics);
-
-            if (parent == null)
-                return name;
-
-            return $"{Name(parent)} / {name}";
-        }
-
-        private static string ServiceTypes(IReadOnlyList<Type> types)
-        {
-            if (types == null || types.Count == 0)
-                return "—";
-
-            if (types.Count == 1)
-                return TypeName(types[0]);
-
-            var names = new string[types.Count];
-
-            for (var i = 0; i < types.Count; i++)
-                names[i] = TypeName(types[i]);
-
-            return string.Join(", ", names);
         }
     }
 }
