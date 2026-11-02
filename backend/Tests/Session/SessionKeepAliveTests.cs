@@ -22,8 +22,8 @@ namespace Framework.Tests.Session;
 // A real Kestrel on a free loopback port with short keep-alive times, the server side is the real Connection.
 public class SessionKeepAliveTests
 {
-    private static readonly TimeSpan Interval = TimeSpan.FromMilliseconds(500);
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan Interval = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan Timeout = TimeSpan.FromMilliseconds(500);
 
     [Fact]
     public async Task ClientThatStopsReading_IsDisconnectedByKeepAliveTimeout()

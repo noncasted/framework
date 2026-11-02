@@ -128,7 +128,9 @@ public class ServiceDiscoveryLivenessTests
             logger);
 
         await startup.StartAsync(TestContext.Current.CancellationToken);
-        await Task.Delay(TimeSpan.FromSeconds(1.5), TestContext.Current.CancellationToken);
+
+        // Polls of the same missing set: the first logs, the next ones must not (the 25th logs again, 5 s later).
+        await TestWait.Until(() => discovery.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(discovery.Push)) >= 4);
         await startup.StopAsync(TestContext.Current.CancellationToken);
 
         logger.Count("cluster not ready").Should().BeLessThanOrEqualTo(1,

@@ -25,19 +25,20 @@ public class SideEffectsWorkerTests
     {
         var trackingId = Guid.NewGuid();
 
-        // Stuck after 1.2 s, checked on every scan; the effect runs 3 s.
+        // Stuck after 0.5 s, checked on every scan; the effect runs longer. The threshold is above the time between
+        // the touch and the check of one scan on a loaded machine.
         var worker = CreateWorker(new SideEffectsOptions
         {
             ScanDelay = 50,
             EmptyScanDelay = 50,
             StuckCheckIntervalSeconds = 0,
-            StuckThresholdMinutes = 0.02f
+            StuckThresholdMinutes = 0.5f / 60
         }, enabled: true);
 
         await GetSiloService<ISideEffectsStorage>().Write(new SlowSideEffect { TrackingId = trackingId });
         await worker.StartAsync(TestContext.Current.CancellationToken);
 
-        await Task.Delay(TimeSpan.FromSeconds(4), TestContext.Current.CancellationToken);
+        await TestWait.Until(() => SlowSideEffect.Finished.ContainsKey(trackingId));
         await worker.StopAsync(TestContext.Current.CancellationToken);
 
         SlowSideEffect.Executions.GetValueOrDefault(trackingId).Should()
@@ -58,11 +59,12 @@ public class SideEffectsWorkerTests
         var worker = CreateWorker(new SideEffectsOptions(), flags);
 
         await worker.StartAsync(TestContext.Current.CancellationToken);
-        await Task.Delay(700, TestContext.Current.CancellationToken);
+        await TestWait.Until(() => Volatile.Read(ref checks) >= 1);
         await worker.StopAsync(TestContext.Current.CancellationToken);
 
+        // Longer than the 500 ms between the checks of a running loop that sees the effects disabled.
         var afterStop = Volatile.Read(ref checks);
-        await Task.Delay(1500, TestContext.Current.CancellationToken);
+        await Task.Delay(700, TestContext.Current.CancellationToken);
 
         Volatile.Read(ref checks).Should().Be(afterStop, "the loop of a stopped worker must end");
     }
@@ -149,12 +151,14 @@ public class SideEffectsWorkerTests
 public class SlowSideEffect : ISideEffect
 {
     public static readonly ConcurrentDictionary<Guid, int> Executions = new();
+    public static readonly ConcurrentDictionary<Guid, bool> Finished = new();
 
     [Id(0)] public Guid TrackingId { get; init; }
 
     public async Task Execute(IOrleans orleans)
     {
         Executions.AddOrUpdate(TrackingId, 1, (_, count) => count + 1);
-        await Task.Delay(TimeSpan.FromSeconds(3));
+        await Task.Delay(TimeSpan.FromSeconds(1.2));
+        Finished[TrackingId] = true;
     }
 }
