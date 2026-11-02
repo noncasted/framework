@@ -23,7 +23,7 @@
         <FrameworkReference Include="Microsoft.AspNetCore.App"/>
     </ItemGroup>
 
-    <!-- The integration tests share one Postgres container and static test state: one collection at a time. -->
+    <!-- Collections run in parallel: every cluster fixture has its own database, the tests of the process-wide NoAwait handler are in a collection that runs alone. -->
     <ItemGroup>
         <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
