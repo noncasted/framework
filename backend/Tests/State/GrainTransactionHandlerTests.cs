@@ -123,10 +123,10 @@ public class GrainTransactionHandlerTests
         await _handler.Seal(_second);
     }
 
-    // The takeover frees the lock for a moment and the transaction waiting longer gets it first: that one sees the
-    // grain still held by the stuck transaction and gives up, the takeover goes on.
+    // The lock passes from the stuck transaction to the one that took over: the one waiting longer keeps its wait, not a
+    // failure at the moment of the takeover, and gets the grain after it.
     [Fact]
-    public async Task Join_TakeoverWhileAnotherWaits_TheWaitingOneFailsAndTheTakeoverWins()
+    public async Task Join_TakeoverWhileAnotherWaits_TheWaitingOneGetsTheGrainAfterTheTakeover()
     {
         await _handler.Join(_first);
 
@@ -136,14 +136,12 @@ public class GrainTransactionHandlerTests
         _options = _stuckAtOnce;
         await _handler.Join(_third);
 
-        var awaitWaiting = () => waiting;
-        await awaitWaiting.Should().ThrowAsync<Exception>().WithMessage($"*'{_second}'*'{_first}'*");
-
         await _handler.Seal(_third);
+        waiting.IsCompleted.Should().BeFalse();
         await _handler.OnSuccess(_third);
 
-        _options = _noWait;
-        await _handler.Join(_first);
+        await waiting;
+        await _handler.Seal(_second);
     }
 
     [Fact]

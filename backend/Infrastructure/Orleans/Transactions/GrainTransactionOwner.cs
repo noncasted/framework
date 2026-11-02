@@ -17,6 +17,9 @@ internal class GrainTransactionOwner
     // Initial count 1 = grain is free (unlocked).
     private readonly SemaphoreSlim _lock = new(1, 1);
 
+    // The wait for the lock of each transaction that has one. Only the turns of the activation touch it.
+    private readonly Dictionary<Guid, Task> _waits = new();
+
     private readonly ITransactionConfig _transactionConfig;
     private readonly ILogger _logger;
     private readonly Action _rollbackStuck;
@@ -40,6 +43,16 @@ internal class GrainTransactionOwner
             return;
         }
 
+        // A parallel call of this transaction (a reentrant grain) already waits for the lock, and the lock comes once: a
+        // wait of its own would be a wait for the transaction itself. It would fail, take the grain over from its own
+        // transaction, or take the grain after the end of the transaction. This turn runs right behind the turn of the
+        // first call: the transaction cannot end in between, it has not heard of either.
+        if (_waits.TryGetValue(transactionId, out var pending) == true)
+        {
+            await pending;
+            return;
+        }
+
         // Grain is free — take the lock at once and register the new transaction. An empty Current does not say that:
         // a release passes the lock to a waiter, which registers itself in a later turn.
         if (_lock.Wait(0) == true)
@@ -49,28 +62,17 @@ internal class GrainTransactionOwner
         }
 
         // Another transaction is active. Wait for it to finish.
-        // The previous transaction releases the lock in OnSuccess/OnFailure.
-        var options = _transactionConfig.Value.ThrowIfNull();
-        var isAcquired = await _lock.WaitAsync(TimeSpan.FromSeconds(options.LockWaitSeconds));
+        var wait = WaitAndTake(transactionId);
+        _waits.Add(transactionId, wait);
 
-        if (isAcquired == false)
+        try
         {
-            await TakeOverOrThrow(transactionId, options);
-            return;
+            await wait;
         }
-
-        // Acquired the lock normally — the previous transaction completed while we waited.
-        // Sanity check: Current should be Guid.Empty at this point
-        // (OnSuccess/OnFailure always clear it before releasing the lock).
-        if (Current != Guid.Empty && Current != transactionId)
+        finally
         {
-            _lock.Release();
-
-            throw new Exception(
-                $"Handler failed to join transaction id '{transactionId}'. Current transaction in progress '{Current}'.");
+            _waits.Remove(transactionId);
         }
-
-        Take(transactionId);
     }
 
     public void Refresh()
@@ -86,11 +88,45 @@ internal class GrainTransactionOwner
             _lock.Release();
     }
 
-    private async Task TakeOverOrThrow(Guid transactionId, TransactionOptions options)
+    private async Task WaitAndTake(Guid transactionId)
     {
+        // The previous transaction releases the lock in OnSuccess/OnFailure.
+        var options = _transactionConfig.Value.ThrowIfNull();
+        var isAcquired = await _lock.WaitAsync(TimeSpan.FromSeconds(options.LockWaitSeconds));
+
+        if (isAcquired == false)
+        {
+            TakeOverOrThrow(transactionId, options);
+            return;
+        }
+
+        // Acquired the lock normally — the previous transaction completed while we waited.
+        // Sanity check: Current should be Guid.Empty at this point
+        // (OnSuccess/OnFailure always clear it before releasing the lock).
+        if (Current != Guid.Empty)
+        {
+            _lock.Release();
+
+            throw new Exception(
+                $"Handler failed to join transaction id '{transactionId}'. Current transaction in progress '{Current}'.");
+        }
+
+        Take(transactionId);
+    }
+
+    private void TakeOverOrThrow(Guid transactionId, TransactionOptions options)
+    {
+        // The holder released right after the wait ran out and nobody else waits.
+        if (_lock.Wait(0) == true)
+        {
+            Take(transactionId);
+            return;
+        }
+
         // Timed out. If the stuck transaction is still within its grace period,
         // we cannot take over — it may still be running normally but slowly.
-        if (_currentTransactionTime.AddSeconds(options.StuckGraceSeconds) >= DateTime.UtcNow)
+        // An empty Current is a released grain with the lock on its way to a waiter: it is that waiter's, nothing is stuck.
+        if (Current == Guid.Empty || _currentTransactionTime.AddSeconds(options.StuckGraceSeconds) >= DateTime.UtcNow)
         {
             _logger.LogWarning(
                 "[Transaction] [Join] Timeout waiting for lock. TransactionId={TransactionId} BlockedBy={BlockedBy}",
@@ -101,7 +137,8 @@ internal class GrainTransactionOwner
         }
 
         // The transaction has been inactive for longer than StuckGraceSeconds — treat it as stuck.
-        // Force-release its semaphore and acquire for ourselves.
+        // Its lock passes to this transaction as it is: never released, so no waiter gets it in between and there is
+        // nothing to wait for here; the waiters keep waiting for the end of this transaction.
         // The stuck transaction's eventual OnSuccess/OnFailure will fail the ID check
         // and exit early without touching the semaphore or state.
         var stuckAge = (DateTime.UtcNow - _currentTransactionTime).TotalSeconds;
@@ -109,11 +146,6 @@ internal class GrainTransactionOwner
         _logger.LogWarning(
             "[Transaction] [Takeover] Forcing takeover of stuck transaction. StuckTransactionId={StuckId} AgeSeconds={AgeSeconds} IncomingTransactionId={TransactionId}",
             Current, stuckAge, transactionId);
-
-        if (_lock.CurrentCount == 0)
-            _lock.Release();
-
-        await _lock.WaitAsync();
 
         // Roll back any in-memory state left by the stuck transaction. A rollback that throws leaves the grain to the
         // stuck transaction: the join fails with the reason, the next one tries again.

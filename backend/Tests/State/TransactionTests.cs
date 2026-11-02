@@ -455,6 +455,39 @@ public class TransactionTests
         value.Should().Be(2);
     }
 
+    // A reentrant grain, busy with another transaction, starts both parallel calls of a transaction: two Joins of one
+    // transaction wait for its lock, and the second must not wait for the first.
+    [Fact]
+    public async Task Transaction_ParallelCallsOnABusyGrain_BothJoinAndCommit()
+    {
+        var id = Guid.NewGuid();
+        var grain = GetGrain<ITxTestGrain>(id);
+
+        var transactions = GetSiloService<ITransactions>();
+        var hold = TestGate.Create();
+
+        var holder = transactions.Run(() => grain.IncrementAndHold(hold.Id));
+        await hold.Entered;
+
+        var parallel = transactions.Run(async () => {
+            var calls = Task.WhenAll(grain.Increment(), grain.Increment());
+
+            // Answered behind both calls: the activation has started them, they wait in their Joins.
+            await grain.GetActivationId();
+
+            hold.Release();
+            await calls;
+        });
+
+        (await holder).IsSuccess.Should().BeTrue();
+        var result = await parallel;
+        result.IsSuccess.Should().BeTrue(result.Error?.Message);
+
+        await grain.DeactivateAndWaitNewActivation();
+
+        (await grain.Get()).Should().Be(3);
+    }
+
     [Fact]
     public async Task Transaction_RollbackError_ContainsException()
     {
