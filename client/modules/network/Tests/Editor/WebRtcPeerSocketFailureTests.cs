@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
@@ -131,11 +132,148 @@ namespace Internal.Tests
             }
         });
 
+        // The library closed the connection, its state change is still in the queue: the signals of the other side that
+        // come now are the failure of the channel the caller falls back on, not an exception in the code of the signaling.
+        [UnityTest]
+        public IEnumerator CandidateOnAClosedPeer_ConnectFailsForTheFallback() => UniTask.ToCoroutine(async () =>
+        {
+            await SignalOnAClosedPeer(WebRtcSignal.Description("offer", "sdp"), WebRtcSignal.Candidate("a", "0"));
+        });
+
+        [UnityTest]
+        public IEnumerator DescriptionOnAClosedPeer_ConnectFailsForTheFallback() => UniTask.ToCoroutine(async () =>
+        {
+            await SignalOnAClosedPeer(WebRtcSignal.Description("offer", "sdp"));
+        });
+
+        // The library sets the description of the peer on its ICE agent first and keeps it for the check of the DTLS
+        // certificate after that: with the connectivity checks of the peer already running, the handshake may reach the
+        // check in between and fail. The peer has nothing to check before it gets the candidates of the offer.
+        [UnityTest]
+        public IEnumerator Offer_CandidatesGoAfterTheAnswerIsSet() => UniTask.ToCoroutine(async () =>
+        {
+            var lifetime = new Lifetime();
+
+            try
+            {
+                var signaling = new RecordingSignaling();
+                var socket = new WebRtcPeerSocket(WebRtcPeerRole.Offer, signaling, Options, lifetime);
+                var events = (IWebRtcPeerEvents)socket;
+                Replace(socket, false);
+
+                events.OnLocalDescription("offer", "sdp");
+                events.OnLocalCandidate("a", "0");
+                events.OnLocalCandidate("b", "0");
+                await UniTask.DelayFrame(3);
+
+                CollectionAssert.AreEqual(new[] { "description offer" }, signaling.Sent);
+
+                signaling.Receive(WebRtcSignal.Description("answer", "sdp"));
+                events.OnLocalCandidate("c", "0");
+                await UniTask.DelayFrame(3);
+
+                CollectionAssert.AreEqual(new[] { "description offer", "candidate a", "candidate b", "candidate c" }, signaling.Sent);
+            }
+            finally
+            {
+                lifetime.Terminate();
+            }
+        });
+
+        [UnityTest]
+        public IEnumerator Answer_CandidatesGoAtOnce() => UniTask.ToCoroutine(async () =>
+        {
+            var lifetime = new Lifetime();
+
+            try
+            {
+                var signaling = new RecordingSignaling();
+                var socket = new WebRtcPeerSocket(WebRtcPeerRole.Answer, signaling, Options, lifetime);
+                var events = (IWebRtcPeerEvents)socket;
+                Replace(socket, false);
+
+                events.OnLocalCandidate("a", "0");
+                await UniTask.DelayFrame(3);
+
+                CollectionAssert.AreEqual(new[] { "candidate a" }, signaling.Sent);
+            }
+            finally
+            {
+                lifetime.Terminate();
+            }
+        });
+
+        // A real error of the native library, written by its logger on its way out of the failed call. The failures of a
+        // connection reach the code through the state of the peer: a log line alone is no error of the application.
+        [UnityTest]
+        public IEnumerator ErrorOfTheLibrary_WrittenAsWarning() => UniTask.ToCoroutine(async () =>
+        {
+            var lifetime = new Lifetime();
+            LogType? written = null;
+
+            void OnLog(string text, string stack, LogType type)
+            {
+                if (text.Contains("[libdatachannel]") == true)
+                    written = type;
+            }
+
+            Application.logMessageReceived += OnLog;
+
+            try
+            {
+                var socket = new WebRtcPeerSocket(WebRtcPeerRole.Answer, new RecordingSignaling(), Options, lifetime);
+                var peer = WebRtcPeers.Create(Options, socket);
+                lifetime.Listen(peer.Dispose);
+
+                Assert.Throws<InvalidOperationException>(() => peer.AddRemoteCandidate("candidate", "0"));
+
+                await UniTask.WaitUntil(() => written != null).Timeout(TimeSpan.FromSeconds(5));
+
+                Assert.AreEqual(LogType.Warning, written);
+            }
+            finally
+            {
+                Application.logMessageReceived -= OnLog;
+                lifetime.Terminate();
+            }
+        });
+
+        private static async UniTask SignalOnAClosedPeer(params WebRtcSignal[] signals)
+        {
+            var lifetime = new Lifetime();
+
+            try
+            {
+                var signaling = new RecordingSignaling();
+                var socket = new WebRtcPeerSocket(WebRtcPeerRole.Answer, signaling, Options, lifetime);
+                var connect = socket.Connect();
+
+                Replace(socket, false, signals[signals.Length - 1].Kind);
+
+                foreach (var signal in signals)
+                    signaling.Receive(signal);
+
+                try
+                {
+                    await connect.Timeout(TimeSpan.FromSeconds(5));
+                    Assert.Fail("Connect succeeded over a closed peer");
+                }
+                catch (WebRtcConnectFailedException exception)
+                {
+                    StringAssert.Contains("the peer is closed", exception.Message, "the real reason, not a timeout");
+                }
+            }
+            finally
+            {
+                lifetime.Terminate();
+            }
+        }
+
         // The native peer stays under the replacement: it is disposed with it, its callbacks must not outlive the test.
-        private static void Replace(WebRtcPeerSocket socket, bool throwsOnSend)
+        private static void Replace(WebRtcPeerSocket socket, bool throwsOnSend, WebRtcSignalKind? throwsOnSignal = null)
         {
             var field = typeof(WebRtcPeerSocket).GetField("_peer", BindingFlags.Instance | BindingFlags.NonPublic);
-            field.SetValue(socket, new FakePeer((IWebRtcPeer)field.GetValue(socket), throwsOnSend));
+            field.SetValue(socket, new FakePeer((IWebRtcPeer)field.GetValue(socket), throwsOnSend, throwsOnSignal));
         }
 
         [Test]
@@ -153,14 +291,16 @@ namespace Internal.Tests
 
         private class FakePeer : IWebRtcPeer
         {
-            public FakePeer(IWebRtcPeer inner, bool throwsOnSend)
+            public FakePeer(IWebRtcPeer inner, bool throwsOnSend, WebRtcSignalKind? throwsOnSignal)
             {
                 _inner = inner;
                 _throwsOnSend = throwsOnSend;
+                _throwsOnSignal = throwsOnSignal;
             }
 
             private readonly IWebRtcPeer _inner;
             private readonly bool _throwsOnSend;
+            private readonly WebRtcSignalKind? _throwsOnSignal;
 
             public int MaxMessageSize => 16384;
 
@@ -170,10 +310,12 @@ namespace Internal.Tests
 
             public void SetRemoteDescription(string type, string sdp)
             {
+                ThrowOn(WebRtcSignalKind.Description);
             }
 
             public void AddRemoteCandidate(string candidate, string mid)
             {
+                ThrowOn(WebRtcSignalKind.Candidate);
             }
 
             public void Send(byte[] message)
@@ -185,6 +327,31 @@ namespace Internal.Tests
             public void Dispose()
             {
                 _inner.Dispose();
+            }
+
+            private void ThrowOn(WebRtcSignalKind kind)
+            {
+                if (_throwsOnSignal == kind)
+                    throw new InvalidOperationException("the peer is closed");
+            }
+        }
+
+        private class RecordingSignaling : IWebRtcSignaling
+        {
+            private readonly ViewableDelegate<WebRtcSignal> _received = new();
+            private readonly List<string> _sent = new();
+
+            public IReadOnlyList<string> Sent => _sent;
+            public IViewableDelegate<WebRtcSignal> Received => _received;
+
+            public void Send(WebRtcSignal signal)
+            {
+                _sent.Add(signal.ToString());
+            }
+
+            public void Receive(WebRtcSignal signal)
+            {
+                _received.Invoke(signal);
             }
         }
 

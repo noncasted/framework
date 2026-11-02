@@ -49,6 +49,11 @@ namespace Internal
         // Candidates of the peer that came before its description: applied once it is set.
         private readonly List<WebRtcSignal> _pendingCandidates = new();
 
+        // Candidates of the offering side, kept until the answer is set. The library sets a description on its ICE agent
+        // first and stores it for the check of the DTLS certificate after that: a peer that already has these candidates
+        // connects in between, the check finds no description and the handshake fails.
+        private readonly List<WebRtcSignal> _heldCandidates = new();
+
         private bool _isRemoteDescriptionSet;
         private bool _isOpen;
         private bool _isConnecting;
@@ -105,9 +110,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogWarning($"[Network] [WebRtc] Send failed: {exception.Message}");
-                _lostReason ??= $"send failed: {exception.Message}";
-                _inbox.Enqueue(PeerEvent.OfLost(_lostReason));
+                Lose($"send failed: {exception.Message}");
             }
 
             return UniTask.CompletedTask;
@@ -146,6 +149,28 @@ namespace Internal
 
         private void OnSignal(WebRtcSignal signal)
         {
+            // The rest of the signals of a connection that is gone.
+            if (_lostReason != null)
+                return;
+
+            // The boundary of the network: the peer closed and its Lost is still in the queue, or the other side sent
+            // what the peer does not take. Either way this connection is lost, as when a send fails.
+            try
+            {
+                ApplySignal(signal);
+            }
+            catch (Exception exception)
+            {
+                Lose($"signal failed: {exception.Message}");
+                return;
+            }
+
+            if (signal.Kind == WebRtcSignalKind.Description)
+                SendHeldCandidates();
+        }
+
+        private void ApplySignal(WebRtcSignal signal)
+        {
             switch (signal.Kind)
             {
                 case WebRtcSignalKind.Description:
@@ -173,7 +198,7 @@ namespace Internal
             switch (peerEvent.Kind)
             {
                 case PeerEventKind.Signal:
-                    _signaling.Send(peerEvent.Signal);
+                    SendLocalSignal(peerEvent.Signal);
                     break;
                 case PeerEventKind.Open:
                     // Here, not in Connect: a frame in the same pass is answered before Connect wakes up.
@@ -196,6 +221,29 @@ namespace Internal
                 default:
                     throw new ArgumentOutOfRangeException(nameof(peerEvent), peerEvent.Kind, null);
             }
+        }
+
+        private void SendLocalSignal(WebRtcSignal signal)
+        {
+            if (_role == WebRtcPeerRole.Offer && signal.Kind == WebRtcSignalKind.Candidate && _isRemoteDescriptionSet == false)
+                _heldCandidates.Add(signal);
+            else
+                _signaling.Send(signal);
+        }
+
+        private void SendHeldCandidates()
+        {
+            foreach (var candidate in _heldCandidates)
+                _signaling.Send(candidate);
+
+            _heldCandidates.Clear();
+        }
+
+        private void Lose(string reason)
+        {
+            Debug.LogWarning($"[Network] [WebRtc] {reason}");
+            _lostReason ??= reason;
+            _inbox.Enqueue(PeerEvent.OfLost(_lostReason));
         }
 
         private void NotifyClosed()
@@ -246,22 +294,6 @@ namespace Internal
             public static PeerEvent OfOpen() => new(PeerEventKind.Open, default, null, null);
             public static PeerEvent OfMessage(byte[] bytes) => new(PeerEventKind.Message, default, bytes, null);
             public static PeerEvent OfLost(string reason) => new(PeerEventKind.Lost, default, null, reason);
-        }
-    }
-
-    // Which side starts the negotiation: the offering side creates the channel, the answering one accepts it.
-    public enum WebRtcPeerRole
-    {
-        Offer,
-        Answer
-    }
-
-    // WebRtcPeerSocket.Connect: the direct connection did not open. An expected outcome: the caller goes through the
-    // server instead.
-    public class WebRtcConnectFailedException : Exception
-    {
-        public WebRtcConnectFailedException(string reason) : base($"[Network] [WebRtc] The peer did not connect: {reason}")
-        {
         }
     }
 }

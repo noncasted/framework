@@ -66,9 +66,12 @@ namespace Internal
 
                 while (Logs.TryDequeue(out var line) == true)
                 {
-                    if (line.Level <= NativeWebRtcApi.LogLevel.Error)
+                    // A failure of a connection reaches the code through the state of its peer, and the library also
+                    // logs its errors for what is normal: a transport that closes while the other side has already closed
+                    // (SCTP write on a DTLS after its shutdown). Only a fatal one is an error of the application.
+                    if (line.Level <= NativeWebRtcApi.LogLevel.Fatal)
                         Debug.LogError(line.Text);
-                    else if (line.Level == NativeWebRtcApi.LogLevel.Warning)
+                    else if (line.Level <= NativeWebRtcApi.LogLevel.Warning)
                         Debug.LogWarning(line.Text);
                     else
                         Debug.Log(line.Text);
