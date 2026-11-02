@@ -1,3 +1,4 @@
+using System;
 using Internal;
 using TMPro;
 
@@ -28,9 +29,9 @@ namespace Global.Localization
 
         private void Apply()
         {
-            // The scene of the label can be unloaded before the lifetime ends.
+            // The text setter of a destroyed TMP_Text does not throw: the subscription would go on unnoticed.
             if (_label == null)
-                return;
+                throw new InvalidOperationException("[Localization] The label is destroyed before the lifetime it was given");
 
             _label.text = _text.Resolve();
         }
