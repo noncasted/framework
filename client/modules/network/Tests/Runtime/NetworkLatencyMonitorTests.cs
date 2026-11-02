@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
@@ -410,7 +411,7 @@ namespace Internal.Tests
             await harness.NextRound();
 
             Assert.AreEqual(4, harness.Writer.Sent.Count);
-            Assert.That(harness.Monitor.Report, Does.StartWith("Network: the report failed: "));
+            Assert.That(harness.Monitor.Report, Does.StartWith("Network: the monitor failed: "));
 
             harness.Match.SetRoute(2, PeerRoute.Tunnel);
             await harness.NextRound();
@@ -421,6 +422,109 @@ namespace Internal.Tests
                 + @"Ping to host: -, lost 0\n"
                 + NoAnswers
                 + Footer);
+        });
+
+        // The probes are what keeps the connection alive for the watchdog: no failure of a round may end them.
+        [UnityTest]
+        public IEnumerator FailedSend_TheNextRoundGoesOut() => UniTask.ToCoroutine(async () =>
+        {
+            LogAssert.Expect(LogType.Exception, new Regex("Send failure"));
+
+            var harness = await Started();
+            var sent = harness.Writer.Sent.Count;
+
+            harness.Writer.FailOnce(new InvalidOperationException("Send failure"));
+            harness.Clock.Advance(0.5f);
+            await Frames();
+
+            var failedReport = harness.Monitor.Report;
+
+            Assert.AreEqual(sent, harness.Writer.Sent.Count);
+
+            await harness.NextRound();
+
+            Assert.That(failedReport, Does.StartWith("Network: the monitor failed: "));
+            Assert.AreEqual(sent + 2, harness.Writer.Sent.Count);
+            AssertReport(harness, $@"Network \(you: user 1\), ms\nPing to server: -, lost 0\n{NoAnswers}{Footer}");
+        });
+
+        [UnityTest]
+        public IEnumerator FailedRates_ProbesGoOnAndRatesComeBack() => UniTask.ToCoroutine(async () =>
+        {
+            LogAssert.Expect(LogType.Exception, new Regex("Traffic failure"));
+
+            var harness = await Started();
+            var sent = harness.Writer.Sent.Count;
+
+            harness.Connection.FailTrafficOnce(new InvalidOperationException("Traffic failure"));
+            harness.Clock.Advance(1f);
+            await Frames();
+
+            await harness.NextRound();
+
+            Assert.AreEqual(sent + 4, harness.Writer.Sent.Count);
+            AssertReport(harness, $@"Network \(you: user 1\), ms\nPing to server: -, lost 0\n{NoAnswers}{Footer}");
+        });
+
+        [UnityTest]
+        public IEnumerator FailedRemoveOfLeftPeers_TheNextRoundCleansAndGoesOut() => UniTask.ToCoroutine(async () =>
+        {
+            LogAssert.Expect(LogType.Exception, new Regex("Users failure"));
+
+            var harness = await Started();
+            harness.AddRemote(2);
+            harness.Echo(2, 10f, 20f);
+
+            var sent = harness.Writer.Sent.Count;
+
+            harness.Users.FailEntriesOnce(new InvalidOperationException("Users failure"));
+            await harness.NextRound();
+            await Frames();
+
+            var failedReport = harness.Monitor.Report;
+
+            Assert.AreEqual(sent + 2, harness.Writer.Sent.Count);
+
+            harness.Users.Remove(2);
+            await harness.NextRound();
+            await Frames();
+
+            Assert.That(failedReport, Does.StartWith("Network: the monitor failed: "));
+            AssertReport(harness, $@"Network \(you: user 1\), ms\nPing to server: -, lost 0\n{NoAnswers}{Footer}");
+        });
+
+        // A failure that does not pass: what was never sent waits for no answer and is not a lost ping.
+        [UnityTest]
+        public IEnumerator SendFailsForLong_NothingPilesUpAndNothingCountsAsLost() => UniTask.ToCoroutine(async () =>
+        {
+            var harness = await Started();
+
+            harness.Writer.FailAll();
+            await FailingRounds(harness, 30);
+
+            Assert.LessOrEqual(Pending(harness, "_pendingPings"), 1);
+            Assert.LessOrEqual(Pending(harness, "_pendingProbes"), 1);
+
+            harness.Writer.Recover();
+            await harness.NextRound();
+
+            // Only the ping of the first round was sent, and its time ran out.
+            Assert.That(harness.Monitor.Report, Does.Contain(", lost 1\n"));
+        });
+
+        // The ping goes out and its probe fails: the pings still expire.
+        [UnityTest]
+        public IEnumerator ProbeFailsForLong_PendingPingsAreLimitedByTheTimeout() => UniTask.ToCoroutine(async () =>
+        {
+            var harness = await Started();
+
+            harness.Writer.FailProbes();
+            await FailingRounds(harness, 30);
+
+            var limit = (int)(LatencyProbes.Timeout / 0.5d) + 2;
+
+            Assert.LessOrEqual(Pending(harness, "_pendingPings"), limit);
+            Assert.LessOrEqual(Pending(harness, "_pendingProbes"), limit);
         });
 
         // PeerHost serves the frames of a direct guest from the open of its channel and sets the route when Connect wakes
@@ -459,6 +563,25 @@ namespace Internal.Tests
         {
             for (var i = 0; i < 3; i++)
                 await UniTask.Yield();
+        }
+
+        private static async UniTask FailingRounds(Harness harness, int rounds)
+        {
+            for (var round = 0; round < rounds; round++)
+            {
+                LogAssert.Expect(LogType.Exception, new Regex("Send failure"));
+                harness.Clock.Advance(0.5f);
+                await Frames();
+            }
+        }
+
+        // The entries a monitor keeps have no public count, and the limit of their number is the point of the test.
+        private static int Pending(Harness harness, string field)
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+
+            var probes = typeof(NetworkLatencyMonitor).GetField("_probes", flags).GetValue(harness.Monitor);
+            return ((IDictionary)typeof(LatencyProbes).GetField(field, flags).GetValue(probes)).Count;
         }
 
         private Harness Create()
@@ -554,6 +677,24 @@ namespace Internal.Tests
             }
         }
 
+        // The failure of the next call of a fake.
+        private class OnceFailure
+        {
+            private Exception _exception;
+
+            public void Set(Exception exception) => _exception = exception;
+
+            public void ThrowIfSet()
+            {
+                if (_exception == null)
+                    return;
+
+                var exception = _exception;
+                _exception = null;
+                throw exception;
+            }
+        }
+
         private class FakeConnection : INetworkConnection
         {
             public FakeConnection(IConnectionWriter writer)
@@ -561,10 +702,22 @@ namespace Internal.Tests
                 Writer = writer;
             }
 
+            private readonly NetworkTraffic _traffic = new();
+            private readonly OnceFailure _failure = new();
+
             public IConnectionReader Reader => throw new NotSupportedException();
             public IConnectionWriter Writer { get; }
             public IViewableDelegate<SocketCloseInfo> Closed => throw new NotSupportedException();
-            public NetworkTraffic Traffic { get; } = new();
+            public NetworkTraffic Traffic
+            {
+                get
+                {
+                    _failure.ThrowIfSet();
+                    return _traffic;
+                }
+            }
+
+            public void FailTrafficOnce(Exception exception) => _failure.Set(exception);
 
             public UniTask Run(IReadOnlyLifetime lifetime, string url) => throw new NotSupportedException();
             public void Drop(string reason) => throw new NotSupportedException();
@@ -574,9 +727,25 @@ namespace Internal.Tests
         {
             public readonly List<INetworkContext> Sent = new();
 
+            private readonly OnceFailure _failure = new();
+            private Func<INetworkContext, bool> _fails;
+
             public bool IsClosed => false;
 
-            public void WriteOneWay(INetworkContext value) => Sent.Add(value);
+            public void WriteOneWay(INetworkContext value)
+            {
+                _failure.ThrowIfSet();
+
+                if (_fails != null && _fails(value) == true)
+                    throw new InvalidOperationException("Send failure");
+
+                Sent.Add(value);
+            }
+
+            public void FailOnce(Exception exception) => _failure.Set(exception);
+            public void FailAll() => _fails = _ => true;
+            public void FailProbes() => _fails = value => value is SharedSessionLatency.PeerProbe;
+            public void Recover() => _fails = null;
 
             public UniTask<T> WriteRequest<T>(INetworkContext commandContext) => throw new NotSupportedException();
             public void WriteResponse(INetworkContext commandContext, int requestId) => throw new NotSupportedException();
@@ -600,8 +769,17 @@ namespace Internal.Tests
         private class FakeUsers : INetworkUsersCollection
         {
             private readonly Dictionary<int, INetworkUser> _entries = new();
+            private readonly OnceFailure _failure = new();
 
-            public IReadOnlyDictionary<int, INetworkUser> Entries => _entries;
+            public IReadOnlyDictionary<int, INetworkUser> Entries
+            {
+                get
+                {
+                    _failure.ThrowIfSet();
+                    return _entries;
+                }
+            }
+
             public INetworkUser Local { get; private set; }
             public INetworkUser Session => throw new NotSupportedException();
 
@@ -614,6 +792,7 @@ namespace Internal.Tests
             }
 
             public void Remove(int index) => _entries.Remove(index);
+            public void FailEntriesOnce(Exception exception) => _failure.Set(exception);
 
             public void SetSession(INetworkUser session) => throw new NotSupportedException();
             public INetworkUser GetOwner(int index) => throw new NotSupportedException();

@@ -38,6 +38,10 @@ namespace Internal
         private readonly LatencyStats _stats;
         private readonly LatencyReport _report;
 
+        private float _probeTimer = ProbeInterval;
+        private float _rateTimer;
+        private float _logTimer;
+
         public string Report { get; private set; } = "Network: waiting for the session";
         public float PingMs => _stats.Ping.Last;
 
@@ -65,57 +69,58 @@ namespace Internal
 
             NetworkLatencyOverlay.Create(lifetime, this);
 
-            var probeTimer = ProbeInterval;
-            var rateTimer = 0f;
-            var logTimer = 0f;
-
             while (lifetime.IsTerminated == false)
             {
-                var delta = _clock.FrameDelta;
-
-                _stats.OnFrame(delta * 1000f);
-
-                probeTimer += delta;
-                rateTimer += delta;
-                logTimer += delta;
-
-                if (probeTimer >= ProbeInterval)
-                {
-                    probeTimer = 0f;
-                    _probes.Send();
-                    _probes.Expire();
-                    _stats.RemoveLeftPeers();
-                    BuildReport();
-                }
-
-                if (rateTimer >= RateInterval)
-                {
-                    _stats.UpdateRates(rateTimer);
-                    rateTimer = 0f;
-                }
-
-                if (logTimer >= LogInterval)
-                {
-                    logTimer = 0f;
-                    Debug.Log($"[Network] [Latency] {Report.Replace("\n", " | ")}");
-                }
-
+                Tick();
                 await UniTask.Yield();
             }
         }
 
-        // The boundary of the diagnostics: the probes are what keeps the connection alive for the watchdog, a broken text
-        // must not stop them. The failure is logged and shown instead of the last report, the next round builds it anew.
-        private void BuildReport()
+        // The boundary of the diagnostics: the probes are what keeps the connection alive for the watchdog, so no failure
+        // of a frame ends the loop. The failure is logged and shown instead of the last report, the timers stay as they
+        // are: a failed round comes again in its interval, the next round builds the report anew.
+        private void Tick()
         {
             try
             {
-                Report = _report.Build();
+                Measure(_clock.FrameDelta);
             }
             catch (Exception exception)
             {
                 Debug.LogException(exception);
-                Report = $"Network: the report failed: {exception.Message}";
+                Report = $"Network: the monitor failed: {exception.Message}";
+            }
+        }
+
+        private void Measure(float delta)
+        {
+            _stats.OnFrame(delta * 1000f);
+
+            _probeTimer += delta;
+            _rateTimer += delta;
+            _logTimer += delta;
+
+            if (_probeTimer >= ProbeInterval)
+            {
+                _probeTimer = 0f;
+
+                // Before the send: a send that keeps failing must not stop the timeout of what already went out.
+                _probes.Expire();
+                _probes.Send();
+                _stats.RemoveLeftPeers();
+                Report = _report.Build();
+            }
+
+            if (_rateTimer >= RateInterval)
+            {
+                _stats.UpdateRates(_rateTimer);
+                _rateTimer = 0f;
+            }
+
+            if (_logTimer >= LogInterval)
+            {
+                _logTimer = 0f;
+                Debug.Log($"[Network] [Latency] {Report.Replace("\n", " | ")}");
             }
         }
     }

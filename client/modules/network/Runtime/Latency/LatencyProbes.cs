@@ -32,11 +32,14 @@ namespace Internal
             var now = _clock.Now;
 
             _nextId++;
-            _pendingPings.Add(_nextId, now);
-            _connection.OneWay(new SharedSessionLatency.Ping() { Id = _nextId });
 
-            _pendingProbes.Add(_nextId, now);
+            // After the write: what failed to go out waits for no answer and is not lost. The write only queues the message,
+            // so the answer cannot come in between.
+            _connection.OneWay(new SharedSessionLatency.Ping() { Id = _nextId });
+            _pendingPings.Add(_nextId, now);
+
             _connection.OneWay(new SharedSessionLatency.PeerProbe() { Id = _nextId });
+            _pendingProbes.Add(_nextId, now);
         }
 
         public void Expire()
