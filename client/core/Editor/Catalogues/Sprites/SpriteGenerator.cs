@@ -65,6 +65,7 @@ namespace Internal
 
             CatalogAddressablesSync.Sync("SpriteGenerator", GroupPrefix, GroupsFolder, groups);
             SpritesClassGenerator.Generate(groups);
+            SpriteGroupsRegistry.Instance.Invalidate();
             AssetDatabase.SaveAssets();
 
             Debug.Log($"[SpriteGenerator] Generated {groups.Count} sprite group(s).");

@@ -72,6 +72,14 @@ RuntimeChannelOptions>`). Без него канал падает при пер�
 Сделать: `datachannel` -> `framework_datachannel`: `libframework_datachannel.so`, `framework_datachannel.dll` (папка `Runtime/Plugins/libdatachannel` прежняя). Причина:
 редактор пробует голый `dlopen` раньше плагинов проекта, и установленная в системе библиотека подменяла нашу.
 
+### 7. Разметка спрайтов: скорость без тега
+
+Кого касается: клиент, игры с `tagSpeeds` в `.meta` спрайтов. На 2026-11-02 у peace-data-reborn (6 записей) и pixel-swarm (192) все записи с тегом, у остальных `tagSpeeds` нет.
+
+Поиск: `git grep -nE '\\"tagSpeeds\\": \[[^]]*\{\\n +\\"fps' -- '*.meta'`
+
+Сделать: дописать `tag` или удалить запись. `SpriteCatalogMetadataJson` теперь бросает на такой записи, и исключение вылетает из `SpriteCatalogPostprocessor`: один битый `.meta` останавливает генератор.
+
 ## Проверить поведение
 
 - Канал: подписчик, не получивший ни одного сообщения, при реактивации зерна канала получает gap (`onGapDetected`) и перечитывает состояние.

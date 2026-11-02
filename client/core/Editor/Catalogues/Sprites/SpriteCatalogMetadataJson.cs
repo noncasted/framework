@@ -121,7 +121,10 @@ namespace Internal
                 if (item is not JObject speed)
                     continue;
 
-                speeds.Add(new SpriteCatalogTagSpeed(speed.Value<string>("tag"), speed.Value<float>("fps")));
+                // A speed of no tag is applied to nothing and is written back for good: a broken markup, not a default.
+                var tag = speed.Value<string>("tag") ?? throw new InvalidOperationException($"A tag speed of the sprite markup has no tag: {speed}");
+
+                speeds.Add(new SpriteCatalogTagSpeed(tag, speed.Value<float>("fps")));
             }
 
             return speeds;

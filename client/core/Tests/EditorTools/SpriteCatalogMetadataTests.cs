@@ -24,6 +24,8 @@ namespace Internal.EditorTests
         [OneTimeSetUp]
         public void OneTimeSetUp()
         {
+            // A crash of the editor in a test leaves the folder, and CreateFolder would make "... 1".
+            EditorTestAssets.DeleteFolder(TempFolder);
             AssetDatabase.CreateFolder("Assets", Path.GetFileName(TempFolder));
             File.WriteAllText(CatalogPaths.ToFullPath(HolderPath), "holder");
             AssetDatabase.ImportAsset(HolderPath, ImportAssetOptions.ForceSynchronousImport);

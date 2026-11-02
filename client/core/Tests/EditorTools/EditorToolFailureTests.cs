@@ -27,6 +27,18 @@ namespace Internal.EditorTests
             Assert.IsTrue(References(typeof(AssetsTab), button, generator.GetMethod("GenerateNow", Flags)));
         }
 
+        // The group popup of the inspector reads the cache of the registry: art that arrived without the inspector (a pull,
+        // a copied file) reaches the popup only through the generator. Wiring only: a real run writes a script, and the
+        // compilation it requests stops the updates the later tests wait for.
+        [TestCase(typeof(SpriteGenerator))]
+        [TestCase(typeof(PrefabCatalogGenerator))]
+        [TestCase(typeof(AssetCatalogGenerator))]
+        [TestCase(typeof(AudioCatalogGenerator))]
+        public void Generator_Run_DropsTheCacheOfTheGroups(Type generator)
+        {
+            Assert.IsTrue(References(generator, "GenerateInternal", typeof(CatalogGroupsRegistry).GetMethod("Invalidate")));
+        }
+
         // Run All of the window and Regenerate All of the menu are the same run: colors, bindings, env assets, the asset
         // map and shared addressables are not skipped.
         [Test]
@@ -46,6 +58,9 @@ namespace Internal.EditorTests
             try
             {
                 File.WriteAllText(settingsFile, settings.Replace("\"ArtFolder\": \"\"", $"\"ArtFolder\": \"{folder}\""));
+
+                // A crash of the editor in a test leaves the folder, and the next one would be "SpriteWithoutGroupTests 1".
+                AssetDatabase.DeleteAsset(folder);
                 AssetDatabase.CreateFolder("Assets", "SpriteWithoutGroupTests");
 
                 var texture = new Texture2D(2, 2);

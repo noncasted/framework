@@ -3,7 +3,6 @@ using System.IO;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
 
 namespace Internal.EditorTests
@@ -83,11 +82,8 @@ namespace Internal.EditorTests
             Assert.IsNull(GameObject.Find("_ScreenshotCamera"));
         }
 
-        // Capture destroys the render texture while the camera still targets it: Unity logs an error on every capture.
         private static string Capture()
         {
-            LogAssert.Expect(LogType.Error, "Releasing render texture that is set as Camera.targetTexture!");
-
             return PrefabScreenshot.Capture(PrefabPath, 32);
         }
 

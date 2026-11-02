@@ -21,6 +21,8 @@ namespace Internal.EditorTests
         [OneTimeSetUp]
         public void OneTimeSetUp()
         {
+            // A crash of the editor in a test leaves the folder, and CreateFolder would make "... 1".
+            EditorTestAssets.DeleteFolder(Folder);
             AssetDatabase.CreateFolder("Assets", FolderName);
         }
 

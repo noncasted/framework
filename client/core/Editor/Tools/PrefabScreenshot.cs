@@ -107,12 +107,14 @@ namespace Internal
             finally
             {
                 RenderTexture.active = null;
-                if (rt != null) Object.DestroyImmediate(rt);
-                if (tex != null) Object.DestroyImmediate(tex);
                 if (canvasGo != null) Object.DestroyImmediate(canvasGo);
                 if (instance != null) Object.DestroyImmediate(instance);
                 if (camGo != null) Object.DestroyImmediate(camGo);
                 if (lightGo != null) Object.DestroyImmediate(lightGo);
+
+                // After the camera: Unity logs an error when a render texture dies as the target of a camera.
+                if (rt != null) Object.DestroyImmediate(rt);
+                if (tex != null) Object.DestroyImmediate(tex);
             }
         }
 

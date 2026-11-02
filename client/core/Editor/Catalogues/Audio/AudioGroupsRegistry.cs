@@ -18,7 +18,7 @@ namespace Internal
         {
             var seen = new HashSet<string>(StringComparer.Ordinal);
 
-            foreach (var source in AudioSourceCollector.EnumerateMarked(LogTag))
+            foreach (var source in AudioSourceCollector.EnumerateMarked())
             {
                 var metadata = source.Metadata;
 

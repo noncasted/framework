@@ -21,6 +21,7 @@ namespace Internal.EditorTests
         private const string LockedRoot = "Assets/CatalogFailureTests";
         // A folder of the test: TearDown deletes every locked root, so never the real art of the project.
         private const string ArtFolder = "Assets/CatalogFailureTestsLockedArt";
+        private const string OpenArtFolder = "Assets/CatalogFailureTestsArt";
 
         private static string SettingsFile =>
             Path.Combine(Path.GetDirectoryName(Application.dataPath), FrameworkSettings.SettingsPath);
@@ -28,6 +29,19 @@ namespace Internal.EditorTests
         private string _settings;
         private readonly List<string> _folders = new();
         private readonly List<string> _temps = new();
+
+        // A crash of the editor leaves the folders imported: CreateFolder makes "... 1", a .meta revives a deleted one.
+        [OneTimeSetUp]
+        public void OneTimeSetUp()
+        {
+            foreach (var folder in new[] { LockedRoot, ArtFolder, OpenArtFolder })
+            {
+                if (Directory.Exists(FullPath(folder) + "/locked"))
+                    Chmod("755", FullPath(folder) + "/locked");
+
+                AssetDatabase.DeleteAsset(folder);
+            }
+        }
 
         [SetUp]
         public void SetUp()
@@ -71,7 +85,7 @@ namespace Internal.EditorTests
         public void Scan_Failure_Audio_Throws()
         {
             LockFolder(FullPath(LockedRoot));
-            AssertThrows(() => AudioSourceCollector.EnumerateMarked("test").ToList());
+            AssertThrows(() => AudioSourceCollector.EnumerateMarked().ToList());
         }
 
         [Test]
@@ -160,10 +174,9 @@ namespace Internal.EditorTests
         [Test]
         public void ArtFolder_IsTheOneOfTheSettings()
         {
-            const string art = "Assets/CatalogFailureTestsArt";
-            const string sprite = art + "/Hero.png";
+            const string sprite = OpenArtFolder + "/Hero.png";
 
-            Write(json => json["ArtFolder"] = art);
+            Write(json => json["ArtFolder"] = OpenArtFolder);
             AssetDatabase.CreateFolder("Assets", "CatalogFailureTestsArt");
 
             try
@@ -187,7 +200,7 @@ namespace Internal.EditorTests
             }
             finally
             {
-                AssetDatabase.DeleteAsset(art);
+                AssetDatabase.DeleteAsset(OpenArtFolder);
             }
         }
 

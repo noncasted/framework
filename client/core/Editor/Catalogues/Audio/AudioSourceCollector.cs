@@ -17,7 +17,7 @@ namespace Internal
         private static readonly Regex VariationPattern = new(@"^(.+?)_(\d+)$", RegexOptions.CultureInvariant);
 
         // Tagged clips are needed by both the generator and the group registry, so the traversal is shared.
-        internal static IEnumerable<MarkedSource> EnumerateMarked(string logTag)
+        internal static IEnumerable<MarkedSource> EnumerateMarked()
         {
             var assetsRoot = Application.dataPath;
 
@@ -50,7 +50,7 @@ namespace Internal
         {
             var sources = new List<ClipSource>();
 
-            foreach (var marked in EnumerateMarked(LogTag))
+            foreach (var marked in EnumerateMarked())
             {
                 var path = marked.Path;
                 var metadata = marked.Metadata;

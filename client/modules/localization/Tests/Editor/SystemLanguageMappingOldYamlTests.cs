@@ -17,6 +17,8 @@ namespace Global.Localization.Tests
         [SetUp]
         public void SetUp()
         {
+            // A crash of the editor in a test leaves the folder, and the next one would be "..._Temp 1".
+            AssetDatabase.DeleteAsset(Folder);
             AssetDatabase.CreateFolder("Assets", FolderName);
         }
 
