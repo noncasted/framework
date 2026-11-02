@@ -11,9 +11,9 @@ using UnityEngine.TestTools;
 
 namespace Internal.Tests
 {
-    // NetworkLatencyMonitor through its public API, in real time: the probes every 0.5 s, their 5 s timeout, the rates
-    // of the traffic and the text of the report on the server, on a P2P host and on a P2P guest. In play mode: the
-    // monitor creates its overlay with DontDestroyOnLoad.
+    // NetworkLatencyMonitor through its public API, on a clock of the test: the probes every 0.5 s, their 5 s timeout,
+    // the rates of the traffic and the text of the report on the server, on a P2P host and on a P2P guest. In play mode:
+    // the monitor creates its overlay with DontDestroyOnLoad and its loop runs on the frames.
     public class NetworkLatencyMonitorTests
     {
         private const string Waiting = "Network: waiting for the session";
@@ -45,7 +45,8 @@ namespace Internal.Tests
             var harness = Create();
             harness.Monitor.OnSetup(harness.Lifetime);
 
-            await Seconds(0.7f);
+            harness.Clock.Advance(0.7f);
+            await Frames();
 
             Assert.AreEqual(Waiting, harness.Monitor.Report);
             Assert.AreEqual(0f, harness.Monitor.PingMs);
@@ -61,7 +62,7 @@ namespace Internal.Tests
             await UniTask.Yield();
 
             harness.AddLocal(1);
-            await harness.NextRound();
+            await harness.FirstRound();
 
             Assert.IsNotNull(GameObject.Find(OverlayName));
             Assert.AreNotEqual(Waiting, harness.Monitor.Report);
@@ -71,12 +72,18 @@ namespace Internal.Tests
         public IEnumerator EveryHalfSecond_PingAndProbeGoOutWithOneRisingId() => UniTask.ToCoroutine(async () =>
         {
             var harness = await Started();
-            var start = Time.realtimeSinceStartupAsDouble;
 
-            await harness.NextRound();
-            await harness.NextRound();
+            for (var round = 0; round < 2; round++)
+            {
+                var before = harness.Writer.Sent.Count;
 
-            var elapsed = Time.realtimeSinceStartupAsDouble - start;
+                harness.Clock.Advance(0.46875f);
+                await Frames();
+                Assert.AreEqual(before, harness.Writer.Sent.Count, "A round before its half a second");
+
+                await harness.NextRound(0.03125f);
+            }
+
             var sent = harness.Writer.Sent;
 
             Assert.AreEqual(6, sent.Count);
@@ -86,9 +93,6 @@ namespace Internal.Tests
                 Assert.AreEqual(round + 1, ((SharedSessionLatency.Ping)sent[round * 2]).Id);
                 Assert.AreEqual(round + 1, ((SharedSessionLatency.PeerProbe)sent[round * 2 + 1]).Id);
             }
-
-            Assert.GreaterOrEqual(elapsed, 0.9d);
-            Assert.Less(elapsed, 2d);
         });
 
         [UnityTest]
@@ -101,7 +105,8 @@ namespace Internal.Tests
             await UniTask.Yield();
             var sent = harness.Writer.Sent.Count;
 
-            await Seconds(0.7f);
+            harness.Clock.Advance(0.7f);
+            await Frames();
 
             Assert.AreEqual(sent, harness.Writer.Sent.Count);
             Assert.IsNull(GameObject.Find(OverlayName));
@@ -114,9 +119,9 @@ namespace Internal.Tests
             Assert.AreEqual(0f, harness.Monitor.PingMs);
             Assert.That(harness.Monitor.Report, Does.Contain("Ping to server: -, lost 0\n"));
 
-            await UniTask.Yield();
+            harness.Clock.Advance(0.02f);
             harness.Monitor.OnPong(harness.LastId);
-            Assert.Greater(harness.Monitor.PingMs, 0f);
+            Assert.AreEqual(20f, harness.Monitor.PingMs, 0.01f);
 
             await harness.NextRound();
 
@@ -131,11 +136,11 @@ namespace Internal.Tests
             harness.Monitor.OnPong(harness.LastId + 100);
             Assert.AreEqual(0f, harness.Monitor.PingMs);
 
-            await UniTask.Yield();
+            harness.Clock.Advance(0.02f);
             harness.Monitor.OnPong(harness.LastId);
             var ping = harness.Monitor.PingMs;
 
-            await Seconds(0.1f);
+            harness.Clock.Advance(0.1f);
             harness.Monitor.OnPong(harness.LastId);
 
             Assert.AreEqual(ping, harness.Monitor.PingMs);
@@ -157,7 +162,7 @@ namespace Internal.Tests
             harness.AddRemote(3);
 
             // A probe stays pending: every other client answers it, and may answer again.
-            await UniTask.Yield();
+            harness.Clock.Advance(0.02f);
             harness.Echo(2, 7f, 33f);
             harness.Echo(2, 9f, 44f);
             harness.Echo(3, 5f, 11f);
@@ -255,7 +260,7 @@ namespace Internal.Tests
             harness.AddRemote(3);
             harness.Echo(1, 0f, 0f);
             harness.Echo(3, 5f, 11f);
-            await UniTask.Yield();
+            harness.Clock.Advance(0.02f);
             harness.Monitor.OnPong(harness.LastId);
 
             await harness.NextRound();
@@ -283,29 +288,29 @@ namespace Internal.Tests
 
             harness.Connection.Traffic.OnBatch(3);
 
-            await UniTask.WaitUntil(() => harness.Monitor.Report.Contains("peak 3 msg/frame"))
-                         .Timeout(TimeSpan.FromSeconds(3));
+            // Not a second yet: the traffic stays out of the report.
+            await harness.NextRound(0.75f);
+            Assert.That(harness.Monitor.Report, Does.Contain("Out: 0 msg/s, 0.0 KB/s, peak 0 msg/frame"));
 
-            var match = Regex.Match(harness.Monitor.Report,
-                @"Out: (\d+) msg/s, ([\d.]+) KB/s, peak 3 msg/frame\nIn: (\d+) msg/s, ([\d.]+) KB/s");
+            // The rates of an interval of 1.5 s; the report of this round was built before them.
+            await harness.NextRound(0.75f);
+            await harness.NextRound();
 
-            Assert.IsTrue(match.Success, harness.Monitor.Report);
+            Assert.That(harness.Monitor.Report, Does.Contain("750 max/s"));
+            Assert.That(harness.Monitor.Report, Does.Contain(
+                "Out: 67 msg/s, 66.7 KB/s, peak 3 msg/frame\n"
+                + "In: 33 msg/s, 66.7 KB/s"));
 
-            // Over an interval of a little more than a second.
-            AssertBetween(match.Groups[1].Value, 50f, 100f);
-            AssertBetween(match.Groups[2].Value, 50f, 100f);
-            AssertBetween(match.Groups[3].Value, 25f, 50f);
-            AssertBetween(match.Groups[4].Value, 50f, 100f);
+            // The rates are of one interval, the peak is taken: the next interval starts from zero.
+            await harness.NextRound();
+            await harness.NextRound();
 
-            // The rates are of one second, the peak is taken: the next interval starts from zero.
-            await UniTask.WaitUntil(() => harness.Monitor.Report.Contains("Out: 0 msg/s, 0.0 KB/s, peak 0 msg/frame"))
-                         .Timeout(TimeSpan.FromSeconds(3));
-
-            await UniTask.WaitUntil(() => Regex.IsMatch(harness.Monitor.Report, @"Frame: [\d.]+ avg, [1-9]\d* max/s"))
-                         .Timeout(TimeSpan.FromSeconds(3));
+            Assert.That(harness.Monitor.Report, Does.Contain("500 max/s"));
+            Assert.That(harness.Monitor.Report, Does.Contain("Out: 0 msg/s, 0.0 KB/s, peak 0 msg/frame"));
+            Assert.That(harness.Monitor.Report, Does.Contain("In: 0 msg/s, 0.0 KB/s"));
         });
 
-        // One real-time wait for the 5 s timeout of a probe, shared by the three kinds of the report.
+        // The 5 s timeout of a probe, shared by the three kinds of the report.
         [UnityTest]
         public IEnumerator AfterTimeout_PingsAreLostProbesExpireAndSilentRowsAreMarked() => UniTask.ToCoroutine(async () =>
         {
@@ -332,8 +337,6 @@ namespace Internal.Tests
             guest.AddRemote(1);
             guest.AddRemote(3);
 
-            await UniTask.Yield();
-
             var firstServerId = server.LastId;
 
             server.Echo(2, 7f, 33f);
@@ -341,11 +344,16 @@ namespace Internal.Tests
             guest.Echo(1, 0f, 0f);
             guest.Echo(3, 5f, 11f);
 
-            await UniTask.WaitUntil(() => Regex.IsMatch(server.Monitor.Report, @"lost [1-9]")
-                                          && server.Monitor.Report.Contains("NO ECHO")
-                                          && host.Monitor.Report.Contains("NO ECHO")
-                                          && guest.Monitor.Report.Contains("NO ECHO"))
-                         .Timeout(TimeSpan.FromSeconds(8));
+            // Exactly 5 s after the first probe it is still waited for.
+            for (var round = 0; round < 10; round++)
+                await UniTask.WhenAll(server.NextRound(), host.NextRound(), guest.NextRound());
+
+            Assert.That(server.Monitor.Report, Does.Contain(", lost 0\n"));
+            Assert.That(server.Monitor.Report, Does.Not.Contain("NO ECHO"));
+            Assert.That(host.Monitor.Report, Does.Not.Contain("NO ECHO"));
+            Assert.That(guest.Monitor.Report, Does.Not.Contain("NO ECHO"));
+
+            await UniTask.WhenAll(server.NextRound(), host.NextRound(), guest.NextRound());
 
             const string stale = @" NO ECHO \d+s\n";
 
@@ -397,7 +405,9 @@ namespace Internal.Tests
             harness.AddLocal(2);
             harness.Monitor.OnSetup(harness.Lifetime);
 
-            await Seconds(1.2f);
+            await Frames();
+            harness.Clock.Advance(1.2f);
+            await Frames();
 
             Assert.AreEqual(2, harness.Writer.Sent.Count);
             Assert.AreEqual(Waiting, harness.Monitor.Report);
@@ -409,16 +419,11 @@ namespace Internal.Tests
             Assert.IsTrue(Regex.IsMatch(report, $@"\A{pattern}\z"), $"Report:\n{report}\nPattern:\n{pattern}");
         }
 
-        private static void AssertBetween(string text, float min, float max)
+        // Enough frames for the loop of a monitor to see the time given to its clock.
+        private static async UniTask Frames()
         {
-            var value = float.Parse(text, System.Globalization.CultureInfo.InvariantCulture);
-            Assert.GreaterOrEqual(value, min);
-            Assert.LessOrEqual(value, max);
-        }
-
-        private static UniTask Seconds(float seconds)
-        {
-            return UniTask.Delay(TimeSpan.FromSeconds(seconds), DelayType.Realtime);
+            for (var i = 0; i < 3; i++)
+                await UniTask.Yield();
         }
 
         private Harness Create()
@@ -435,7 +440,7 @@ namespace Internal.Tests
             setup?.Invoke(harness.Match);
             harness.AddLocal(localIndex);
             harness.Monitor.OnSetup(harness.Lifetime);
-            await harness.NextRound();
+            await harness.FirstRound();
             return harness;
         }
 
@@ -444,13 +449,14 @@ namespace Internal.Tests
             public Harness()
             {
                 Connection = new FakeConnection(Writer);
-                Monitor = new NetworkLatencyMonitor(Connection, new FakeSession(Users), Match);
+                Monitor = new NetworkLatencyMonitor(Connection, new FakeSession(Users), Match, Clock);
             }
 
             public readonly Lifetime Lifetime = new();
             public readonly FakeUsers Users = new();
             public readonly FakeWriter Writer = new();
             public readonly PeerMatch Match = new();
+            public readonly FakeClock Clock = new();
             public readonly FakeConnection Connection;
             public readonly NetworkLatencyMonitor Monitor;
 
@@ -470,11 +476,46 @@ namespace Internal.Tests
                 });
             }
 
-            // The report is built in the frame the probes go out.
-            public async UniTask NextRound()
+            // The first round goes out as soon as the local user is there, without any time passed.
+            public UniTask FirstRound() => WaitRound();
+
+            public UniTask NextRound(float seconds = 0.5f)
+            {
+                var round = WaitRound();
+                Clock.Advance(seconds);
+                return round;
+            }
+
+            // The report is built in the frame the probes go out. The timeout only ends a test that has failed.
+            private async UniTask WaitRound()
             {
                 var sent = Writer.Sent.Count;
-                await UniTask.WaitUntil(() => Writer.Sent.Count > sent).Timeout(TimeSpan.FromSeconds(3));
+                await UniTask.WaitUntil(() => Writer.Sent.Count > sent).Timeout(TimeSpan.FromSeconds(10));
+            }
+        }
+
+        // The time of one monitor passes when the test says: its loop reads FrameDelta once a frame and gets all the
+        // time given since the last read.
+        private class FakeClock : ILatencyClock
+        {
+            private float _unread;
+
+            public double Now { get; private set; }
+
+            public float FrameDelta
+            {
+                get
+                {
+                    var delta = _unread;
+                    _unread = 0f;
+                    return delta;
+                }
+            }
+
+            public void Advance(float seconds)
+            {
+                Now += seconds;
+                _unread += seconds;
             }
         }
 

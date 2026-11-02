@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Shared;
-using UnityEngine;
 
 namespace Internal
 {
@@ -8,15 +7,17 @@ namespace Internal
     // and wait for their answers until the timeout.
     public class LatencyProbes
     {
-        public LatencyProbes(INetworkConnection connection)
+        public LatencyProbes(INetworkConnection connection, ILatencyClock clock)
         {
             _connection = connection;
+            _clock = clock;
         }
 
         // A probe without an answer for this long is counted as lost.
         public const double Timeout = 5d;
 
         private readonly INetworkConnection _connection;
+        private readonly ILatencyClock _clock;
 
         private readonly Dictionary<int, double> _pendingPings = new();
         private readonly Dictionary<int, double> _pendingProbes = new();
@@ -28,7 +29,7 @@ namespace Internal
 
         public void Send()
         {
-            var now = Time.realtimeSinceStartupAsDouble;
+            var now = _clock.Now;
 
             _nextId++;
             _pendingPings.Add(_nextId, now);
@@ -72,7 +73,7 @@ namespace Internal
 
         private int ExpireIn(Dictionary<int, double> pending)
         {
-            var now = Time.realtimeSinceStartupAsDouble;
+            var now = _clock.Now;
 
             _expired.Clear();
 
@@ -88,9 +89,9 @@ namespace Internal
             return _expired.Count;
         }
 
-        private static float ElapsedMs(double sentAt)
+        private float ElapsedMs(double sentAt)
         {
-            return (float)((Time.realtimeSinceStartupAsDouble - sentAt) * 1000d);
+            return (float)((_clock.Now - sentAt) * 1000d);
         }
     }
 }

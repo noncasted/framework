@@ -1,5 +1,4 @@
 using System;
-using UnityEngine;
 
 namespace Internal
 {
@@ -18,7 +17,7 @@ namespace Internal
 
         public static string Stale(LatencyPeerStats peer)
         {
-            var silence = Time.realtimeSinceStartupAsDouble - peer.LastEchoAt;
+            var silence = peer.Silence;
             return silence > LatencyProbes.Timeout ? $" NO ECHO {silence:0}s" : string.Empty;
         }
     }

@@ -6,16 +6,18 @@ namespace Internal
     // What is measured in a session: the ping, the other clients, the frame time and the rates of the traffic.
     public class LatencyStats
     {
-        public LatencyStats(INetworkConnection connection, INetworkSession session)
+        public LatencyStats(INetworkConnection connection, INetworkSession session, ILatencyClock clock)
         {
             _connection = connection;
             _session = session;
+            _clock = clock;
         }
 
         private const int FrameCapacity = 60;
 
         private readonly INetworkConnection _connection;
         private readonly INetworkSession _session;
+        private readonly ILatencyClock _clock;
 
         private readonly Dictionary<int, LatencyPeerStats> _peers = new();
         private readonly List<int> _left = new();
@@ -54,7 +56,7 @@ namespace Internal
 
             if (_peers.TryGetValue(echo.ResponderIndex, out var peer) == false)
             {
-                peer = new LatencyPeerStats();
+                peer = new LatencyPeerStats(_clock);
                 _peers.Add(echo.ResponderIndex, peer);
             }
 

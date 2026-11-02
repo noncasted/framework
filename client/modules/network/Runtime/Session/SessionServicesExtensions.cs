@@ -80,6 +80,9 @@
                 builder.Register<PeerMatch>()
                        .As<IPeerMatch>();
 
+                builder.Register<LatencyClock>()
+                       .As<ILatencyClock>();
+
                 builder.Register<NetworkLatencyMonitor>()
                        .As<INetworkLatencyMonitor>()
                        .As<IScopeSetup>();

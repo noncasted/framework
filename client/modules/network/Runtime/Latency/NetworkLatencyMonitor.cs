@@ -14,11 +14,16 @@ namespace Internal
     /// </summary>
     public class NetworkLatencyMonitor : INetworkLatencyMonitor, IScopeSetup
     {
-        public NetworkLatencyMonitor(INetworkConnection connection, INetworkSession session, IPeerMatch peerMatch)
+        public NetworkLatencyMonitor(
+            INetworkConnection connection,
+            INetworkSession session,
+            IPeerMatch peerMatch,
+            ILatencyClock clock)
         {
             _session = session;
-            _probes = new LatencyProbes(connection);
-            _stats = new LatencyStats(connection, session);
+            _clock = clock;
+            _probes = new LatencyProbes(connection, clock);
+            _stats = new LatencyStats(connection, session, clock);
             _report = new LatencyReport(session, peerMatch, _probes, _stats);
         }
 
@@ -27,6 +32,7 @@ namespace Internal
         private const float LogInterval = 5f;
 
         private readonly INetworkSession _session;
+        private readonly ILatencyClock _clock;
         private readonly LatencyProbes _probes;
         private readonly LatencyStats _stats;
         private readonly LatencyReport _report;
@@ -64,7 +70,7 @@ namespace Internal
 
             while (lifetime.IsTerminated == false)
             {
-                var delta = Time.unscaledDeltaTime;
+                var delta = _clock.FrameDelta;
 
                 _stats.OnFrame(delta * 1000f);
 
