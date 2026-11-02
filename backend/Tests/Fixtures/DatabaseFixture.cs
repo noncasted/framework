@@ -1,20 +1,15 @@
 using Common;
 using Npgsql;
 using Shared;
-using Testcontainers.PostgreSql;
 
 namespace Framework.Tests.Fixtures;
 
 /// <summary>
-/// Manages a shared PostgreSQL container and per-fixture test databases.
+/// A test database of its own in the container of the run (PostgresContainer).
 /// Creates the state tables of TestStates and the side effects tables.
 /// </summary>
 public class DatabaseFixture : IAsyncDisposable
 {
-    private static readonly SemaphoreSlim ContainerLock = new(1, 1);
-    private static PostgreSqlContainer? _sharedContainer;
-    private static int _refCount;
-
     private string _databaseName = string.Empty;
     private string _connectionString = string.Empty;
 
@@ -23,31 +18,10 @@ public class DatabaseFixture : IAsyncDisposable
 
     public async Task InitializeAsync()
     {
-        await ContainerLock.WaitAsync();
-
-        try
-        {
-            if (_sharedContainer == null)
-            {
-                _sharedContainer = new PostgreSqlBuilder("postgres:17")
-                                   .WithUsername("test")
-                                   .WithPassword("test")
-                                   .Build();
-
-                await _sharedContainer.StartAsync();
-            }
-
-            _refCount++;
-        }
-        finally
-        {
-            ContainerLock.Release();
-        }
-
         _databaseName = $"test_db_{Guid.NewGuid():N}";
 
         // Create the test database
-        var masterConnectionString = _sharedContainer!.GetConnectionString();
+        var masterConnectionString = await PostgresContainer.GetConnectionString();
         await using var masterConnection = new NpgsqlConnection(masterConnectionString);
         await masterConnection.OpenAsync();
         await using var createDbCmd = masterConnection.CreateCommand();
@@ -198,24 +172,6 @@ public class DatabaseFixture : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (DataSource != null!)
-            await DataSource.DisposeAsync();
-
-        await ContainerLock.WaitAsync();
-
-        try
-        {
-            _refCount--;
-
-            if (_refCount <= 0 && _sharedContainer != null)
-            {
-                await _sharedContainer.DisposeAsync();
-                _sharedContainer = null;
-            }
-        }
-        finally
-        {
-            ContainerLock.Release();
-        }
+        await DataSource.DisposeAsync();
     }
 }
