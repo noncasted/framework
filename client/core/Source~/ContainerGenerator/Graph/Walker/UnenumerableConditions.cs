@@ -19,7 +19,7 @@ namespace ContainerGenerator {
                     continue;
                 var syntax = reference.GetSyntax();
                 var model = _compilation.GetSemanticModel(syntax.SyntaxTree);
-                var state = new WalkState(construct, model, new GraphMethod { Id = WalkSyntax.MethodId(construct) });
+                var state = new WalkState(construct, model, new GraphMethod { Id = MethodIds.Of(construct) });
                 foreach (var node in syntax.DescendantNodes()) {
                     if (node is not IfStatementSyntax ifs)
                         continue;

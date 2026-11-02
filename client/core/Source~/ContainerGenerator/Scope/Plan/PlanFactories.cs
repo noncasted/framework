@@ -1,8 +1,6 @@
-using System.Collections.Generic;
-
 namespace ContainerGenerator {
     internal static class PlanFactories {
-        public static void BuildFactories(ScopePlan plan, ScopeGraph graph, HashSet<string> used) {
+        public static void BuildFactories(ScopePlan plan) {
             for (var i = 0; i < plan.Slots.Count; i++) {
                 var slot = plan.Slots[i];
                 if (slot.IsSwitch == false)

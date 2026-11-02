@@ -57,7 +57,6 @@ namespace ContainerGenerator {
                     slot.GroupMembers.Clear();
                     slot.GroupMembers.AddRange(members);
                     slot.IsGroupPrimary = members[i] == primary;
-                    slot.AlternativeGroup = g;
                 }
             }
         }

@@ -24,7 +24,7 @@ namespace ContainerGenerator {
                     writer.AppendLine(body + plan.LifetimeField + " = " + param.Name + ";");
                 else if (param.IsParent)
                     writer.AppendLine(body + plan.ParentField + " = " + param.Name + ";");
-                else if (param.IsAlternative || param.IsRequest)
+                else if (param.IsRequest)
                     continue;
                 else if (string.IsNullOrEmpty(param.FieldName) == false)
                     writer.AppendLine(body + param.FieldName + " = " + param.Name + ";");
@@ -54,7 +54,7 @@ namespace ContainerGenerator {
                     WriteSlotConstruction(writer, plan, graph, i, body, constructed);
             }
 
-            MarkerWriter.WriteMarkers(writer, plan, graph, body);
+            MarkerWriter.WriteMarkers(writer, plan, body);
             if (plan.HasContainerDiagnostics) {
                 // Diagnostics exist only in the editor and a dev build; the benchmark turns them off with the flag.
                 writer.AppendLine("#if UNITY_EDITOR || DEBUG");

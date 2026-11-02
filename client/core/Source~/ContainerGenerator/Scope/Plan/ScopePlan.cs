@@ -57,8 +57,6 @@ namespace ContainerGenerator {
             public bool IsLifetime;
             public bool IsParent;
             public bool IsRequest;
-            public bool IsAlternative;
-            public int AlternativeGroup = -1;
             // All builder.Inject instances of the slot type: Type is the array, ElementType is the type itself.
             public bool IsInjections;
             public string ElementType = "";
@@ -108,7 +106,6 @@ namespace ContainerGenerator {
             public bool IsSwitch;
             public bool SkipEmit;
             public bool IsUnity;
-            public int AlternativeGroup = -1;
             public bool IsGroupPrimary;
             public List<int> GroupMembers = new List<int>();
         }

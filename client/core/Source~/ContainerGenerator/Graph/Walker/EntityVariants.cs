@@ -47,7 +47,6 @@ namespace ContainerGenerator {
                     var site = new EntityLoadSite {
                         Construct = construct,
                         ViewType = viewType == null ? "" : TypeNames.ForMetadata(viewType),
-                        Invocation = invocation,
                     };
                     VariantConditions.CollectAssignments(invocation, site.Bools);
                     sites.Add(site);
@@ -56,7 +55,7 @@ namespace ContainerGenerator {
 
             var groups = new Dictionary<string, List<EntityLoadSite>>(StringComparer.Ordinal);
             for (var i = 0; i < sites.Count; i++) {
-                var id = WalkSyntax.MethodId(sites[i].Construct);
+                var id = MethodIds.Of(sites[i].Construct);
                 if (groups.TryGetValue(id, out var list) == false) {
                     list = new List<EntityLoadSite>();
                     groups[id] = list;
@@ -175,7 +174,6 @@ namespace ContainerGenerator {
         private sealed class EntityLoadSite {
             public IMethodSymbol Construct = null!;
             public string ViewType = "";
-            public InvocationExpressionSyntax Invocation = null!;
             public Dictionary<string, bool> Bools = new Dictionary<string, bool>(StringComparer.Ordinal);
         }
     }

@@ -83,8 +83,8 @@ namespace ContainerGenerator {
             PlanHoles.AssignHoles(plan, graph, used);
             PlanMarkers.BuildMarkers(plan, graph, used);
             PlanExports.BuildExports(plan, graph);
-            PlanFactories.BuildFactories(plan, graph, used);
-            PlanExports.BuildProvides(plan, graph);
+            PlanFactories.BuildFactories(plan);
+            PlanExports.BuildProvides(plan);
             PlanDisposal.CollectDisposable(plan, graph, types);
             if (plan.HasContainerDiagnostics)
                 PlanDiagnostics.BuildDiagnostics(plan, compilation, types);

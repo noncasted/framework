@@ -43,7 +43,7 @@ namespace ContainerGenerator {
                 slots.Add(slot);
         }
 
-        public static void BuildProvides(ScopePlan plan, ScopeGraph graph) {
+        public static void BuildProvides(ScopePlan plan) {
             if (plan.HasProvides == false)
                 return;
 

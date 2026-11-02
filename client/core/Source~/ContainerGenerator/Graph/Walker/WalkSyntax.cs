@@ -37,10 +37,6 @@ namespace ContainerGenerator {
             return invocation.Expression.ToString();
         }
 
-        public static string MethodId(IMethodSymbol method) {
-            return MethodIds.Of(method);
-        }
-
         public static string Trim(string value) {
             var compact = value.Replace("\r", " ").Replace("\n", " ");
             while (compact.IndexOf("  ", StringComparison.Ordinal) >= 0)

@@ -73,7 +73,7 @@ namespace ContainerGenerator {
                 return HoleParam(plan, edge);
 
             if (edge.Kind == "Collection")
-                return CollectionExpression(plan, graph, edge);
+                return CollectionExpression(plan, edge);
 
             if (edge.Kind == "Registration" && edge.TargetIndex >= 0 && edge.TargetIndex < plan.Slots.Count) {
                 var target = plan.Slots[edge.TargetIndex];
@@ -105,7 +105,7 @@ namespace ContainerGenerator {
                 "Generator parameter '" + edge.ParameterName + "' of a switch arm has no registration.");
         }
 
-        private static string CollectionExpression(ScopePlan plan, ScopeGraph graph, GraphEdge edge) {
+        private static string CollectionExpression(ScopePlan plan, GraphEdge edge) {
             if (CollectionTypes.TryElement(edge.ParameterType, out var element) == false)
                 throw new InvalidOperationException("Generator has no list for the type '" + edge.ParameterType + "'.");
 
