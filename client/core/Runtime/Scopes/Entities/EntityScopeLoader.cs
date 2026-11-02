@@ -27,6 +27,8 @@ namespace Internal
             IScopeEntityView view,
             Func<IEntityBuilder, UniTask> construct)
         {
+            using var stage = OpenSpan(view);
+
             var builder = CreateBuilder(parentLifetime, parent, view, out var teardown);
 
             try
@@ -51,6 +53,8 @@ namespace Internal
             IScopeEntityView view,
             Action<IEntityBuilder> construct)
         {
+            using var stage = OpenSpan(view);
+
             var builder = CreateBuilder(parentLifetime, parent, view, out var teardown);
 
             try
@@ -67,6 +71,15 @@ namespace Internal
                 builder.ScopeLifetime.Terminate();
                 throw;
             }
+        }
+
+        // The phases of an entity go under its span, not flat into the stage. The name is built only under the profiler:
+        // it is a string per entity.
+        private static IProfilerScope OpenSpan(IScopeEntityView view)
+        {
+            return GameProfiler.IsRunning == true
+                ? GameProfiler.Scope($"Entity: {view.GetType().Name}")
+                : NullProfilerScope.Instance;
         }
 
         // The end of the scope lifetime tears the entity down: the dispose phase, the container, then the asset

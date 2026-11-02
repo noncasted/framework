@@ -142,6 +142,24 @@ namespace Internal
             Stop();
         }
 
+        // A child may outlive its parent (the records of a closed stage, a parallel branch): the parent is as long as
+        // what it holds, otherwise the bar of a stage says nothing about the stage.
+        internal void CoverChildren()
+        {
+            foreach (var child in _children)
+            {
+                child.CoverChildren();
+
+                if (_startMs < 0d || _endMs < 0d || child._endMs <= _endMs)
+                    continue;
+
+                _endMs = child._endMs;
+                _endFrame = child._endFrame;
+                _endNs = child._endNs;
+                _endAlloc = child._endAlloc;
+            }
+        }
+
         internal void StopRecursive()
         {
             if (IsRunning)

@@ -131,6 +131,10 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
   (`core/Editor/Tools/Build`: `BeforeBuild` / `AfterBuild(target, succeeded)`, a parameterless class, found by
   `TypeCache`, ordered by full type name); `PlayerBuildSteps.Run(target, build)` calls `AfterBuild` of every started
   step also after a failed build or a throwing step, then rethrows. Unity's postprocess callbacks skip failed builds.
+- **Startup trace.** `GameProfiler.Stage` opens a big step of the game (`Global`, `Meta`, a menu, a run), a root of the
+  trace; `LoadRoot` opens `Startup`. A record made with an empty stack (after an await) goes to the last stage, `Detached` to
+  the last stage off the stack, and a parent covers its late children. A branch that outlives its stage opens `Detached` in its
+  synchronous part, hangs the later steps on that span and creates what they measure inside `Ambient(span)`.
 - **ContainerGenerator.** Sources in `client/core/Source~`, the dll in `client/core/Analyzers` (`RoslynAnalyzer`
   label, every platform off). After a change: build it (it copies itself into `Analyzers`) and run
   `ContainerGenerator.Verify`.
@@ -238,7 +242,7 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1102, common 92, Verify 166, control 23, EditMode 645 (4 of them skipped, the
+Release build replaces it. The expected numbers: backend 1102, common 92, Verify 166, control 23, EditMode 659 (4 of them skipped, the
 benchmarks of `ContainerBenchmarkTests`), PlayMode 77; the script does not check them, a smaller number is a lost test.
 
 One suite by hand: `.build/bin/Tests/Debug/net10.0/Framework.Tests` (backend),

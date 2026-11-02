@@ -12,7 +12,7 @@ namespace Internal
         {
             var options = new ScopeLoadOptions(null, construct);
 
-            using var stage = GameProfiler.Scope("Startup");
+            using var stage = GameProfiler.Stage("Startup");
 
             var scope = await loader.Load(options);
             await scope.Initialize();

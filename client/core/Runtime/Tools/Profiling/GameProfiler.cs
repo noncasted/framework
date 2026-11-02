@@ -9,14 +9,17 @@ namespace Internal
     /// scope extensions, where the profiler cannot be passed through DI, so the current
     /// trace lives in a static, and nesting is kept by a stack of open scopes.
     ///
-    /// The stack is correct while the await chain is linear. Branches that go
-    /// parallel (fire-and-forget) are raised through <see cref="Branch"/> - they
-    /// land in the trace root and do not affect other nesting.
+    /// The stack is correct while the await chain is linear. The big steps of the game (startup, meta, menu, a run) are
+    /// stages (<see cref="Stage"/>), the roots of the trace. A record made while the stack is empty (the continuation of
+    /// a parallel branch, a request of a session) goes to the last stage opened, even a closed one, and not to the root:
+    /// the parent covers it in the trace. A branch that outlives its stage holds its own span and nests into it
+    /// explicitly (<see cref="IProfilerScope.Child"/>, <see cref="Ambient"/>): the stage is the next one by then.
     /// </summary>
     [AutoStaticsCleanup]
     public static partial class GameProfiler
     {
         private static readonly List<IProfilerScope> _stack = new();
+        private static IProfilerScope _stage;
 
         public static IProfiler Current { get; private set; }
 
@@ -25,6 +28,7 @@ namespace Internal
         public static IProfiler Begin(string name)
         {
             _stack.Clear();
+            _stage = null;
             Current = new Profiler(name);
 
             return Current;
@@ -36,6 +40,7 @@ namespace Internal
                 return;
 
             _stack.Clear();
+            _stage = null;
             Current.Finish();
             Current = null;
         }
@@ -46,10 +51,7 @@ namespace Internal
             if (Current == null)
                 return NullProfilerScope.Instance;
 
-            var parent = _stack.Count > 0 ? _stack[^1] : null;
-            var scope = parent == null ? Current.CreateScope(name) : parent.Child(name);
-
-            return Open(scope);
+            return Open(Create(name, CurrentParent));
         }
 
         /// <summary>
@@ -62,8 +64,7 @@ namespace Internal
             if (Current == null)
                 return NullProfilerScope.Instance;
 
-            var parent = _stack.Count > 0 ? _stack[^1] : null;
-            var scope = parent == null ? Current.CreateScope(name) : parent.Child(name);
+            var scope = Create(name, CurrentParent);
 
             scope.Start();
 
@@ -74,7 +75,7 @@ namespace Internal
         /// The span opened at the current stage. Needed by code that measures its own steps
         /// after the first await: there is no stack there and nowhere to take the parent from.
         /// </summary>
-        public static IProfilerScope CurrentScope => _stack.Count > 0 ? _stack[^1] : NullProfilerScope.Instance;
+        public static IProfilerScope CurrentScope => CurrentParent ?? NullProfilerScope.Instance;
 
         /// <summary>
         /// Makes an already open span current. Needed for parallel branches: while their
@@ -90,28 +91,40 @@ namespace Internal
             return new AmbientHandle(scope);
         }
 
-        /// <summary>Scope at the trace root: for branches that run in parallel with the main chain.</summary>
-        public static IProfilerScope Branch(string name)
+        /// <summary>
+        /// A big step of the game, a root of the trace. Stays the place of the late records after it is closed, until the
+        /// next stage opens.
+        /// </summary>
+        public static IProfilerScope Stage(string name)
         {
             if (Current == null)
                 return NullProfilerScope.Instance;
 
-            return Open(Current.CreateScope(name));
+            _stage = Current.CreateScope(name);
+
+            return Open(_stage);
         }
 
         /// <summary>
-        /// Root scope that does not go on the stack: measures a span that unrelated
-        /// code must not nest into.
+        /// A branch of the current stage that runs in parallel with the main chain: a child of the stage whatever
+        /// is on the stack, not on the stack itself, so unrelated code does not nest into it.
         /// </summary>
         public static IProfilerScope Detached(string name)
         {
             if (Current == null)
                 return NullProfilerScope.Instance;
 
-            var scope = Current.CreateScope(name);
+            var scope = Create(name, _stage);
             scope.Start();
 
             return scope;
+        }
+
+        private static IProfilerScope CurrentParent => _stack.Count > 0 ? _stack[^1] : _stage;
+
+        private static IProfilerScope Create(string name, IProfilerScope parent)
+        {
+            return parent == null ? Current.CreateScope(name) : parent.Child(name);
         }
 
         private static IProfilerScope Open(IProfilerScope scope)

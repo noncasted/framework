@@ -85,7 +85,10 @@ namespace Internal
             _roots.Sort(CompareByStart);
 
             foreach (var root in _roots)
+            {
+                root.CoverChildren();
                 Append(root, -1, 0);
+            }
 
             return trace;
 
