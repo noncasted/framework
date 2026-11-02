@@ -97,6 +97,97 @@ public class ConnectionCloseTests
         result.MessageType.Should().Be(WebSocketMessageType.Close);
     }
 
+    // Run is what a gateway keeps the socket for: it ends after the close frame of a failed read loop went out, however
+    // long the socket takes to send it.
+    [Fact]
+    public async Task Run_HandlerThrows_TheSocketLivesUntilTheCloseFrameWentOut()
+    {
+        var hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await using var server = await ConnectionServer.Start(
+            connection => connection.Reader.OneWay.Advise(connection.Lifetime, _ => throw new InvalidOperationException("handler bug")),
+            holdClose: hold.Task);
+
+        using var client = await server.Connect();
+        await server.Accepted.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        var message = MemoryPackSerializer.Serialize<IMessageFromClient>(
+            new OneWayMessageFromClient { Context = new SharedSessionLatency.Ping { Id = 1 } });
+
+        await client.SendAsync(message, WebSocketMessageType.Binary, true, TestContext.Current.CancellationToken);
+
+        await server.CloseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        // What the handler of the old order did right away; on the right order nothing can happen here, whatever the load.
+        await Task.WhenAny(server.SocketDisposed.Task, Task.Delay(TimeSpan.FromMilliseconds(100), TestContext.Current.CancellationToken));
+        hold.SetResult();
+
+        await AssertCloseFrame(client);
+    }
+
+    // The close of a client: the answer goes out through the same close.
+    [Fact]
+    public async Task Run_ClientCloses_TheSocketLivesUntilTheAnswerWentOut()
+    {
+        var hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        await using var server = await ConnectionServer.Start(holdClose: hold.Task);
+        using var client = await server.Connect();
+        await server.Accepted.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        await client.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "bye", TestContext.Current.CancellationToken);
+        await server.CloseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        await Task.WhenAny(server.SocketDisposed.Task, Task.Delay(TimeSpan.FromMilliseconds(100), TestContext.Current.CancellationToken));
+        hold.SetResult();
+
+        await AssertCloseFrame(client);
+    }
+
+    // The session of the connection is over before its Run: the client still gets the close, not a reset.
+    [Fact]
+    public async Task Run_AfterTheEndOfTheParent_ClientGetsCloseFrame()
+    {
+        await using var server = await ConnectionServer.Start(terminatedParent: true);
+        using var client = await server.Connect();
+
+        await AssertCloseFrame(client);
+
+        (await server.Finished.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken))
+            .Should().BeOfType<InvalidOperationException>();
+    }
+
+    // The session of the connection ends while the read loop waits for the client: the client gets the close, not a reset
+    // of the socket, and the Run ends after it.
+    [Fact]
+    public async Task Run_TheParentEndsDuringTheRun_ClientGetsCloseFrame()
+    {
+        var parent = new Lifetime();
+
+        await using var server = await ConnectionServer.Start(parent: parent);
+        using var client = await server.Connect();
+        var connection = await server.Accepted.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        parent.Terminate();
+
+        connection.Lifetime.IsTerminated.Should().BeTrue();
+        await AssertCloseFrame(client);
+
+        await client.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "bye", TestContext.Current.CancellationToken);
+
+        (await server.Finished.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken))
+            .Should().BeNull();
+    }
+
+    private static async Task AssertCloseFrame(ClientWebSocket client)
+    {
+        var result = await client.ReceiveAsync(new byte[64], TestContext.Current.CancellationToken)
+                                 .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        result.MessageType.Should().Be(WebSocketMessageType.Close);
+        result.CloseStatus.Should().Be(WebSocketCloseStatus.NormalClosure);
+    }
+
     public enum ForceDisconnectMoment
     {
         BeforeRun,
@@ -119,9 +210,17 @@ public class ConnectionCloseTests
         // Completes with the exception of Connection.Run, null when it returned.
         public TaskCompletionSource<Exception?> Finished { get; } = new();
 
-        private TaskCompletionSource TestEnded { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource CloseStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public static async Task<ConnectionServer> Start(Action<IConnection>? setup = null, ForceDisconnectMoment? forceDisconnect = null, bool disconnectBeforeFirstReceive = false)
+        public TaskCompletionSource SocketDisposed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public static async Task<ConnectionServer> Start(
+            Action<IConnection>? setup = null,
+            ForceDisconnectMoment? forceDisconnect = null,
+            bool disconnectBeforeFirstReceive = false,
+            Task? holdClose = null,
+            bool terminatedParent = false,
+            Lifetime? parent = null)
         {
             var builder = TestWebHost.CreateBuilder("Development");
             var app = builder.Build();
@@ -137,8 +236,16 @@ public class ConnectionCloseTests
                 }
 
                 using var socket = await context.WebSockets.AcceptWebSocketAsync();
-                var hooked = new HookedSocket(socket);
-                var connection = new Connection(hooked, new Lifetime(), NullLogger.Instance);
+                var hooked = new HookedSocket(socket, server!);
+                var connectionParent = parent ?? new Lifetime();
+
+                var connection = new Connection(hooked, connectionParent, NullLogger.Instance);
+
+                if (holdClose != null)
+                    hooked.HoldClose(holdClose);
+
+                if (terminatedParent == true)
+                    connectionParent.Terminate();
 
                 if (disconnectBeforeFirstReceive == true)
                 {
@@ -161,8 +268,7 @@ public class ConnectionCloseTests
 
                 try
                 {
-                    // The read loop is running when the test gets the connection: a ForceDisconnect before it would
-                    // end the receive at once, and the abort of that receive may reset the socket under the close frame.
+                    // The read loop is running when the test gets the connection.
                     var run = connection.Run();
                     server!.Accepted.SetResult(connection);
                     await run;
@@ -172,10 +278,6 @@ public class ConnectionCloseTests
                 {
                     server!.Finished.SetResult(e);
                 }
-
-                // The socket stays open until the test is over: the close of the connection is not awaited by Run, and
-                // a handler that ended before it would reset the socket.
-                await server.TestEnded.Task;
             });
 
             server = new ConnectionServer(await TestWebHost.Start(app));
@@ -221,15 +323,20 @@ public class ConnectionCloseTests
 
         public ValueTask DisposeAsync()
         {
-            TestEnded.SetResult();
             return _host.DisposeAsync();
         }
     }
 
-    // A real socket with a moment to step in right before the first receive.
-    private sealed class HookedSocket(WebSocket socket) : WebSocket
+    // A real socket with a moment to step in right before the first receive and a close frame that goes out late.
+    private sealed class HookedSocket(WebSocket socket, ConnectionServer server) : WebSocket
     {
         private Action<CancellationToken>? _beforeFirstReceive;
+        private Task _holdClose = Task.CompletedTask;
+
+        public void HoldClose(Task hold)
+        {
+            _holdClose = hold;
+        }
 
         public void RunBeforeFirstReceive(Action<CancellationToken> hook)
         {
@@ -265,9 +372,13 @@ public class ConnectionCloseTests
             return socket.SendAsync(buffer, messageType, endOfMessage, cancellationToken);
         }
 
-        public override Task CloseOutputAsync(WebSocketCloseStatus closeStatus, string? statusDescription, CancellationToken cancellationToken)
+        public override async Task CloseOutputAsync(WebSocketCloseStatus closeStatus, string? statusDescription, CancellationToken cancellationToken)
         {
-            return socket.CloseOutputAsync(closeStatus, statusDescription, cancellationToken);
+            server.CloseStarted.TrySetResult();
+            await _holdClose;
+
+            // Past the hold the time of the test is not the time of the socket: the timeout of the close is not its point.
+            await socket.CloseOutputAsync(closeStatus, statusDescription, CancellationToken.None);
         }
 
         public override Task CloseAsync(WebSocketCloseStatus closeStatus, string? statusDescription, CancellationToken cancellationToken)
@@ -283,6 +394,7 @@ public class ConnectionCloseTests
         public override void Dispose()
         {
             socket.Dispose();
+            server.SocketDisposed.TrySetResult();
         }
     }
 }

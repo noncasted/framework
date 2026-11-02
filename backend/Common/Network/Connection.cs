@@ -21,7 +21,6 @@ public class Connection : IConnection
     {
         _webSocket = webSocket;
         _lifetime = parentLifetime.Child();
-        _receiveLifetime = parentLifetime.Child();
         _reader = new ConnectionReader(webSocket, logger);
         _writer = new ConnectionWriter(webSocket, logger);
     }
@@ -32,8 +31,9 @@ public class Connection : IConnection
     private readonly ILifetime _lifetime;
 
     // The pending ReceiveAsync is cancelled only after the close frame went out: cancelling it aborts the socket
-    // (Kestrel), and a forced disconnect reached the client as 1006 instead of a close.
-    private readonly ILifetime _receiveLifetime;
+    // (Kestrel), and a disconnect reached the client as 1006 instead of a close. So it is no child of the parent: the end
+    // of the parent reaches the socket through the close (_lifetime), as a forced disconnect does.
+    private readonly ILifetime _receiveLifetime = new Lifetime();
 
     private readonly ConnectionReader _reader;
     private readonly ConnectionWriter _writer;
@@ -41,6 +41,10 @@ public class Connection : IConnection
     // The read loop of Run is over, or will never start. A close that does not see the start of the loop waits all the
     // same: the loop may be about to receive, and a receive with a cancelled token aborts the socket.
     private readonly TaskCompletionSource _readEnded = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    // The close is over, the close frame went out or the client is gone. Run ends after it: the handler that awaits Run
+    // owns the socket, and a socket that ends with the handler takes the frame with it.
+    private readonly TaskCompletionSource _closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private int _isClosing;
 
@@ -53,9 +57,12 @@ public class Connection : IConnection
         if (_lifetime.IsTerminated == true)
         {
             _readEnded.TrySetResult();
+            OnDisconnected();
+            await _closed.Task;
             throw new InvalidOperationException("Connection is terminated");
         }
 
+        _lifetime.Listen(OnDisconnected);
         _writer.Run(_lifetime).NoAwait();
 
         // A failure of the read loop (a handler of a message that throws) ends the connection too: its lifetime and
@@ -72,6 +79,7 @@ public class Connection : IConnection
                 _lifetime.Terminate();
 
             OnDisconnected();
+            await _closed.Task;
         }
     }
 
@@ -109,6 +117,7 @@ public class Connection : IConnection
         }
         finally
         {
+            _closed.TrySetResult();
             _receiveLifetime.Terminate();
         }
     }
