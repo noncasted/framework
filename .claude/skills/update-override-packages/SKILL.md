@@ -27,7 +27,7 @@ The script is in the skill, the data of the game in `.claude/override-packages/`
 Sources: `builtin` - the package shipped with the project's editor (version from
 `client/ProjectSettings/ProjectVersion.txt`, editors are searched in `$UNITY_EDITORS`, `/tools/unity`,
 `~/Unity/Hub/Editor`), `base` is `<package version>@<editor version>` - editors ship different contents under the
-same package version, so an editor upgrade is always an update; `registry` - `dist-tags.latest` of the registry; `git` - head of `ref`
+same package version, so an editor upgrade is always an update; `registry` - `dist-tags.latest` of the registry; `git` - head of the branch `ref`, or the commit of a tag when `ref` is `refs/tags/<tag>`
 (the `manifest.json` url stays pinned on `base` with `#<commit>`, `update` moves the pin); `repo` - no fetchable upstream
 (Asset Store package such as A* Pathfinding Pro): the pristine copy is the package folder at the `base` commit of this
 repository, `status` always says `up to date`. A new version of a `repo` package is imported by hand: commit the

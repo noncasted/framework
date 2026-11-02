@@ -24,6 +24,9 @@ namespace Internal.Tests
             Assert.AreEqual(UniTaskStatus.Faulted, wait.Status, "the await hangs until the end of the scope");
             Assert.AreEqual(0, updater.UpdateCount, "the failing wait stays on the updater");
 
+            // Observes the fault: otherwise the finalizer of the wait logs it during a later test.
+            Assert.Throws<MissingReferenceException>(() => wait.GetAwaiter().GetResult());
+
             lifetime.Terminate();
         }
 
@@ -40,6 +43,9 @@ namespace Internal.Tests
             Assert.AreEqual(UniTaskStatus.Faulted, wait.Status);
             Assert.AreEqual(0, updater.UpdateCount);
 
+            // Observes the fault: otherwise the finalizer of the wait logs it during a later test.
+            Assert.Throws<InvalidOperationException>(() => wait.GetAwaiter().GetResult());
+
             lifetime.Terminate();
         }
 
@@ -55,6 +61,9 @@ namespace Internal.Tests
 
             Assert.AreEqual(UniTaskStatus.Faulted, wait.Status);
             Assert.AreEqual(0, updater.UpdateCount);
+
+            // Observes the fault: otherwise the finalizer of the wait logs it during a later test.
+            Assert.Throws<InvalidOperationException>(() => wait.GetAwaiter().GetResult());
 
             lifetime.Terminate();
         }
