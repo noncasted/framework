@@ -58,12 +58,6 @@ namespace Global.Cameras
             lifetime.Listen(_clearCamera);
         }
 
-        private void ClearCamera()
-        {
-            _cameraLifetime = null;
-            _value.Set(null);
-        }
-
         public void SetOutputResolution(int width, int height, FullScreenMode mode)
         {
             if (width <= 0 || height <= 0)
@@ -85,6 +79,12 @@ namespace Global.Cameras
                 return;
 
             Screen.SetResolution(_outputWidth, _outputHeight, _outputMode);
+        }
+
+        private void ClearCamera()
+        {
+            _cameraLifetime = null;
+            _value.Set(null);
         }
 
         // Without a resolution set by the game the render textures stay as they are.

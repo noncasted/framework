@@ -47,26 +47,6 @@ namespace Global.Publisher.Itch
             }
         }
 
-        // Only Save writes the key: a value that does not parse or an entry without a key is a broken save.
-        private void Load(string raw)
-        {
-            var container = Parse<SaveEntries>(Key, raw);
-
-            if (container.Entries == null)
-                throw new InvalidOperationException($"[ItchSaves] {Key} has no entries list");
-
-            foreach (var entry in container.Entries)
-            {
-                if (string.IsNullOrEmpty(entry.Key) == true)
-                    throw new InvalidOperationException($"[ItchSaves] {Key} has an entry without a key");
-
-                // The type of the value is not known here: it has to be a JSON object at least, as Save writes it.
-                Parse<SaveValue>(entry.Key, entry.Value);
-
-                _entries[entry.Key] = entry.Value;
-            }
-        }
-
         public T Get<T>() where T : class, new()
         {
             var key = typeof(T).FullName!;
@@ -96,6 +76,26 @@ namespace Global.Publisher.Itch
             PlayerPrefs.Save();
 
             return UniTask.CompletedTask;
+        }
+
+        // Only Save writes the key: a value that does not parse or an entry without a key is a broken save.
+        private void Load(string raw)
+        {
+            var container = Parse<SaveEntries>(Key, raw);
+
+            if (container.Entries == null)
+                throw new InvalidOperationException($"[ItchSaves] {Key} has no entries list");
+
+            foreach (var entry in container.Entries)
+            {
+                if (string.IsNullOrEmpty(entry.Key) == true)
+                    throw new InvalidOperationException($"[ItchSaves] {Key} has an entry without a key");
+
+                // The type of the value is not known here: it has to be a JSON object at least, as Save writes it.
+                Parse<SaveValue>(entry.Key, entry.Value);
+
+                _entries[entry.Key] = entry.Value;
+            }
         }
 
         // JsonUtility throws on malformed JSON and returns null for an empty one: both fail the load.
