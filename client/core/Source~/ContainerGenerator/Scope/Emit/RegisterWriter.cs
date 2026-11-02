@@ -71,7 +71,7 @@ namespace ContainerGenerator {
                     continue;
                 }
 
-                if (PlanHoles.IsRuntimeRegister(registration))
+                if (RegistrationOccurrences.IsRuntimeRegister(registration))
                     AddType(types, registration.ImplementationType);
             }
 
@@ -82,7 +82,7 @@ namespace ContainerGenerator {
             var types = new List<string>();
             for (var i = 0; i < graph.Registrations.Count; i++) {
                 var registration = graph.Registrations[i];
-                if (PlanHoles.IsInstanceKind(registration.Kind) && string.IsNullOrEmpty(registration.ImplementationType) == false)
+                if (RegistrationOccurrences.IsInstanceKind(registration.Kind) && string.IsNullOrEmpty(registration.ImplementationType) == false)
                     types.Add(registration.ImplementationType);
             }
 

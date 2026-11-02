@@ -79,7 +79,7 @@ namespace ContainerGenerator {
 
                 var implementation = registration.Arms[edge.Arm].ImplementationType;
                 return "request.GetParameter<" + edge.ParameterType + ">(typeof(" + implementation + "), " +
-                       PlanHoles.ArmOccurrence(graph, i, implementation).ToString() + ")";
+                       RegistrationOccurrences.ArmOccurrence(graph, i, implementation).ToString() + ")";
             }
 
             throw new InvalidOperationException(
