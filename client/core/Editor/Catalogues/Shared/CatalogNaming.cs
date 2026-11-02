@@ -52,6 +52,18 @@ namespace Internal
             return builder.ToString();
         }
 
+        // The backing field of a generated property: "Hero" gives "_hero".
+        internal static string ToFieldName(string propertyName)
+        {
+            return "_" + char.ToLowerInvariant(propertyName[0]) + propertyName.Substring(1);
+        }
+
+        // Group path "Game.Players" -> "Game_Players": the name of the addressable group, the assets and the class.
+        internal static string ToGroupKey(string groupPath)
+        {
+            return groupPath.Replace('.', '_');
+        }
+
         public static string Sanitize(string name)
         {
             var builder = new StringBuilder(name.Length);
