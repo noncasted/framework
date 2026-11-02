@@ -11,6 +11,8 @@ details live in the linked docs.
 3. **Views and UI are prefabs.** Runtime objects and UI screens come from prefabs with HierarchyBindings or from a
    `PrefabPool<T>`; no `new GameObject` / `AddComponent` / layout in code. Look (sprites, colours, sizes, sorting) lives
    in the prefab, behaviour numbers live in options. (`HIERARCHY_BINDINGS.md`)
+   Exception: what the framework shows without an asset of a game is built from code (the latency overlay of
+   `network`, the outdated client notice of `ui`).
 4. **Data is assets with references.** One EnvAsset per entity (an upgrade, a kind of enemy); references
    between assets, not indices or string names; no writers that regenerate data from code - the assets are the source.
    Shared visual resources go to catalogues (sprites, colours). (`CODEGEN.md`)
