@@ -73,12 +73,12 @@ namespace ContainerGenerator {
 
                 var origin = _walk.WalkMethod(pair.Value[0].Construct, distinct.Count <= 1);
                 if (distinct.Count <= 1) {
-                    origin.ViewType = pair.Value[0].ViewType;
-                    origin.IsRoot = true;
+                    origin.SetViewType(pair.Value[0].ViewType);
+                    origin.SetRoot(true);
                     continue;
                 }
 
-                origin.IsRoot = false;
+                origin.SetRoot(false);
                 var names = VariantNames(distinct);
                 var built = new HashSet<string>(StringComparer.Ordinal);
                 for (var i = 0; i < pair.Value.Count; i++) {

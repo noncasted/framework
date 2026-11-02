@@ -22,7 +22,7 @@ namespace ContainerGenerator {
                 Source = WalkSyntax.Trim(node.ToString()),
                 File = node.SyntaxTree.FilePath ?? "",
                 Line = span.StartLinePosition.Line + 1,
-                Ordinal = state.NextOrdinal++,
+                Ordinal = state.TakeOrdinal(),
                 Location = LocationInfo.CreateFrom(node.GetLocation()),
                 BranchPath = string.Join("/", state.Branches),
             };

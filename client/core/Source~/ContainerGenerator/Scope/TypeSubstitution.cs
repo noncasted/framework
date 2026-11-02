@@ -124,7 +124,7 @@ namespace ContainerGenerator {
             if (typeArgs == null || typeArgs.Count == 0)
                 return copy;
 
-            copy.ImplementationType = Apply(open.ImplementationType, open.TypeMap, typeArgs);
+            copy.Close(Apply(open.ImplementationType, open.TypeMap, typeArgs));
             copy.ServiceTypes.Clear();
             for (var i = 0; i < open.ServiceTypes.Count; i++) {
                 var map = i < open.ServiceMaps.Count ? open.ServiceMaps[i] : "";
@@ -132,12 +132,12 @@ namespace ContainerGenerator {
             }
 
             copy.ServiceMaps.Clear();
-            copy.TypeMap = "";
             for (var i = 0; i < copy.ParameterTypes.Count; i++)
                 copy.ParameterTypes[i] = ReplacePlaceholders(copy.ParameterTypes[i], typeArgs);
             for (var i = 0; i < copy.Arms.Count; i++) {
-                copy.Arms[i].ImplementationType = ReplacePlaceholders(copy.Arms[i].ImplementationType, typeArgs);
-                copy.Arms[i].ParameterType = ReplacePlaceholders(copy.Arms[i].ParameterType, typeArgs);
+                copy.Arms[i].Close(
+                    ReplacePlaceholders(copy.Arms[i].ImplementationType, typeArgs),
+                    ReplacePlaceholders(copy.Arms[i].ParameterType, typeArgs));
             }
 
             return copy;

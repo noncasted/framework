@@ -13,7 +13,7 @@ namespace ContainerGenerator {
             while (string.IsNullOrEmpty(current) == false && visited.Add(current)) {
                 GraphMethod? method = FindMethod(document, current);
                 if (method == null) {
-                    graph.ParentMissing = true;
+                    graph.MarkParentMissing();
                     graph.Diagnostics.Add(ResolveDiagnostics.MissingParentManifest(
                         current,
                         ParentAssemblyOf(document, root, current),

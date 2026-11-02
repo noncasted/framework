@@ -35,7 +35,7 @@ namespace ContainerGenerator {
                 case SyntaxKind.ConditionalExpression:
                     var conditional = (ConditionalExpressionSyntax)expression;
                     WalkExpression(state, conditional.Condition, true);
-                    var conditionalBranch = state.NextBranch++;
+                    var conditionalBranch = state.TakeBranch();
                     state.Branches.Add(conditionalBranch + ".0");
                     WalkExpression(state, conditional.WhenTrue);
                     state.Branches[state.Branches.Count - 1] = conditionalBranch + ".1";
@@ -202,7 +202,7 @@ namespace ContainerGenerator {
                 return;
 
             WalkExpression(state, syntax.GoverningExpression, true);
-            var branch = state.NextBranch++;
+            var branch = state.TakeBranch();
             for (var i = 0; i < syntax.Arms.Count; i++) {
                 state.Branches.Add(branch + "." + i);
                 WalkExpression(state, syntax.Arms[i].Expression);

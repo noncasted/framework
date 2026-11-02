@@ -20,25 +20,25 @@ namespace ContainerGenerator {
                 if (slot.IsAlternative && slot.IsGroupPrimary == false)
                     continue;
 
-                slot.HasField = true;
+                string fieldType;
                 if (slot.IsAlternative && slot.IsGroupPrimary) {
                     // One member: its own type (its [Inject] and every service are reachable). Several: what they share.
-                    slot.FieldType = slot.GroupMembers.Count == 1
+                    fieldType = slot.GroupMembers.Count == 1
                         ? slot.ImplementationType
                         : CommonService(graph, slot.GroupMembers);
-                    if (string.IsNullOrEmpty(slot.FieldType))
-                        slot.FieldType = "object";
+                    if (string.IsNullOrEmpty(fieldType))
+                        fieldType = "object";
                 }
                 else {
-                    slot.FieldType = string.IsNullOrEmpty(slot.ImplementationType)
+                    fieldType = string.IsNullOrEmpty(slot.ImplementationType)
                         ? slot.Registration.FirstService()
                         : slot.ImplementationType;
                 }
 
-                if (string.IsNullOrEmpty(slot.FieldType))
-                    slot.FieldType = "object";
+                if (string.IsNullOrEmpty(fieldType))
+                    fieldType = "object";
 
-                slot.FieldName = ScopeNames.Field(slot.FieldType, used);
+                slot.AssignField(fieldType, ScopeNames.Field(fieldType, used));
                 plan.Fields.Add(new ScopePlan.Field {
                     Type = slot.FieldType,
                     Name = slot.FieldName,
@@ -48,9 +48,7 @@ namespace ContainerGenerator {
                 if (slot.IsAlternative) {
                     for (var m = 0; m < slot.GroupMembers.Count; m++) {
                         var member = plan.Slots[slot.GroupMembers[m]];
-                        member.FieldName = slot.FieldName;
-                        member.FieldType = slot.FieldType;
-                        member.HasField = member.IsGroupPrimary;
+                        member.ShareField(slot.FieldType, slot.FieldName);
                     }
                 }
             }

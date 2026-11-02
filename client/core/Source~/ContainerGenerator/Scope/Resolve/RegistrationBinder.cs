@@ -74,7 +74,7 @@ namespace ContainerGenerator {
 
             // An [Inject] without parameters gives no edges: the emitter needs the method name separately.
             if (arm < 0)
-                registration.InjectMethod = model.ConstructName;
+                registration.BindInjectMethod(model.ConstructName);
 
             if (constructs)
                 ParameterBinder.BindParameters(context, ownerIndex, model.ConstructorParameters, "Constructor", arm, armParameterType);
@@ -92,15 +92,13 @@ namespace ContainerGenerator {
             };
 
             if (context.LastByType.TryGetValue(type, out var target)) {
-                edge.Kind = "Registration";
-                edge.TargetIndex = target;
+                edge.BindRegistration(target);
             }
             else if (context.ParentExports.TryGetValue(type, out var parentId)) {
-                edge.Kind = "Hole";
-                edge.ParentRootId = parentId;
+                edge.BindParent(parentId);
             }
             else {
-                edge.Kind = "Missing";
+                edge.Bind("Missing");
                 context.Graph.Diagnostics.Add(ResolveDiagnostics.Missing(registration, new ParameterModel(type, "discriminant")));
             }
 

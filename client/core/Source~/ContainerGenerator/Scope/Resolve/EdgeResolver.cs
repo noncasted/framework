@@ -66,7 +66,8 @@ namespace ContainerGenerator {
                 ViewType = root.ViewType,
             };
             RegistrationFlattener.Flatten(document, root, graph.Registrations);
-            graph.ParentMissing = root.ParentUnresolved;
+            if (root.ParentUnresolved)
+                graph.MarkParentMissing();
 
             var index = new TypeIndex(compilation);
             var implicitTypes = ServiceIndex.ImplicitTypes(compilation, index);

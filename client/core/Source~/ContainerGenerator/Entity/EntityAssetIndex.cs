@@ -5,8 +5,8 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ContainerGenerator {
     internal sealed class EntityAssetIndex {
-        public List<EntityAsset> Assets = new List<EntityAsset>();
-        public List<DiagnosticInfo> Diagnostics = new List<DiagnosticInfo>();
+        public List<EntityAsset> Assets { get; } = new List<EntityAsset>();
+        public List<DiagnosticInfo> Diagnostics { get; } = new List<DiagnosticInfo>();
 
         public EntityAsset? Find(string holderType) {
             var key = Normalize(holderType);

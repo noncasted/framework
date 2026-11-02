@@ -52,8 +52,7 @@ namespace ContainerGenerator {
                 var name = attribute.ConstructorArguments[1].Value as string;
                 if (type == null || string.IsNullOrEmpty(name))
                     continue;
-                result.ParentHint = TypeNames.ForMetadata(type) + "." + name;
-                result.ParentAssembly = type.ContainingAssembly?.Name ?? "";
+                result.SetParent(TypeNames.ForMetadata(type) + "." + name, type.ContainingAssembly?.Name ?? "");
                 return true;
             }
 

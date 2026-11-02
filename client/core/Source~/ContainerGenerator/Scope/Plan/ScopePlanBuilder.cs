@@ -33,32 +33,41 @@ namespace ContainerGenerator {
                 throw new InvalidOperationException(
                     "Scope root '" + graph.RootId + "' has no source in this assembly: the assembly that declares it has to build the scope.");
 
-            var plan = new ScopePlan { RootId = graph.RootId };
-            ScopeNames.ParseRoot(graph.RootId, out plan.Namespace, out var typeName, out var methodName, out plan.ClassName);
+            ScopeNames.ParseRoot(graph.RootId, out var ns, out var typeName, out var methodName, out var className);
             // Named by the outer method while it has one root. Variants and several roots that are local
             // functions of one method are named by the local function, otherwise the class and the hint would collide.
             if (string.IsNullOrEmpty(graph.Variant) == false || HasSiblingRoots(document, graph.RootId)) {
                 var constructName = ConstructMethodName(graph.RootId, methodName);
-                plan.ClassName = typeName + constructName + graph.Variant + "Container";
+                className = typeName + constructName + graph.Variant + "Container";
             }
 
-            plan.HintName = plan.ClassName + ".g.cs";
-            plan.ViewType = graph.ViewType ?? "";
-            plan.OriginRootId = graph.RootId;
+            var originRootId = graph.RootId;
             if (string.IsNullOrEmpty(graph.Variant) == false &&
                 graph.RootId.EndsWith("+" + graph.Variant, StringComparison.Ordinal))
-                plan.OriginRootId = graph.RootId.Substring(0, graph.RootId.Length - graph.Variant.Length - 1);
-            plan.HasContainerInterface = compilation.GetTypeByMetadataName("Internal.IContainer") != null;
-            plan.HasUnityGameObject = compilation.GetTypeByMetadataName("UnityEngine.GameObject") != null;
-            plan.HasDiagnosticsType = compilation.GetTypeByMetadataName("Internal.IContainerDiagnostics") != null;
-            plan.HasRegistrationInfo = compilation.GetTypeByMetadataName("Internal.RegistrationInfo") != null;
-            plan.HasServiceLifetime = compilation.GetTypeByMetadataName("Internal.ServiceLifetime") != null;
-            plan.HasRuntimeInitialize = references.RuntimeInitialize != null;
-            plan.HasContainerDiagnostics = plan.HasDiagnosticsType && plan.HasRegistrationInfo && plan.HasServiceLifetime &&
-                                           compilation.GetTypeByMetadataName("Internal.ContainerDiagnostics") != null &&
-                                           compilation.GetTypeByMetadataName("Internal.ContainerRegistryDebug") != null;
-            plan.ProvidesDefinition = compilation.GetTypeByMetadataName("Internal.IProvides`1");
-            plan.HasProvides = plan.ProvidesDefinition != null;
+                originRootId = graph.RootId.Substring(0, graph.RootId.Length - graph.Variant.Length - 1);
+            var hasDiagnosticsType = compilation.GetTypeByMetadataName("Internal.IContainerDiagnostics") != null;
+            var hasRegistrationInfo = compilation.GetTypeByMetadataName("Internal.RegistrationInfo") != null;
+            var hasServiceLifetime = compilation.GetTypeByMetadataName("Internal.ServiceLifetime") != null;
+            var providesDefinition = compilation.GetTypeByMetadataName("Internal.IProvides`1");
+            var plan = new ScopePlan {
+                RootId = graph.RootId,
+                Namespace = ns,
+                ClassName = className,
+                HintName = className + ".g.cs",
+                ViewType = graph.ViewType ?? "",
+                OriginRootId = originRootId,
+                HasContainerInterface = compilation.GetTypeByMetadataName("Internal.IContainer") != null,
+                HasUnityGameObject = compilation.GetTypeByMetadataName("UnityEngine.GameObject") != null,
+                HasDiagnosticsType = hasDiagnosticsType,
+                HasRegistrationInfo = hasRegistrationInfo,
+                HasServiceLifetime = hasServiceLifetime,
+                HasRuntimeInitialize = references.RuntimeInitialize != null,
+                HasContainerDiagnostics = hasDiagnosticsType && hasRegistrationInfo && hasServiceLifetime &&
+                                          compilation.GetTypeByMetadataName("Internal.ContainerDiagnostics") != null &&
+                                          compilation.GetTypeByMetadataName("Internal.ContainerRegistryDebug") != null,
+                ProvidesDefinition = providesDefinition,
+                HasProvides = providesDefinition != null,
+            };
 
             var types = new TypeIndex(compilation);
             var used = new HashSet<string>(StringComparer.Ordinal);

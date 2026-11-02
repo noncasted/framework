@@ -22,23 +22,23 @@ namespace ContainerGenerator {
 
                 var symbol = types.Find(registration.ImplementationType);
                 if (symbol != null)
-                    slot.IsUnity = IsUnityObject(symbol);
+                    slot.SetUnity(IsUnityObject(symbol));
 
                 if (slot.IsUnity && slot.IsHole == false && slot.IsSwitch == false && slot.IsTransient == false)
-                    slot.IsHole = true;
+                    slot.MarkHole();
 
                 if (slot.IsSwitch)
-                    slot.CreateMethod = ScopeNames.CreateMethod(
+                    slot.SetCreateMethod(ScopeNames.CreateMethod(
                         string.IsNullOrEmpty(registration.ImplementationType)
                             ? registration.FirstService()
                             : registration.ImplementationType,
-                        used);
+                        used));
 
                 if (slot.IsTransient && slot.SkipEmit == false)
-                    slot.CreateMethod = ScopeNames.CreateMethod(registration.ImplementationType, used);
+                    slot.SetCreateMethod(ScopeNames.CreateMethod(registration.ImplementationType, used));
 
                 if (slot.IsTransient && slot.IsAlternative) {
-                    slot.RegisteredField = ScopeNames.Unique("_is" + ScopeNames.Short(registration.ImplementationType) + "Registered", used);
+                    slot.SetRegisteredField(ScopeNames.Unique("_is" + ScopeNames.Short(registration.ImplementationType) + "Registered", used));
                     plan.Fields.Add(new ScopePlan.Field { Type = "bool", Name = slot.RegisteredField });
                 }
 
@@ -54,9 +54,7 @@ namespace ContainerGenerator {
                 var primary = members[members.Count - 1];
                 for (var i = 0; i < members.Count; i++) {
                     var slot = plan.Slots[members[i]];
-                    slot.GroupMembers.Clear();
-                    slot.GroupMembers.AddRange(members);
-                    slot.IsGroupPrimary = members[i] == primary;
+                    slot.JoinGroup(members, members[i] == primary);
                 }
             }
         }

@@ -93,7 +93,7 @@ namespace ContainerGenerator {
             if (_methods.TryGetValue(id, out var existing)) {
                 ReportIfOverloaded(id, method);
                 if (isRoot)
-                    existing.IsRoot = true;
+                    existing.SetRoot(true);
                 return existing;
             }
 
@@ -164,8 +164,7 @@ namespace ContainerGenerator {
             _methods[id] = result;
             FillMethod(result, method, bools, true);
             if (string.IsNullOrEmpty(result.ParentHint) && _methods.TryGetValue(origin, out var originMethod)) {
-                result.ParentHint = originMethod.ParentHint;
-                result.ParentAssembly = originMethod.ParentAssembly;
+                result.SetParent(originMethod.ParentHint, originMethod.ParentAssembly);
             }
 
             return result;
@@ -189,21 +188,18 @@ namespace ContainerGenerator {
             // A method of a referenced assembly: its body comes from the manifest of that assembly (ManifestReader),
             // so it belongs there and is not exported again with the manifest of this one.
             if (syntax == null || model == null) {
-                result.File = "";
-                result.Line = 0;
+                result.Locate("", 0);
                 if (reference == null && syntaxSource.ContainingAssembly != null)
-                    result.AssemblyName = syntaxSource.ContainingAssembly.Name;
+                    result.SetAssemblyName(syntaxSource.ContainingAssembly.Name);
                 return;
             }
 
             var location = syntax.GetLocation().GetLineSpan();
-            result.File = syntax.SyntaxTree.FilePath ?? "";
-            result.Line = location.StartLinePosition.Line + 1;
+            result.Locate(syntax.SyntaxTree.FilePath ?? "", location.StartLinePosition.Line + 1);
             if (string.IsNullOrEmpty(result.ParentHint))
                 _installerClassifier.AssignParent(method, result);
 
-            var state = new WalkState(method, model, result);
-            state.EntityRoot = entityRoot;
+            var state = new WalkState(method, model, result) { EntityRoot = entityRoot };
             if (bools != null) {
                 foreach (var pair in bools)
                     state.Bools[pair.Key] = pair.Value;
@@ -238,7 +234,7 @@ namespace ContainerGenerator {
                 _walkDiagnostics.Error(state, syntax, "accessor");
 
             if (_installerClassifier.IsRegistrationLike(method.ReturnType) && state.LastRegistration != null)
-                result.ReturnedOrdinal = state.LastRegistration.Ordinal;
+                result.SetReturnedOrdinal(state.LastRegistration.Ordinal);
         }
     }
 }

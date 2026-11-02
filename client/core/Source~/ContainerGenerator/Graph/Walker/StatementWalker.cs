@@ -104,7 +104,7 @@ namespace ContainerGenerator {
                     GraphDescriptors.UnenumerableVariant);
             }
 
-            var branch = state.NextBranch++;
+            var branch = state.TakeBranch();
             state.Branches.Add(branch + ".0");
             WalkStatement(state, syntax.Statement);
             state.Branches.RemoveAt(state.Branches.Count - 1);
@@ -117,7 +117,7 @@ namespace ContainerGenerator {
 
         private void WalkSwitchStatement(WalkState state, SwitchStatementSyntax syntax) {
             _walk.WalkExpression(state, syntax.Expression, allowUnknown: true);
-            var branch = state.NextBranch++;
+            var branch = state.TakeBranch();
             for (var i = 0; i < syntax.Sections.Count; i++) {
                 state.Branches.Add(branch + "." + i);
                 foreach (var statement in syntax.Sections[i].Statements)
@@ -148,7 +148,7 @@ namespace ContainerGenerator {
             if (expression is IdentifierNameSyntax identifier &&
                 state.Locals.TryGetValue(identifier.Identifier.Text, out var local) &&
                 local.Registration != null)
-                state.LastRegistration = local.Registration;
+                state.SetLastRegistration(local.Registration);
         }
 
         private void WalkLocalDeclaration(WalkState state, LocalDeclarationStatementSyntax syntax) {
@@ -162,8 +162,7 @@ namespace ContainerGenerator {
                 if (variable.Initializer != null) {
                     var value = WalkSyntax.Unwrap(variable.Initializer.Value);
                     if (value is SwitchExpressionSyntax switchExpression && _switchRegistrations.TryReadRegisterSwitch(state, switchExpression, out var registration)) {
-                        local.IsSwitch = true;
-                        local.Registration = registration;
+                        local.BindSwitch(registration);
                         state.Result.Registrations.Add(registration);
                     }
                     else {

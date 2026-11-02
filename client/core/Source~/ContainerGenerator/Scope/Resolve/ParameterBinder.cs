@@ -24,46 +24,41 @@ namespace ContainerGenerator {
 
                 if (string.IsNullOrEmpty(armParameterType) == false && context.Types.IsAssignable(armParameterType, parameter.TypeFullName)) {
                     // WithParameter of its own arm: at runtime the builder holds only the value of the chosen arm.
-                    edge.Kind = "ArmParameter";
+                    edge.Bind("ArmParameter");
                 }
                 else if (TakesOwnParameter(context, registration, parameter)) {
                     // The value of its own WithParameter wins over any registration of the type and over what the
                     // scope gives by itself (the container, the lifetimes).
-                    edge.Kind = arm >= 0 ? "ArmParameter" : "Hole";
+                    edge.Bind(arm >= 0 ? "ArmParameter" : "Hole");
                 }
                 else if (context.LastByType.TryGetValue(parameter.TypeFullName, out var target)) {
-                    edge.Kind = "Registration";
-                    edge.TargetIndex = target;
+                    edge.BindRegistration(target);
                     WarnIfAmbiguous(context, registration, parameter, target);
                 }
                 else if (CollectionTypes.TryElement(parameter.TypeFullName, out var element) &&
                          context.AllByType.TryGetValue(element, out var indices)) {
-                    edge.Kind = "Collection";
-                    edge.CollectionIndices.AddRange(indices);
-                    if (indices.Count > 0)
-                        edge.TargetIndex = indices[indices.Count - 1];
+                    edge.BindCollection(indices);
                 }
                 else if (context.ImplicitTypes.Contains(parameter.TypeFullName)) {
-                    edge.Kind = "Implicit";
+                    edge.Bind("Implicit");
                 }
                 else if (CollectionTypes.TryElement(parameter.TypeFullName, out _) &&
                          context.ParentExports.ContainsKey(parameter.TypeFullName) == false) {
                     // A collection is always ResolveAll of its own scope (like ContainerLocal<IReadOnlyList<T>>): an empty list.
-                    edge.Kind = "Collection";
+                    edge.Bind("Collection");
                 }
                 else if (context.ParentExports.TryGetValue(parameter.TypeFullName, out var parentId)) {
-                    edge.Kind = "Hole";
-                    edge.ParentRootId = parentId;
+                    edge.BindParent(parentId);
                 }
                 else if (CollectionTypes.TryElement(parameter.TypeFullName, out _)) {
                     // No registration of the element in the scope: an empty array, as ResolveAll gives.
-                    edge.Kind = "Collection";
+                    edge.Bind("Collection");
                 }
                 else if (graph.ParentMissing) {
-                    edge.Kind = "Missing";
+                    edge.Bind("Missing");
                 }
                 else {
-                    edge.Kind = "Missing";
+                    edge.Bind("Missing");
                     graph.Diagnostics.Add(ResolveDiagnostics.Missing(registration, parameter));
                 }
 

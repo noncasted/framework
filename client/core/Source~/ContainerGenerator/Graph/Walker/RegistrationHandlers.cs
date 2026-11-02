@@ -30,16 +30,15 @@ namespace ContainerGenerator {
             }
 
             var registration = RegistrationFactory.NewRegistration(state, invocation, "Register", implementation, "ConstructedType");
-            registration.TypeMap = implementationMap;
-            registration.Lifetime = _lifetimeReader.ReadLifetime(state, invocation, symbol);
+            registration.SetTypeMap(implementationMap);
+            registration.SetLifetime(_lifetimeReader.ReadLifetime(state, invocation, symbol));
             if (string.IsNullOrEmpty(implementation) == false && string.IsNullOrEmpty(service))
                 registration.AddService(implementation, implementationMap);
             if (string.IsNullOrEmpty(service) == false)
                 registration.AddService(service, serviceMap);
 
             state.Result.Registrations.Add(registration);
-            state.LastRegistration = registration;
-            state.LastCallIndex = -1;
+            state.RememberRegistration(registration);
         }
 
         public void HandleRegisterInstance(WalkState state, InvocationExpressionSyntax invocation, IMethodSymbol? symbol) {
@@ -50,10 +49,9 @@ namespace ContainerGenerator {
                 : argument != null ? state.Format(state.Model.GetTypeInfo(argument).Type) : "";
             var origin = RegistrationFactory.ClassifyValue(state, argument);
             var registration = RegistrationFactory.NewRegistration(state, invocation, "RegisterInstance", implementation, origin);
-            registration.Hole = argument != null ? argument.ToString() : "";
+            registration.SetHole(argument != null ? argument.ToString() : "");
             state.Result.Registrations.Add(registration);
-            state.LastRegistration = registration;
-            state.LastCallIndex = -1;
+            state.RememberRegistration(registration);
         }
 
         public void HandleRegisterComponent(WalkState state, InvocationExpressionSyntax invocation, IMethodSymbol? symbol) {
@@ -68,13 +66,12 @@ namespace ContainerGenerator {
             if (origin == "InstanceHole" && argument != null && RegistrationFactory.LooksLikePrefabAsset(argument))
                 origin = "PrefabAsset";
             var registration = RegistrationFactory.NewRegistration(state, invocation, "RegisterComponent", implementation, origin);
-            registration.Lifetime = _lifetimeReader.ReadLifetime(state, invocation, symbol);
-            registration.Hole = argument != null ? argument.ToString() : "";
+            registration.SetLifetime(_lifetimeReader.ReadLifetime(state, invocation, symbol));
+            registration.SetHole(argument != null ? argument.ToString() : "");
             if (string.IsNullOrEmpty(implementation) == false)
                 registration.AddService(implementation);
             state.Result.Registrations.Add(registration);
-            state.LastRegistration = registration;
-            state.LastCallIndex = -1;
+            state.RememberRegistration(registration);
         }
 
         public void HandleAs(WalkState state, InvocationExpressionSyntax invocation, IMethodSymbol? symbol) {
@@ -133,10 +130,9 @@ namespace ContainerGenerator {
             var argument = invocation.ArgumentList.Arguments.Count > 0 ? invocation.ArgumentList.Arguments[0].Expression : null;
             var implementation = argument != null ? state.Format(state.Model.GetTypeInfo(argument).Type) : "";
             var registration = RegistrationFactory.NewRegistration(state, invocation, "Inject", implementation, "InjectExisting");
-            registration.Hole = argument != null ? argument.ToString() : "";
+            registration.SetHole(argument != null ? argument.ToString() : "");
             state.Result.Registrations.Add(registration);
-            state.LastRegistration = registration;
-            state.LastCallIndex = -1;
+            state.RememberRegistration(registration);
         }
 
         // builder.Injectable<T>(): the type does not resolve, the scope only calls its [Inject] for runtime instances.
@@ -150,17 +146,16 @@ namespace ContainerGenerator {
             }
 
             var registration = RegistrationFactory.NewRegistration(state, invocation, "Injectable", implementation, "Injectable");
-            registration.TypeMap = implementationMap;
+            registration.SetTypeMap(implementationMap);
             state.Result.Registrations.Add(registration);
-            state.LastRegistration = null;
-            state.LastCallIndex = -1;
+            state.RememberRegistration(null);
         }
 
         public void HandleInstantiate(WalkState state, InvocationExpressionSyntax invocation) {
             _walk.WalkReceiver(state, invocation);
             foreach (var argument in invocation.ArgumentList.Arguments)
                 _walk.WalkExpression(state, argument.Expression, true);
-            state.LastInstantiate = invocation;
+            state.SetLastInstantiate(invocation);
         }
 
         public void HandleSceneServices(WalkState state, InvocationExpressionSyntax invocation) {
@@ -169,7 +164,7 @@ namespace ContainerGenerator {
                 ? invocation.ArgumentList.Arguments[0].Expression.ToString()
                 : "";
             var registration = RegistrationFactory.NewRegistration(state, invocation, "SceneServices", "", "SceneServices");
-            registration.Hole = argument;
+            registration.SetHole(argument);
             state.Result.Registrations.Add(registration);
         }
 

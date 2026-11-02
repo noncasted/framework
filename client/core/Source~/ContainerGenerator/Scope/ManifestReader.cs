@@ -33,18 +33,13 @@ namespace ContainerGenerator {
                             local.CallAsServices.AddRange(method.CallAsServices);
                             local.CallHoles.AddRange(method.CallHoles);
                             local.CallParameters.AddRange(method.CallParameters);
-                            if (local.ReturnedOrdinal < 0)
-                                local.ReturnedOrdinal = method.ReturnedOrdinal;
-                            if (string.IsNullOrEmpty(local.File))
-                                local.File = method.File;
-                            if (local.Line == 0)
-                                local.Line = method.Line;
+                            local.FillMissingFrom(method);
                         }
 
                         if (string.IsNullOrEmpty(local.ParentHint) && string.IsNullOrEmpty(method.ParentId) == false)
-                            local.ParentHint = method.ParentId;
+                            local.SetParentHint(method.ParentId);
                         if (string.IsNullOrEmpty(local.ParentId) && string.IsNullOrEmpty(method.ParentId) == false)
-                            local.ParentId = method.ParentId;
+                            local.SetParentId(method.ParentId);
                         continue;
                     }
 

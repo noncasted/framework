@@ -45,7 +45,7 @@ namespace ContainerGenerator {
                     _walkDiagnostics.Error(state, invocation, "a transient Register in a switch arm, a switch arm is built once");
             }
 
-            state.LastRegistration = registration;
+            state.SetLastRegistration(registration);
             return true;
         }
 
@@ -76,8 +76,7 @@ namespace ContainerGenerator {
                 foreach (var existing in target.Arms) {
                     if (existing.Discriminant == discriminant)
                         {
-                        existing.ParameterExpression = argument;
-                        existing.ParameterType = argumentType;
+                        existing.SetParameter(argument, argumentType);
                     }
                 }
 

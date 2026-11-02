@@ -16,7 +16,7 @@ namespace ContainerGenerator {
 
                 var id = MatchParent(document, hint);
                 if (string.IsNullOrEmpty(id)) {
-                    method.ParentUnresolved = true;
+                    method.MarkParentUnresolved();
                     // A root from the manifest of another assembly: its parent is checked by the assembly that owns it.
                     if (string.IsNullOrEmpty(method.AssemblyName) == false &&
                         string.Equals(method.AssemblyName, document.AssemblyName, StringComparison.Ordinal) == false)
@@ -28,7 +28,7 @@ namespace ContainerGenerator {
                     continue;
                 }
 
-                method.ParentId = id;
+                method.SetParentId(id);
             }
         }
 

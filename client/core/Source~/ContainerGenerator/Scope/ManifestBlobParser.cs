@@ -20,8 +20,8 @@ namespace ContainerGenerator {
 
             var index = 1;
             if (index < lines.Length && lines[index].StartsWith("parent:", StringComparison.Ordinal)) {
-                method.ParentId = lines[index].Substring("parent:".Length);
-                method.ParentHint = method.ParentId;
+                method.SetParentId(lines[index].Substring("parent:".Length));
+                method.SetParentHint(method.ParentId);
                 index++;
             }
 
@@ -39,7 +39,7 @@ namespace ContainerGenerator {
             }
 
             if (index < lines.Length && lines[index].StartsWith("return:", StringComparison.Ordinal)) {
-                method.ReturnedOrdinal = ParseInt(lines[index].Substring("return:".Length));
+                method.SetReturnedOrdinal(ParseInt(lines[index].Substring("return:".Length)));
                 index++;
             }
 
@@ -122,15 +122,13 @@ namespace ContainerGenerator {
                 for (var a = 0; a < armCount && index < lines.Length; a++) {
                     var armFields = ManifestBlobFormat.SplitFields(lines[index]);
                     index++;
-                    var arm = new GraphSwitchArm();
-                    if (armFields.Length > 0)
-                        arm.Discriminant = ManifestBlobFormat.Unescape(armFields[0]);
-                    if (armFields.Length > 1)
-                        arm.ImplementationType = ManifestBlobFormat.Unescape(armFields[1]);
-                    if (armFields.Length > 2)
-                        arm.ParameterExpression = ManifestBlobFormat.Unescape(armFields[2]);
-                    if (armFields.Length > 3)
-                        arm.ParameterType = ManifestBlobFormat.Unescape(armFields[3]);
+                    var arm = new GraphSwitchArm {
+                        Discriminant = armFields.Length > 0 ? ManifestBlobFormat.Unescape(armFields[0]) : "",
+                        ImplementationType = armFields.Length > 1 ? ManifestBlobFormat.Unescape(armFields[1]) : "",
+                    };
+                    arm.SetParameter(
+                        armFields.Length > 2 ? ManifestBlobFormat.Unescape(armFields[2]) : "",
+                        armFields.Length > 3 ? ManifestBlobFormat.Unescape(armFields[3]) : "");
                     registration.Arms.Add(arm);
                 }
 

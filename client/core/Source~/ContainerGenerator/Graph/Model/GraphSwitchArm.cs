@@ -1,9 +1,21 @@
 namespace ContainerGenerator {
     internal sealed class GraphSwitchArm {
-        public string Discriminant = "";
-        public string ImplementationType = "";
-        public string ParameterExpression = "";
-        public string ParameterType = "";
+        private string _implementationType = "";
+
+        public string Discriminant { get; init; } = "";
+        public string ImplementationType { get => _implementationType; init => _implementationType = value; }
+        public string ParameterExpression { get; private set; } = "";
+        public string ParameterType { get; private set; } = "";
+
+        public void SetParameter(string expression, string type) {
+            ParameterExpression = expression;
+            ParameterType = type;
+        }
+
+        public void Close(string implementationType, string parameterType) {
+            _implementationType = implementationType;
+            ParameterType = parameterType;
+        }
 
         public GraphSwitchArm Clone() {
             return new GraphSwitchArm {

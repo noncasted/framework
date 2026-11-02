@@ -110,7 +110,7 @@ namespace ContainerGenerator {
                 _walk.WalkReceiver(state, invocation);
                 var callee = _walk.WalkMethod(symbol, false, linkToContainer: false);
                 AddCall(state, callee.Id, symbol);
-                state.LastRegistration = null;
+                state.SetLastRegistration(null);
                 return;
             }
 
@@ -144,12 +144,12 @@ namespace ContainerGenerator {
 
             var typeArgs = TypeSubstitution.EncodeTypeArgs(constructed);
             if (string.IsNullOrEmpty(typeArgs) && state.Result.Calls.Contains(id)) {
-                state.LastCallIndex = state.Result.Calls.IndexOf(id);
+                state.SetLastCall(state.Result.Calls.IndexOf(id));
                 return;
             }
 
-            state.Result.AddCall(id, state.NextOrdinal++, typeArgs);
-            state.LastCallIndex = state.Result.Calls.Count - 1;
+            state.Result.AddCall(id, state.TakeOrdinal(), typeArgs);
+            state.SetLastCall(state.Result.Calls.Count - 1);
         }
 
         private bool HasSyntax(IMethodSymbol method) {

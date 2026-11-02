@@ -16,7 +16,7 @@ namespace ContainerGenerator {
             });
 
             // The parameters of switch arms are taken from the request when the chosen arm is built.
-            plan.NeedsRequest = HasArmParameters(graph) || plan.AlternativeGroups.Count > 0 || HasTransientAlternative(plan);
+            plan.SetNeedsRequest(HasArmParameters(graph) || plan.AlternativeGroups.Count > 0 || HasTransientAlternative(plan));
             if (plan.NeedsRequest) {
                 used.Add("request");
                 plan.CtorParams.Add(new ScopePlan.CtorParam {
@@ -38,7 +38,7 @@ namespace ContainerGenerator {
                 if (preferred.IndexOf(';') >= 0)
                     preferred = preferred.Substring(0, preferred.IndexOf(';')).Trim();
 
-                slot.CtorParamName = ScopeNames.Parameter(preferred, slot.FieldType, used);
+                slot.SetCtorParam(ScopeNames.Parameter(preferred, slot.FieldType, used));
                 var isInstance = RegistrationOccurrences.IsInstanceKind(slot.Registration.Kind);
                 plan.CtorParams.Add(new ScopePlan.CtorParam {
                     Type = slot.FieldType,
@@ -54,15 +54,13 @@ namespace ContainerGenerator {
                     continue;
 
                 if (injectionsByType.TryGetValue(slot.FieldType, out var owner)) {
-                    slot.InjectionsParamName = owner.InjectionsParamName;
-                    slot.InjectionsIndexName = owner.InjectionsIndexName;
-                    slot.IsInjectionsRepeat = true;
+                    slot.RepeatInjections(owner);
                     continue;
                 }
 
                 injectionsByType.Add(slot.FieldType, slot);
-                slot.InjectionsParamName = ScopeNames.Unique(slot.CtorParamName.TrimStart('@') + "Injections", used);
-                slot.InjectionsIndexName = ScopeNames.Unique(slot.CtorParamName.TrimStart('@') + "Index", used);
+                var injectionsParam = ScopeNames.Unique(slot.CtorParamName.TrimStart('@') + "Injections", used);
+                slot.OwnInjections(injectionsParam, ScopeNames.Unique(slot.CtorParamName.TrimStart('@') + "Index", used));
                 plan.CtorParams.Add(new ScopePlan.CtorParam {
                     Type = slot.FieldType + "[]",
                     Name = slot.InjectionsParamName,

@@ -11,21 +11,20 @@ namespace ContainerGenerator {
 
         public void ApplyAssignment(WalkState state, WalkLocal local, ExpressionSyntax value) {
             value = WalkSyntax.Unwrap(value);
-            local.Type = state.Model.GetTypeInfo(value).Type;
+            local.SetType(state.Model.GetTypeInfo(value).Type);
             if (value is InvocationExpressionSyntax invocation) {
                 var primitive = Primitives.Of(state.Model.GetSymbolInfo(invocation).Symbol as IMethodSymbol, WalkSyntax.MethodName(invocation));
                 if (primitive == PrimitiveKind.Instantiate) {
-                    local.FromInstantiate = true;
-                    local.IsBuilder = false;
+                    local.MarkInstantiated();
                     return;
                 }
 
                 if (Primitives.IsRegistration(primitive) || primitive == PrimitiveKind.As || primitive == PrimitiveKind.WithParameter)
-                    local.Registration = state.LastRegistration;
+                    local.SetRegistration(state.LastRegistration);
                 if (state.LastCallIndex >= 0)
-                    local.ReturnedCallIndex = state.LastCallIndex;
+                    local.SetReturnedCall(state.LastCallIndex);
                 if (_installerClassifier.IsBuilderLike(local.Type))
-                    local.IsBuilder = true;
+                    local.MarkBuilder();
             }
 
             if (local.IsBuilder)

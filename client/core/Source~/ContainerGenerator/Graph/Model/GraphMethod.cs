@@ -2,27 +2,81 @@ using System.Collections.Generic;
 
 namespace ContainerGenerator {
     internal sealed class GraphMethod {
-        public string Id = "";
-        public string OriginId = "";
-        public string ParentHint = "";
-        public string ParentId = "";
-        public string ParentAssembly = "";
-        public string AssemblyName = "";
-        public bool ParentUnresolved;
-        public bool IsRoot;
-        public string File = "";
-        public int Line;
-        public string ViewType = "";
-        public string Variant = "";
-        public List<GraphRegistration> Registrations = new List<GraphRegistration>();
-        public List<string> Calls = new List<string>();
-        public List<int> CallOrdinals = new List<int>();
-        public List<string> CallTypeArguments = new List<string>();
-        public List<string> CallAsServices = new List<string>();
-        public List<string> CallHoles = new List<string>();
+        private string _assemblyName = "";
+        private bool _isRoot;
+        private string _file = "";
+        private int _line;
+        private string _viewType = "";
+
+        public string Id { get; init; } = "";
+        public string OriginId { get; init; } = "";
+        public string ParentHint { get; private set; } = "";
+        public string ParentId { get; private set; } = "";
+        public string ParentAssembly { get; private set; } = "";
+        public string AssemblyName { get => _assemblyName; init => _assemblyName = value; }
+        public bool ParentUnresolved { get; private set; }
+        public bool IsRoot { get => _isRoot; init => _isRoot = value; }
+        public string File { get => _file; init => _file = value; }
+        public int Line { get => _line; init => _line = value; }
+        public string ViewType { get => _viewType; init => _viewType = value; }
+        public string Variant { get; init; } = "";
+        public List<GraphRegistration> Registrations { get; } = new List<GraphRegistration>();
+        public List<string> Calls { get; } = new List<string>();
+        public List<int> CallOrdinals { get; } = new List<int>();
+        public List<string> CallTypeArguments { get; } = new List<string>();
+        public List<string> CallAsServices { get; } = new List<string>();
+        public List<string> CallHoles { get; } = new List<string>();
         // The types of the WithParameter chained on the call, joined with ';' (see GraphRegistration.ParameterTypes).
-        public List<string> CallParameters = new List<string>();
-        public int ReturnedOrdinal = -1;
+        public List<string> CallParameters { get; } = new List<string>();
+        public int ReturnedOrdinal { get; private set; } = -1;
+
+        public void SetRoot(bool isRoot) {
+            _isRoot = isRoot;
+        }
+
+        public void SetViewType(string viewType) {
+            _viewType = viewType;
+        }
+
+        public void SetAssemblyName(string assemblyName) {
+            _assemblyName = assemblyName;
+        }
+
+        public void Locate(string file, int line) {
+            _file = file;
+            _line = line;
+        }
+
+        public void SetParent(string hint, string assembly) {
+            ParentHint = hint;
+            ParentAssembly = assembly;
+        }
+
+        public void SetParentHint(string hint) {
+            ParentHint = hint;
+        }
+
+        public void SetParentId(string id) {
+            ParentId = id;
+        }
+
+        public void MarkParentUnresolved() {
+            ParentUnresolved = true;
+        }
+
+        public void SetReturnedOrdinal(int ordinal) {
+            ReturnedOrdinal = ordinal;
+        }
+
+        // The same method read from another manifest: only what this one does not know yet.
+        public void FillMissingFrom(GraphMethod other) {
+            if (ReturnedOrdinal < 0)
+                ReturnedOrdinal = other.ReturnedOrdinal;
+            if (string.IsNullOrEmpty(File))
+                _file = other.File;
+            if (Line == 0)
+                _line = other.Line;
+        }
 
         public void AddCall(
             string id,

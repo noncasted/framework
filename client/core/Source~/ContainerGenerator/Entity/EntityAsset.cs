@@ -2,8 +2,8 @@ using System.Collections.Generic;
 
 namespace ContainerGenerator {
     internal sealed class EntityAsset {
-        public string AssetPath = "";
-        public string HolderType = "";
-        public List<string> ComponentTypes = new List<string>();
+        public string AssetPath { get; init; } = "";
+        public string HolderType { get; init; } = "";
+        public List<string> ComponentTypes { get; } = new List<string>();
     }
 }

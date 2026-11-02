@@ -32,9 +32,8 @@ namespace ContainerGenerator {
                     var step = steps[i];
                     if (step.Registration != null) {
                         var clone = TypeSubstitution.Instantiate(step.Registration, substitution);
-                        // The statements of a method are numbered inside it, a generic method is walked per call.
                         if (string.IsNullOrEmpty(clone.BranchPath) == false)
-                            clone.BranchPath = walk + "/" + clone.BranchPath;
+                            clone.PrefixBranchPath(walk);
                         if (method.ReturnedOrdinal == step.Registration.Ordinal)
                             returned = clone;
                         output.Add(clone);

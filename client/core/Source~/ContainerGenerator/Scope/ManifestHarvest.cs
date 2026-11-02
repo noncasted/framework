@@ -7,12 +7,12 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ContainerGenerator {
     internal sealed class ManifestHarvest {
-        public string Source = "";
-        public List<Mapping> Mappings = new List<Mapping>();
+        public string Source { get; private set; } = "";
+        public List<Mapping> Mappings { get; } = new List<Mapping>();
 
         public sealed class Mapping {
-            public string HarvestName = "";
-            public string OriginalId = "";
+            public string HarvestName { get; init; } = "";
+            public string OriginalId { get; init; } = "";
         }
 
         public static bool IsHarvest(string rootId) {
@@ -177,7 +177,7 @@ namespace ContainerGenerator {
             target.CallAsServices.AddRange(harvested.CallAsServices);
             target.CallHoles.AddRange(harvested.CallHoles);
             target.CallParameters.AddRange(harvested.CallParameters);
-            target.ReturnedOrdinal = harvested.ReturnedOrdinal;
+            target.SetReturnedOrdinal(harvested.ReturnedOrdinal);
         }
 
         private static bool HasBuilderParameter(IMethodSymbol method, ReferenceSymbols references) {

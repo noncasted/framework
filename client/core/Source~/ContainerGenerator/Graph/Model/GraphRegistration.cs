@@ -3,28 +3,35 @@ using System.Collections.Generic;
 
 namespace ContainerGenerator {
     internal sealed class GraphRegistration {
-        public string Kind = "Register";
-        public string ImplementationType = "";
-        public List<string> ServiceTypes = new List<string>();
-        public string Lifetime = "Singleton";
-        public string Origin = "ConstructedType";
-        public string Source = "";
-        public string Hole = "";
-        public string File = "";
-        public int Line;
-        public int Ordinal;
-        public string TypeMap = "";
-        public List<string> ServiceMaps = new List<string>();
-        public LocationInfo? Location;
-        public List<GraphSwitchArm> Arms = new List<GraphSwitchArm>();
-        public List<GraphEdge> Dependencies = new List<GraphEdge>();
+        private string _implementationType = "";
+        private string _lifetime = "Singleton";
+        private string _origin = "ConstructedType";
+        private string _hole = "";
+        private string _typeMap = "";
+        private string _branchPath = "";
+
+        public string Kind { get; init; } = "Register";
+        public string ImplementationType { get => _implementationType; init => _implementationType = value; }
+        public List<string> ServiceTypes { get; } = new List<string>();
+        public string Lifetime { get => _lifetime; init => _lifetime = value; }
+        public string Origin { get => _origin; init => _origin = value; }
+        public string Source { get; init; } = "";
+        public string Hole { get => _hole; init => _hole = value; }
+        public string File { get; init; } = "";
+        public int Line { get; init; }
+        public int Ordinal { get; init; }
+        public string TypeMap { get => _typeMap; init => _typeMap = value; }
+        public List<string> ServiceMaps { get; } = new List<string>();
+        public LocationInfo? Location { get; init; }
+        public List<GraphSwitchArm> Arms { get; } = new List<GraphSwitchArm>();
+        public List<GraphEdge> Dependencies { get; } = new List<GraphEdge>();
         // The name of the [Inject] method; RegistrationBinder sets it together with the edges, so Clone does not copy it.
-        public string InjectMethod = "";
+        public string InjectMethod { get; private set; } = "";
         // Where the registration stands among the if / switch statements of its method: "statement.arm" per level.
         // Two registrations exclude each other when they took different arms of one statement (BranchGroups).
-        public string BranchPath = "";
+        public string BranchPath { get => _branchPath; init => _branchPath = value; }
         // The types given by WithParameter: a constructor / [Inject] parameter of such a type takes that value first.
-        public List<string> ParameterTypes = new List<string>();
+        public List<string> ParameterTypes { get; } = new List<string>();
 
         public GraphRegistration Clone() {
             var copy = new GraphRegistration {
@@ -60,10 +67,37 @@ namespace ContainerGenerator {
             ServiceMaps.Add(map ?? "");
         }
 
+        public void SetHole(string hole) {
+            _hole = hole;
+        }
+
+        public void SetLifetime(string lifetime) {
+            _lifetime = lifetime;
+        }
+
+        public void SetTypeMap(string typeMap) {
+            _typeMap = typeMap;
+        }
+
+        public void BindInjectMethod(string method) {
+            InjectMethod = method;
+        }
+
+        // The statements of a method are numbered inside it, a generic method is walked per call.
+        public void PrefixBranchPath(int walk) {
+            _branchPath = walk + "/" + BranchPath;
+        }
+
+        // A copy of an open generic registration with its type arguments known: the map of the placeholders is spent.
+        public void Close(string implementationType) {
+            _implementationType = implementationType;
+            _typeMap = "";
+        }
+
         public void AddHole(string hole) {
-            Hole = CombineHole(Hole, hole);
+            _hole = CombineHole(Hole, hole);
             if (Arms.Count == 0 && Origin == "ConstructedType")
-                Origin = "ParameterHole";
+                _origin = "ParameterHole";
         }
 
         public string FirstService() {
