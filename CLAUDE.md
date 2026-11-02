@@ -39,6 +39,7 @@ backend/
 .claude/docs/           docs of the patterns shared by the games, for Claude Code (INDEX.md: principles, keyword table)
 .claude/skills/         skills shared by the games, linked from `.claude/skills` of each project
 tools/scripts/          scripts shared by the projects
+releases/               releases: X.Y.Z.md with the steps a game takes to update, unreleased.md, README.md (format, versions)
 ```
 
 ## Rules
@@ -59,7 +60,8 @@ tools/scripts/          scripts shared by the projects
 6. **Comments in English.** Prose with the user in Russian.
 7. **Fail fast.** No silent fallbacks, no defensive null checks; unexpected state throws; `catch` only at a boundary that reacts.
 8. **A change here affects every project.** After a change, build at least the project you are working in; mention in
-   the commit message when a change is breaking (`BREAKING:`).
+   the commit message when a change is breaking (`BREAKING:`). A change a game must act on adds its step to
+   `releases/unreleased.md` in the same commit (who, a search command, the change).
 
 ## Docs
 
@@ -237,4 +239,5 @@ until they move here.
 ## Working from a project
 
 The submodule is a normal git repository: commit and push inside `tools/framework`, then commit the new submodule
-pointer in the project. Other projects pick the change up with `git submodule update --remote tools/framework`.
+pointer in the project. Other projects update through the `update-framework` skill: it moves the pointer to a release and
+carries out the steps of `releases/<version>.md`. A release is cut by the `release-framework` skill.

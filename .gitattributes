@@ -5,3 +5,4 @@
 *.asset -text merge=unityyamlmerge
 *.prefab -text merge=unityyamlmerge
 *.unity -text merge=unityyamlmerge
+releases/unreleased.md merge=union
