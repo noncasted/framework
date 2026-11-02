@@ -111,7 +111,7 @@ namespace Internal.EditorTests
                 var property = serialized.FindProperty(nameof(FlagsHolder.Value));
                 Assert.AreEqual(-1, property.enumValueIndex, "not the case of the finding");
 
-                Assert.AreEqual("3", Invoke(typeof(PrefabScreenshot), "GetPropertyValue", property));
+                Assert.AreEqual("3", Invoke(typeof(PrefabHierarchyDump), "GetPropertyValue", property));
             }
             finally
             {
