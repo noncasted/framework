@@ -41,8 +41,10 @@ $C editor all
 
 - `restart` takes care of itself and is safe to call from several agents: they queue, the first restarts, the others find it ready. It does
   nothing to a `ready` editor and waits for a `busy` one, `--force` restarts anyway.
-- The stop of a `ready` editor leaves Play, or saves scenes and assets when it is not in Play. `--no-save` skips that. A hung one cannot save: unsaved
-  changes of its scenes are lost. The log goes to `Logs/Editor-before-restart-<time>.log` (`evidence`).
+- The stop of a `ready` editor leaves Play, or saves scenes and assets when it is not in Play. `--no-save` skips that. A scene that was never saved stays
+  unsaved and `saved` says so. A hung one cannot save: unsaved changes of its scenes are lost. The log goes to `Logs/Editor-before-restart-<time>.log` (`evidence`).
+- Never call `EditorSceneManager.SaveOpenScenes()` or `SaveScene(scene)` without a path through `execute_code`: on a modified untitled scene (after `NewScene`) an editor
+  with a window opens the modal `Save Scene` file dialog on the screen of the user. Skip scenes with an empty `path`, or save with an explicit one.
 - A compile error at the start stops the editor on the dialog `Enter Safe Mode?`, with or without `-ignoreCompilerErrors`. `start`, `restart` and `wait` press `Ignore` there: the
   bridge comes up on the last good assemblies, `note` says so, the errors are read through MCP and fixed. An editor nobody waits for stays on the dialog: `$C editor wait`.
 

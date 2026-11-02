@@ -10,9 +10,17 @@ EXIT_TIMEOUT = 30
 SAVE_TIMEOUT = 30
 SAVE_CODE = """
 if (UnityEditor.EditorApplication.isPlaying) { UnityEditor.EditorApplication.isPlaying = false; return "left play"; }
-UnityEditor.SceneManagement.EditorSceneManager.SaveOpenScenes();
+// A scene that was never saved has no path: saving it opens the modal file dialog of an editor with a window, which nobody answers.
+var untitled = 0;
+for (var i = 0; i < UnityEngine.SceneManagement.SceneManager.sceneCount; i++)
+{
+    var scene = UnityEngine.SceneManagement.SceneManager.GetSceneAt(i);
+    if (!scene.isDirty) continue;
+    if (string.IsNullOrEmpty(scene.path)) { untitled++; continue; }
+    if (!UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene)) throw new System.InvalidOperationException("not saved: " + scene.path);
+}
 UnityEditor.AssetDatabase.SaveAssets();
-return "saved";
+return untitled == 0 ? "saved" : "saved, lost " + untitled + " modified untitled scene(s)";
 """
 
 
