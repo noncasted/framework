@@ -110,6 +110,13 @@ Delete the working folder `docs/tasks/current/<task_name>/` (all three files: `<
 
 The full `<task_name>_result.md` is preserved in git history if anyone needs the detailed version later.
 
+### Research media of the task
+
+Move the folders of the task from `docs/media/research/<topic>/` to `docs/media/research/complete/<topic>/`. Keep only the
+main results: before/after, the sheet of variants, the README with the choice, and data that code, tests or tools read
+(`git grep` the folder first). Delete raw frames, logs, one-off shots and copies; they stay in the git history. Rewrite every
+path to the moved folder, relative paths of its scripts included, and run the tests that read it.
+
 ### What may stay in git under `docs/tasks/` (applies to any task folder that gets committed, complete/ or current/)
 
 Commit only:

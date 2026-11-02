@@ -19,6 +19,11 @@ A doc of a game wins where it states a local exception; a rule true for every ga
 The cluster and the Unity editor are tools of the agent: start, restart, rebuild and recover them with the `control` skill, without
 asking the user. Agents testing in parallel take their own copy of the project with its own editor (`control copy create`).
 
+Research media of a project: work in progress is in `docs/media/research/<topic>`, finished research in
+`docs/media/research/complete/<topic>`. When its task ends a folder moves there with only the main results (before/after,
+the sheet of variants, the README with the choice, data that code reads); raw frames, logs and one-off shots are deleted
+and stay in the git history. Every path to a moved folder is rewritten. Before a new study look in both places.
+
 ## Keyword -> doc
 
 | Keywords | Doc |
