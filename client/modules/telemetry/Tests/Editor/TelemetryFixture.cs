@@ -21,6 +21,7 @@ namespace Global.Telemetry.Tests
             ITelemetryTransport transport = null,
             ITelemetryGlContext glContext = null,
             ITelemetryGlErrors glErrors = null,
+            ITelemetryGlCallErrors glCallErrors = null,
             ITelemetryGlCalls glCalls = null,
             bool pageLifecycle = false,
             MemoryTraceStore traceStore = null)
@@ -51,6 +52,11 @@ namespace Global.Telemetry.Tests
             if (glErrorsCollector != null)
                 collectors = (collectors ?? new ITelemetryCollector[] { Collector }).Append(glErrorsCollector).ToArray();
 
+            var glCallErrorsCollector = glCallErrors == null ? null : new GlCallErrorsTelemetryCollector(glCallErrors, Buffer, Clock, ErrorQueue);
+
+            if (glCallErrorsCollector != null)
+                collectors = (collectors ?? new ITelemetryCollector[] { Collector }).Append(glCallErrorsCollector).ToArray();
+
             var glCallsCollector = glCalls == null ? null : new GlCallsTelemetryCollector(glCalls, Buffer, Clock);
 
             if (glCallsCollector != null)
@@ -78,6 +84,9 @@ namespace Global.Telemetry.Tests
 
             if (glErrorsCollector != null)
                 liveCollectors = (liveCollectors ?? Array.Empty<ITelemetryLiveCollector>()).Append(glErrorsCollector).ToArray();
+
+            if (glCallErrorsCollector != null)
+                liveCollectors = (liveCollectors ?? Array.Empty<ITelemetryLiveCollector>()).Append(glCallErrorsCollector).ToArray();
 
             if (glCallsCollector != null)
                 liveCollectors = (liveCollectors ?? Array.Empty<ITelemetryLiveCollector>()).Append(glCallsCollector).ToArray();

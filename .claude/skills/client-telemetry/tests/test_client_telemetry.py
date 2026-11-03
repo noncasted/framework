@@ -782,7 +782,7 @@ class StartupTests(Base):
         self.backend.samples[OLD] = [sample(1, 0, {"frame.fps": 60})]
         line = next(line for line in self.run_cli("summary", OLD).stdout.splitlines() if line.startswith("not_reported"))
 
-        for name in ("web.gl.errors", "memory.texture_count", "web.gl.shader_compiles", "web.gl.shader_compile_ms", "web.gl.program_links",
+        for name in ("web.gl.errors", "web.gl.emscripten_errors", "memory.texture_count", "web.gl.shader_compiles", "web.gl.shader_compile_ms", "web.gl.program_links",
                      "web.gl.program_link_ms", "web.gl.buffer_bytes", "web.gl.buffer_data_calls", "web.gl.texture_bytes",
                      "web.gl.texture_uploads", "web.gl.errors_ms"):
             self.assertIn(name, line)

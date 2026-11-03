@@ -98,6 +98,13 @@ namespace Global.Telemetry
             builder.Register<GlErrorsTelemetryCollector>()
                    .As<ITelemetryCollector>()
                    .As<ITelemetryLiveCollector>();
+
+            builder.Register<TelemetryGlCallErrors>()
+                   .As<ITelemetryGlCallErrors>();
+
+            builder.Register<GlCallErrorsTelemetryCollector>()
+                   .As<ITelemetryCollector>()
+                   .As<ITelemetryLiveCollector>();
 #endif
 
             builder.Register<AssetLoadTelemetryCollector>()

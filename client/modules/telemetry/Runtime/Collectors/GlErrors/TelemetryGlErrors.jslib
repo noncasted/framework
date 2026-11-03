@@ -4,15 +4,23 @@ var LibraryTelemetryGlErrors = {
         lastMs: 0
     },
 
-    // gl.getError of the context of Unity (GLctx) until it says NO_ERROR, then the error emscripten recorded itself (GL.lastError,
-    // what glGetError of the build would return next). WebGL keeps one flag per code, so a loop ends after a few; a lost context
-    // gives CONTEXT_LOST_WEBGL once. A call is a round trip to the GPU process in Chromium: once a sample, never per frame.
-    TelemetryGlErrorsTake__deps: ['$GL', '$telemetryGlErrorsState'],
+    // gl.getError of the context of Unity (GLctx) until it says NO_ERROR. WebGL keeps one flag per code, so a loop ends after a few; a
+    // lost context gives CONTEXT_LOST_WEBGL once. A call is a round trip to the GPU process in Chromium: once a sample, never per
+    // frame. Under the check of every call (TelemetryGlCallErrors.jslib) the flags are taken right after each call: the codes it
+    // took since the previous take come first, each once, as the flags would have given them. The errors emscripten records
+    // itself (GL.lastError) are not the context's: TelemetryGlCallErrors.jslib counts them.
+    TelemetryGlErrorsTake__deps: ['$telemetryGlErrorsState', '$telemetryGlCallErrorsState'],
     TelemetryGlErrorsTake: function (into, max) {
         var count = 0;
         var start = performance.now();
+        var checked = telemetryGlCallErrorsState.codes;
 
         try {
+            while (count < max && checked.length > 0) {
+                HEAP32[(into >> 2) + count] = checked.shift();
+                count++;
+            }
+
             if (typeof GLctx !== 'undefined' && GLctx) {
                 while (count < max) {
                     var code = GLctx.getError();
@@ -23,12 +31,6 @@ var LibraryTelemetryGlErrors = {
                     HEAP32[(into >> 2) + count] = code;
                     count++;
                 }
-            }
-
-            if (count < max && GL.lastError) {
-                HEAP32[(into >> 2) + count] = GL.lastError;
-                GL.lastError = 0;
-                count++;
             }
         } catch (error) {
         }

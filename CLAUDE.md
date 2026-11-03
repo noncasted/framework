@@ -228,7 +228,11 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
     scope, nothing prevented): the metric `web.gl.context_lost`, the marks `webgl.context_lost` / `webgl.context_restored` and the error
     `WebGL context lost`; a loss outside a session waits on the page and comes once with the next one. Unity stops its player loop while the
     context is lost, so all this is sent only after a restore; without one the samples just stop and the session closes as `lost`. Also on WebGL:
-    `web.gl.errors` (`gl.getError` once a sample, its time `web.gl.errors_ms`) with the marks `webgl.error.<code>` and an error per code;
+    `web.gl.errors` (`gl.getError` once a sample, its time `web.gl.errors_ms`) with the marks `webgl.error.<code>` and an error per code; the errors emscripten raises itself in its gl* functions
+    (`GL.recordError`, never seen by `getError`) apart: `web.gl.emscripten_errors`, the marks `webgl.emscripten.<code>` with the function and
+    an error `... in <glCall> (emscripten)`; a page opened with `?glcheck` checks every call of the context (`getError` after it, slow, nothing
+    wrapped without the parameter): `web.gl.check_errors`, the first error of each code and call as the mark `webgl.check.<code>` with
+    `call(arguments)` and an error with the frame and the time, its codes still counted once a sample in `web.gl.errors`;
     the calls of `GLctx`, wrapped once per context: `web.gl.shader_compiles` / `shader_compile_ms` / `program_links` / `program_link_ms`
     (the queries of the status in the time), `web.gl.buffer_bytes` / `buffer_data_calls` / `texture_bytes` / `texture_uploads`, the mark
     `webgl.shader.slow` (`slowShaderMs`); the marks of the page (`page.hidden` / `visible` / `pagehide[.persisted]` / `pageshow.persisted` /

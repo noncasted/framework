@@ -6,7 +6,8 @@ namespace Global.Telemetry
     // The errors of WebGL in a release build, where nobody else asks: web.gl.errors is the number of the codes taken in the sample,
     // the first ones of a session leave a mark by the code, and every code is an error of the session (the groups count the repeats).
     // OUT_OF_MEMORY is the one a page that loses its textures or its text is expected to show. web.gl.errors_ms: how long the
-    // synchronous loop of the take kept the main thread, high when the GPU is behind. Registered after TelemetryErrorPump.
+    // synchronous loop of the take kept the main thread, high when the GPU is behind. Only the codes of the context: the errors
+    // emscripten records itself are GlCallErrorsTelemetryCollector's. Registered after TelemetryErrorPump.
     public class GlErrorsTelemetryCollector : ITelemetryCollector, ITelemetryLiveCollector
     {
         public GlErrorsTelemetryCollector(ITelemetryGlErrors errors, TelemetryBuffer buffer, ITelemetryClock clock, TelemetryErrorQueue queue)
@@ -50,29 +51,13 @@ namespace Global.Telemetry
 
         private void Report(int code)
         {
-            var (mark, message) = NamesOf(code);
-
             if (_marks < MaxMarks)
             {
                 _marks++;
-                _buffer.AddMark(_clock.ElapsedMilliseconds, mark);
+                _buffer.AddMark(_clock.ElapsedMilliseconds, "webgl.error." + TelemetryGlErrorCodes.MarkSuffixOf(code));
             }
 
-            _queue.Add(TelemetryErrorLevel.Error, message, string.Empty);
-        }
-
-        private static (string Mark, string Message) NamesOf(int code)
-        {
-            return code switch
-            {
-                0x0500 => ("webgl.error.invalid_enum", "WebGL error INVALID_ENUM"),
-                0x0501 => ("webgl.error.invalid_value", "WebGL error INVALID_VALUE"),
-                0x0502 => ("webgl.error.invalid_operation", "WebGL error INVALID_OPERATION"),
-                0x0505 => ("webgl.error.out_of_memory", "WebGL error OUT_OF_MEMORY"),
-                0x0506 => ("webgl.error.invalid_framebuffer_operation", "WebGL error INVALID_FRAMEBUFFER_OPERATION"),
-                0x9242 => ("webgl.error.context_lost", "WebGL error CONTEXT_LOST_WEBGL"),
-                _ => ("webgl.error.other", "WebGL error of another code")
-            };
+            _queue.Add(TelemetryErrorLevel.Error, "WebGL error " + TelemetryGlErrorCodes.ConstantOf(code), string.Empty);
         }
     }
 }

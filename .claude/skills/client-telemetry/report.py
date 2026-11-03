@@ -8,7 +8,7 @@ from text import seconds, table
 EXPECTED = ("frame.fps frame.dt.avg frame.dt.p50 frame.dt.p95 frame.dt.max frame.over33 frame.over50 frame.cpu frame.cpu.main "
             "frame.gpu memory.allocated memory.reserved memory.mono.used memory.mono.heap memory.textures gc.collections "
             "render.draw_calls render.setpass render.triangles render.vertices render.textures render.render_textures "
-            "memory.texture_count web.wasm.heap web.js.used web.js.total web.js.limit web.gl.context_lost web.gl.errors "
+            "memory.texture_count web.wasm.heap web.js.used web.js.total web.js.limit web.gl.context_lost web.gl.errors web.gl.emscripten_errors "
             "frame.phase.early frame.phase.fixed frame.phase.pre frame.phase.update frame.phase.prelate frame.phase.postlate "
             "frame.fixed_steps frame.spikes frame.gpu.query gc.allocated render.width render.height render.pixels render.canvas_width "
             "render.canvas_height render.dpr settings.quality settings.vsync settings.target_fps settings.time_scale settings.msaa "
@@ -16,7 +16,7 @@ EXPECTED = ("frame.fps frame.dt.avg frame.dt.p50 frame.dt.p95 frame.dt.max frame
             "web.gl.buffer_data_calls web.gl.texture_bytes web.gl.texture_uploads web.gl.errors_ms net.meta.rtt net.meta.bytes_in "
             "net.meta.bytes_out").split()
 _SUMMED = ("frame.over33", "frame.over50", "gc.collections", "frame.spikes", "gc.allocated", "net.meta.bytes_in", "net.meta.bytes_out",
-           "web.gl.errors", "web.gl.shader_compiles", "web.gl.shader_compile_ms", "web.gl.program_links", "web.gl.program_link_ms",
+           "web.gl.errors", "web.gl.emscripten_errors", "web.gl.check_errors", "web.gl.shader_compiles", "web.gl.shader_compile_ms", "web.gl.program_links", "web.gl.program_link_ms",
            "web.gl.buffer_bytes", "web.gl.buffer_data_calls", "web.gl.texture_bytes", "web.gl.texture_uploads")
 # The numbers of a kept sample of an unclosed session worth a look, in this order; the others are only counted.
 _PREVIOUS_SAMPLE_NAMES = ("frame.dt.max", "frame.cpu.main", "frame.phase.update", "frame.phase.postlate", "web.raf.dt.max", "render.draw_calls",

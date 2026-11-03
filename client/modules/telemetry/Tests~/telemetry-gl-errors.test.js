@@ -8,7 +8,7 @@ const vm = require('node:vm');
 
 const jslib = fs.readFileSync(path.join(__dirname, '..', 'Runtime', 'Collectors', 'GlErrors', 'TelemetryGlErrors.jslib'), 'utf8');
 
-function load({ codes = [], lastError = 0, context = true, cost = 0 } = {}) {
+function load({ codes = [], lastError = 0, checked = [], context = true, cost = 0 } = {}) {
     const library = {};
     const heap = new Int32Array(64);
     const pending = [...codes];
@@ -21,6 +21,7 @@ function load({ codes = [], lastError = 0, context = true, cost = 0 } = {}) {
         mergeInto: (target, added) => Object.assign(target, added),
         HEAP32: heap,
         GL,
+        telemetryGlCallErrorsState: { codes: [...checked] },
         GLctx: context ? gl : null,
         performance: { now: () => clock.now }
     });
@@ -31,6 +32,7 @@ function load({ codes = [], lastError = 0, context = true, cost = 0 } = {}) {
     return {
         gl,
         GL,
+        telemetryGlCallErrorsState: { codes: [...checked] },
         lastMs: () => library.TelemetryGlErrorsLastMs(),
         take: max => {
             const count = library.TelemetryGlErrorsTake(16, max);
@@ -53,11 +55,18 @@ test('the take is bounded', () => {
     assert.strictEqual(page.gl.calls, 3);
 });
 
-test('the error recorded by emscripten comes after, once', () => {
+test('the error recorded by emscripten is not the context\'s: left to TelemetryGlCallErrors', () => {
     const page = load({ codes: [0x0502], lastError: 0x0500 });
 
-    assert.deepStrictEqual(page.take(8), [0x0502, 0x0500]);
-    assert.strictEqual(page.GL.lastError, 0);
+    assert.deepStrictEqual(page.take(8), [0x0502]);
+    assert.strictEqual(page.GL.lastError, 0x0500);
+});
+
+test('the codes the check took come first, once, and count in the bound', () => {
+    const page = load({ codes: [0x0505], checked: [0x0502, 0x0500] });
+
+    assert.deepStrictEqual(page.take(2), [0x0502, 0x0500]);
+    assert.deepStrictEqual(page.take(8), [0x0505]);
     assert.deepStrictEqual(page.take(8), []);
 });
 
