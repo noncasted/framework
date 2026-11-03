@@ -1,3 +1,4 @@
+using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -57,13 +58,19 @@ namespace Internal.EditorTests
             Assert.AreEqual(7, backend.TimeoutSeconds);
         }
 
-        // The values of the enum are not sequential: the value is written, not the index.
+        // The values of the enum are not sequential: the value is written, not the index. The field is read directly:
+        // under the define of a platform build profile (PLATFORM_TELEGRAM, PLATFORM_STEAM, the active profile of the
+        // editor) PlatformType returns that platform and ignores the field; without one it returns the field.
         [Test]
         public void Write_Platform_ReachesTheOptions()
         {
             OptionsTab.Write(_options, OptionsTab.PlatformPath, p => p.intValue = (int)PlatformType.ItchIO);
 
+            var field = typeof(PlatformOptions).GetField("_platform", BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.AreEqual(PlatformType.ItchIO, (PlatformType)field.GetValue(_options.PlatformOptions));
+#if !PLATFORM_TELEGRAM && !PLATFORM_STEAM
             Assert.AreEqual(PlatformType.ItchIO, _options.PlatformOptions.PlatformType);
+#endif
         }
 
         [Test]
