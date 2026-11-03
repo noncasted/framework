@@ -41,3 +41,4 @@ Research media of a project: work in progress is in `docs/media/research/<topic>
 | delivery semantics, DurableQueue, RuntimeChannel, RuntimePipe, catch-up, GapDetected, observer keep-alive, dead letter | MESSAGING.md |
 | Blazor, razor, @inject, UiComponent, early return, console UI | BLAZOR.md |
 | which pattern to use, decision | DECISION_TREES.md |
+| WebGL, iOS, Safari, iPhone, shader, nointerpolation, flat varying, GPU hang, frame every 5 s, test on a device, ANGLE, Metal | WEBGL_IOS.md |
