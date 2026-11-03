@@ -1,3 +1,4 @@
+using System;
 using Cysharp.Threading.Tasks;
 
 namespace Internal
@@ -19,7 +20,9 @@ namespace Internal
         IViewableDelegate<SocketCloseInfo> Closed { get; }
 
         UniTask Connect();
-        UniTask Send(byte[] bytes);
+        // The bytes are the caller's again when the returned task completes (the writer sends from a buffer it
+        // reuses): a socket that keeps them longer copies them.
+        UniTask Send(ArraySegment<byte> bytes);
 
         /// <summary>
         /// The connection is found lost by this client (NetworkConnectionWatchdog: the server is silent): reported

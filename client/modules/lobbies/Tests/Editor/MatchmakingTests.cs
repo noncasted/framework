@@ -95,6 +95,7 @@ namespace Global.Lobbies.Tests
             public bool IsClosed => false;
             public object CurrentRun => this;
 
+            public void WriteOneWay(ReadOnlySpan<byte> message) => throw new NotSupportedException();
             public void WriteOneWay(INetworkContext value) => throw new NotSupportedException();
 
             public void Answer(INetworkContext answer) => _answer.TrySetResult(answer);

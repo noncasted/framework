@@ -74,7 +74,7 @@ namespace Internal
             Receive(_lifetime).NoAwait();
         }
 
-        public async UniTask Send(byte[] bytes)
+        public async UniTask Send(ArraySegment<byte> bytes)
         {
             // Closed by the server: the loss goes to Closed with the code of the server (ProtocolVersion.
             // ClientOutdatedCloseCode of an outdated client), the message is dropped as every other one left in the
@@ -82,7 +82,7 @@ namespace Internal
             if (_isCloseReceived == true)
                 return;
 
-            var payload = new ReadOnlyMemory<byte>(bytes);
+            var payload = new ReadOnlyMemory<byte>(bytes.Array, bytes.Offset, bytes.Count);
 
             try
             {

@@ -59,7 +59,7 @@ namespace Internal
             _match.SetRoute(_control.LocalIndex, Route);
         }
 
-        public UniTask Send(byte[] bytes)
+        public UniTask Send(ArraySegment<byte> bytes)
         {
             return _socket.Send(bytes);
         }

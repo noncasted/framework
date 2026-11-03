@@ -5,7 +5,7 @@ namespace Internal
 {
     // Sends the properties written on this client: a property reports its first write after a sync
     // (INetworkDirtyProperties), and every PropertiesSyncInterval all reported ones go out in one SetProperties.
-    // A tick without writes allocates nothing and touches no object.
+    // A tick allocates nothing once the buffers have grown, a tick without writes touches no object.
     public class NetworkPropertiesCollector : IUpdatable, IScopeSetup, INetworkDirtyProperties
     {
         public NetworkPropertiesCollector(INetworkConnection connection, IUpdater updater, NetworkOptions options)
@@ -20,6 +20,11 @@ namespace Internal
         private readonly NetworkOptions _options;
 
         private readonly List<DirtyEntry> _dirty = new();
+
+        // Reused by every sync: the serialized values, their entries and the message written from them.
+        private readonly NetworkBuffer _values = new();
+        private readonly List<SetPropertiesMessage.Entry> _entries = new();
+        private readonly NetworkBuffer _message = new();
 
         private float _timer = 0f;
         private double _lastTime;
@@ -55,32 +60,37 @@ namespace Internal
             if (_dirty.Count == 0)
                 return;
 
-            // A new list per message: the writer serializes it later, in its own loop.
-            var entries = new List<SharedSessionObject.SetProperty>(_dirty.Count);
-
-            foreach (var (owner, property) in _dirty)
+            try
             {
-                // The object is gone: nobody receives its writes (the backend would drop them too).
-                if (owner.Lifetime.IsTerminated == true)
-                    continue;
-
-                entries.Add(new SharedSessionObject.SetProperty()
+                foreach (var (owner, property) in _dirty)
                 {
-                    ObjectId = owner.Id,
-                    PropertyId = property.Id,
-                    Value = property.Collect()
-                });
+                    // The object is gone: nobody receives its writes (the backend would drop them too).
+                    if (owner.Lifetime.IsTerminated == true)
+                        continue;
 
-                // The server versions this write once more and does not send it back to this client.
-                property.OnWriteSent();
+                    var start = _values.Count;
+                    property.Collect(_values);
+                    _entries.Add(new SetPropertiesMessage.Entry(owner.Id, property.Id, start, _values.Count - start));
+
+                    // The server versions this write once more and does not send it back to this client.
+                    property.OnWriteSent();
+                }
+
+                _dirty.Clear();
+
+                if (_entries.Count == 0)
+                    return;
+
+                // One SetProperties, written from the reused buffers and copied by the writer at once.
+                SetPropertiesMessage.Write(_message, _entries, _values);
+                _connection.Writer.WriteOneWay(_message.Written);
             }
-
-            _dirty.Clear();
-
-            if (entries.Count == 0)
-                return;
-
-            _connection.OneWay(new SharedSessionObject.SetProperties() { Entries = entries });
+            finally
+            {
+                _entries.Clear();
+                _values.Clear();
+                _message.Clear();
+            }
         }
 
         private readonly struct DirtyEntry

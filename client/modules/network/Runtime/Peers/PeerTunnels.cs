@@ -104,7 +104,7 @@ namespace Internal
                 Debug.Log($"[Network] [Tunnel] Connected to {_remoteIndex}");
             }
 
-            public UniTask Send(byte[] bytes)
+            public UniTask Send(ArraySegment<byte> bytes)
             {
                 if (_lifetime.IsTerminated == true)
                     return UniTask.CompletedTask;
@@ -112,7 +112,7 @@ namespace Internal
                 _control.OneWay(new SharedSessionPeer.Tunnel
                 {
                     TargetIndex = _remoteIndex,
-                    Frame = bytes
+                    Frame = bytes.ToArray()
                 });
 
                 return UniTask.CompletedTask;

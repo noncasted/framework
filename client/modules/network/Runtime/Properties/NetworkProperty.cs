@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using MemoryPack;
 
@@ -12,6 +13,9 @@ namespace Internal
 
         void Update(byte[] value, int version);
         byte[] Collect();
+
+        // As Collect, the value serialized into the buffer instead of a new array (the sync of every interval).
+        void Collect(IBufferWriter<byte> buffer);
 
         // The collected value has gone to the server as a write (SetProperty): the server gives it the next version
         // and sends it to the others but not to this client, so the property takes that version itself. Without it
@@ -91,6 +95,12 @@ namespace Internal
             _isDirty = false;
             var serialized = MemoryPackSerializer.Serialize(Value);
             return serialized;
+        }
+
+        public void Collect(IBufferWriter<byte> buffer)
+        {
+            _isDirty = false;
+            MemoryPackSerializer.Serialize(buffer, Value);
         }
 
         public void OnWriteSent()

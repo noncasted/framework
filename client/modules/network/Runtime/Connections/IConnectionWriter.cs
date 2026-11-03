@@ -1,3 +1,4 @@
+using System;
 using Cysharp.Threading.Tasks;
 using Shared;
 
@@ -15,6 +16,10 @@ namespace Internal
         object CurrentRun { get; }
 
         void WriteOneWay(INetworkContext value);
+
+        // A one-way message the caller serialized itself (NetworkPropertiesCollector): the bytes of an
+        // IMessageFromClient, copied at once, so the caller may reuse its buffer.
+        void WriteOneWay(ReadOnlySpan<byte> message);
 
         // Never returns null. The response T, or:
         // NetworkRequestException - the server answered with ErrorResponse (its command threw or is unknown);

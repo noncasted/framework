@@ -45,10 +45,10 @@ namespace Internal
             SocketPump.Run(_lifetime, Pump).NoAwait();
         }
 
-        public UniTask Send(byte[] bytes)
+        public UniTask Send(ArraySegment<byte> bytes)
         {
             if (_lifetime.IsTerminated == false)
-                _toServer.Enqueue(bytes);
+                _toServer.Enqueue(bytes.ToArray());
 
             return UniTask.CompletedTask;
         }

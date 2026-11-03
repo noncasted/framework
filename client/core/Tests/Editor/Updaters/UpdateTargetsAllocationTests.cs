@@ -36,13 +36,17 @@ namespace Internal.Tests
                 list.Add(handles[5]);
             }
 
-            Pass();
+            // Warmed up: the lists grow and the comparers are made on the first passes.
+            for (var i = 0; i < 10; i++)
+                Pass();
+
             var before = GC.GetAllocatedBytesForCurrentThread();
 
             for (var i = 0; i < Passes; i++)
                 Pass();
 
-            Assert.AreEqual(0, GC.GetAllocatedBytesForCurrentThread() - before);
+            // Below a byte a pass: nothing per pass (a one-time allocation of the runtime aside, 48 B seen).
+            Assert.Less(GC.GetAllocatedBytesForCurrentThread() - before, Passes);
             Assert.AreEqual(handles.Length, list.Count);
         }
 

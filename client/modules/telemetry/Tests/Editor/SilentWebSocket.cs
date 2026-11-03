@@ -1,3 +1,4 @@
+using System;
 using Cysharp.Threading.Tasks;
 using Internal;
 
@@ -12,7 +13,7 @@ namespace Global.Telemetry.Tests
         public IViewableDelegate<SocketCloseInfo> Closed => _closed;
 
         public UniTask Connect() => UniTask.CompletedTask;
-        public UniTask Send(byte[] bytes) => UniTask.CompletedTask;
+        public UniTask Send(ArraySegment<byte> bytes) => UniTask.CompletedTask;
 
         public void Drop(string reason)
         {

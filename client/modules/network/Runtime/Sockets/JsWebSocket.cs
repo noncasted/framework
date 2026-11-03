@@ -100,7 +100,7 @@ namespace Internal
                 throw new WebSocketClosedException(_closeCode);
         }
 
-        public UniTask Send(byte[] bytes)
+        public UniTask Send(ArraySegment<byte> bytes)
         {
             if (_isDisposed)
                 throw new ObjectDisposedException(nameof(JsWebSocket));
@@ -114,12 +114,12 @@ namespace Internal
                 throw new InvalidOperationException("WebSocket is not connected");
 
             // Pin the byte array and get pointer for JS interop
-            var handle = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+            var handle = GCHandle.Alloc(bytes.Array, GCHandleType.Pinned);
 
             try
             {
-                var ptr = handle.AddrOfPinnedObject();
-                var result = JsWebSocketInterop.JsWebSocketSend(_handlerId, ptr, bytes.Length);
+                var ptr = handle.AddrOfPinnedObject() + bytes.Offset;
+                var result = JsWebSocketInterop.JsWebSocketSend(_handlerId, ptr, bytes.Count);
 
                 // CLOSING: the server Close frame has arrived, onclose with its code follows. Reporting the loss
                 // from the send would race it, as the 1006 of DefaultWebSocket.Send hid the 4001 of an outdated client.

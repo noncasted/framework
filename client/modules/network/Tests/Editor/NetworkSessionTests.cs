@@ -53,6 +53,7 @@ namespace Internal.Tests
             public bool IsClosed { get; set; }
             public object CurrentRun => this;
 
+            public void WriteOneWay(ReadOnlySpan<byte> message) => throw new NotSupportedException();
             public void WriteOneWay(INetworkContext value) => throw new NotSupportedException();
             public UniTask<T> WriteRequest<T>(INetworkContext commandContext) => throw new NotSupportedException();
             public void WriteResponse(INetworkContext commandContext, int requestId) => throw new NotSupportedException();

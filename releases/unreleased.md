@@ -65,3 +65,16 @@ SDF Font Asset was not found» в каждой сессии уходит. Сво
   `audio.context.<состояние>`; в `SessionStart.Previous` - последние 5 сэмплов с главными числами кадра.
 - По желанию, для development-сборки: `new ClientTelemetryOptions(devProfilerMarkers: new[] { "Shader.CreateGPUProgram",
   "Camera.Render", "<свой ProfilerMarker>" })` - время маркеров `dev.marker.*` и счётчики `dev.*`; в релизе их нет.
+
+### Сеть: отправка без аллокаций (буферы и сегменты)
+Кого касается: клиент, игры со своими реализациями `IWebSocket`, `IConnectionWriter`, `INetworkProperty` (обычно подделки в тестах).
+Поиск: `git grep -nE ': IWebSocket|, IWebSocket|: IConnectionWriter|, IConnectionWriter|: INetworkProperty\b|, INetworkProperty\b' -- 'client/Assets/*.cs'`
+Сделать: BREAKING (API, формат на проводе тот же):
+- `IWebSocket.Send(byte[])` стал `Send(ArraySegment<byte> bytes)`: байты снова принадлежат вызывающему, когда задача завершилась,
+  сокет, который держит их дольше, копирует (`bytes.ToArray()`); вызов с `byte[]` компилируется как есть;
+- `IConnectionWriter` получил `void WriteOneWay(ReadOnlySpan<byte> message)` (байты `IMessageFromClient`, копируются сразу);
+  подделке без него достаточно `=> throw new NotSupportedException()`;
+- `INetworkProperty` получил `void Collect(IBufferWriter<byte> buffer)` (значение сериализуется в буфер);
+- сообщение сериализуется в момент `WriteOneWay` / `WriteRequest` / `WriteResponse`, а не в цикле отправки: объект сообщения можно
+  переиспользовать сразу после вызова;
+- `ViewableDictionary.Values` теперь struct-коллекция (`foreach` без аллокаций); через `IReadOnlyDictionary` по-прежнему `IEnumerable`.

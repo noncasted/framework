@@ -68,14 +68,26 @@ namespace Internal
             _pendingRequests.CancelAll();
         }
 
+        // The envelopes are reused: a message is serialized when it is enqueued.
+        private readonly OneWayMessageFromClient _oneWay = new();
+        private readonly ResponseMessageFromClient _response = new();
+
         public void WriteOneWay(INetworkContext value)
         {
-            var oneWay = new OneWayMessageFromClient()
-            {
-                Context = value,
-            };
+            if (IsClosed == true)
+                return;
 
-            Enqueue(oneWay);
+            _oneWay.Context = value;
+            _run.Enqueue(_oneWay);
+            _oneWay.Context = null;
+        }
+
+        public void WriteOneWay(ReadOnlySpan<byte> message)
+        {
+            if (IsClosed == true)
+                return;
+
+            _run.Enqueue(message);
         }
 
         public async UniTask<T> WriteRequest<T>(INetworkContext commandContext)
@@ -160,13 +172,13 @@ namespace Internal
 
         public void WriteResponse(INetworkContext commandContext, int requestId)
         {
-            var response = new ResponseMessageFromClient()
-            {
-                RequestId = requestId,
-                Context = commandContext
-            };
+            if (IsClosed == true)
+                return;
 
-            Enqueue(response);
+            _response.RequestId = requestId;
+            _response.Context = commandContext;
+            _run.Enqueue(_response);
+            _response.Context = null;
         }
 
         public void OnRequestHandled(INetworkContext commandContext, int requestId)

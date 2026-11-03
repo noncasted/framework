@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using MemoryPack;
 using NUnit.Framework;
 using Shared;
 using UnityEngine;
@@ -161,6 +162,7 @@ namespace Internal.Tests
             public bool IsClosed => false;
             public object CurrentRun => this;
 
+            public void WriteOneWay(ReadOnlySpan<byte> message) => OneWays.Add(((OneWayMessageFromClient)MemoryPackSerializer.Deserialize<IMessageFromClient>(message)).Context);
             public void WriteOneWay(INetworkContext value) => OneWays.Add(value);
             public UniTask<T> WriteRequest<T>(INetworkContext commandContext) => throw new NotSupportedException();
             public void WriteResponse(INetworkContext commandContext, int requestId) => throw new NotSupportedException();

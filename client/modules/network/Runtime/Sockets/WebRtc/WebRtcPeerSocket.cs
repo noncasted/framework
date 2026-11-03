@@ -92,7 +92,7 @@ namespace Internal
             Debug.Log($"[Network] [WebRtc] Connected: {_role}, part payload {_payloadSize} B");
         }
 
-        public UniTask Send(byte[] bytes)
+        public UniTask Send(ArraySegment<byte> bytes)
         {
             // Lost: the loss is reported through Closed, the frame is dropped as every other one left in the queue of
             // a lost connection - as the other sockets do.
@@ -106,7 +106,7 @@ namespace Internal
             // over the other players, so the failure goes the way of every other loss.
             try
             {
-                WebRtcFraming.Split(bytes, _payloadSize, _peer.Send);
+                WebRtcFraming.Split(bytes.ToArray(), _payloadSize, _peer.Send);
             }
             catch (Exception exception)
             {

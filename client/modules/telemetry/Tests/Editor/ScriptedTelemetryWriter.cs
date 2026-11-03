@@ -73,6 +73,7 @@ namespace Global.Telemetry.Tests
             };
         }
 
+        public void WriteOneWay(ReadOnlySpan<byte> message) => throw new NotSupportedException();
         public void WriteOneWay(INetworkContext value) => throw new NotSupportedException();
         public void WriteResponse(INetworkContext commandContext, int requestId) => throw new NotSupportedException();
         public void OnRequestHandled(INetworkContext commandContext, int requestId) => throw new NotSupportedException();

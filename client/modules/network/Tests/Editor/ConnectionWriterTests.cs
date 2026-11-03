@@ -364,7 +364,7 @@ namespace Internal.Tests
                 return UniTask.CompletedTask;
             }
 
-            public UniTask Send(byte[] bytes)
+            public UniTask Send(ArraySegment<byte> bytes)
             {
                 if (_isDisposed == true)
                     throw new ObjectDisposedException(nameof(ManualSocket));
@@ -422,7 +422,7 @@ namespace Internal.Tests
                 return UniTask.CompletedTask;
             }
 
-            public UniTask Send(byte[] bytes)
+            public UniTask Send(ArraySegment<byte> bytes)
             {
                 _lifetime.Terminate();
                 throw new InvalidOperationException("the encoder broke");
@@ -446,9 +446,9 @@ namespace Internal.Tests
                 return UniTask.CompletedTask;
             }
 
-            public UniTask Send(byte[] bytes)
+            public UniTask Send(ArraySegment<byte> bytes)
             {
-                Sent.Add(bytes);
+                Sent.Add(bytes.ToArray());
                 return UniTask.CompletedTask;
             }
 

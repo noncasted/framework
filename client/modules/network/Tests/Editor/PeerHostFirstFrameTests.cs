@@ -199,9 +199,9 @@ namespace Internal.Tests
 
             public UniTask Connect() => UniTask.CompletedTask;
 
-            public UniTask Send(byte[] bytes)
+            public UniTask Send(ArraySegment<byte> bytes)
             {
-                Frame ??= bytes;
+                Frame ??= bytes.ToArray();
                 return UniTask.CompletedTask;
             }
 

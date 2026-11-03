@@ -1,7 +1,9 @@
+using System;
 using System.Collections;
 using System.IO;
 using System.Linq;
 using Cysharp.Threading.Tasks;
+using MemoryPack;
 using NUnit.Framework;
 using Shared;
 using UnityEngine.TestTools;
@@ -52,8 +54,16 @@ namespace Internal.Tests
 
             lifetime.Terminate();
 
-            var isCanceled = await request.SuppressCancellationThrow();
-            Assert.IsTrue(isCanceled.IsCanceled);
+            // The message is serialized when it is written: QuietRequest is in no union and fails at once, any other
+            // request is cancelled by the end of the connection.
+            try
+            {
+                await request;
+                Assert.Fail("The request got a response");
+            }
+            catch (Exception exception) when (exception is OperationCanceledException or MemoryPackSerializationException)
+            {
+            }
 
             return spans;
         }
@@ -69,7 +79,7 @@ namespace Internal.Tests
 
             public UniTask Connect() => UniTask.CompletedTask;
 
-            public UniTask Send(byte[] bytes) => UniTask.CompletedTask;
+            public UniTask Send(ArraySegment<byte> bytes) => UniTask.CompletedTask;
 
             public void Drop(string reason)
             {

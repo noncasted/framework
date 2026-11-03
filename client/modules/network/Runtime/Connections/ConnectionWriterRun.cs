@@ -26,7 +26,12 @@ namespace Internal
         private readonly NetworkTraffic _traffic;
         private readonly PendingRequests _pendingRequests;
 
-        private readonly List<IMessageFromClient> _queue = new();
+        // A message is serialized when it is enqueued, into the buffer of the queue; the loop swaps the two buffers and
+        // sends the messages of the other one while the next are written. Both are reused: a steady stream of messages
+        // allocates nothing, and a message object may be reused by its writer at once.
+        private MessageQueue _queue = new();
+        private MessageQueue _sending = new();
+
         private readonly List<UniTaskCompletionSource> _flushes = new();
 
         private bool _isLost;
@@ -35,7 +40,38 @@ namespace Internal
 
         public void Enqueue(IMessageFromClient message)
         {
-            _queue.Add(message);
+            var start = _queue.Buffer.Count;
+
+            try
+            {
+                MemoryPackSerializer.Serialize(_queue.Buffer, message);
+            }
+            catch (Exception exception)
+            {
+                _queue.Buffer.Truncate(start);
+
+                // A message the protocol does not know (a type missing from the union) is a mistake of the caller:
+                // its request fails with the error at once instead of on the timeout, the next messages go on.
+                if (message is RequestMessageFromClient request
+                    && _pendingRequests.TryFail(request.RequestId, exception) == true)
+                {
+                    return;
+                }
+
+                UnityEngine.Debug.LogException(exception);
+                return;
+            }
+
+            _queue.EndMessage(start);
+        }
+
+        // A message serialized by the caller: the bytes of an IMessageFromClient.
+        public void Enqueue(ReadOnlySpan<byte> message)
+        {
+            var start = _queue.Buffer.Count;
+            message.CopyTo(_queue.Buffer.GetSpan(message.Length));
+            _queue.Buffer.Advance(message.Length);
+            _queue.EndMessage(start);
         }
 
         public void Lose()
@@ -73,20 +109,7 @@ namespace Internal
                         continue;
                     }
 
-                    // The whole queue is flushed per frame: with one message per frame it grew faster than
-                    // it drained (each dirty property is a separate message), and in WebGL the latency
-                    // built up to seconds.
-                    var batch = new List<IMessageFromClient>(_queue);
-                    _queue.Clear();
-                    _traffic.OnBatch(batch.Count);
-
-                    foreach (var message in batch)
-                    {
-                        if (IsClosed == true)
-                            break;
-
-                        await Send(message);
-                    }
+                    await SendQueued();
                 }
             }
             finally
@@ -96,44 +119,73 @@ namespace Internal
             }
         }
 
-        private async UniTask Send(IMessageFromClient message)
+        // The whole queue is flushed per frame: with one message per frame it grew faster than it drained (each dirty
+        // property was a separate message), and in WebGL the latency built up to seconds. No async method on the way of a
+        // socket that sends synchronously (JsWebSocket): an editor build makes a state machine object per call.
+        public UniTask SendQueued()
         {
-            byte[] payload;
+            (_queue, _sending) = (_sending, _queue);
+            _queue.Clear();
+            _traffic.OnBatch(_sending.Count);
 
-            try
+            return SendFrom(0);
+        }
+
+        private UniTask SendFrom(int index)
+        {
+            for (var i = index; i < _sending.Count; i++)
             {
-                payload = MemoryPackSerializer.Serialize(message);
-            }
-            catch (Exception exception)
-            {
-                // A message the protocol does not know (a type missing from the union) is a mistake of the caller:
-                // its request fails with the error at once instead of on the timeout, the next messages go on.
-                if (message is RequestMessageFromClient request
-                    && _pendingRequests.TryFail(request.RequestId, exception) == true)
+                if (IsClosed == true)
+                    break;
+
+                var payload = _sending.Message(i);
+                UniTask send;
+
+                try
                 {
-                    return;
+                    send = _socket.Send(payload);
+                }
+                catch (Exception exception)
+                {
+                    OnSendFailed(exception);
+                    continue;
                 }
 
-                UnityEngine.Debug.LogException(exception);
-                return;
+                if (send.Status != UniTaskStatus.Succeeded)
+                    return AwaitSend(send, payload.Count, i);
+
+                _traffic.OnSent(payload.Count);
             }
 
+            _sending.Clear();
+            return UniTask.CompletedTask;
+        }
+
+        private async UniTask AwaitSend(UniTask send, int length, int index)
+        {
             try
             {
-                await _socket.Send(payload);
-                _traffic.OnSent(payload.Length);
-            }
-            catch (Exception exception) when (IsClosed == true && exception is OperationCanceledException or ObjectDisposedException)
-            {
-                // The connection is closed during the send (the lifetime ended: OperationCanceledException, the socket
-                // is disposed: ObjectDisposedException): the message goes as every other one left in the queue of a
-                // closed connection, not a failure to report.
+                await send;
+                _traffic.OnSent(length);
             }
             catch (Exception exception)
             {
-                // A crashed send loop silently hangs all subsequent requests, so we keep going.
-                UnityEngine.Debug.LogError($"Failed to send message to server: {exception}");
+                OnSendFailed(exception);
             }
+
+            await SendFrom(index + 1);
+        }
+
+        private void OnSendFailed(Exception exception)
+        {
+            // The connection is closed during the send (the lifetime ended: OperationCanceledException, the socket is
+            // disposed: ObjectDisposedException): the message goes as every other one left in the queue of a closed
+            // connection, not a failure to report.
+            if (IsClosed == true && exception is OperationCanceledException or ObjectDisposedException)
+                return;
+
+            // A crashed send loop silently hangs all subsequent requests, so we keep going.
+            UnityEngine.Debug.LogError($"Failed to send message to server: {exception}");
         }
 
         private void CompleteFlushes()
@@ -146,6 +198,33 @@ namespace Internal
 
             foreach (var flush in flushes)
                 flush.TrySetResult();
+        }
+
+        // The serialized messages of one side of the queue, one after another in a reused buffer.
+        private sealed class MessageQueue
+        {
+            public readonly NetworkBuffer Buffer = new();
+            private readonly List<int> _starts = new();
+
+            public int Count => _starts.Count;
+
+            public void EndMessage(int start)
+            {
+                _starts.Add(start);
+            }
+
+            public ArraySegment<byte> Message(int index)
+            {
+                var start = _starts[index];
+                var end = index + 1 < _starts.Count ? _starts[index + 1] : Buffer.Count;
+                return Buffer.Segment(start, end - start);
+            }
+
+            public void Clear()
+            {
+                Buffer.Clear();
+                _starts.Clear();
+            }
         }
     }
 }
