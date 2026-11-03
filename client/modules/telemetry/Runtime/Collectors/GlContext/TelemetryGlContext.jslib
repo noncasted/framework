@@ -50,8 +50,16 @@ var LibraryTelemetryGlContext = {
         });
     },
 
+    // The event or the context itself: a context lost before the listeners, or lost without the event, reads as lost too.
     TelemetryGlContextIsLost: function () {
-        return telemetryGlContextState.isLost;
+        if (telemetryGlContextState.isLost)
+            return true;
+
+        try {
+            return typeof GLctx !== 'undefined' && !!GLctx && GLctx.isContextLost();
+        } catch (error) {
+            return false;
+        }
     },
 
     TelemetryGlContextTakeLost: function () {

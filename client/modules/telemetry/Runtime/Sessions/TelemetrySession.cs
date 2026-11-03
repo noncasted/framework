@@ -21,8 +21,10 @@ namespace Global.Telemetry
             ITelemetryDeviceSource device,
             TelemetryRequestGate gate,
             TelemetryStartupReport startup,
+            TelemetrySessionTrace trace,
             IReadOnlyList<string> tags)
         {
+            _trace = trace;
             _options = options;
             _collection = collection;
             _writer = writer;
@@ -41,13 +43,18 @@ namespace Global.Telemetry
         private readonly ITelemetryDeviceSource _device;
         private readonly TelemetryRequestGate _gate;
         private readonly TelemetryStartupReport _startup;
+        private readonly TelemetrySessionTrace _trace;
         private readonly IReadOnlyList<string> _tags;
         private readonly Action _close;
         private readonly UniTaskCompletionSource _sent = new();
 
+        private const string PreviousMark = "session.previous_unclosed";
+
         private IReadOnlyLifetime _lifetime;
         private ILifetime _running;
         private IReadOnlyList<TelemetryBatch> _lastBatches = Array.Empty<TelemetryBatch>();
+        private TelemetryPreviousSession _previous;
+        private Guid _sessionId;
         private bool _isOver;
 
         // Done when this session has nothing more for the transport. Never fails, and awaited only by the next session.
@@ -84,10 +91,12 @@ namespace Global.Telemetry
             _collection.Drop(_running);
         }
 
+        // Over on the client, whatever the server got: the trace of this session has nothing to report.
         private void MarkOver()
         {
             _isOver = true;
             _lifetime.RemoveListener(_close);
+            _trace.Close(_sessionId);
         }
 
         // The top of a task nobody awaits. The end of the session is the expected way out. Anything else is a bug here or in
@@ -149,6 +158,9 @@ namespace Global.Telemetry
                 return;
             }
 
+            if (_isOver == false)
+                OpenTrace(answer.SessionId);
+
             while (_isOver == false)
             {
                 await WaitForNextBatch();
@@ -172,11 +184,25 @@ namespace Global.Telemetry
             await _gate.Run(() => _transport.End(answer.SessionId));
         }
 
+        // The trace of a session that did not close goes with the start: a refused start leaves it for the next one.
         private UniTask<TelemetrySessionAnswer> StartOnTurn()
         {
-            return _isOver
-                ? UniTask.FromResult(TelemetrySessionAnswer.Refused(TelemetrySendOutcome.Failed))
-                : _transport.Start(new TelemetrySessionStart(_tags, _device.Read(), _startup.Id));
+            if (_isOver)
+                return UniTask.FromResult(TelemetrySessionAnswer.Refused(TelemetrySendOutcome.Failed));
+
+            _previous = _trace.ReadPrevious();
+
+            return _transport.Start(new TelemetrySessionStart(_tags, _device.Read(), _startup.Id, _previous));
+        }
+
+        // Replaces the trace of the previous session, which the server has now.
+        private void OpenTrace(Guid sessionId)
+        {
+            _sessionId = sessionId;
+            _trace.Open(sessionId, _tags);
+
+            if (_previous != null)
+                _collection.AddMark(PreviousMark);
         }
 
         private UniTask WaitForNextBatch()

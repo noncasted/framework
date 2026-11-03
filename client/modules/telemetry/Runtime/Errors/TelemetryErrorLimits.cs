@@ -27,6 +27,12 @@ namespace Global.Telemetry
         public const long FirstWindowMs = 1000;
         public const long MaxWindowMs = 60_000;
 
+        // Warnings take a small part of every limit, so a game that warns all the time neither pays for it nor pushes the errors out:
+        // in the queue between two passes, kinds in a session and records in a session. A new one over a limit is lost.
+        public const int MaxQueuedWarnings = 16;
+        public const int MaxWarningGroups = 16;
+        public const int MaxWarningRecordsPerSession = 48;
+
         // The two errors with one start of the message and one stack are the same error.
         public const int KeyMessageLength = 128;
     }

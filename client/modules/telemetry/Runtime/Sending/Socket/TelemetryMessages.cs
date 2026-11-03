@@ -15,7 +15,20 @@ namespace Global.Telemetry
             {
                 Device = ToDevice(start.Device),
                 Tags = start.Tags.ToArray(),
-                StartupId = start.StartupId
+                StartupId = start.StartupId,
+                Previous = start.Previous == null ? null : ToPrevious(start.Previous)
+            };
+        }
+
+        private static SharedClientTelemetry.PreviousSession ToPrevious(TelemetryPreviousSession previous)
+        {
+            return new SharedClientTelemetry.PreviousSession
+            {
+                SessionId = previous.SessionId,
+                Tags = previous.Tags.ToArray(),
+                LastSampleTime = previous.LastSampleTime,
+                SinceMs = previous.SinceMs,
+                Marks = previous.Marks.Select(mark => new SharedClientTelemetry.Mark { Time = mark.Time, Name = mark.Name }).ToArray()
             };
         }
 
@@ -52,6 +65,7 @@ namespace Global.Telemetry
             {
                 TelemetryErrorLevel.Error => SharedClientTelemetry.ErrorLevel.Error,
                 TelemetryErrorLevel.Exception => SharedClientTelemetry.ErrorLevel.Exception,
+                TelemetryErrorLevel.Warning => SharedClientTelemetry.ErrorLevel.Warning,
                 _ => throw new ArgumentOutOfRangeException(nameof(level), level, "[Telemetry] Unknown level of an error")
             };
         }

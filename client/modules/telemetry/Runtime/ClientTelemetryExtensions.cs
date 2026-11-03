@@ -46,6 +46,22 @@ namespace Global.Telemetry
 #endif
 
             builder.Register<TelemetryVisibility>();
+
+            builder.Register<PageLifecycleTelemetryCollector>()
+                   .As<ITelemetryLiveCollector>();
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+            builder.Register<TelemetryWebTraceStore>()
+                   .As<ITelemetryTraceStore>();
+#else
+            builder.Register<TelemetryFileTraceStore>()
+                   .As<ITelemetryTraceStore>();
+#endif
+
+            builder.Register<TelemetryWallClock>()
+                   .As<ITelemetryWallClock>();
+
+            builder.Register<TelemetrySessionTrace>();
             builder.Register<TelemetryNameTable>();
             builder.Register<TelemetryBuffer>();
             builder.Register<TelemetrySampler>();
@@ -70,6 +86,13 @@ namespace Global.Telemetry
                    .As<ITelemetryGlContext>();
 
             builder.Register<GlContextTelemetryCollector>()
+                   .As<ITelemetryCollector>()
+                   .As<ITelemetryLiveCollector>();
+
+            builder.Register<TelemetryGlErrors>()
+                   .As<ITelemetryGlErrors>();
+
+            builder.Register<GlErrorsTelemetryCollector>()
                    .As<ITelemetryCollector>()
                    .As<ITelemetryLiveCollector>();
 #endif

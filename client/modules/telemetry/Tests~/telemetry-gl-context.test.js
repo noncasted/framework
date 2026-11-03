@@ -11,7 +11,7 @@ const source = fs.readFileSync(path.join(__dirname, '..', 'Runtime', 'Collectors
 // What the preprocessor of emscripten makes of it: a call of the pointer.
 const jslib = source.replace(/\{\{\{\s*makeDynCall\('[a-z]+',\s*'([^']+)'\)\s*\}\}\}/g, 'dynCall($1)');
 
-function load() {
+function load(GLctx) {
     const library = {};
     const listeners = new Map();
 
@@ -24,6 +24,7 @@ function load() {
         mergeInto: (target, added) => Object.assign(target, added),
         autoAddDeps: () => { },
         Module: { canvas },
+        GLctx,
         dynCall: handler => handler
     });
 
@@ -151,4 +152,12 @@ test('the script only listens: nothing of the page or the device is read', () =>
 
     for (const fragment of ['navigator', 'location', 'document', 'fetch(', 'XMLHttpRequest', 'getParameter', 'getExtension', 'localStorage'])
         assert.ok(!code.includes(fragment), fragment);
+});
+
+test('a context lost without the event reads as lost', () => {
+    const page = load({ isContextLost: () => true });
+    page.library.TelemetryGlContextListen(() => { });
+
+    assert.strictEqual(page.library.TelemetryGlContextIsLost(), true);
+    assert.strictEqual(page.library.TelemetryGlContextTakeLost(), 0);
 });

@@ -22,6 +22,7 @@ namespace Global.Telemetry.Tests
             var sample = new RecordingSample();
 
             readings.Set(allocated: 1, reserved: 2, monoUsed: 3, monoHeap: 4, textures: 5);
+            readings.SetTextureCount(7);
             collector.Collect(sample);
 
             Assert.AreEqual(1d, sample.Values["memory.allocated"]);
@@ -29,8 +30,10 @@ namespace Global.Telemetry.Tests
             Assert.AreEqual(3d, sample.Values["memory.mono.used"]);
             Assert.AreEqual(4d, sample.Values["memory.mono.heap"]);
             Assert.AreEqual(5d, sample.Values["memory.textures"]);
+            Assert.AreEqual(7d, sample.Values["memory.texture_count"]);
+            Assert.AreEqual("count", sample.Units["memory.texture_count"]);
 
-            foreach (var name in sample.Values.Keys.Where(name => name.StartsWith("memory.")))
+            foreach (var name in sample.Values.Keys.Where(name => name.StartsWith("memory.") && name != "memory.texture_count"))
                 Assert.AreEqual("bytes", sample.Units[name], name);
         }
 
@@ -414,6 +417,12 @@ namespace Global.Telemetry.Tests
         public long MonoHeap { get; private set; }
         public long Textures { get; private set; }
         public int Collections { get; private set; }
+        public int TextureCount { get; private set; }
+
+        public void SetTextureCount(int count)
+        {
+            TextureCount = count;
+        }
 
         public void Set(long allocated, long reserved, long monoUsed, long monoHeap, long textures)
         {

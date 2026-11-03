@@ -28,13 +28,18 @@ namespace Global.Telemetry.Tests
         }
 
         [Test]
-        public void LogAndWarning_NotTaken()
+        public void Log_NotTaken_AWarningIsItsOwnLevel()
         {
             LogAssert.ignoreFailingMessages = true;
             Debug.Log("plain");
-            Debug.LogWarning("warning");
 
             Assert.AreEqual(0, _fixture.Queue.Count);
+
+            Debug.LogWarning("warning");
+
+            var drained = new TelemetryQueuedError[TelemetryErrorLimits.MaxQueued];
+            Assert.AreEqual(1, _fixture.Queue.Drain(drained));
+            Assert.AreEqual(TelemetryErrorLevel.Warning, drained[0].Level);
         }
 
         [Test]

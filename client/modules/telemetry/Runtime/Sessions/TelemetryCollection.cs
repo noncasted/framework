@@ -15,8 +15,10 @@ namespace Global.Telemetry
             TelemetryBatchWriter writer,
             ITelemetryClock clock,
             TelemetryVisibility visibility,
+            TelemetrySessionTrace trace,
             IReadOnlyList<ITelemetryLiveCollector> liveCollectors)
         {
+            _trace = trace;
             _buffer = buffer;
             _names = names;
             _sampler = sampler;
@@ -32,6 +34,7 @@ namespace Global.Telemetry
         private readonly TelemetryBatchWriter _writer;
         private readonly ITelemetryClock _clock;
         private readonly TelemetryVisibility _visibility;
+        private readonly TelemetrySessionTrace _trace;
         private readonly IReadOnlyList<ITelemetryLiveCollector> _liveCollectors;
 
         public ILifetime Begin()
@@ -50,6 +53,12 @@ namespace Global.Telemetry
         public void Sample()
         {
             _sampler.Sample();
+            _trace.Sampled(_clock.ElapsedMilliseconds);
+        }
+
+        public void AddMark(string name)
+        {
+            _buffer.AddMark(_clock.ElapsedMilliseconds, name);
         }
 
         // The end of the lifetime goes first: what the collectors have ready for a closing session gets into its last batches.

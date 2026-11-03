@@ -9,7 +9,7 @@ const vm = require('node:vm');
 const jslib = fs.readFileSync(path.join(__dirname, '..', 'Runtime', 'Collectors', 'Web', 'TelemetryWeb.jslib'), 'utf8');
 
 const closedList = ['browser', 'browserMajor', 'os', 'osMajor', 'gpu', 'cores', 'memoryClass', 'screenWidth', 'screenHeight', 'dpr'];
-const readableNavigator = ['userAgent', 'hardwareConcurrency', 'deviceMemory'];
+const readableNavigator = ['userAgent', 'hardwareConcurrency', 'deviceMemory', 'maxTouchPoints'];
 
 const chromeAndroid = 'Mozilla/5.0 (Linux; Android 14; Pixel 7 Build/UP1A.231005.007) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.6723.58 Mobile Safari/537.36';
 const telegramAndroid = 'Mozilla/5.0 (Linux; Android 13; SM-G991B Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/129.0.6668.100 Mobile Safari/537.36 Telegram-Android/11.2.2 (Samsung SM-G991B; Android 13; SDK 33; HIGH)';
@@ -21,6 +21,10 @@ const firefoxAndroid = 'Mozilla/5.0 (Android 14; Mobile; rv:131.0) Gecko/131.0 F
 const firefoxLinux = 'Mozilla/5.0 (X11; Linux x86_64; rv:132.0) Gecko/20100101 Firefox/132.0';
 const samsung = 'Mozilla/5.0 (Linux; Android 13; SAMSUNG SM-S911B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/25.0 Chrome/121.0.0.0 Mobile Safari/537.36';
 const edgeWindows = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.2849.56';
+// iPadOS by default: the user agent of a Mac, with touch points; Telegram on iOS does not name itself, its bridge does.
+const safariIpad = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15';
+const webViewIpad = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)';
+const safariIpadMobile = 'Mozilla/5.0 (iPad; CPU OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1';
 const safariMac = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15';
 
 function canvasWith(renderer, debugRenderer) {
@@ -42,14 +46,14 @@ function canvasWith(renderer, debugRenderer) {
     return { gl, getContext: () => (renderer === undefined ? null : gl) };
 }
 
-function load({ userAgent = chromeAndroid, cores = 8, deviceMemory = 4, canvas = canvasWith('WebKit WebGL', 'Adreno (TM) 730'), memory, heap = 1024 } = {}) {
+function load({ userAgent = chromeAndroid, cores = 8, deviceMemory = 4, canvas = canvasWith('WebKit WebGL', 'Adreno (TM) 730'), memory, heap = 1024, maxTouchPoints = 0, bridge } = {}) {
     const library = {};
     const reads = new Set();
     const strings = new Map();
     let nextPointer = 16;
 
     // Null is a field the browser does not have.
-    const fields = { userAgent, hardwareConcurrency: cores ?? undefined, deviceMemory: deviceMemory ?? undefined };
+    const fields = { userAgent, hardwareConcurrency: cores ?? undefined, deviceMemory: deviceMemory ?? undefined, maxTouchPoints };
 
     const navigator = new Proxy(fields, {
         get: (target, key) => {
@@ -62,7 +66,7 @@ function load({ userAgent = chromeAndroid, cores = 8, deviceMemory = 4, canvas =
         LibraryManager: { library },
         mergeInto: (target, source) => Object.assign(target, source),
         navigator,
-        window: { devicePixelRatio: 2.625 },
+        window: bridge === undefined ? { devicePixelRatio: 2.625 } : { devicePixelRatio: 2.625, [bridge]: {} },
         screen: { width: 412, height: 915 },
         document: { createElement: () => canvas },
         performance: memory === undefined ? {} : { memory },
@@ -101,6 +105,26 @@ const userAgents = [
 for (const [title, userAgent, browser, browserMajor, os, osMajor] of userAgents) {
     test(`user agent: ${title}`, () => {
         const device = load({ userAgent }).readDevice();
+
+        assert.deepStrictEqual(
+            [device.browser, device.browserMajor, device.os, device.osMajor],
+            [browser, browserMajor, os, osMajor]);
+    });
+}
+
+const touchDevices = [
+    ['Safari iPadOS as a Mac', safariIpad, 5, undefined, 'Safari', 17, 'iPadOS', -1],
+    ['WebView iPadOS as a Mac', webViewIpad, 5, undefined, 'iOS WebView', -1, 'iPadOS', -1],
+    ['Telegram iPadOS as a Mac', webViewIpad, 5, 'TelegramWebviewProxy', 'Telegram WebView', -1, 'iPadOS', -1],
+    ['Telegram iOS', webViewIos, 5, 'TelegramWebviewProxy', 'Telegram WebView', -1, 'iOS', 16],
+    ['Safari iPadOS as an iPad', safariIpadMobile, 5, undefined, 'Safari', 17, 'iPadOS', 17],
+    ['Safari macOS with a touch point', safariMac, 1, undefined, 'Safari', 17, 'macOS', 10],
+    ['A WebView of macOS', webViewIpad, 0, undefined, '', -1, 'macOS', 10]
+];
+
+for (const [title, userAgent, maxTouchPoints, bridge, browser, browserMajor, os, osMajor] of touchDevices) {
+    test(`touch and bridge: ${title}`, () => {
+        const device = load({ userAgent, maxTouchPoints, bridge }).readDevice();
 
         assert.deepStrictEqual(
             [device.browser, device.browserMajor, device.os, device.osMajor],
