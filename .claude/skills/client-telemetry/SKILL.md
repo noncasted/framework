@@ -1,6 +1,6 @@
 ---
 name: client-telemetry
-description: Watch and analyse the performance telemetry of game clients - wait for a new session and observe it, only of a menu or only of a run by its tag, or analyse a given session by id, live or archived - and report CPU or GPU limits, freezes, memory growth, overheating and errors. Use when the user runs /client-telemetry, asks to look at the client telemetry, the performance on a phone or a device, a live session, why the game lags on a player's device, or says they are starting the game now and asks to watch it.
+description: Watch and analyse the performance telemetry of game clients - wait for a new session and observe it, only of a menu or only of a run by its tag, or analyse a given session by id, live or archived, or a startup trace of a client - and report CPU or GPU limits, freezes, memory growth, overheating, slow loads and errors. Use when the user runs /client-telemetry, asks to look at the client telemetry, the performance on a phone or a device, a live session, why the game lags on a player's device, or says they are starting the game now and asks to watch it.
 ---
 
 # AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
