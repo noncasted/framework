@@ -17,7 +17,8 @@ namespace Global.Telemetry
             ITelemetryTransport transport,
             ITelemetryDeviceSource device,
             TelemetryRequestGate gate,
-            TelemetryStartupReport startup)
+            TelemetryStartupReport startup,
+            TelemetryAddedCollectors added)
         {
             _options = options;
             _names = names;
@@ -29,6 +30,7 @@ namespace Global.Telemetry
             _device = device;
             _gate = gate;
             _startup = startup;
+            _added = added;
         }
 
         private readonly ClientTelemetryOptions _options;
@@ -41,6 +43,7 @@ namespace Global.Telemetry
         private readonly ITelemetryDeviceSource _device;
         private readonly TelemetryRequestGate _gate;
         private readonly TelemetryStartupReport _startup;
+        private readonly TelemetryAddedCollectors _added;
 
         private TelemetrySession _current;
 
@@ -69,6 +72,12 @@ namespace Global.Telemetry
                 return;
 
             _buffer.AddMark(_clock.ElapsedMilliseconds, name);
+        }
+
+        public void AddCollector(IReadOnlyLifetime lifetime, ITelemetryCollector collector)
+        {
+            if (_options.IsEnabled)
+                _added.Add(lifetime, collector);
         }
 
         public void SendStartupTrace()

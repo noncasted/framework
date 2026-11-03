@@ -29,7 +29,7 @@ namespace Global.Telemetry.Tests.Transport
 
             Errors = new TelemetryErrors(buffer, clock);
             ErrorQueue = new TelemetryErrorQueue();
-            Transport = new RecordingSocketTransport(new TelemetrySocketTransport(this));
+            Transport = new RecordingSocketTransport(new TelemetrySocketTransport(this, new TelemetryTicks(), new TelemetryRoundTrip()));
 
             var collection = new TelemetryCollection(
                 buffer,
@@ -47,7 +47,7 @@ namespace Global.Telemetry.Tests.Transport
             var startup = new TelemetryStartupReport(options, StartupSource, Transport, gate, source);
 
             startup.OnSetup(_lifetime);
-            Telemetry = new ClientTelemetry(options, guard, buffer, clock, collection, writer, Transport, source, gate, startup);
+            Telemetry = new ClientTelemetry(options, guard, buffer, clock, collection, writer, Transport, source, gate, startup, new TelemetryAddedCollectors());
         }
 
         private readonly Lifetime _lifetime = new Lifetime();

@@ -12,18 +12,27 @@ namespace Global.Telemetry
             builder.Register<TelemetrySocketTransport>()
                    .As<ITelemetryTransport>();
 
+            builder.Register<TelemetryRoundTrip>();
+
+            builder.Register<MetaNetworkTelemetryCollector>()
+                   .As<ITelemetryCollector>()
+                   .As<ITelemetryLiveCollector>();
+
             return builder.AddClientTelemetry(options);
         }
 
         // The scope needs an ITelemetryTransport, registered by the game. The base metrics: AddStandardTelemetryCollectors. A
-        // game adds its own collectors next to this call: builder.Register<MyCollector>().As<ITelemetryCollector>().
-        // Nothing runs until the game opens a session (IClientTelemetry.StartSession).
+        // game adds its own collectors next to this call: builder.Register<MyCollector>().As<ITelemetryCollector>(), or from a scope
+        // below with IClientTelemetry.AddCollector. Nothing runs until the game opens a session (IClientTelemetry.StartSession).
         public static IScopeBuilder AddClientTelemetry(this IScopeBuilder builder, ClientTelemetryOptions options)
         {
             builder.RegisterInstance(options);
 
             builder.Register<TelemetryClock>()
                    .As<ITelemetryClock>();
+
+            builder.Register<TelemetryTicks>()
+                   .As<ITelemetryTicks>();
 
             builder.Register<TelemetryNameGuard>()
                    .WithParameter(Debug.isDebugBuild);
@@ -64,6 +73,11 @@ namespace Global.Telemetry
                    .As<ITelemetryCollector>()
                    .As<ITelemetryLiveCollector>();
 #endif
+
+            builder.Register<TelemetryAddedCollectors>()
+                   .As<ITelemetryCollector>()
+                   .As<ITelemetryLiveCollector>()
+                   .AsSelf();
 
             builder.Register<TelemetryCollection>();
             builder.Register<TelemetryRequestGate>();

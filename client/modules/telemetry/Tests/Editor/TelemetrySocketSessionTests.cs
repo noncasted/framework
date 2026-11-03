@@ -34,7 +34,7 @@ namespace Global.Telemetry.Tests
 
         private static TelemetryFixture Fixture(FakeTelemetrySocket socket)
         {
-            var fixture = new TelemetryFixture(transport: new TelemetrySocketTransport(socket));
+            var fixture = new TelemetryFixture(transport: new TelemetrySocketTransport(socket, new TelemetryTicks(), new TelemetryRoundTrip()));
             fixture.Collector.Script(sample => sample.Gauge("a", 1));
             return fixture;
         }

@@ -30,7 +30,7 @@ namespace Global.Telemetry.Tests
 
         private TelemetryFixture Fixture(ITelemetrySocket socket)
         {
-            var fixture = new TelemetryFixture(transport: new TelemetrySocketTransport(socket));
+            var fixture = new TelemetryFixture(transport: new TelemetrySocketTransport(socket, new TelemetryTicks(), new TelemetryRoundTrip()));
 
             fixture.Startup.OnSetup(_lifetime);
             fixture.StartupSource.Open(FakeTelemetryStartupSource.Trace(

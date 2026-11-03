@@ -34,7 +34,7 @@ namespace Global.Telemetry.Tests
             var writer = new ConnectionWriter(new NetworkTraffic());
             var lifetime = new Lifetime();
             writer.Run(lifetime, new SilentWebSocket());
-            var transport = new TelemetrySocketTransport(new FakeTelemetrySocket(writer));
+            var transport = new TelemetrySocketTransport(new FakeTelemetrySocket(writer), new TelemetryTicks(), new TelemetryRoundTrip());
 
             var start = transport.Start(new TelemetrySessionStart(new[] { "menu" }, new TelemetryDevice(cores: 4), Guid.Empty));
             var send = transport.Send(_id, new TelemetryBatch(

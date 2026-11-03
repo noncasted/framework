@@ -210,7 +210,13 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
     `AddStandardTelemetryCollectors`): metrics, errors and the startup trace over the meta socket, which the game gives as
     `ITelemetrySocket`, so it is called in the scope of the meta backend. `IClientTelemetry`: `StartSession(lifetime, tags)` per part of the
     game, `Mark`, `SendStartupTrace` after every authorization of the socket. Nothing runs without a session; a game adds a
-    collector as `ITelemetryCollector`. On WebGL `AddClientTelemetry` also listens to the context of the canvas (`Module.canvas`, from the build of the
+    collector as `ITelemetryCollector` in the scope of the telemetry, or from a scope below (a run) with
+    `AddCollector(lifetime, collector)`: sampled in every session while the lifetime lives, a live one started per session with the
+    session cut by its lifetime. The standard collectors also time the frame: markers in the `PlayerLoop` for a session only
+    (`frame.phase.*`, `frame.fixed_steps`, `frame.spikes` and the marks `frame.spike` / `frame.spike.<phase>` from 250 ms, `gc.allocated`;
+    under 1 us per frame in the editor), `render.width` / `height` / `pixels` of the drawing buffer, `settings.*`, and on WebGL
+    `frame.gpu.query` (`EXT_disjoint_timer_query_webgl2`, one frame in 30), `render.canvas_*` / `dpr`, `web.raf.dt.*` (an own chain of
+    `requestAnimationFrame`), `web.gl.*` numbers of the context; `AddSocketClientTelemetry` adds `net.meta.rtt` / `bytes_*`. On WebGL `AddClientTelemetry` also listens to the context of the canvas (`Module.canvas`, from the build of the
     scope, nothing prevented): the metric `web.gl.context_lost`, the marks `webgl.context_lost` / `webgl.context_restored` and the error
     `WebGL context lost`; a loss outside a session waits on the page and comes once with the next one. Unity stops its player loop while the
     context is lost, so all this is sent only after a restore; without one the samples just stop and the session closes as `lost`. Depends on `network`.
@@ -261,8 +267,8 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1512, common 92, Verify 166, control 23, telemetry 64, EditMode 965 (4 of them skipped, the
-benchmarks of `ContainerBenchmarkTests`), PlayMode 113 (24 of them skipped, the end to end tests of the telemetry without their host);
+Release build replaces it. The expected numbers: backend 1512, common 92, Verify 166, control 23, telemetry 64, EditMode 984 (4 of them skipped, the
+benchmarks of `ContainerBenchmarkTests`), PlayMode 116 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 
 `tools/scripts/test-telemetry-transport.sh` runs those 24 against a real backend: it starts `ClientTelemetry.TestHost` (needs Docker) and takes

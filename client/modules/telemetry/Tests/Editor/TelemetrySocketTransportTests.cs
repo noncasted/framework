@@ -32,7 +32,7 @@ namespace Global.Telemetry.Tests
         private static TelemetrySocketTransport Transport(Func<INetworkContext, INetworkContext> server, out ScriptedTelemetryWriter writer)
         {
             writer = new ScriptedTelemetryWriter(server);
-            return new TelemetrySocketTransport(new FakeTelemetrySocket(writer));
+            return new TelemetrySocketTransport(new FakeTelemetrySocket(writer), new TelemetryTicks(), new TelemetryRoundTrip());
         }
 
         // The three calls after a failure of the same kind: each ends, the first two with Failed.
@@ -111,7 +111,7 @@ namespace Global.Telemetry.Tests
             var first = new ScriptedTelemetryWriter(_ => EmptyResponse.Ok);
             var second = new ScriptedTelemetryWriter(_ => EmptyResponse.Ok);
             var socket = new FakeTelemetrySocket(first);
-            var transport = new TelemetrySocketTransport(socket);
+            var transport = new TelemetrySocketTransport(socket, new TelemetryTicks(), new TelemetryRoundTrip());
 
             await transport.End(_id).Timeout(_limit);
             socket.Connect(second);
@@ -219,7 +219,7 @@ namespace Global.Telemetry.Tests
         public IEnumerator RealWriter_NeverRun_Failed() => UniTask.ToCoroutine(async () =>
         {
             var writer = new ConnectionWriter(new NetworkTraffic());
-            var transport = new TelemetrySocketTransport(new FakeTelemetrySocket(writer));
+            var transport = new TelemetrySocketTransport(new FakeTelemetrySocket(writer), new TelemetryTicks(), new TelemetryRoundTrip());
 
             await AssertAllFailed(transport);
         });
@@ -231,7 +231,7 @@ namespace Global.Telemetry.Tests
             var webSocket = new SilentWebSocket();
             var lifetime = new Lifetime();
             writer.Run(lifetime, webSocket);
-            var transport = new TelemetrySocketTransport(new FakeTelemetrySocket(writer));
+            var transport = new TelemetrySocketTransport(new FakeTelemetrySocket(writer), new TelemetryTicks(), new TelemetryRoundTrip());
 
             var send = transport.Send(_id, Batch());
             webSocket.Drop("Lost");
@@ -248,7 +248,7 @@ namespace Global.Telemetry.Tests
             var writer = new ConnectionWriter(new NetworkTraffic());
             var lifetime = new Lifetime();
             writer.Run(lifetime, new SilentWebSocket());
-            var transport = new TelemetrySocketTransport(new FakeTelemetrySocket(writer));
+            var transport = new TelemetrySocketTransport(new FakeTelemetrySocket(writer), new TelemetryTicks(), new TelemetryRoundTrip());
 
             var send = transport.Send(_id, Batch());
             lifetime.Terminate();

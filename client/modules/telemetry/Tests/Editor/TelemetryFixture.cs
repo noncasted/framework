@@ -40,7 +40,8 @@ namespace Global.Telemetry.Tests
             if (glCollector != null)
                 collectors = new ITelemetryCollector[] { Collector, glCollector };
 
-            Sampler = new TelemetrySampler(collectors ?? new ITelemetryCollector[] { Collector }, Names, Buffer, Clock, Visibility);
+            collectors = (collectors ?? new ITelemetryCollector[] { Collector }).Append(Added).ToArray();
+            Sampler = new TelemetrySampler(collectors, Names, Buffer, Clock, Visibility);
 
             if (catchErrors)
             {
@@ -58,6 +59,8 @@ namespace Global.Telemetry.Tests
             // As in AddClientTelemetry: after the pump, which opens the queue of the errors for the session.
             if (glCollector != null)
                 liveCollectors = (liveCollectors ?? Array.Empty<ITelemetryLiveCollector>()).Append(glCollector).ToArray();
+
+            liveCollectors = (liveCollectors ?? Array.Empty<ITelemetryLiveCollector>()).Append(Added).ToArray();
 
             Collection = new TelemetryCollection(
                 Buffer,
@@ -83,10 +86,12 @@ namespace Global.Telemetry.Tests
                 transport ?? Transport,
                 deviceSource,
                 Gate,
-                Startup);
+                Startup,
+                Added);
         }
 
         public ScriptedCollector Collector { get; } = new ScriptedCollector();
+        public TelemetryAddedCollectors Added { get; } = new TelemetryAddedCollectors();
         public ManualClock Clock { get; } = new ManualClock();
         public RecordingTransport Transport { get; } = new RecordingTransport();
         public FakeTelemetryPage Page { get; } = new FakeTelemetryPage();

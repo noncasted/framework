@@ -133,8 +133,26 @@ Go in this order, each from the numbers:
 1. **CPU or GPU limit.** `frame.cpu`, `frame.cpu.main` against `frame.gpu` and the frame budget (`frame.dt.p50`). The larger one close
    to the frame time is the limit. All three may be in `not_reported` (the build has no frame timing stats, or the platform gives none):
    then the limit cannot be determined, write that. Do not infer it from the fps. `render.*` tell the load, not the limit.
+   Where the timings are missing or disagree, split the frame (14 metrics, all platforms): `frame.phase.<early|fixed|pre|update|prelate|postlate>`
+   (ms per frame, `.max` the worst frame of the sample) are the top systems of the player loop timed by Stopwatch, in a release WebGL too;
+   their sum is close to `frame.cpu.main`. `update` and `prelate` are the scripts of the game (UniTask continuations included), `fixed`
+   physics and `FixedUpdate` with `frame.fixed_steps` steps per frame (above 1 with a long frame: the steps feed the lag), `postlate` the
+   rendering on the main thread (WebGL issues the GL calls there, so a GPU that blocks shows here). `frame.dt` well above the sum of the
+   phases: the time is outside the player loop (the browser, the compositor, a GPU that holds the next frame).
+   `frame.gpu.query` (WebGL with `EXT_disjoint_timer_query_webgl2`, `web.gl.timer_query`=1) is the GPU time of one whole frame in 30, the
+   real GPU limit where `frame.gpu` is absent; none with `web.gl.timer_query`=0 (most phones, Safari), which is no finding.
+   `render.width`/`render.height`/`render.pixels` are the real drawing buffer, `render.canvas_*` the CSS size, `render.dpr` the ratio
+   applied: a fill-bound shader costs in proportion to `render.pixels`. `web.raf.dt.avg`/`.max` are the frames the browser gives the page,
+   measured apart from Unity: long ones with a short `frame.cpu.main` - the browser or the GPU holds the frames; short ones with a long
+   `frame.dt` - Unity does not keep up (with `settings.target_fps` set, Unity may skip browser frames on purpose). `settings.*` (quality
+   index, `vsync`, `target_fps` -1 the default, `time_scale`, `msaa`) and `web.gl.*` (version, `max_texture_size`, `antialias`,
+   `preserve_buffer`, `power_preference` 0 default 1 high-performance 2 low-power) are the configuration; compare sessions with them.
 2. **Freezes.** `frame.over33`, `frame.over50` (frames over 33 and 50 ms, summed in windows) and `frame.dt.max` against `frame.dt.p50`.
-   Rare high `max` with a calm p95 are single freezes; check the same window for `gc.collections`, `marks`, errors.
+   Rare high `max` with a calm p95 are single freezes; check the same window for `gc.collections`, `marks`, errors. Every frame of 250 ms
+   or more is counted in `frame.spikes` and the first 64 of a session leave the marks `frame.spike` and `frame.spike.<phase>`: the longest
+   part of that frame, `browser` when it was outside the player loop (the browser did not run the frame, a GPU stall, a lost context
+   coming back). `gc.allocated` is the managed garbage per sample (summed in windows): steady megabytes per second feed the collections.
+   `net.meta.rtt` is the answer time of a telemetry batch on the meta socket (network, two frames, the server), `net.meta.bytes_*` its traffic.
 3. **Memory growth.** `growth` and the trend of `memory.*`, `web.wasm.heap`, `web.js.used`: growing to the end of a session is a suspect
    leak, a step at a mark is a load. Name the metric and the rate per minute.
 4. **Overheating.** The fps falls window by window while the load (`render.draw_calls`, `render.triangles`, the counters of the game)

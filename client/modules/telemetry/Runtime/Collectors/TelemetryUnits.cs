@@ -6,5 +6,6 @@ namespace Global.Telemetry
         public const string Bytes = "bytes";
         public const string Count = "count";
         public const string Fps = "fps";
+        public const string Pixels = "px";
     }
 }

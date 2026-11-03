@@ -12,12 +12,16 @@ namespace Global.Telemetry
     // Keeps nothing between the calls, so a request outside a session needs nothing from it.
     public class TelemetrySocketTransport : ITelemetryTransport
     {
-        public TelemetrySocketTransport(ITelemetrySocket socket)
+        public TelemetrySocketTransport(ITelemetrySocket socket, ITelemetryTicks ticks, TelemetryRoundTrip roundTrip)
         {
             _socket = socket;
+            _ticks = ticks;
+            _roundTrip = roundTrip;
         }
 
         private readonly ITelemetrySocket _socket;
+        private readonly ITelemetryTicks _ticks;
+        private readonly TelemetryRoundTrip _roundTrip;
 
         public async UniTask<TelemetrySessionAnswer> Start(TelemetrySessionStart start)
         {
@@ -33,10 +37,13 @@ namespace Global.Telemetry
 
         public async UniTask<TelemetrySendOutcome> Send(Guid sessionId, TelemetryBatch batch)
         {
+            var sentAt = _ticks.NowMs;
             var result = await Request<SharedClientTelemetry.BatchResult>(TelemetryMessages.ToBatch(sessionId, batch));
 
             if (result == null)
                 return TelemetrySendOutcome.Failed;
+
+            _roundTrip.Add(_ticks.NowMs - sentAt);
 
             return result.Enabled ? TelemetrySendOutcome.Accepted : TelemetrySendOutcome.Disabled;
         }
