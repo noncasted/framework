@@ -90,8 +90,27 @@ namespace Internal.Tests
             var options = ScriptableObject.CreateInstance<NetworkOptions>();
 
             Assert.Throws<InvalidOperationException>(() =>
-                new NetworkLatencyMonitor(new FakeConnection(new FakeWriter()), new FakeSession(new FakeUsers()), new PeerMatch(), new FakeClock(), options));
+                new NetworkLatencyMonitor(new FakeConnection(new FakeWriter()), new FakeSession(new FakeUsers()), new PeerMatch(), new FakeClock(),
+                    options, new ScreenCanvasOverlay()));
         }
+
+        // A Screen Space - Overlay canvas loses its projection on iPadOS Safari: the overlay goes to the UI camera of the game.
+        [UnityTest]
+        public IEnumerator Overlay_IsDrawnByTheScreenCanvasCamera() => UniTask.ToCoroutine(async () =>
+        {
+            var harness = Create();
+            harness.Monitor.OnSetup(harness.Lifetime);
+            harness.AddLocal(1);
+            await harness.FirstRound();
+
+            var canvas = GameObject.Find(OverlayName).GetComponent<Canvas>();
+            var layer = LayerMask.NameToLayer(Harness.CanvasLayer);
+
+            Assert.AreEqual(RenderMode.ScreenSpaceCamera, canvas.renderMode);
+            Assert.AreSame(harness.Camera, canvas.worldCamera);
+            Assert.AreEqual(Harness.PlaneDistance, canvas.planeDistance);
+            Assert.That(canvas.GetComponentsInChildren<Transform>(true).Select(t => t.gameObject.layer), Is.All.EqualTo(layer));
+        });
 
         [UnityTest]
         public IEnumerator EveryHalfSecond_PingAndProbeGoOutWithOneRisingId() => UniTask.ToCoroutine(async () =>
@@ -634,8 +653,21 @@ namespace Internal.Tests
                 Options = ScriptableObject.CreateInstance<NetworkOptions>();
                 typeof(NetworkOptions).GetField("_latencyOverlayFont", BindingFlags.Instance | BindingFlags.NonPublic)
                                       .SetValue(Options, Font);
-                Monitor = new NetworkLatencyMonitor(Connection, new FakeSession(Users), Match, Clock, Options);
+                Camera = new GameObject("NetworkLatencyMonitorTests.Camera").AddComponent<Camera>();
+                Camera.enabled = false;
+                Camera.cullingMask = 1 << LayerMask.NameToLayer(CanvasLayer);
+                var camera = Camera;
+                Lifetime.Listen(() => UnityEngine.Object.Destroy(camera.gameObject));
+
+                var screenCanvas = new ScreenCanvasCamera(() => camera, CanvasLayer, PlaneDistance);
+                Monitor = new NetworkLatencyMonitor(Connection, new FakeSession(Users), Match, Clock, Options, screenCanvas);
             }
+
+            // The built-in UI layer: in every project.
+            public const string CanvasLayer = "UI";
+            public const float PlaneDistance = 1f;
+
+            public readonly Camera Camera;
 
             public readonly Lifetime Lifetime = new();
             public readonly FakeUsers Users = new();

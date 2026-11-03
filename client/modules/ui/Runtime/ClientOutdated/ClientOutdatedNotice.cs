@@ -10,7 +10,8 @@ namespace Global.UI
 {
     // "Update available": the server closed a socket because this build speaks another protocol (a cached web build
     // after a deploy). Nothing works over the old protocol, so the notice covers everything for good: its own canvas
-    // over every other one, built from code in the style of the game (ClientOutdatedNoticeStyle). The button is
+    // over every other one, built from code in the style of the game (ClientOutdatedNoticeStyle) and drawn where the game
+    // puts its screen canvases (IScreenCanvasCamera). The button is
     // selected for the gamepad and reloads the page on the web; in the editor and a native build there is nothing to
     // reload, it only says so.
     public class ClientOutdatedNotice : IClientOutdatedNotice
@@ -19,17 +20,20 @@ namespace Global.UI
             IReadOnlyLifetime lifetime,
             ILoadingScreen loadingScreen,
             IUINavigation navigation,
+            IScreenCanvasCamera screenCanvas,
             ClientOutdatedNoticeStyle style)
         {
             _lifetime = lifetime;
             _loadingScreen = loadingScreen;
             _navigation = navigation;
+            _screenCanvas = screenCanvas;
             _style = style;
         }
 
         private readonly IReadOnlyLifetime _lifetime;
         private readonly ILoadingScreen _loadingScreen;
         private readonly IUINavigation _navigation;
+        private readonly IScreenCanvasCamera _screenCanvas;
         private readonly ClientOutdatedNoticeStyle _style;
 
         private GameObject _root;
@@ -75,6 +79,7 @@ namespace Global.UI
             CreateLabel(panel, _style.Title(), _style.TitleSize, _style.TitleColor);
             CreateLabel(panel, _style.Text(), _style.TextSize, _style.TextColor);
             CreateButton(panel);
+            _screenCanvas.Attach(_root.GetComponent<Canvas>());
 
             // The navigation keeps the selection each frame: a selection set here would live for one frame.
             _navigation.AddOverlay(_lifetime, (RectTransform)_root.transform);
@@ -86,7 +91,6 @@ namespace Global.UI
             Object.DontDestroyOnLoad(gameObject);
 
             var canvas = gameObject.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = short.MaxValue;
 
             var scaler = gameObject.AddComponent<CanvasScaler>();

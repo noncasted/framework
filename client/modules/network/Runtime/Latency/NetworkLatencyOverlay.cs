@@ -7,8 +7,9 @@ namespace Internal
 {
     // Debug overlay of NetworkLatencyMonitor and the frame rate, toggled by N (F-keys are taken by the browser: F3 opens
     // the page search) or a three finger tap on a phone. Built from code on its own canvas (UGUI + TMP with the font of the
-    // game from NetworkOptions): no prefab. Not IMGUI: one OnGUI in the player keeps the IMGUI, TextCoreTextEngine and
-    // TextCoreFontEngine engine modules in a WebGL build.
+    // game from NetworkOptions): no prefab, drawn where the game puts its screen canvases (IScreenCanvasCamera). Not
+    // IMGUI: one OnGUI in the player keeps the IMGUI, TextCoreTextEngine and TextCoreFontEngine engine modules in a WebGL
+    // build.
     public class NetworkLatencyOverlay : MonoBehaviour
     {
         private const KeyCode ToggleKey = KeyCode.N;
@@ -25,18 +26,22 @@ namespace Internal
         private float _windowWorst;
         private string _frameRate = "FPS -";
 
-        public static void Create(IReadOnlyLifetime lifetime, INetworkLatencyMonitor monitor, TMP_FontAsset font)
+        public static void Create(
+            IReadOnlyLifetime lifetime,
+            INetworkLatencyMonitor monitor,
+            TMP_FontAsset font,
+            IScreenCanvasCamera screenCanvas)
         {
             var gameObject = new GameObject(nameof(NetworkLatencyOverlay), typeof(RectTransform));
             DontDestroyOnLoad(gameObject);
 
             var canvas = gameObject.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = short.MaxValue;
 
             var overlay = gameObject.AddComponent<NetworkLatencyOverlay>();
             overlay._monitor = monitor;
             overlay.CreatePanel(font);
+            screenCanvas.Attach(canvas);
 
             lifetime.Listen(() => Destroy(gameObject));
         }

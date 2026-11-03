@@ -21,12 +21,14 @@ namespace Internal
             INetworkSession session,
             IPeerMatch peerMatch,
             ILatencyClock clock,
-            NetworkOptions options)
+            NetworkOptions options,
+            IScreenCanvasCamera screenCanvas)
         {
             if (options.LatencyOverlayFont == null)
                 throw new InvalidOperationException("[Network] NetworkOptions has no latency overlay font: set it in the options asset");
 
             _overlayFont = options.LatencyOverlayFont;
+            _screenCanvas = screenCanvas;
             _session = session;
             _clock = clock;
             _probes = new LatencyProbes(connection, clock);
@@ -44,6 +46,7 @@ namespace Internal
         private readonly LatencyStats _stats;
         private readonly LatencyReport _report;
         private readonly TMP_FontAsset _overlayFont;
+        private readonly IScreenCanvasCamera _screenCanvas;
 
         private float _probeTimer = ProbeInterval;
         private float _rateTimer;
@@ -74,7 +77,7 @@ namespace Internal
             // Probes go out once the backend knows this user: before the auth it has no session to answer from.
             await UniTask.WaitUntil(() => _session.Users.Local != null, cancellationToken: lifetime.Token);
 
-            NetworkLatencyOverlay.Create(lifetime, this, _overlayFont);
+            NetworkLatencyOverlay.Create(lifetime, this, _overlayFont, _screenCanvas);
 
             while (lifetime.IsTerminated == false)
             {

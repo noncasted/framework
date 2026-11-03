@@ -138,6 +138,11 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
   groups, player assemblies to strip. `WithoutAddressables` only in `client/project`: nothing to sync there; a game without the
   settings gets the error. The live graphs write into `<ContentFolder>/Editor/Transient`: the project ignores `Transient*`
   there in git. Editor assets of the framework are loaded from `FrameworkSettings.Package(...)`.
+- **Screen canvases.** The canvases the framework builds from code (the latency overlay of `network`, the outdated
+  client notice of `ui`) go where the game says in its root scope (`IScreenCanvasCamera` of the core): `AddScreenCanvasCamera(camera,
+  layer, planeDistance)` (Screen Space - Camera: the whole canvas on the layer, the camera asked on every show) or, explicitly,
+  `AddScreenCanvasOverlay()`. Without one the scope that builds them does not resolve. The Overlay mode lost its projection on
+  iPadOS 18.2 Safari; the camera and its drawing stay in the game.
 - **Player build steps.** A project step around the build entry points of the platforms implements `IPlayerBuildStep`
   (`core/Editor/Tools/Build`: `BeforeBuild` / `AfterBuild(target, succeeded)`, a parameterless class, found by
   `TypeCache`, ordered by full type name); `PlayerBuildSteps.Run(target, build)` calls `AfterBuild` of every started

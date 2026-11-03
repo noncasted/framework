@@ -78,3 +78,20 @@ SDF Font Asset was not found» в каждой сессии уходит. Сво
 - сообщение сериализуется в момент `WriteOneWay` / `WriteRequest` / `WriteResponse`, а не в цикле отправки: объект сообщения можно
   переиспользовать сразу после вызова;
 - `ViewableDictionary.Values` теперь struct-коллекция (`foreach` без аллокаций); через `IReadOnlyDictionary` по-прежнему `IEnumerable`.
+
+### UI: экранные канвасы фреймворка рисуются камерой UI игры (`IScreenCanvasCamera`)
+Кого касается: клиент, игры с модулем `network` (сессии: оверлей задержки `NetworkLatencyMonitor`) или с `AddClientOutdatedNotice`
+модуля `ui` (сейчас mines-leader, peace-data-reborn, pixel-swarm); подделки, которые создают `NetworkLatencyMonitor` или
+`ClientOutdatedNotice` напрямую (тесты).
+Поиск: `git grep -nE 'AddNetwork\(|AddClientOutdatedNotice\(|new NetworkLatencyMonitor\(|new ClientOutdatedNotice\(' -- 'client/Assets/*.cs'`
+Сделать: BREAKING: оверлей задержки и окно устаревшего клиента больше не Screen Space - Overlay сами по себе (на iPadOS 18.2 Safari
+проекция overlay-канваса движка теряет w примерно через 1100 кадров и UI пропадает): игра в корневом скоупе
+(`InternalScopeExtensions.Construct`, рядом с `AddNetwork`) говорит, где их рисовать, иначе скоуп сессии или глобальный скоуп не
+соберётся (нет `IScreenCanvasCamera`):
+- игра, которая рисует свои экранные канвасы камерой UI: `builder.AddScreenCanvasCamera(<Func<Camera> камеры UI>, "<слой, который она
+  видит>", <planeDistance между её клип-плоскостями>)`, например в pixel-swarm `builder.AddScreenCanvasCamera(UICamera.Get,
+  UICamera.Layer, UICamera.PlaneDistance)`; камера спрашивается при каждом показе, канвас и всё под ним ставятся на этот слой,
+  камера без слоя или плоскость вне клип-плоскостей бросают;
+- игра, у которой UI в Screen Space - Overlay (как было): `builder.AddScreenCanvasOverlay();` - явный выбор, поведение прежнее;
+- тесты: `new NetworkLatencyMonitor(..., options, screenCanvas)` и `new ClientOutdatedNotice(lifetime, loadingScreen, navigation,
+  screenCanvas, style)`, где `screenCanvas` - `new ScreenCanvasOverlay()` или `new ScreenCanvasCamera(() => camera, "UI", 1f)`.
