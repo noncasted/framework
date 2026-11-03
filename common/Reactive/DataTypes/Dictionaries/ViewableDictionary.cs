@@ -22,14 +22,10 @@ namespace Internal
 
         public IEnumerable<TKey> Keys => _items.Keys;
 
-        public IEnumerable<TView> Values
-        {
-            get
-            {
-                foreach (var value in _items.Values)
-                    yield return value;
-            }
-        }
+        // A struct: a foreach over it in a loop of every frame allocates nothing (an iterator took 64 B a pass).
+        public ValueCollection Values => new(_items);
+
+        IEnumerable<TView> IReadOnlyDictionary<TKey, TView>.Values => Values;
 
         public void Advise(IReadOnlyLifetime lifetime, Action<IReadOnlyLifetime, TKey, TView> handler)
         {
@@ -148,6 +144,61 @@ namespace Internal
 
             foreach (var lifetime in lifetimes)
                 lifetime.Terminate();
+        }
+
+        public readonly struct ValueCollection : IEnumerable<TView>
+        {
+            internal ValueCollection(Dictionary<TKey, TSource> items)
+            {
+                _items = items;
+            }
+
+            private readonly Dictionary<TKey, TSource> _items;
+
+            public int Count => _items.Count;
+
+            public Enumerator GetEnumerator()
+            {
+                return new Enumerator(_items.Values.GetEnumerator());
+            }
+
+            IEnumerator<TView> IEnumerable<TView>.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
+
+            IEnumerator IEnumerable.GetEnumerator()
+            {
+                return GetEnumerator();
+            }
+        }
+
+        public struct Enumerator : IEnumerator<TView>
+        {
+            internal Enumerator(Dictionary<TKey, TSource>.ValueCollection.Enumerator inner)
+            {
+                _inner = inner;
+            }
+
+            private Dictionary<TKey, TSource>.ValueCollection.Enumerator _inner;
+
+            public TView Current => _inner.Current;
+            object IEnumerator.Current => Current;
+
+            public bool MoveNext()
+            {
+                return _inner.MoveNext();
+            }
+
+            void IEnumerator.Reset()
+            {
+                throw new NotSupportedException();
+            }
+
+            public void Dispose()
+            {
+                _inner.Dispose();
+            }
         }
     }
 }

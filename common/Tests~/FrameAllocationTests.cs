@@ -43,6 +43,23 @@ public class FrameAllocationTests
         property.ValueLifetime.IsTerminated.Should().BeTrue();
     }
 
+    [Fact]
+    public void ViewableDictionary_ForeachOverValues_AllocatesNothing()
+    {
+        var dictionary = new ViewableDictionary<int, string>();
+        dictionary.Add(1, "a");
+        dictionary.Add(2, "b");
+        var length = 0;
+
+        var bytes = Measure(() => {
+            foreach (var value in dictionary.Values)
+                length += value.Length;
+        });
+
+        bytes.Should().Be(0);
+        length.Should().Be(2 * (Passes + 1));
+    }
+
     private static long Measure(Action pass)
     {
         pass.Invoke();
