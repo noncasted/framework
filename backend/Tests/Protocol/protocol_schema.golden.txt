@@ -1,6 +1,6 @@
 enum Shared.ErrorCode System.Byte Internal=1,UnknownCommand=2,InvalidRequest=3,Forbidden=4,NotFound=5
 enum Shared.SessionAuthStatus System.Int32 Ok=0,InvalidTicket=1,Expired=2,NoReservation=3,Closed=4
-enum Shared.SharedClientTelemetry+ErrorLevel System.Byte Error=1,Exception=2
+enum Shared.SharedClientTelemetry+ErrorLevel System.Byte Error=1,Exception=2,Warning=3
 enum Shared.SharedSessionPeer+SignalKind System.Byte Description=0,Candidate=1
 enum Shared.SharedSessionRequests+EntryStatus System.Int32 Ok=0,NotFound=1,Full=2,Started=3
 type Framework.Tests.Protocol.TestEntityPayload Kind:System.Int32
@@ -25,9 +25,10 @@ type Shared.SharedClientTelemetry+Device Platform:System.String,BuildVersion:Sys
 type Shared.SharedClientTelemetry+Error Time:System.Int64,Level:Shared.SharedClientTelemetry+ErrorLevel,Message:System.String,Stack:System.String,Repeat:System.Int32
 type Shared.SharedClientTelemetry+Mark Time:System.Int64,Name:System.String
 type Shared.SharedClientTelemetry+MetricName Name:System.String,Unit:System.String
+type Shared.SharedClientTelemetry+PreviousSession SessionId:System.Guid,Tags:System.String[],LastSampleTime:System.Int64,SinceMs:System.Int64,Marks:Shared.SharedClientTelemetry+Mark[]
 type Shared.SharedClientTelemetry+Sample Time:System.Int64,Values:System.Double[],Hidden:System.Boolean
 type Shared.SharedClientTelemetry+SessionEnd SessionId:System.Guid
-type Shared.SharedClientTelemetry+SessionStart Device:Shared.SharedClientTelemetry+Device,Tags:System.String[],StartupId:System.Guid
+type Shared.SharedClientTelemetry+SessionStart Device:Shared.SharedClientTelemetry+Device,Tags:System.String[],StartupId:System.Guid,Previous:Shared.SharedClientTelemetry+PreviousSession
 type Shared.SharedClientTelemetry+SessionStarted Enabled:System.Boolean,SessionId:System.Guid
 type Shared.SharedClientTelemetry+StartupSpan ParentIndex:System.Int32,Name:System.String,StartMs:System.Double,DurationMs:System.Double,Frames:System.Int32,Unfinished:System.Boolean,AllocBytes:System.Int64
 type Shared.SharedClientTelemetry+StartupTrace StartupId:System.Guid,Device:Shared.SharedClientTelemetry+Device,Name:System.String,Final:System.Boolean,DurationMs:System.Double,Frames:System.Int32,Spans:Shared.SharedClientTelemetry+StartupSpan[]
