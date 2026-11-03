@@ -20,6 +20,10 @@ public static class ClientTelemetryLimits
     public const int MaxPreviousMarks = 8;
     public const long MaxPreviousMs = 7 * 24 * 3600 * 1000L;
 
+    // The last samples of it with the main numbers of a frame: the client sends 5 of them by about 7 names.
+    public const int MaxPreviousSamples = 8;
+    public const int MaxPreviousSampleNames = 16;
+
     // A start of a client is about 365 spans with names to 44 characters, about 30 KB on the wire. The spans at names of 20 characters
     // are about 250 KB, so the two limits meet; what they bound is one row of a record, kept for the retention days.
     public const int MaxStartupSpans = 4096;

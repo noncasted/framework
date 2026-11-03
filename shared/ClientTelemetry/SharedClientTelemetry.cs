@@ -36,6 +36,11 @@ namespace Shared
             public long LastSampleTime { get; set; }
             public long SinceMs { get; set; }
             public Mark[] Marks { get; set; }
+
+            // The last samples it took, oldest first, with the main numbers of a frame only: Sample.Values by the slots of SampleNames,
+            // NaN no value. Null lists: none (a trace written before them).
+            public string[] SampleNames { get; set; }
+            public Sample[] Samples { get; set; }
         }
 
         // Enabled false: nothing is open, the client sends nothing until its next SessionStart. SessionId comes from the server:

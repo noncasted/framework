@@ -59,9 +59,11 @@ public static class TelemetryBatchParser
         var kept = valid.Skip(Math.Max(0, valid.Length - ClientTelemetryLimits.MaxPreviousMarks)).ToArray();
         var lastSample = PreviousTime(previous.LastSampleTime);
         var since = PreviousTime(previous.SinceMs);
-        var rejected = tags.Rejected + (marks.Length - kept.Length) + (lastSample == null && previous.LastSampleTime != -1 ? 1 : 0) + (since == null && previous.SinceMs != -1 ? 1 : 0);
+        var samples = TelemetryPreviousSamplesParser.Parse(previous.SampleNames, previous.Samples);
+        var rejected = tags.Rejected + (marks.Length - kept.Length) + samples.Rejected
+                       + (lastSample == null && previous.LastSampleTime != -1 ? 1 : 0) + (since == null && previous.SinceMs != -1 ? 1 : 0);
 
-        return new TelemetryPreviousParsing(new TelemetryPreviousSession(previous.SessionId, tags.Accepted, lastSample, since, kept), rejected);
+        return new TelemetryPreviousParsing(new TelemetryPreviousSession(previous.SessionId, tags.Accepted, lastSample, since, kept) { Samples = samples.Accepted }, rejected);
     }
 
     private static long? PreviousTime(long time)
