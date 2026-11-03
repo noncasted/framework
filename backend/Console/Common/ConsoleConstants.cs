@@ -4,6 +4,7 @@ public static class ConsoleConstants
 {
     public static class Pages
     {
+        public const string Home = "/";
         public const string Login = "/login";
         public const string Infrastructure = "/infrastructure";
         public const string InfrastructureOptions = "/infrastructure-options";
