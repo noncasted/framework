@@ -3,6 +3,8 @@ import math
 import time
 
 import report
+from loads import is_load, load_lines
+from page import page_lines
 from common import WAIT_TIMEOUT, Failure
 
 _MAX_WAIT_SECONDS = 30
@@ -107,8 +109,12 @@ def print_report(api, info, windows, first=None):
 
     marks = [mark for mark in api.marks(info["id"]) if first is None or mark["time"] >= first]
 
-    if marks:
-        print("marks " + " ".join(f"{mark['time'] / 1000:.1f}s={mark['name']}" for mark in marks))
+    plain = [mark for mark in marks if not is_load(mark)]
+
+    if plain:
+        print("marks " + " ".join(f"{mark['time'] / 1000:.1f}s={mark['name']}" for mark in plain))
+
+    print("\n".join(load_lines(marks)))
 
     rows = [row for row in api.errors(info["id"]) if first is None or row["time"] >= first]
 

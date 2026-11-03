@@ -106,6 +106,16 @@ Read the own time, never the duration of a parent. A long own time over many fra
 17) is the game running while it waits, usually for the player: not a load. A load takes few frames, with a high `ms_per_frame`. The
 span names come from the code of the game, requests appear as `GET <url>`. No allocations outside the editor: they are not in the report.
 
+On the web the trace begins at the origin of the page, not at the start of the build: `page` (before `own_time`) is the root span `Page`,
+and `page X until the build started at Y` is the time the player looked at the page before the first code of the build. In it: `navigation`
+(DNS, connection, the wait for the answer, the answer), `Document` (from the answer to DOMContentLoaded: a blocking script of the head,
+such as an SDK of a platform, lands here) and `Load event`; `files` loaded before the build, the longest first, with `network` (what came
+over the network), `cached` (`yes` from the cache of the browser) and `-` for a file of another origin that tells no sizes (no
+Timing-Allow-Origin); `build_start`, from the last file to the build: the compilation of the wasm and the start of the instance, long on a
+weak phone; `template`, the spans the template of the game sets with `window.startupTrace` (an `(unfinished)` one ends at the start of
+the build). A start that the user calls long while the trace of the build is short is in `page`: name the longest of its parts. `page none`:
+not the web, or a client built before the page trace.
+
 ## Exit codes
 
 | Code | Meaning | Do |
@@ -124,7 +134,7 @@ with `--tag`, whether the game has reached the part that sets the tag and whethe
 ## Reading the report
 
 A report: `session` (with `tags=`), `device`, `digest` (closed only), `not_reported` (metrics of the framework that have no value), `metric` table
-of the whole range, `trend` (the range cut in windows by time), `marks`, `errors`. Numbers of a live session are of "so far".
+of the whole range, `trend` (the range cut in windows by time), `marks`, `loads`, `errors`. Numbers of a live session are of "so far".
 Background samples (`hidden=`) are out of the tables: never read a background pause as a freeze. `dropped_*` above 0 means the summary
 does not cover everything; say it.
 
@@ -166,6 +176,13 @@ Go in this order, each from the numbers:
    `WebGL context lost`. Unity (checked on 7000.0.0a10 in Chromium) stops its whole player loop while the context is lost, so a loss without a restore reaches the
    server as nothing at all: the samples stop and the session closes as `lost`. The marks and the error arrive only after a restore, which the game does not ask for. Samples that
    go on over the black screen with the metric at 0: the engine does not see a lost context, look elsewhere (a hung GPU process is not excluded). A loss outside a session comes at the time 0 of the next one.
+
+7. **Loads.** `loads` counts the loads of assets of the session (the catalogue groups `Group: <name>`, the scenes `Scene: <name>`, a
+   scene not yet loaded is `Scene`), from the marks `load.*`: `failed` with the type of the error and the time it took, `slow` when one
+   ran over the limit of the game (`ClientTelemetryOptions.slowLoadSeconds`, 5 s by default), `unfinished` what was still loading at the end of the session (with the time so far: a load that never ended, such as a
+   group whose content is missing, a hung download), `longest` of the ended ones. A load begun before the session ends in it without
+   a start. Content that did not show up (a missing sound, a track that did not change) is first a failed, unfinished or absent load of
+   its group; `loads none` in a part that should load says the content came from an earlier part or was never asked for.
 
 ## The final report
 

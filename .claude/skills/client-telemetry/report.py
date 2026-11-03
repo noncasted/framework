@@ -2,6 +2,9 @@
 import re
 from datetime import datetime
 
+from page import page_lines
+from text import seconds, table
+
 EXPECTED = ("frame.fps frame.dt.avg frame.dt.p50 frame.dt.p95 frame.dt.max frame.over33 frame.over50 frame.cpu frame.cpu.main "
             "frame.gpu memory.allocated memory.reserved memory.mono.used memory.mono.heap memory.textures gc.collections "
             "render.draw_calls render.setpass render.triangles render.vertices render.textures render.render_textures "
@@ -34,7 +37,7 @@ def session_line(info):
 
 def startup_line(info):
     return (f"{info['id']} {'final' if info['final'] else 'snapshot'} received={info['receivedAt']} name={info['name']} "
-            f"platform={_known(info['device'], 'platform')} build={_known(info['device'], 'buildVersion')} duration={_seconds(info['durationMs'])} "
+            f"platform={_known(info['device'], 'platform')} build={_known(info['device'], 'buildVersion')} duration={seconds(info['durationMs'])} "
             f"frames={info['frames']} spans={info['spanCount']} depth={info['depth']} unfinished={info['unfinishedSpans']}")
 
 
@@ -51,10 +54,12 @@ def startup_lines(page, top):
     if not info["final"]:
         lines.append("snapshot: the trace was open when it was sent, its open spans go on past these numbers")
 
+    lines += page_lines(spans)
+
     lines.append(f"own_time top={len(longest)}")
     lines += table([["own", "duration", "frames", "ms_per_frame", "depth", "span"]] + [_span_row(span) for span in longest])
     lines.append(f"unfinished {len(unfinished)}")
-    lines += [f"  {_seconds(span['durationMs'])} depth={span['depth']} {span['name']}" for span in unfinished]
+    lines += [f"  {seconds(span['durationMs'])} depth={span['depth']} {span['name']}" for span in unfinished]
     lines.append(f"sessions {len(page['sessions'])}")
     lines += [session_line(session) for session in page["sessions"]]
 
@@ -88,12 +93,6 @@ def number(value, unit):
         return str(round(value))
 
     return f"{value:.1f}".rstrip("0").rstrip(".")
-
-
-def table(rows):
-    widths = [max(len(row[column]) for row in rows) for column in range(len(rows[0]))]
-
-    return ["  ".join(cell.ljust(width) for cell, width in zip(row, widths)).rstrip() for row in rows]
 
 
 def metrics_lines(summary):
@@ -176,11 +175,9 @@ def global_error_lines(answer):
 def _span_row(span):
     per_frame = f"{span['durationMs'] / span['frames']:.1f}" if span["frames"] else "-"
 
-    return [_seconds(span["ownMs"]), _seconds(span["durationMs"]), str(span["frames"]), per_frame, str(span["depth"]), span["name"]]
+    name = f"{span['name']}: {span['file']}" if span.get("file") else span["name"]
 
-
-def _seconds(milliseconds):
-    return f"{milliseconds / 1000:.2f}s" if milliseconds >= 1000 else f"{milliseconds:.0f}ms"
+    return [seconds(span["ownMs"]), seconds(span["durationMs"]), str(span["frames"]), per_frame, str(span["depth"]), name]
 
 
 def _moment(value, started):

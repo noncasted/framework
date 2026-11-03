@@ -48,9 +48,11 @@ def startup_info(startup_id, final=True, name="Boot", duration=54337.0, frames=3
     }
 
 
-def startup_span(index, name, parent=-1, depth=0, duration=100.0, own=100.0, frames=1, unfinished=False):
-    return {"index": index, "parentIndex": parent, "depth": depth, "name": name, "startMs": 0.0, "durationMs": duration,
-            "ownMs": own, "frames": frames, "unfinished": unfinished, "allocBytes": 0}
+def startup_span(index, name, parent=-1, depth=0, duration=100.0, own=100.0, frames=1, unfinished=False, start=0.0, file=None, transfer=0,
+                 cached=False):
+    return {"index": index, "parentIndex": parent, "depth": depth, "name": name, "startMs": start, "durationMs": duration,
+            "ownMs": own, "frames": frames, "unfinished": unfinished, "allocBytes": 0, "file": file, "transferBytes": transfer,
+            "cached": cached}
 
 
 def sample(seq, time_ms, values, hidden=False):

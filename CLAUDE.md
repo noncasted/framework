@@ -144,7 +144,9 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
 - **Startup trace.** `GameProfiler.Stage` opens a big step of the game (`Global`, `Meta`, a menu, a run), a root of the
   trace; `LoadRoot` opens `Startup`. A record made with an empty stack (after an await) goes to the last stage, `Detached` to
   the last stage off the stack, and a parent covers its late children. A branch that outlives its stage opens `Detached` in its
-  synchronous part, hangs the later steps on that span and creates what they measure inside `Ambient(span)`.
+  synchronous part, hangs the later steps on that span and creates what they measure inside `Ambient(span)`. The loads of content
+  after the start go through `AssetLoads` (`Started`, `Ended`, `Running`): every `AssetGroup` and every scene of `ServiceScopeSceneLoader`;
+  a game that loads Addressables in another way wraps the load in `AssetLoads.Begin(key)` ... `Finish()` / `Fail(exception)`.
 - **ContainerGenerator.** Sources in `client/core/Source~`, the dll in `client/core/Analyzers` (`RoslynAnalyzer`
   label, every platform off). After a change: build it (it copies itself into `Analyzers`) and run
   `ContainerGenerator.Verify`.
@@ -219,7 +221,12 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
     `requestAnimationFrame`), `web.gl.*` numbers of the context; `AddSocketClientTelemetry` adds `net.meta.rtt` / `bytes_*`. On WebGL `AddClientTelemetry` also listens to the context of the canvas (`Module.canvas`, from the build of the
     scope, nothing prevented): the metric `web.gl.context_lost`, the marks `webgl.context_lost` / `webgl.context_restored` and the error
     `WebGL context lost`; a loss outside a session waits on the page and comes once with the next one. Unity stops its player loop while the
-    context is lost, so all this is sent only after a restore; without one the samples just stop and the session closes as `lost`. Depends on `network`.
+    context is lost, so all this is sent only after a restore; without one the samples just stop and the session closes as `lost`.
+    The loads of assets in a session are marks `load.start` / `end` / `failed` / `slow` / `unfinished` with the key and the duration
+    (`AssetLoads` of the core; `slowLoadSeconds` of the options). On the web the startup trace begins at the origin of the page: the
+    root `Page` (navigation, files with sizes and cache, the gap to the build, the spans of the template); the build puts
+    `WebTemplate~/startup-trace.js` (`window.startupTrace.begin/end/mark`) first into the `<head>` of the built `index.html`
+    (`TelemetryStartupTraceInjection`), the template of the game only calls it. Depends on `network`.
 - **Platforms.** `itch` (`AddItchSaves`: saves in PlayerPrefs), `web` (`AddWebLoadingScreen`, `AddWebSafeArea`,
   `WebShell.UseMobileCheck`; needs `window.loadingScreen` and, for the shell, `TemplateData/web-shell.js` in the
   WebGL template; register only under `#if UNITY_WEBGL && !UNITY_EDITOR`; editor: `Internal.WebGlBuild.Build`,
@@ -267,7 +274,7 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1512, common 92, Verify 166, control 23, telemetry 64, EditMode 984 (4 of them skipped, the
+Release build replaces it. The expected numbers: backend 1531, common 92, Verify 166, control 23, telemetry 68, EditMode 1018 (4 of them skipped, the
 benchmarks of `ContainerBenchmarkTests`), PlayMode 116 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 

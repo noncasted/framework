@@ -631,5 +631,79 @@ class StartupTests(Base):
         self.assertIn("startup=None", self.run_cli("summary", NEW2).stdout)
 
 
+class PageTests(Base):
+    def page(self):
+        spans = [startup_span(0, "Page", duration=30500, own=100),
+                 startup_span(1, "Navigation", parent=0, depth=1, duration=320, own=0),
+                 startup_span(2, "DNS", parent=1, depth=2, start=10, duration=30),
+                 startup_span(3, "Request", parent=1, depth=2, start=90, duration=210),
+                 startup_span(4, "Document", parent=0, depth=1, start=320, duration=21000),
+                 startup_span(5, "Files", parent=0, depth=1, start=330, duration=27000),
+                 startup_span(6, "File", parent=5, depth=2, start=330, duration=20500, file="telegram-web-app.js"),
+                 startup_span(7, "File", parent=5, depth=2, start=21000, duration=6300, file="Build.wasm.unityweb", transfer=9437184),
+                 startup_span(8, "File", parent=5, depth=2, start=21000, duration=40, file="Build.framework.js", cached=True),
+                 startup_span(9, "Build start", parent=0, depth=1, start=27330, duration=3170),
+                 startup_span(10, "Unity instance", parent=0, depth=1, start=21000, duration=9500, unfinished=True),
+                 startup_span(11, "Startup", start=30500, duration=1830, own=1830)]
+
+        return {"startup": startup_info(NEW), "spans": spans, "sessions": []}
+
+    def test_the_page_is_a_block_before_the_tree_of_the_build(self):
+        self.backend.startups = [self.page()]
+
+        result = self.run_cli("startup", NEW)
+
+        self.assertEqual(result.returncode, READY)
+        out = result.stdout
+        self.assertIn("page 30.50s until the build started at 30.50s", out)
+        self.assertIn("navigation 320ms: DNS=30ms Request=210ms", out)
+        self.assertIn("Document 21.00s", out)
+        self.assertIn("files 3 network=9.0MB cached=1 unknown_size=1", out)
+        self.assertRegex(out, r"20\.50s\s+330ms\s+-\s+-\s+telegram-web-app\.js")
+        self.assertRegex(out, r"6\.30s\s+21\.00s\s+9\.0MB\s+no\s+Build\.wasm\.unityweb")
+        self.assertRegex(out, r"40ms\s+21\.00s\s+-\s+yes\s+Build\.framework\.js")
+        self.assertIn("build_start 3.17s from the last file to the build", out)
+        self.assertIn("template 1", out)
+        self.assertIn("9.50s at 21.00s Unity instance (unfinished)", out)
+        self.assertLess(out.index("page 30.50s"), out.index("own_time"))
+        self.assertIn("File: Build.wasm.unityweb", out.split("own_time")[1], "a file is named in the tree too")
+
+    def test_a_trace_without_a_page_has_no_block(self):
+        self.backend.startups = [{"startup": startup_info(NEW), "spans": [startup_span(0, "Startup")], "sessions": []}]
+
+        self.assertIn("page none", self.run_cli("startup", NEW).stdout)
+
+
+class LoadsTests(Base):
+    def mark(self, seq, time_ms, name, detail=None, duration=None):
+        return {"seq": seq, "time": time_ms, "name": name, "detail": detail, "durationMs": duration, "receivedAt": "2026-11-03T10:00:00Z"}
+
+    def test_the_loads_of_a_session_are_their_own_block(self):
+        self.backend.sessions = [session(OLD, status="ended")]
+        self.backend.marks[OLD] = [
+            self.mark(1, 1000, "load.start", "Group: MenuAudio"),
+            self.mark(1, 1400, "load.end", "Group: MenuAudio", 400),
+            self.mark(1, 2000, "stage.start"),
+            self.mark(1, 3000, "load.start", "Group: MusicRunAudio"),
+            self.mark(1, 8000, "load.slow", "Group: MusicRunAudio", 5000),
+            self.mark(1, 9000, "load.failed", "Group: MusicRunAudio (InvalidKeyException)", 6000),
+            self.mark(1, 9500, "load.start", "Scene"),
+            self.mark(1, 40000, "load.unfinished", "Scene", 30500)]
+
+        out = self.run_cli("summary", OLD).stdout
+
+        self.assertIn("marks 2.0s=stage.start", out)
+        self.assertNotIn("=load.", out)
+        self.assertIn("loads started=3 ended=1 failed=1 slow=1 unfinished=1", out)
+        self.assertIn("failed 9.0s Group: MusicRunAudio (InvalidKeyException) after 6.00s", out)
+        self.assertIn("slow 8.0s Group: MusicRunAudio over 5.00s", out)
+        self.assertIn("unfinished 40.0s Scene 30.50s so far", out)
+        self.assertIn("longest 400ms Group: MenuAudio", out)
+
+    def test_a_session_without_loads_says_so(self):
+        self.backend.sessions = [session(OLD, status="ended")]
+
+        self.assertIn("loads none", self.run_cli("summary", OLD).stdout)
+
 if __name__ == "__main__":
     unittest.main()
