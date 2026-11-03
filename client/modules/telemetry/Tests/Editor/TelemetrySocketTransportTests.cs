@@ -212,8 +212,8 @@ namespace Global.Telemetry.Tests
             Assert.IsTrue(caught);
         });
 
-        // The real writer. A request that reaches the socket is serialized by the union of the game, which the framework has
-        // no copy of with these tags; everything here ends before the next frame, so before it is serialized.
+        // The real writer. It serializes a request when it is written, by the union over INetworkContext: the test union of
+        // the network here (TelemetryNetworkProtocol), the one of the game in a game.
 
         [UnityTest]
         public IEnumerator RealWriter_NeverRun_Failed() => UniTask.ToCoroutine(async () =>

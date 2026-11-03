@@ -34,6 +34,13 @@ namespace Internal.Tests
     [MemoryPackUnion(NetworkContextTags.LatencyPeerEcho, typeof(SharedSessionLatency.PeerEcho))]
     [MemoryPackUnion(NetworkContextTags.PeerSignal, typeof(SharedSessionPeer.Signal))]
     [MemoryPackUnion(NetworkContextTags.PeerTunnel, typeof(SharedSessionPeer.Tunnel))]
+    [MemoryPackUnion(NetworkContextTags.TelemetrySessionStart, typeof(SharedClientTelemetry.SessionStart))]
+    [MemoryPackUnion(NetworkContextTags.TelemetrySessionStarted, typeof(SharedClientTelemetry.SessionStarted))]
+    [MemoryPackUnion(NetworkContextTags.TelemetryBatch, typeof(SharedClientTelemetry.Batch))]
+    [MemoryPackUnion(NetworkContextTags.TelemetryBatchResult, typeof(SharedClientTelemetry.BatchResult))]
+    [MemoryPackUnion(NetworkContextTags.TelemetrySessionEnd, typeof(SharedClientTelemetry.SessionEnd))]
+    [MemoryPackUnion(NetworkContextTags.TelemetryStartupTrace, typeof(SharedClientTelemetry.StartupTrace))]
+    [MemoryPackUnion(NetworkContextTags.TelemetryStartupTraceResult, typeof(SharedClientTelemetry.StartupTraceResult))]
     public partial class TestNetworkContextUnion
     {
     }
@@ -50,11 +57,18 @@ namespace Internal.Tests
     {
     }
 
+    // Registered before the tests of this namespace; the tests of another assembly that write through the real
+    // ConnectionWriter (it serializes a message when it is written) call RegisterOnce from their own fixture.
     [SetUpFixture]
     public class TestNetworkProtocol
     {
         [OneTimeSetUp]
         public void Register()
+        {
+            RegisterOnce();
+        }
+
+        public static void RegisterOnce()
         {
             // In a game project its own union is registered on load and covers these tags plus the game ones:
             // replacing it would break the tests of the game that run after these.

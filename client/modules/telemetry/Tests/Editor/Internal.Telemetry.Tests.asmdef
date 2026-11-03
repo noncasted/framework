@@ -7,6 +7,7 @@
         "Internal.Telemetry.Editor",
         "Internal.Telemetry.PlayMode.Tests",
         "Internal.Network",
+        "Internal.Network.Tests",
         "GUID:73681998e594465db2ed389d82d877b6",
         "UniTask",
         "GUID:3ea5c3f1172040daa713d5ad71728b78",
