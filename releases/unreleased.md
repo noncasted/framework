@@ -95,3 +95,10 @@ SDF Font Asset was not found» в каждой сессии уходит. Сво
 - игра, у которой UI в Screen Space - Overlay (как было): `builder.AddScreenCanvasOverlay();` - явный выбор, поведение прежнее;
 - тесты: `new NetworkLatencyMonitor(..., options, screenCanvas)` и `new ClientOutdatedNotice(lifetime, loadingScreen, navigation,
   screenCanvas, style)`, где `screenCanvas` - `new ScreenCanvasOverlay()` или `new ScreenCanvasCamera(() => camera, "UI", 1f)`.
+
+### Web: звук в беззвучном режиме iOS
+Кого касается: клиент WebGL (все шаблоны, с пакетом `platforms/web`).
+Поиск: `git grep -n 'audioSession' -- 'client/Assets/WebGLTemplates/*'`
+Сделать: ничего, если не найдено. Сборка WebGL кладёт `navigator.audioSession.type = 'playback'` первым скриптом в `<head>`
+собранного `index.html` (`WebAudioSessionInjection`), до `createUnityInstance`: на iOS / iPadOS звук слышен и в беззвучном
+режиме. Своё выставление `audioSession` в шаблоне удалить.

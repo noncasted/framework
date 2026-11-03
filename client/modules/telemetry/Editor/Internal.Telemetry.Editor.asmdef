@@ -1,7 +1,9 @@
 {
     "name": "Internal.Telemetry.Editor",
     "rootNamespace": "",
-    "references": [],
+    "references": [
+        "GUID:fedc7bbf11ef448998f7bf69124e9b84"
+    ],
     "includePlatforms": [
         "Editor"
     ],
