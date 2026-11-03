@@ -3,7 +3,7 @@
 #
 #   copy, then in parallel:
 #     build -> backend, common, verify (dotnet, after the build)
-#     control (python, the copies of the control skill)
+#     control, telemetry (python, the tests of the skills control and client-telemetry)
 #     editmode (Unity, client/project)
 #     playmode (Unity, the second copy of the project)
 #
@@ -212,15 +212,15 @@ stage_copy() {
     record copy PASS - ""
 }
 
-stage_control() {
-    local code=0 tests
-    PYTHONDONTWRITEBYTECODE=1 limited control python3 -m unittest discover -s "$ROOT/.claude/skills/control/tests" >"$LOGS/control.log" 2>&1 || code=$?
-    tests="$(sed -n 's/^Ran \([0-9]*\) tests\? .*/\1/p' "$LOGS/control.log")"
+stage_python() {
+    local stage="$1" folder="$2" code=0 tests
+    PYTHONDONTWRITEBYTECODE=1 limited "$stage" python3 -m unittest discover -s "$folder" >"$LOGS/$stage.log" 2>&1 || code=$?
+    tests="$(sed -n 's/^Ran \([0-9]*\) tests\? .*/\1/p' "$LOGS/$stage.log")"
     if (( code == 0 )) && [[ -n "$tests" ]]; then
-        record control PASS "$tests" ""
+        record "$stage" PASS "$tests" ""
     else
-        record control FAIL "${tests:--}" "exit code $code"
-        grep -E '^(FAIL|ERROR):' "$LOGS/control.log" >"$LOGS/control.failed" || true
+        record "$stage" FAIL "${tests:--}" "exit code $code"
+        grep -E '^(FAIL|ERROR):' "$LOGS/$stage.log" >"$LOGS/$stage.failed" || true
     fi
 }
 
@@ -255,14 +255,15 @@ stage_copy 9>&-
 write_time copy "$begin"
 
 stage_dotnet 9>&- &
-start_stage control stage_control
+start_stage control stage_python control "$ROOT/.claude/skills/control/tests"
+start_stage telemetry stage_python telemetry "$ROOT/.claude/skills/client-telemetry/tests"
 start_stage editmode stage_unity editmode "$PROJECT" EditMode
 start_stage playmode stage_unity playmode "$COPY/client/project" PlayMode
 wait
 
 failed=0
 printf '\n%-10s %8s  %-24s %s\n' stage "time, s" tests result
-for stage in copy build backend common verify control editmode playmode; do
+for stage in copy build backend common verify control telemetry editmode playmode; do
     status=FAIL tests=- reason="did not finish"
     [[ -e "$LOGS/$stage.result" ]] && IFS='|' read -r status tests reason <"$LOGS/$stage.result"
     passed "$stage" || failed=1
@@ -270,7 +271,7 @@ for stage in copy build backend common verify control editmode playmode; do
 done
 echo "wall $(seconds_since "$BEGIN_ALL") s, load: $(uptime | sed 's/.*load average: //')"
 
-for stage in copy build backend common verify control editmode playmode; do
+for stage in copy build backend common verify control telemetry editmode playmode; do
     passed "$stage" && continue
     echo
     echo "$stage failed, log: $LOGS/$stage.log"

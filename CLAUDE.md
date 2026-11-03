@@ -16,13 +16,13 @@ common/                 reactive primitives of both sides: lifetimes, event sour
                         Internal, C# 9 and netstandard2.1, no Unity); Tests~/ holds its xunit tests
 shared/                 protocol and types used by both the Unity client and the backend: Protocol/ (messages,
                         union tags), Session/ (the real-time session), Lobbies/ and Matchmaking/ (lobby rooms and the
-                        session requests of the meta)
+                        session requests of the meta), ClientTelemetry/ (the telemetry of a client over its meta socket)
 client/
   core/                 DI container (+ ContainerGenerator), scopes, catalogues, the Unity side of the reactive
                         primitives (GameObjectLifetime, UniTask waits, Lifetime Graph), editor tools
   flow/                 base of game loop, loaders and mocks (concrete mocks and the startup scene stay in the project)
   modules/              optional modules: publish, network, browser, audio, animations, cameras, inputs, backend, ui,
-                        localization, settings, lobbies, ...
+                        localization, settings, lobbies, telemetry, ...
   platforms/            platform implementations of modules/publish: web, website, itch, telegram, steam
   packages/             forks of third-party packages (Unity, UniTask, MemoryPack, unity-mcp), see FORK.md in each
   project/              Unity project for browsing and compiling the framework without a game: Assets/ links the
@@ -37,6 +37,9 @@ backend/
   Hosting/              the sessions of a game server and the requests of the meta to it: sessions collection, lobby
                         sessions and codes, lobby service, session requester (assembly Framework.Hosting, namespaces
                         Game.Hosting and Game.Lobbies)
+  ClientTelemetry/      telemetry of the clients: sessions and startup traces over the meta socket, storage, read API (namespace
+                        Game.ClientTelemetry; rules in Contract/CONTRACT.md; the panel is in Console/Infrastructure/ClientTelemetry)
+  ClientTelemetry.TestHost/  the same without a game: Kestrel, a silo, its own PostgreSQL container
 .claude/docs/           docs of the patterns shared by the games, for Claude Code (INDEX.md: principles, keyword table)
 .claude/skills/         skills shared by the games, linked from `.claude/skills` of each project
 tools/scripts/          scripts shared by the projects
@@ -111,7 +114,14 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
 - **Console.** A Razor class library: the project keeps its home page and game pages in its own assembly (add both
   assemblies to the router), sets role icons (`ServiceRoleIcons`), registers game flags (`AddConsoleGameFlag`) and
   extra infrastructure cards (`AddConsoleInfrastructureCard`), and adds `tools/framework/backend/Console` to the
-  Tailwind content paths.
+  Tailwind content paths. The `app.css` of a game is committed and built by hand, so no build of the framework refreshes it: a page
+  of the framework uses only the classes that are in the `app.css` of every game.
+- **Client telemetry.** `backend/ClientTelemetry`, off until the switch on the Features page of the console. The game calls
+  `AddClientTelemetrySessions` on the silo, `AddClientTelemetry` on the meta gateway and `AddClientTelemetryReader` on the console (the
+  panel appears from it, no other registration), maps `MapClientTelemetryRead().RequireConsoleToken()` and keeps the commands of its
+  meta socket over `IClientTelemetryConnections.Of(session.Lifetime)`: `Start`, `Accept`, `End`, `AcceptStartup`; the id of the user
+  stays in the game. The test host runs without a game: `--token <value>` (required), `--seed`, `--console <folder>` (`theme.css` and
+  `app.css` of a console of a game: its pages on this host), `--no-telemetry` (the console of a game without the telemetry).
 - **Client core.** Assemblies `Internal`, `Internal.Editor`, `Internal.Tests` (namespace `Internal`, asmdef GUIDs of
   the projects kept; `Internal` is `GUID:f039cb8c565843dba6da5b3c1ccde7d6`, `Framework.Common`
   `GUID:3ea5c3f1172040daa713d5ad71728b78`, `Framework.Shared` `GUID:73681998e594465db2ed389d82d877b6`). The project owns the content assembly (`FrameworkSettings.ContentAssembly`, by default
@@ -196,6 +206,11 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
     as `IMetaSocket`; `LobbyNetworkService`, the client of the lobby service of a lobby session (a derived one adds the
     properties of the game in `CollectProperties`); `OfflineLobbyService` for the offline local server (the game
     gives `IOfflineLobbyMatches`); `SessionData`, `LobbyJoinResult`, `SessionSearchResult`. Depends on `network`.
+  - `telemetry` (`Internal.Telemetry`, namespace `Global.Telemetry`; `AddSocketClientTelemetry(options)`,
+    `AddStandardTelemetryCollectors`): metrics, errors and the startup trace over the meta socket, which the game gives as
+    `ITelemetrySocket`, so it is called in the scope of the meta backend. `IClientTelemetry`: `StartSession(lifetime, tags)` per part of the
+    game, `Mark`, `SendStartupTrace` after every authorization of the socket. Nothing runs without a session; a game adds a
+    collector as `ITelemetryCollector`. Depends on `network`.
 - **Platforms.** `itch` (`AddItchSaves`: saves in PlayerPrefs), `web` (`AddWebLoadingScreen`, `AddWebSafeArea`,
   `WebShell.UseMobileCheck`; needs `window.loadingScreen` and, for the shell, `TemplateData/web-shell.js` in the
   WebGL template; register only under `#if UNITY_WEBGL && !UNITY_EDITOR`; editor: `Internal.WebGlBuild.Build`,
@@ -232,18 +247,23 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
   with `AddNetworkConnection` / `AddSessionServices`. Entities of the local user with a backend id come to
   `ListenRemote`, the ones its client created before a reconnect to `ListenRestored`. Also the offline local server
   (`offline://` urls, `ILocalServers`), latency monitor and watchdog (the backend answers `Ping`), and
-  `RemoteStateMachine`.
+  `RemoteStateMachine`. A request is a span of the running trace unless its message is `IUnprofiledRequest` (what repeats through the
+  whole game: the telemetry).
 - **Package versions.** `Directory.Packages.props` here; the project's `Directory.Packages.props` imports it.
 
 ## Tests
 
 `tools/scripts/test-all.sh` runs the whole suite on the current tree, uncommitted edits included: `dotnet build
-framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to them `control` (python, the copies of the skill), Unity EditMode (`client/project`, needs
+framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to them `control` and `telemetry` (python, the tests of these skills), Unity EditMode (`client/project`, needs
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1102, common 92, Verify 166, control 23, EditMode 659 (4 of them skipped, the
-benchmarks of `ContainerBenchmarkTests`), PlayMode 77; the script does not check them, a smaller number is a lost test.
+Release build replaces it. The expected numbers: backend 1512, common 92, Verify 166, control 23, telemetry 64, EditMode 953 (4 of them skipped, the
+benchmarks of `ContainerBenchmarkTests`), PlayMode 113 (24 of them skipped, the end to end tests of the telemetry without their host);
+the script does not check them, a smaller number is a lost test.
+
+`tools/scripts/test-telemetry-transport.sh` runs those 24 against a real backend: it starts `ClientTelemetry.TestHost` (needs Docker) and takes
+`client/project`, so no other editor may have it open.
 
 `tools/scripts/test-telemetry-transport.sh` runs apart from the suite: the real client of `modules/telemetry` in PlayMode over a real
 websocket against `backend/ClientTelemetry.TestHost` (Kestrel, a silo, its own PostgreSQL container, the real switch), started and

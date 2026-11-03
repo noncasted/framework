@@ -26,14 +26,14 @@
 
 ## Телеметрия клиентов (необязательно)
 
-Кому: игре, которой нужны метрики и ошибки клиентов. Новый модуль `telemetry`, проекты `backend/ClientTelemetry` и скилл `client-telemetry`. Игра без него ничего не делает. Шаги игры уточняются при подключении первой игры.
+Кому: игре, которой нужны метрики и ошибки клиентов. Новый модуль `telemetry`, проекты `backend/ClientTelemetry` и скилл `client-telemetry`. Игра без него ничего не делает. Пример: коммит `8cc3cdd6` в pixel-swarm.
 
 Поиск: `git grep -n 'AddSocketClientTelemetry\|AddClientTelemetry' -- '*.cs'`
 
-- Union: теги `NetworkContextTags.Telemetry*` (200-206).
-- Бэкенд: gateway `AddClientTelemetry()`, silo `AddClientTelemetrySessions()`, консоль `AddClientTelemetryReader()`, `MapClientTelemetryRead().RequireConsoleToken()`; команды meta-сокета над `telemetry.Of(session.Lifetime)`: `Start`, `Accept`, `End`, `AcceptStartup`.
-- Клиент: `AddSocketClientTelemetry(options)` и `AddStandardTelemetryCollectors()` в скоупе meta, `ITelemetrySocket` на соединении с meta. После авторизации сокета `SendStartupTrace()`, затем `StartSession(lifetime, tags)` на каждый участок игры (меню, забег).
-- Проекты: `ProjectReference` на `backend/ClientTelemetry` у gateway, консоли и `GameComposition` (без неё `StatesLookup` не создаст таблицы `state_client_telemetry_*`), список состояний в тесте генератора `StatesLookup`; `"com.noncasted.framework.telemetry"` в `manifest.json`.
+- Union: теги `NetworkContextTags.Telemetry*` (200-206). Хеш протокола и golden-файлы протокола, если они есть, обновить.
+- Бэкенд: silo `AddClientTelemetrySessions()`, консоль `AddClientTelemetryReader()` (панель появляется от него). Gateway meta-сокета: `AddClientTelemetry()`, `MapClientTelemetryRead().RequireConsoleToken()` и четыре команды сокета над `IClientTelemetryConnections.Of(session.Lifetime)`: `Start`, `Accept`, `End`, `AcceptStartup`.
+- Клиент: `AddSocketClientTelemetry(options)` и `AddStandardTelemetryCollectors()` в скоупе meta, `ITelemetrySocket` на соединении с meta. После каждой авторизации сокета `SendStartupTrace()`, затем `StartSession(lifetime, tags)` на каждый участок игры, теги выбирает игра; `Mark(name)` по желанию.
+- Проекты: `ProjectReference` на `backend/ClientTelemetry` у gateway, silo, консоли, `GameComposition` (без неё `StatesLookup` не создаст таблицы `state_client_telemetry_*`) и тестов бэкенда, если они его используют; проект в `.slnx`; список состояний в тесте генератора `StatesLookup`, если он есть. `"com.noncasted.framework.telemetry"` в `manifest.json`, `GUID:f633eeac40e2491984f08e394079da0a` (`Internal.Telemetry`) в каждом asmdef, который вызывает телеметрию.
 - `enableFrameTimingStats: 1` в `ProjectSettings.asset` и в каждом Build Profile: иначе нет `frame.cpu*`, `frame.gpu`.
+- Скилл: ссылка `.claude/skills/client-telemetry`, раздел `## client-telemetry` (`url`, `env-file`) в `.claude/project-skills.md`.
 - Включить флаг на странице Features консоли: без него телеметрия не пишется.
-

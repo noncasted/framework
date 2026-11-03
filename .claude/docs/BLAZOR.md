@@ -3,6 +3,7 @@
 Console project: `backend/Console` (Blazor Server, BlazorBlueprint components `Bb*`, Lucide icons via `LucideIcon`,
 `ToastService`). Pages live in feature folders: `backend/Console/Home/`, `backend/Console/Infrastructure/<Feature>/`,
 shared pieces in `backend/Console/Common/` (`UiComponent.cs`, `PageHeader.razor`, `OperationView.razor`).
+The `app.css` of a game is committed and built by hand: a page of the framework uses only the classes in the `app.css` of every game.
 
 Reference pages:
 - `backend/Console/Infrastructure/AuditLog/AuditLog.razor` — early return loading spinner, `ToastService`, `OnInitializedAsync`
