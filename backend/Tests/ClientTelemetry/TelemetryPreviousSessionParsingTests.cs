@@ -51,4 +51,34 @@ public class TelemetryPreviousSessionParsingTests
         session.Marks[^1].Name.Should().Be($"mark.{ClientTelemetryLimits.MaxPreviousMarks + 1}");
         parsed.Rejected.Should().BeGreaterThan(0);
     }
+
+    // The marks of a load carry its key and time: kept the way a batch keeps them, a detail scrubbed and cut, a negative time dropped.
+    [Fact]
+    public void TheDetailAndDuration_AreKeptLikeTheOnesOfABatch()
+    {
+        var parsed = TelemetryBatchParser.ParsePrevious(new SharedClientTelemetry.PreviousSession
+        {
+            SessionId = Guid.NewGuid(),
+            LastSampleTime = -1,
+            SinceMs = -1,
+            Marks =
+            [
+                new SharedClientTelemetry.Mark { Time = 1000, Name = "load.start", Detail = "Group: MusicRunAudio" },
+                new SharedClientTelemetry.Mark { Time = 6000, Name = "load.slow", Detail = "Group: MusicRunAudio", DurationMs = 5000 },
+                new SharedClientTelemetry.Mark { Time = 7000, Name = "load.failed", Detail = "user@mail.com " + new string('x', 200), DurationMs = 0 },
+                new SharedClientTelemetry.Mark { Time = 8000, Name = "load.end", Detail = "Group: MenuAudio", DurationMs = -5 },
+                new SharedClientTelemetry.Mark { Time = 9000, Name = "page.pagehide", Detail = "a\nb" }
+            ]
+        });
+
+        var marks = parsed.Session!.Marks;
+        marks.Select(mark => mark.Name).Should().Equal("load.start", "load.slow", "load.failed", "page.pagehide");
+        marks[0].Should().Be(new TelemetryMark(1000, "load.start", "Group: MusicRunAudio"));
+        marks[1].Should().Be(new TelemetryMark(6000, "load.slow", "Group: MusicRunAudio", 5000));
+        marks[2].Detail!.Length.Should().BeLessThanOrEqualTo(ClientTelemetryLimits.MaxMarkDetailLength);
+        marks[2].Detail.Should().NotContain("user@mail.com");
+        marks[2].DurationMs.Should().Be(0);
+        marks[3].Detail.Should().BeNull();
+        parsed.Rejected.Should().Be(1);
+    }
 }

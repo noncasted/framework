@@ -14,7 +14,18 @@
     <div class="flex gap-4" style="@TelemetryLayoutStyle.Wrap">
         @foreach (var mark in Previous.Marks)
         {
-            <span class="flex gap-2"><span class="text-muted-foreground">@TelemetryValueFormat.Time(mark.Time)</span><span>@mark.Name</span></span>
+            <span class="flex gap-2">
+                <span class="text-muted-foreground">@TelemetryValueFormat.Time(mark.Time)</span>
+                <span>@mark.Name</span>
+                @if (mark.Detail != null)
+                {
+                    <span class="text-muted-foreground">@mark.Detail</span>
+                }
+                @if (mark.DurationMs is { } duration)
+                {
+                    <span class="text-muted-foreground">@TelemetryValueFormat.Milliseconds(duration)</span>
+                }
+            </span>
         }
         @if (Previous.Marks.Count == 0)
         {

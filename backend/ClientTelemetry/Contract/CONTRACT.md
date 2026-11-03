@@ -52,12 +52,13 @@ reaches the gateway.
 this one that did not close on the client: the page was killed, reloaded, closed or frozen inside it. Null when the previous one
 closed. The client writes its record at every sample and mark of an open session and removes it at the close; the next start takes
 it once. `LastSampleTime` and the `Time` of the marks are of that session, `SinceMs` is the time from its last record to this start
-(-1 unknown); the marks are the last ones it took (up to `MaxPreviousMarks`), also those the server never got. No clock of the device and
+(-1 unknown); the marks are the last ones it took (up to `MaxPreviousMarks`), also those the server never got, with the `Detail` and
+`DurationMs` of a batch (a page that died inside a load names the load). No clock of the device and
 nothing personal: the id is the random guid the server gave. A tab open next to another one may report a session that is still alive.
 
 The server keeps it with the new session (`previous` of a row and a card, explicit `null` when there is none) and finds the next
-session of a lost one: `sessions?previousId=`. An empty id drops the whole; a tag, a mark or a time out of form (or over
-`MaxPreviousMs`) is dropped alone, counted in `rejectedRequests`.
+session of a lost one: `sessions?previousId=`. An empty id drops the whole; a tag, a mark (a negative duration too) or a time out of
+form (or over `MaxPreviousMs`) is dropped alone, counted in `rejectedRequests`; a detail is scrubbed and cut as in a batch.
 
 ## The startup trace
 

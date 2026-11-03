@@ -46,10 +46,18 @@ def warnings(digest):
 def unclosed_text(previous):
     last = previous.get("lastSampleTime")
     since = previous.get("sinceMs")
-    marks = " ".join(f"{mark['time'] / 1000:.1f}s={mark['name']}" for mark in previous["marks"]) or "-"
+    marks = " ".join(_previous_mark(mark) for mark in previous["marks"]) or "-"
 
     return (f"tags={','.join(previous['tags']) or '-'} last_sample={'-' if last is None else f'{last / 1000:.1f}s'} "
             f"since={'-' if since is None else f'{since / 1000:.1f}s'} last_marks {marks}")
+
+
+# A mark of a load has the key of the load and its time so far: name[detail,duration]. A row written before them has neither.
+def _previous_mark(mark):
+    extra = [part for part in (mark.get("detail"), None if mark.get("durationMs") is None else seconds(mark["durationMs"])) if part]
+    text = f"{mark['time'] / 1000:.1f}s={mark['name']}"
+
+    return f"{text}[{','.join(extra)}]" if extra else text
 
 
 def startup_line(info):

@@ -33,8 +33,10 @@ namespace Global.Telemetry
             if (_isOpen == false)
                 return;
 
-            Marks.Add().Set(time, name, detail == null ? null : TelemetryLimits.Cut(detail, TelemetryLimits.MaxMarkDetailLength), durationMs);
-            _trace.Marked(time, name);
+            var cut = detail == null ? null : TelemetryLimits.Cut(detail, TelemetryLimits.MaxMarkDetailLength);
+
+            Marks.Add().Set(time, name, cut, durationMs);
+            _trace.Marked(time, name, cut, durationMs);
         }
 
         public void AddError(long time, TelemetryErrorLevel level, string message, string stack, int repeat)

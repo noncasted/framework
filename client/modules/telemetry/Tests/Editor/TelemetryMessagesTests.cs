@@ -178,7 +178,7 @@ namespace Global.Telemetry.Tests
         [Test]
         public void Start_ThePreviousSession_AfterMemoryPack()
         {
-            var previous = new TelemetryPreviousSession(_id, new[] { "menu" }, 31000, 4000, new[] { new TelemetryBatchMark(30500, "page.pagehide") });
+            var previous = new TelemetryPreviousSession(_id, new[] { "menu" }, 31000, 4000, new[] { new TelemetryBatchMark(30000, "load.slow", "Group: MusicRunAudio", 5000), new TelemetryBatchMark(30500, "page.pagehide") });
             var message = TelemetryMessages.ToSessionStart(new TelemetrySessionStart(new string[0], new TelemetryDevice(), Guid.Empty, previous));
 
             var read = MemoryPackSerializer.Deserialize<SharedClientTelemetry.SessionStart>(MemoryPackSerializer.Serialize(message)).Previous;
@@ -187,8 +187,14 @@ namespace Global.Telemetry.Tests
             CollectionAssert.AreEqual(new[] { "menu" }, read.Tags);
             Assert.AreEqual(31000, read.LastSampleTime);
             Assert.AreEqual(4000, read.SinceMs);
-            Assert.AreEqual("page.pagehide", read.Marks.Single().Name);
-            Assert.AreEqual(30500, read.Marks.Single().Time);
+            Assert.AreEqual(2, read.Marks.Length);
+            Assert.AreEqual("load.slow", read.Marks[0].Name);
+            Assert.AreEqual("Group: MusicRunAudio", read.Marks[0].Detail);
+            Assert.AreEqual(5000, read.Marks[0].DurationMs);
+            Assert.AreEqual("page.pagehide", read.Marks[1].Name);
+            Assert.AreEqual(30500, read.Marks[1].Time);
+            Assert.IsNull(read.Marks[1].Detail);
+            Assert.IsNull(read.Marks[1].DurationMs);
         }
 
         [Test]

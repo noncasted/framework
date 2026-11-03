@@ -52,8 +52,9 @@ public static class TelemetryBatchParser
 
         var tags = ParseTags(previous.Tags);
         var marks = previous.Marks ?? [];
-        var valid = marks.Where(mark => mark != null && mark.Time >= 0 && mark.Time <= ClientTelemetryLimits.MaxPreviousMs && mark.Name != null && TelemetryNames.IsValidName(mark.Name))
-                         .Select(mark => new TelemetryMark(mark.Time, mark.Name))
+        var valid = marks.Where(mark => mark != null && mark.Time >= 0 && mark.Time <= ClientTelemetryLimits.MaxPreviousMs && mark.DurationMs is null or >= 0
+                                        && mark.Name != null && TelemetryNames.IsValidName(mark.Name))
+                         .Select(ReadMark)
                          .ToArray();
         var kept = valid.Skip(Math.Max(0, valid.Length - ClientTelemetryLimits.MaxPreviousMarks)).ToArray();
         var lastSample = PreviousTime(previous.LastSampleTime);

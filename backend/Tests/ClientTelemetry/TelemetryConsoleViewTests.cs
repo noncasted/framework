@@ -46,13 +46,15 @@ public class TelemetryConsoleViewTests
     public async Task PreviousSession_LinksIt_WithTheLastSampleAndMarksOfTheClient()
     {
         var lost = Guid.NewGuid();
-        var previous = new TelemetryPreviousSession(lost, ["menu"], 31_000, 4_000, [new TelemetryMark(30_500, "webgl.error.out_of_memory")]);
+        var previous = new TelemetryPreviousSession(lost, ["menu"], 31_000, 4_000, [new TelemetryMark(30_000, "load.slow", "Group: MusicRunAudio", 5_000), new TelemetryMark(30_500, "webgl.error.out_of_memory")]);
 
         var html = await Render<TelemetryPreviousSessionView>(new() { [nameof(TelemetryPreviousSessionView.Previous)] = previous });
 
         Assert.Contains($"href=\"{ConsoleConstants.Pages.ClientTelemetrySession(lost)}\"", html);
         Assert.Contains(">menu<", html);
         Assert.Contains("webgl.error.out_of_memory", html);
+        Assert.Contains("Group: MusicRunAudio", html);
+        Assert.Contains(TelemetryValueFormat.Milliseconds(5_000), html);
         Assert.Contains(TelemetryValueFormat.Time(31_000), html);
     }
 

@@ -131,6 +131,49 @@ namespace Global.Telemetry.Tests
             Assert.AreEqual("mark.3", marks[0].Name);
         }
 
+        // A dead page often dies inside a load: its key and the time it ran are what the report of the next start needs.
+        [Test]
+        public void TheMarks_KeepTheirDetailAndDuration()
+        {
+            var dead = new TelemetryFixture();
+            dead.Telemetry.StartSession(new Lifetime());
+            dead.Buffer.AddMark(1000, "load.start", "Group: MusicRunAudio");
+            dead.Buffer.AddMark(6000, "load.slow", "Group: MusicRunAudio", 5000);
+            dead.Buffer.AddMark(7000, "load.failed", new string('x', TelemetryLimits.MaxMarkDetailLength + 10), 0);
+            dead.Telemetry.Mark("page.pagehide");
+
+            var next = new TelemetryFixture(traceStore: dead.TraceStore);
+            next.Telemetry.StartSession(new Lifetime());
+
+            var marks = PreviousOf(next, 0).Marks;
+            Assert.AreEqual(4, marks.Count);
+            Assert.AreEqual("Group: MusicRunAudio", marks[0].Detail);
+            Assert.IsNull(marks[0].DurationMs);
+            Assert.AreEqual("Group: MusicRunAudio", marks[1].Detail);
+            Assert.AreEqual(5000, marks[1].DurationMs);
+            Assert.AreEqual(TelemetryLimits.MaxMarkDetailLength, marks[2].Detail.Length);
+            Assert.AreEqual(0, marks[2].DurationMs);
+            Assert.AreEqual("page.pagehide", marks[3].Name);
+            Assert.IsNull(marks[3].Detail);
+            Assert.IsNull(marks[3].DurationMs);
+        }
+
+        // A trace written before the marks had a detail reads as marks without one.
+        [Test]
+        public void ATraceWithoutDetails_ReadsAsMarksWithoutThem()
+        {
+            var store = new MemoryTraceStore();
+            store.Write("{\"id\":\"" + Guid.NewGuid() + "\",\"tags\":[],\"lastSample\":10,\"writtenAt\":0,\"markTimes\":[5],\"markNames\":[\"page.hidden\"]}");
+            var fixture = new TelemetryFixture(traceStore: store);
+
+            fixture.Telemetry.StartSession(new Lifetime());
+
+            var mark = PreviousOf(fixture, 0).Marks.Single();
+            Assert.AreEqual("page.hidden", mark.Name);
+            Assert.IsNull(mark.Detail);
+            Assert.IsNull(mark.DurationMs);
+        }
+
         // A session the server did not take has no id to report.
         [Test]
         public void ARefusedStart_KeepsNoTrace()

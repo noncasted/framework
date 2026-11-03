@@ -18,10 +18,14 @@ namespace Global.Telemetry
 
         public const int MaxMarks = 8;
 
+        private const long NoDuration = -1;
+
         private readonly ITelemetryTraceStore _store;
         private readonly ITelemetryWallClock _wallClock;
         private readonly long[] _markTimes = new long[MaxMarks];
         private readonly string[] _markNames = new string[MaxMarks];
+        private readonly string[] _markDetails = new string[MaxMarks];
+        private readonly long[] _markDurations = new long[MaxMarks];
         private readonly TelemetrySessionTraceData _data = new();
 
         private Guid _id;
@@ -61,13 +65,16 @@ namespace Global.Telemetry
             Write();
         }
 
-        public void Marked(long time, string name)
+        // A detail and a duration as the buffer took them: the detail cut, null for none.
+        public void Marked(long time, string name, string detail, long? durationMs)
         {
             if (_isOpen == false)
                 return;
 
             _markTimes[_nextMark] = time;
             _markNames[_nextMark] = name;
+            _markDetails[_nextMark] = detail;
+            _markDurations[_nextMark] = durationMs ?? NoDuration;
             _nextMark = (_nextMark + 1) % MaxMarks;
             _marks = Math.Min(_marks + 1, MaxMarks);
             Write();
@@ -81,6 +88,7 @@ namespace Global.Telemetry
 
             _isOpen = false;
             Array.Clear(_markNames, 0, MaxMarks);
+            Array.Clear(_markDetails, 0, MaxMarks);
             _store.Clear();
         }
 
@@ -90,11 +98,17 @@ namespace Global.Telemetry
 
             _data.markTimes = new long[_marks];
             _data.markNames = new string[_marks];
+            _data.markDetails = new string[_marks];
+            _data.markDurations = new long[_marks];
 
             for (var i = 0; i < _marks; i++)
             {
-                _data.markTimes[i] = _markTimes[(first + i) % MaxMarks];
-                _data.markNames[i] = _markNames[(first + i) % MaxMarks];
+                var slot = (first + i) % MaxMarks;
+
+                _data.markTimes[i] = _markTimes[slot];
+                _data.markNames[i] = _markNames[slot];
+                _data.markDetails[i] = _markDetails[slot] ?? string.Empty;
+                _data.markDurations[i] = _markDurations[slot];
             }
 
             _data.writtenAt = _wallClock.NowMilliseconds;
@@ -126,11 +140,26 @@ namespace Global.Telemetry
             var marks = new TelemetryBatchMark[count];
 
             for (var i = 0; i < count; i++)
-                marks[i] = new TelemetryBatchMark(data.markTimes[i], data.markNames[i]);
+                marks[i] = new TelemetryBatchMark(data.markTimes[i], data.markNames[i], DetailAt(data, i), DurationAt(data, i));
 
             var since = _wallClock.NowMilliseconds - data.writtenAt;
 
             return new TelemetryPreviousSession(id, data.tags ?? Array.Empty<string>(), data.lastSample, since >= 0 ? since : -1, marks);
+        }
+
+        // A trace written before the marks had a detail has neither array.
+        private static string DetailAt(TelemetrySessionTraceData data, int index)
+        {
+            var detail = data.markDetails != null && index < data.markDetails.Length ? data.markDetails[index] : null;
+
+            return string.IsNullOrEmpty(detail) ? null : detail;
+        }
+
+        private static long? DurationAt(TelemetrySessionTraceData data, int index)
+        {
+            var duration = data.markDurations != null && index < data.markDurations.Length ? data.markDurations[index] : NoDuration;
+
+            return duration >= 0 ? duration : (long?)null;
         }
 
         private static string[] ToArray(IReadOnlyList<string> tags)

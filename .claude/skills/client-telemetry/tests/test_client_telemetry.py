@@ -645,6 +645,20 @@ class StartupTests(Base):
         self.assertIn("since=4.0s", line)
         self.assertIn("30.5s=webgl.error.out_of_memory 31.2s=page.pagehide", line)
 
+    # A page that died inside a load: the key and the time of the load are in the marks the client kept.
+    def test_the_marks_of_the_previous_session_show_their_detail_and_duration(self):
+        marks = [{"time": 3000, "name": "load.start", "detail": "Group: MusicRunAudio", "durationMs": None},
+                 {"time": 8000, "name": "load.slow", "detail": "Group: MusicRunAudio", "durationMs": 5000},
+                 {"time": 9000, "name": "page.hidden", "detail": None, "durationMs": None}]
+        self.backend.sessions = [session(NEW, status="ended", previous={**previous_session(OLD), "marks": marks}), session(OLD, status="lost")]
+        self.backend.marks[NEW] = [{"seq": 1, "time": 500, "name": "load.start", "detail": "Group: MenuAudio", "durationMs": None, "receivedAt": "2026-11-03T10:00:00Z"},
+                                   {"seq": 1, "time": 900, "name": "load.end", "detail": "Group: MenuAudio", "durationMs": 400, "receivedAt": "2026-11-03T10:00:00Z"}]
+        result = self.run_cli("summary", NEW)
+
+        line = next(line for line in result.stdout.splitlines() if line.startswith("previous_unclosed"))
+        self.assertIn("last_marks 3.0s=load.start[Group: MusicRunAudio] 8.0s=load.slow[Group: MusicRunAudio,5.00s] 9.0s=page.hidden", line)
+        self.assertIn("loads started=1 ended=1 failed=0 slow=0 unfinished=0", result.stdout, "the loads of this session are printed next to it")
+
     def test_summary_of_a_lost_session_finds_the_report_of_its_client(self):
         self.backend.sessions = [session(NEW, status="ended", previous=previous_session(OLD, since=None)), session(OLD, status="lost")]
         result = self.run_cli("summary", OLD)

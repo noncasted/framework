@@ -28,7 +28,7 @@ namespace Global.Telemetry
                 Tags = previous.Tags.ToArray(),
                 LastSampleTime = previous.LastSampleTime,
                 SinceMs = previous.SinceMs,
-                Marks = previous.Marks.Select(mark => new SharedClientTelemetry.Mark { Time = mark.Time, Name = mark.Name }).ToArray()
+                Marks = Map(previous.Marks, ToMark)
             };
         }
 

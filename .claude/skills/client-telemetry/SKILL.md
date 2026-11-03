@@ -188,6 +188,8 @@ Go in this order, each from the numbers:
    later means the last seconds never reached the server (a frozen page, a dead socket). `last_marks`: `page.pagehide` (a reload, a
    closed tab, a navigation) or `page.pagehide.persisted` (the back-forward cache) before the end is a page that went away; `page.hidden`
    then nothing is a page killed in the background; no page mark with a running game is a crash of the tab (WebContent on iOS, OOM).
+   A mark with a detail or a duration reads `name[detail,duration]`: `load.start[Group: X]` or `load.slow[Group: X,5.00s]` last
+   without its `load.end` is a page that died inside that load (point 8).
    `since` is the time from the last record to the next start: seconds is a reload by the browser, hours is the next visit. The new
    session also has the mark `session.previous_unclosed` at its start. Another tab of the same game may report a session that is
    still alive: its `server_status` is `live` then.
