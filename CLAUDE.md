@@ -232,7 +232,7 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
     (`GL.recordError`, never seen by `getError`) apart: `web.gl.emscripten_errors`, the marks `webgl.emscripten.<code>` with the function and
     an error `... in <glCall> (emscripten)`; a page opened with `?glcheck` checks every call of the context (`getError` after it, slow, nothing
     wrapped without the parameter): `web.gl.check_errors`, the first error of each code and call as the mark `webgl.check.<code>` with
-    `call(arguments)` and an error with the frame and the time, its codes still counted once a sample in `web.gl.errors`;
+    `call(arguments)`, the frame and the time of the page and an error by the code and the call, its codes still counted once a sample in `web.gl.errors`;
     the calls of `GLctx`, wrapped once per context: `web.gl.shader_compiles` / `shader_compile_ms` / `program_links` / `program_link_ms`
     (the queries of the status in the time), `web.gl.buffer_bytes` / `buffer_data_calls` / `texture_bytes` / `texture_uploads`, the mark
     `webgl.shader.slow` (`slowShaderMs`); the marks of the page (`page.hidden` / `visible` / `pagehide[.persisted]` / `pageshow.persisted` /

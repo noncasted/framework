@@ -195,12 +195,12 @@ Go in this order, each from the numbers:
    trend. `WebGL error <CODE>` groups and the marks `webgl.error.<code>` (first 16) come from `gl.getError` once a sample, `web.gl.errors`
    counts the codes per sample (summed in windows): `out_of_memory` means the GPU memory of the page is over (textures, render targets),
    a loss of textures or of text often follows. `WebGL error <CODE> in <glCall> (emscripten)` with the marks `webgl.emscripten.<code>`
-   (the detail is the gl* function) are the errors emscripten raised itself before asking the context (an enum or a value it rejects),
+   (the detail: the gl* function and the time of the page) are the errors emscripten raised itself before asking the context (an enum or a value it rejects),
    counted apart in `web.gl.emscripten_errors`; the context never saw them. To find the call behind a `webgl.error.<code>`, open the
    page with `?glcheck` (e.g. `https://<site>/?glcheck=1`): every call of the context is followed by `getError` (slow: a diagnostic
    mode, a session of it is not a measurement), `web.gl.check_errors` counts the failing calls, and the first of each code and call
-   is a mark `webgl.check.<code>` with `call(arguments)` as detail and an error `WebGL error <CODE> in <call>` whose stack has the
-   arguments, the frame of the page and its time (`errors <id>`). `web.gl.errors` still counts the codes per sample under the check.
+   is a mark `webgl.check.<code>` with the detail `call(arguments) frame <n> at <page ms> ms` (the frames of the page counted from its
+   start; the error `WebGL error <CODE> in <call>` has the numbers scrubbed, the mark keeps them). `web.gl.errors` still counts the codes per sample under the check.
    `memory.texture_count` (all loaded textures) and `memory.textures` (bytes) show the load.
 6. **A black screen with a live client.** See `web.gl.context_lost` and the marks `webgl.context_lost` / `webgl.context_restored`, with the error
    `WebGL context lost`. Unity (checked on 7000.0.0a10 in Chromium) stops its whole player loop while the context is lost, so a loss without a restore reaches the

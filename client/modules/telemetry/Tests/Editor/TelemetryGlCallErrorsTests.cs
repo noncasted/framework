@@ -66,12 +66,11 @@ namespace Global.Telemetry.Tests
 
             var mark = MarksOf(batches).Single();
             Assert.AreEqual("webgl.emscripten.invalid_enum", mark.Name);
-            Assert.AreEqual("glGetIntegerv", mark.Detail);
+            Assert.AreEqual("glGetIntegerv at 1235 ms", mark.Detail);
             Assert.AreEqual(1500, mark.Time);
 
             var error = batches.SelectMany(batch => batch.Errors).Single();
             Assert.AreEqual("WebGL error INVALID_ENUM in glGetIntegerv (emscripten)", error.Message);
-            StringAssert.Contains("1235 ms since the start of the page", error.Stack);
         }
 
         [Test]
@@ -90,11 +89,10 @@ namespace Global.Telemetry.Tests
 
             var mark = MarksOf(batches).Single();
             Assert.AreEqual("webgl.check.invalid_operation", mark.Name);
-            Assert.AreEqual("bindTexture(0x1234,null)", mark.Detail);
+            Assert.AreEqual("bindTexture(0x1234,null) frame 87 at 1100 ms", mark.Detail);
 
             var error = batches.SelectMany(batch => batch.Errors).Single();
             Assert.AreEqual("WebGL error INVALID_OPERATION in bindTexture", error.Message);
-            StringAssert.Contains("frame 87, 1100 ms", error.Stack);
         }
 
         [Test]

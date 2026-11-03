@@ -7,8 +7,9 @@ namespace Global.Telemetry
     // The errors of WebGL with the call that made them. web.gl.emscripten_errors: the errors emscripten recorded itself in its gl*
     // functions (an enum or a value it rejects before the context is asked), which no getError of the context shows. Under the
     // check of every call (a page opened with ?glcheck: slow, a diagnostic mode) web.gl.check_errors counts the failing calls. The
-    // first error of each source, code and call of the page is a mark webgl.emscripten.<code> / webgl.check.<code> with the call
-    // (and its arguments and frame under the check) and an error with the time of the page. Registered after TelemetryErrorPump.
+    // first error of each source, code and call of the page is a mark webgl.emscripten.<code> / webgl.check.<code> with the call (and
+    // its arguments and frame under the check) and the time of the page, and an error by the code and the call. Registered after
+    // TelemetryErrorPump.
     public class GlCallErrorsTelemetryCollector : ITelemetryCollector, ITelemetryLiveCollector
     {
         public GlCallErrorsTelemetryCollector(ITelemetryGlCallErrors errors, TelemetryBuffer buffer, ITelemetryClock clock, TelemetryErrorQueue queue)
@@ -48,22 +49,22 @@ namespace Global.Telemetry
             _details.Clear();
         }
 
+        // The numbers stay in the mark only: the cleaner of the errors replaces them in a message and a stack.
         private void Report(TelemetryGlCallError error)
         {
             var call = error.IsChecked ? $"{error.Call}({error.Arguments})" : error.Call;
-            var place = error.IsChecked ? $"frame {error.Frame}, " : string.Empty;
-            var pageMs = error.PageMs.ToString("0", CultureInfo.InvariantCulture);
 
             if (_marks < MaxMarks)
             {
                 _marks++;
                 var prefix = error.IsChecked ? "webgl.check." : "webgl.emscripten.";
-                _buffer.AddMark(_clock.ElapsedMilliseconds, prefix + TelemetryGlErrorCodes.MarkSuffixOf(error.Code), call);
+                var frame = error.IsChecked ? $" frame {error.Frame}" : string.Empty;
+                var pageMs = error.PageMs.ToString("0", CultureInfo.InvariantCulture);
+                _buffer.AddMark(_clock.ElapsedMilliseconds, prefix + TelemetryGlErrorCodes.MarkSuffixOf(error.Code), $"{call}{frame} at {pageMs} ms");
             }
 
             var source = error.IsChecked ? string.Empty : " (emscripten)";
-            var message = $"WebGL error {TelemetryGlErrorCodes.ConstantOf(error.Code)} in {error.Call}{source}";
-            _queue.Add(TelemetryErrorLevel.Error, message, $"{call}\n{place}{pageMs} ms since the start of the page");
+            _queue.Add(TelemetryErrorLevel.Error, $"WebGL error {TelemetryGlErrorCodes.ConstantOf(error.Code)} in {error.Call}{source}", call);
         }
     }
 }
