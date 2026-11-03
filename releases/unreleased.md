@@ -43,3 +43,10 @@
 (`EventSource<TelemetryPageEvent>`). Свой `switch` по `SharedClientTelemetry.ErrorLevel` дополнить `Warning`. Новые метки и метрики
 (`web.gl.errors`, `webgl.error.*`, `page.*`, `memory.texture_count`, `session.previous_unclosed`) и предупреждения лога Unity
 приходят сами; на странице сессии консоли появляется блок прошлой незакрытой сессии.
+### Шрифт панели задержки сети
+Кого касается: клиент, игры с модулем `network` и сессиями (`AddSessionServices`).
+Поиск: `git grep -nE 'NetworkOptions|_latencyOverlayFont' -- 'client/Assets/*.asset' 'client/Assets/*.cs'`
+Сделать: BREAKING. В ассете `NetworkOptions` игры задать поле `Latency Overlay Font` (`TMP_FontAsset` игры, тот же, что в
+`ClientOutdatedNoticeStyle`): без него `NetworkLatencyMonitor` бросает при сборке скоупа сессии. Предупреждение TMP «LiberationSans
+SDF Font Asset was not found» в каждой сессии уходит. Свой код, который создаёт `NetworkLatencyMonitor` напрямую (тесты), передаёт
+`NetworkOptions` последним аргументом.
