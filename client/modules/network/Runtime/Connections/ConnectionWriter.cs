@@ -91,7 +91,9 @@ namespace Internal
                 throw new InvalidOperationException($"Request {name} after ForceSendAll");
 
             // The request goes to the queue and awaits the response in parallel with anything else.
-            using var trace = GameProfiler.Concurrent($"Request: {name}");
+            using var trace = commandContext is IUnprofiledRequest
+                ? NullProfilerScope.Instance
+                : GameProfiler.Concurrent($"Request: {name}");
 
             _requestCounter++;
 

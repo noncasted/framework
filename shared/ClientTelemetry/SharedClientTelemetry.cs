@@ -8,11 +8,12 @@ namespace Shared
     // The telemetry of a client over its meta socket. A session is a part of the game the game names with its tags (a menu, a
     // match); at most one is open on a socket, nothing is sent outside it but the startup trace. Union tags: NetworkContextTags.Telemetry* (the
     // project lists them in its union). backend/ClientTelemetry/Contract/CONTRACT.md has the rules.
+    // The requests are IUnprofiledRequest: the telemetry reports the startup trace and does not write itself into it.
     public static partial class SharedClientTelemetry
     {
         // Opens a session and closes the one still open on this socket. Answered by SessionStarted.
         [MemoryPackable]
-        public partial class SessionStart : INetworkContext
+        public partial class SessionStart : IUnprofiledRequest
         {
             public Device Device { get; set; }
             public string[] Tags { get; set; }
@@ -32,7 +33,7 @@ namespace Shared
 
         // One batch in flight at a time: the next one goes after the answer. Answered by BatchResult.
         [MemoryPackable]
-        public partial class Batch : INetworkContext
+        public partial class Batch : IUnprofiledRequest
         {
             public Guid SessionId { get; set; }
 
@@ -53,7 +54,7 @@ namespace Shared
 
         // The session is over, closed with status ended. Answered by EmptyResponse.
         [MemoryPackable]
-        public partial class SessionEnd : INetworkContext
+        public partial class SessionEnd : IUnprofiledRequest
         {
             public Guid SessionId { get; set; }
         }
@@ -61,7 +62,7 @@ namespace Shared
         // The trace of the start of a client: the only message that needs no open session. A snapshot of an open trace, or the
         // final one, which replaces the snapshot of the same StartupId. Guid.Empty asks for a new record. Answered by StartupTraceResult.
         [MemoryPackable]
-        public partial class StartupTrace : INetworkContext
+        public partial class StartupTrace : IUnprofiledRequest
         {
             public Guid StartupId { get; set; }
             public Device Device { get; set; }
