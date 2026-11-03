@@ -1,0 +1,28 @@
+{
+    "name": "Internal.Telemetry.PlayMode.Tests",
+    "rootNamespace": "",
+    "references": [
+        "Internal",
+        "Internal.Telemetry",
+        "Internal.Network",
+        "GUID:73681998e594465db2ed389d82d877b6",
+        "UniTask",
+        "GUID:3ea5c3f1172040daa713d5ad71728b78",
+        "UnityEngine.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll",
+        "Newtonsoft.Json.dll",
+        "MemoryPack.Core.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

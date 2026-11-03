@@ -10,6 +10,10 @@ namespace Internal
         // NOT closed: a live connection after ForceSendAll; a request made there is a mistake of the caller.
         bool IsClosed { get; }
 
+        // Another value after every run of the connection: what a server gave on a run is gone with it, though the connection
+        // object stays (the meta socket is run again after a loss). Compared by reference. Null: never run.
+        object CurrentRun { get; }
+
         void WriteOneWay(INetworkContext value);
 
         // Never returns null. The response T, or:

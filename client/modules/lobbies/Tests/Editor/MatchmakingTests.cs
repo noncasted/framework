@@ -93,6 +93,7 @@ namespace Global.Lobbies.Tests
             private readonly UniTaskCompletionSource<INetworkContext> _answer = new();
 
             public bool IsClosed => false;
+            public object CurrentRun => this;
 
             public void WriteOneWay(INetworkContext value) => throw new NotSupportedException();
 

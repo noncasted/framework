@@ -35,6 +35,9 @@ namespace Internal
         /// <summary>Frames since the trace start. Shows whether a span waited for frames or computed.</summary>
         public int ElapsedFrames => Time.frameCount - _startFrame;
 
+        /// <summary>The closed trace as it was saved. Null until <see cref="Finish"/>.</summary>
+        public ProfilerTraceData Final { get; private set; }
+
         public IProfilerScope CreateScope(string name)
         {
             var scope = new ProfilerScope(this, name, 0);
@@ -56,6 +59,7 @@ namespace Internal
             _watch.Stop();
 
             var trace = Build();
+            Final = trace;
             ProfilerTraceStorage.Save(trace);
 
             Debug.Log(
@@ -63,6 +67,24 @@ namespace Internal
         }
 
         public ProfilerTraceData Build()
+        {
+            foreach (var root in _roots)
+                root.CoverChildren();
+
+            return Flatten();
+        }
+
+        /// <summary>
+        /// The trace as it is now, while it goes on: changes nothing in it, so what <see cref="Finish"/> saves is the same with
+        /// or without a snapshot. Open spans have the duration so far and are <see cref="ProfilerSpanData.Unfinished"/>; a
+        /// parent does not cover its children yet, that is done once, at the finish.
+        /// </summary>
+        public ProfilerTraceData Snapshot()
+        {
+            return Flatten();
+        }
+
+        private ProfilerTraceData Flatten()
         {
             var trace = new ProfilerTraceData
             {
@@ -82,13 +104,8 @@ namespace Internal
 
             // Traversal order is depth-first by start time: this way rows in the window go
             // top to bottom exactly as the stages went in time.
-            _roots.Sort(CompareByStart);
-
-            foreach (var root in _roots)
-            {
-                root.CoverChildren();
+            foreach (var root in ByStart(_roots))
                 Append(root, -1, 0);
-            }
 
             return trace;
 
@@ -109,20 +126,21 @@ namespace Internal
                     EndFrame = scope.EndFrame,
                     StartNs = scope.StartNs,
                     EndNs = scope.EndNs,
-                    Unfinished = scope.WasUnfinished,
+                    Unfinished = scope.WasUnfinished || scope.IsRunning,
                     AllocBytes = scope.AllocBytes
                 });
 
-                var children = scope.ChildrenInternal;
-                children.Sort(CompareByStart);
-
-                foreach (var child in children)
+                foreach (var child in ByStart(scope.ChildrenInternal))
                     Append(child, id, depth + 1);
             }
 
-            static int CompareByStart(ProfilerScope left, ProfilerScope right)
+            static List<ProfilerScope> ByStart(List<ProfilerScope> scopes)
             {
-                return left.StartMs.CompareTo(right.StartMs);
+                var sorted = new List<ProfilerScope>(scopes);
+
+                sorted.Sort((left, right) => left.StartMs.CompareTo(right.StartMs));
+
+                return sorted;
             }
         }
     }

@@ -731,6 +731,7 @@ namespace Internal.Tests
             private Func<INetworkContext, bool> _fails;
 
             public bool IsClosed => false;
+            public object CurrentRun => this;
 
             public void WriteOneWay(INetworkContext value)
             {

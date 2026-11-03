@@ -245,6 +245,12 @@ tests / result, the failed tests and the logs (`.build/test-all/logs`); any fail
 Release build replaces it. The expected numbers: backend 1102, common 92, Verify 166, control 23, EditMode 659 (4 of them skipped, the
 benchmarks of `ContainerBenchmarkTests`), PlayMode 77; the script does not check them, a smaller number is a lost test.
 
+`tools/scripts/test-telemetry-transport.sh` runs apart from the suite: the real client of `modules/telemetry` in PlayMode over a real
+websocket against `backend/ClientTelemetry.TestHost` (Kestrel, a silo, its own PostgreSQL container, the real switch), started and
+stopped by the script. Without the host the tests `TelemetryTransportEndToEndTests` are ignored, so `test-all.sh` counts them as
+skipped; their union over `INetworkContext` is dynamic and registered only with the host, for their namespace, so without it they change nothing for `network` or for the union of a game. The host alone, with sessions to read (the sockets `/test-host/meta`, and `/test-host/mute` that answers nothing, without a token; `/test-host/flag/{bool}` and `/test-host/stats` next to the API under the
+token): `.build/bin/ClientTelemetry.TestHost/Debug/net10.0/Framework.ClientTelemetry.TestHost --token <t> --port <n> --seed`; a session open on a quiet socket closes as `lost` after `--lost-after <seconds>`, 15 here. `--startup-file <path>` (with `--seed`) sends a file of the Startup Profiler as the startup trace of the seeded sessions.
+
 One suite by hand: `.build/bin/Tests/Debug/net10.0/Framework.Tests` (backend),
 `.build/bin/Framework.Common.Tests/Debug/net10.0/Framework.Common.Tests` (common): xunit v3 on the Microsoft Testing
 Platform, run the executable, `dotnet test` refuses on the .NET 10 SDK. The projects keep their own tests of the framework

@@ -29,6 +29,8 @@ namespace Internal
         // Never run: no connection to answer either.
         public bool IsClosed => _run == null || _run.IsClosed == true;
 
+        public object CurrentRun => _run;
+
         public void Run(IReadOnlyLifetime lifetime, IWebSocket webSocket)
         {
             if (_connectionLifetime != null && _connectionLifetime.IsTerminated == false)

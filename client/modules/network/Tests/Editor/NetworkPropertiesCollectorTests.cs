@@ -159,6 +159,7 @@ namespace Internal.Tests
             public readonly List<INetworkContext> OneWays = new();
 
             public bool IsClosed => false;
+            public object CurrentRun => this;
 
             public void WriteOneWay(INetworkContext value) => OneWays.Add(value);
             public UniTask<T> WriteRequest<T>(INetworkContext commandContext) => throw new NotSupportedException();

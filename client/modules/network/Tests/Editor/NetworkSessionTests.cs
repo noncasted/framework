@@ -51,6 +51,7 @@ namespace Internal.Tests
         private class ClosableWriter : IConnectionWriter
         {
             public bool IsClosed { get; set; }
+            public object CurrentRun => this;
 
             public void WriteOneWay(INetworkContext value) => throw new NotSupportedException();
             public UniTask<T> WriteRequest<T>(INetworkContext commandContext) => throw new NotSupportedException();

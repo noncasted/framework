@@ -23,15 +23,25 @@ namespace Internal
 
         public static IProfiler Current { get; private set; }
 
+        /// <summary>
+        /// The first trace of this run of the game: its start. Stays after it finishes, with the traces of the next stages of
+        /// the game going on (<see cref="Profiler.Final"/>). Null until the first <see cref="Begin"/>.
+        /// </summary>
+        public static Profiler Startup { get; private set; }
+
         public static bool IsRunning => Current != null;
 
         public static IProfiler Begin(string name)
         {
             _stack.Clear();
             _stage = null;
-            Current = new Profiler(name);
 
-            return Current;
+            var profiler = new Profiler(name);
+
+            Current = profiler;
+            Startup ??= profiler;
+
+            return profiler;
         }
 
         public static void Finish()
