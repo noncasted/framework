@@ -127,12 +127,16 @@ namespace Internal
 
         private async UniTask Load(UniTaskCompletionSource loading)
         {
+            var load = AssetLoads.Begin($"Group: {Name}");
+
             try
             {
                 await LoadGroup();
             }
             catch (Exception exception)
             {
+                load.Fail(exception);
+
                 // The next Retain must retry a failed load on a clean group rather than get the same error.
                 if (_loading == loading)
                 {
@@ -143,6 +147,8 @@ namespace Internal
                 loading.TrySetException(exception);
                 return;
             }
+
+            load.Finish();
 
             // A load that outlived a reset does not mark the group as loaded.
             if (_loading != loading)

@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 
 namespace Internal
@@ -14,7 +16,21 @@ namespace Internal
 
         public async UniTask<ILoadedScene> Load(AssetReference scene, bool isMain = false)
         {
-            var handle = await Addressables.LoadSceneAsync(scene, LoadSceneMode.Additive).ToUniTask();
+            // The name of the scene is known only when it is loaded.
+            var load = AssetLoads.Begin("Scene");
+            SceneInstance handle;
+
+            try
+            {
+                handle = await Addressables.LoadSceneAsync(scene, LoadSceneMode.Additive).ToUniTask();
+            }
+            catch (Exception exception)
+            {
+                load.Fail(exception);
+                throw;
+            }
+
+            load.Finish($"Scene: {handle.Scene.name}");
 
             if (isMain == true)
                 SceneManager.SetActiveScene(handle.Scene);

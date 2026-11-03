@@ -115,7 +115,7 @@ namespace Internal.Tests
             CollectionAssert.AreEqual(new[] { "load", "loaded", "unload" }, group.Log);
         });
 
-        private sealed class TestGroup : AssetGroup
+        internal sealed class TestGroup : AssetGroup
         {
             private UniTaskCompletionSource _pending;
 

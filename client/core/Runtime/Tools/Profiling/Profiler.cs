@@ -15,6 +15,7 @@ namespace Internal
             _startFrame = Time.frameCount;
             _startNs = ProfilerClock.NowNs();
             _watch = Stopwatch.StartNew();
+            StartTimestamp = Stopwatch.GetTimestamp();
         }
 
         private readonly DateTime _startedAt;
@@ -26,6 +27,9 @@ namespace Internal
         private bool _finished;
 
         public string Name { get; }
+
+        // The start by Stopwatch.GetTimestamp: places the trace on another clock that runs now (the time line of a web page).
+        public long StartTimestamp { get; }
 
         public double ElapsedMs => _watch.Elapsed.TotalMilliseconds;
 
