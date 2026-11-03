@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using MemoryPack;
 
 namespace Internal
@@ -59,7 +60,8 @@ namespace Internal
 
         public void Set(T value)
         {
-            if (Equals(_lifetimedValue.Value, value) == true)
+            // The comparer of T: object.Equals boxed a struct value on every write.
+            if (EqualityComparer<T>.Default.Equals(_lifetimedValue.Value, value) == true)
                 _lifetimedValue.Notify();
             else
                 _lifetimedValue.Set(value);
