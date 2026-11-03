@@ -11,7 +11,7 @@ SKILL = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SKILL))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from fake_backend import FakeBackend, sample, session, startup_info, startup_span  # noqa: E402
+from fake_backend import FakeBackend, previous_session, sample, session, startup_info, startup_span  # noqa: E402
 
 SCRIPT = SKILL / "telemetry"
 TOKEN = "s3cr3t-Token-value-123"
@@ -318,7 +318,8 @@ class MonitorTests(Base):
 
         self.assertIn(f"new {NEW}", result.stdout)
         self.assertNotIn(NEW2, result.stdout)
-        self.assertTrue(all("platform=webgl" in path for path in self.backend.requests if path.split("?")[0].endswith("/sessions")))
+        self.assertTrue(all("platform=webgl" in path for path in self.backend.requests
+                            if path.split("?")[0].endswith("/sessions") and "previousId=" not in path))
 
     def test_os_is_filtered_here_and_counted_in_the_timeout(self):
         self.appear(session(NEW2, status="ended", os_name="Windows"))
@@ -337,8 +338,9 @@ class MonitorTests(Base):
 
 
 class TagTests(Base):
+    # The lists of the wait; the report then asks for the next session of the observed one by its id, under no filter.
     def list_requests(self):
-        return [path for path in self.backend.requests if path.split("?")[0].endswith("/sessions")]
+        return [path for path in self.backend.requests if path.split("?")[0].endswith("/sessions") and "previousId=" not in path]
 
     def test_tag_is_asked_of_the_backend_on_every_list(self):
         self.backend.sessions = [session(OLD, status="ended", tags=["run"])]
@@ -630,6 +632,60 @@ class StartupTests(Base):
         self.assertIn(f"startup={NEW}", self.run_cli("summary", OLD).stdout)
         self.assertIn("startup=None", self.run_cli("summary", NEW2).stdout)
 
+    # The client of the next session reports this one as not closed: what it did last, which the server may not have got.
+    def test_summary_shows_the_previous_session_the_client_did_not_close(self):
+        self.backend.sessions = [session(NEW, status="ended", previous=previous_session(OLD)), session(OLD, status="lost")]
+        result = self.run_cli("summary", NEW)
+
+        line = next(line for line in result.stdout.splitlines() if line.startswith("previous_unclosed"))
+        self.assertIn(OLD, line)
+        self.assertIn("server_status=lost", line)
+        self.assertIn("tags=menu", line)
+        self.assertIn("last_sample=31.0s", line)
+        self.assertIn("since=4.0s", line)
+        self.assertIn("30.5s=webgl.error.out_of_memory 31.2s=page.pagehide", line)
+
+    def test_summary_of_a_lost_session_finds_the_report_of_its_client(self):
+        self.backend.sessions = [session(NEW, status="ended", previous=previous_session(OLD, since=None)), session(OLD, status="lost")]
+        result = self.run_cli("summary", OLD)
+
+        line = next(line for line in result.stdout.splitlines() if line.startswith("unclosed_on_client"))
+        self.assertIn(f"next={NEW}", line)
+        self.assertIn("last_sample=31.0s", line)
+        self.assertIn("since=-", line)
+        self.assertIn("31.2s=page.pagehide", line)
+
+    def test_summary_without_a_report_says_none(self):
+        self.backend.sessions = [session(OLD, status="lost")]
+        result = self.run_cli("summary", OLD)
+
+        self.assertIn("unclosed_on_client none", result.stdout)
+        self.assertNotIn("previous_unclosed", result.stdout)
+
+    def test_a_live_session_asks_nothing_of_its_next_one(self):
+        self.backend.sessions = [session(OLD, status="live")]
+
+        self.assertNotIn("unclosed_on_client", self.run_cli("summary", OLD).stdout)
+
+    def test_warnings_are_counted_apart(self):
+        digest = {"durationMs": 30000, "errorRows": 0, "errorCount": 0, "warningCount": 9, "marks": 0, "droppedSamples": 0, "droppedErrors": 0,
+                  "droppedMarks": 0, "rejectedRequests": 0, "summary": {"samples": 0, "hiddenSamples": 0, "metrics": []},
+                  "errorGroups": {"omittedGroups": 0, "omittedCount": 0, "groups": []}}
+        self.backend.sessions = [session(OLD, status="ended", digest=digest, previous=previous_session(NEW))]
+
+        self.assertIn("errors=0 warnings=9", self.run_cli("summary", OLD).stdout)
+        listed = self.run_cli("sessions").stdout
+        self.assertIn("errors=0 warnings=9", listed)
+        self.assertIn(f"previous_unclosed={NEW}", listed)
+
+    def test_the_new_metrics_are_expected(self):
+        self.backend.sessions = [session(OLD, status="ended")]
+        self.backend.samples[OLD] = [sample(1, 0, {"frame.fps": 60})]
+        line = next(line for line in self.run_cli("summary", OLD).stdout.splitlines() if line.startswith("not_reported"))
+
+        for name in ("web.gl.errors", "memory.texture_count"):
+            self.assertIn(name, line)
+
 
 class PageTests(Base):
     def page(self):
@@ -704,6 +760,7 @@ class LoadsTests(Base):
         self.backend.sessions = [session(OLD, status="ended")]
 
         self.assertIn("loads none", self.run_cli("summary", OLD).stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

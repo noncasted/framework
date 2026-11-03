@@ -4,11 +4,13 @@ namespace Global.Telemetry
     // does not notice. Open only while a session collects: otherwise it holds nothing and takes nothing.
     public class TelemetryBuffer
     {
-        public TelemetryBuffer(ClientTelemetryOptions options)
+        public TelemetryBuffer(ClientTelemetryOptions options, TelemetrySessionTrace trace)
         {
             Samples = new TelemetryRing<TelemetrySampleRecord>(options.BufferedSamples);
+            _trace = trace;
         }
 
+        private readonly TelemetrySessionTrace _trace;
         private bool _isOpen;
 
         public TelemetryRing<TelemetrySampleRecord> Samples { get; }
@@ -28,8 +30,11 @@ namespace Global.Telemetry
 
         public void AddMark(long time, string name, string detail = null, long? durationMs = null)
         {
-            if (_isOpen)
-                Marks.Add().Set(time, name, detail == null ? null : TelemetryLimits.Cut(detail, TelemetryLimits.MaxMarkDetailLength), durationMs);
+            if (_isOpen == false)
+                return;
+
+            Marks.Add().Set(time, name, detail == null ? null : TelemetryLimits.Cut(detail, TelemetryLimits.MaxMarkDetailLength), durationMs);
+            _trace.Marked(time, name);
         }
 
         public void AddError(long time, TelemetryErrorLevel level, string message, string stack, int repeat)

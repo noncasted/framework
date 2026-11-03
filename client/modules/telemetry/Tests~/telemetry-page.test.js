@@ -17,6 +17,7 @@ function load() {
     const windowListeners = new Map();
     const document = { hidden: false, addEventListener: (name, listener) => documentListeners.set(name, listener) };
     let becameHidden = 0;
+    const events = [];
 
     const context = vm.createContext({
         LibraryManager: { library },
@@ -29,14 +30,16 @@ function load() {
 
     vm.runInContext(jslib, context);
     context.telemetryPageState = library.$telemetryPageState;
-    library.TelemetryPageListen(() => becameHidden++);
+    context.telemetryPageEvents = library.$telemetryPageEvents;
+    library.TelemetryPageListen(() => becameHidden++, kind => events.push(kind));
 
     return {
         library,
         document,
         documentListeners,
         windowListeners,
-        becameHidden: () => becameHidden
+        becameHidden: () => becameHidden,
+        events
     };
 }
 
@@ -82,7 +85,7 @@ test('a second listen keeps the listeners and takes the new callback', () => {
     const listener = page.documentListeners.get('visibilitychange');
     let second = 0;
 
-    page.library.TelemetryPageListen(() => second++);
+    page.library.TelemetryPageListen(() => second++, () => { });
     assert.strictEqual(page.documentListeners.get('visibilitychange'), listener);
 
     page.document.hidden = true;
@@ -92,8 +95,33 @@ test('a second listen keeps the listeners and takes the new callback', () => {
     assert.strictEqual(page.becameHidden(), 0);
 });
 
+// The numbers of TelemetryPageEvent.
+test('every event of the life of the page goes to the managed side with its number', () => {
+    const page = load();
+
+    page.document.hidden = true;
+    page.documentListeners.get('visibilitychange')();
+    page.document.hidden = false;
+    page.documentListeners.get('visibilitychange')();
+    page.windowListeners.get('pagehide')({ persisted: false });
+    page.windowListeners.get('pagehide')({ persisted: true });
+    page.windowListeners.get('pageshow')({ persisted: true });
+    page.windowListeners.get('pageshow')({ persisted: false });
+    page.documentListeners.get('freeze')();
+    page.documentListeners.get('resume')();
+
+    assert.deepStrictEqual(page.events, [0, 1, 2, 3, 4, 5, 6]);
+});
+
+test('one listener per event: the hidden state and the events share it', () => {
+    const page = load();
+
+    assert.deepStrictEqual([...page.documentListeners.keys()].sort(), ['freeze', 'resume', 'visibilitychange']);
+    assert.deepStrictEqual([...page.windowListeners.keys()].sort(), ['pagehide', 'pageshow']);
+});
+
 test('the page only listens: nothing of the network, only the two functions', () => {
     assert.ok(!/navigator\.|fetch\(|XMLHttpRequest/.test(source));
-    const functions = Object.keys(load().library).filter(name => name.startsWith('TelemetryPage'));
+    const functions = Object.keys(load().library).filter(name => name.startsWith('TelemetryPage') && !name.endsWith('__deps'));
     assert.deepStrictEqual(functions.sort(), ['TelemetryPageIsHidden', 'TelemetryPageListen']);
 });

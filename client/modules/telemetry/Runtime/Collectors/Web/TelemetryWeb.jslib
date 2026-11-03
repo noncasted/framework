@@ -7,11 +7,21 @@ mergeInto(LibraryManager.library, {
             return match === null ? -1 : parseInt(match[1], 10);
         }
 
+        // iPadOS shows the user agent of a Mac by default; a Mac has no touch screen.
+        function isIpad(text) {
+            return /iPad/.test(text) || (/Macintosh/.test(text) && (navigator['maxTouchPoints'] || 0) > 1);
+        }
+
+        // Telegram on Android names itself in the user agent; on iOS it does not, but its web view has the bridge of the app.
+        function isTelegram(text) {
+            return /Telegram/.test(text) || window['TelegramWebviewProxy'] !== undefined || window['TelegramWebview'] !== undefined;
+        }
+
         // The order matters: every Chromium has "Chrome" and "Safari", every browser on iOS has "Safari" or none.
         function readBrowser(text) {
             const chromium = /Chrome\/(\d+)/;
 
-            if (/Telegram/.test(text))
+            if (isTelegram(text))
                 return { name: 'Telegram WebView', major: major(text, chromium) };
 
             if (/; wv\)/.test(text))
@@ -35,13 +45,17 @@ mergeInto(LibraryManager.library, {
                     return { name: known[i][0], major: version };
             }
 
-            if (/(iPhone|iPad|iPod).*AppleWebKit/.test(text))
+            if (/(iPhone|iPad|iPod).*AppleWebKit/.test(text) || isIpad(text))
                 return { name: 'iOS WebView', major: -1 };
 
             return { name: '', major: -1 };
         }
 
+        // An iPad in the form of a Mac keeps the frozen version of macOS (10_15): its version is unknown.
         function readOs(text) {
+            if (isIpad(text))
+                return { name: 'iPadOS', major: major(text, / OS (\d+)_/) };
+
             const known = [
                 ['iOS', /(?:iPhone|iPad|iPod).* OS (\d+)/, /iPhone|iPad|iPod/],
                 ['Android', /Android (\d+)/, /Android/],

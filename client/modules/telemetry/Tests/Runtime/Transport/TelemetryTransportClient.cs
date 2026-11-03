@@ -19,7 +19,8 @@ namespace Global.Telemetry.Tests.Transport
             var options = new ClientTelemetryOptions(sendIntervalSeconds, sampleIntervalSeconds, 300, true, double.MaxValue);
             var guard = new TelemetryNameGuard(strictNames);
             var names = new TelemetryNameTable(guard);
-            var buffer = new TelemetryBuffer(options);
+            var trace = TelemetryMemoryTraceStore.Trace();
+            var buffer = new TelemetryBuffer(options, trace);
             var writer = new TelemetryBatchWriter(names, buffer);
             var visibility = new TelemetryVisibility(Page);
             var clock = new TelemetryClock();
@@ -38,6 +39,7 @@ namespace Global.Telemetry.Tests.Transport
                 writer,
                 clock,
                 visibility,
+                trace,
                 new ITelemetryLiveCollector[]
                 {
                     new TelemetryLogErrors(ErrorQueue),
@@ -53,7 +55,7 @@ namespace Global.Telemetry.Tests.Transport
                 new TelemetryStartupPage(new NoTelemetryPageTimeline(), StartupSource));
 
             startup.OnSetup(_lifetime);
-            Telemetry = new ClientTelemetry(options, guard, buffer, clock, collection, writer, Transport, source, gate, startup, new TelemetryAddedCollectors());
+            Telemetry = new ClientTelemetry(options, guard, buffer, clock, collection, writer, Transport, source, gate, startup, new TelemetryAddedCollectors(), trace);
         }
 
         private readonly Lifetime _lifetime = new Lifetime();

@@ -139,7 +139,7 @@ public class ClientTelemetrySessionGrainTests : ClientTelemetryStorageTest
         await cluster.InitializeAsync();
 
         var id = Guid.NewGuid();
-        await cluster.Orleans.GetGrain<IClientTelemetrySession>(id).Start(new TelemetryDevice(), new TelemetrySessionTags([], 0), null);
+        await cluster.Orleans.GetGrain<IClientTelemetrySession>(id).Start(new TelemetryDevice(), new TelemetrySessionTags([], 0), null, null);
 
         await cluster.Cluster.StopSiloAsync(cluster.Cluster.Silos[0]);
 
@@ -402,7 +402,7 @@ public class ClientTelemetrySessionGrainTests : ClientTelemetryStorageTest
     private async Task WriteOpenRow(Guid id)
     {
         var state = new TelemetrySessionState();
-        state.Open(id, new TelemetryDevice { Platform = "web" }, [], null, Cluster.Clock.GetUtcNow().UtcDateTime);
+        state.Open(id, new TelemetryDevice { Platform = "web" }, [], null, null, Cluster.Clock.GetUtcNow().UtcDateTime);
         await Cluster.Storage.Write(new Infrastructure.State.StateWriteRequest
         {
             Records = new Dictionary<Infrastructure.State.StateIdentity, Infrastructure.State.IStateValue> { [Identity(id)] = state }

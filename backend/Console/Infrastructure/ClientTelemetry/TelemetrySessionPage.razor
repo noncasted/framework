@@ -52,6 +52,15 @@
         </div>
     </div>
 
+    @if (info.Previous is { } previous)
+    {
+        <TelemetryPreviousSessionView Previous="previous"/>
+    }
+    @if (_next is { Count: > 0 } next)
+    {
+        <TelemetryNextSessionView Next="next"/>
+    }
+
     <TelemetrySessionSummaryView Info="info" Summary="_log.Summary" Errors="ErrorCount(info)" Marks="@(info.Digest?.Marks ?? _log.Marks.Count)"/>
 
     @if (_charts is { } charts)
@@ -131,9 +140,11 @@
     [Inject] private IClientTelemetryReader Reader { get; set; } = null!;
 
     private const int ShownMarks = 200;
+    private const int MaxNext = 4;
 
     private TelemetrySessionLog? _log;
     private TelemetrySessionCharts? _charts;
+    private IReadOnlyList<TelemetrySessionInfo>? _next;
     private bool _isLoaded;
 
     // The read after the close has taken the last rows.
@@ -146,11 +157,15 @@
         if (await _log.Refresh() && _log.Info is { } info)
             _charts = TelemetrySessionCharts.Of(_log, info.Names);
 
+        // A next session starts when this one is over on the client: asked once, after the close.
+        if (_next == null && _log.Info is { Status: not TelemetrySessionStatus.Live })
+            _next = await Reader.GetSessions(new TelemetrySessionFilter { PreviousId = Id, Limit = MaxNext });
+
         _isLoaded = true;
     }
 
     private long ErrorCount(TelemetrySessionInfo info)
     {
-        return info.Digest?.ErrorCount ?? _log!.Errors.Sum(error => (long)error.Repeat);
+        return info.Digest?.ErrorCount ?? _log!.Errors.Where(error => error.Level != TelemetryErrorLevel.Warning).Sum(error => (long)error.Repeat);
     }
 }

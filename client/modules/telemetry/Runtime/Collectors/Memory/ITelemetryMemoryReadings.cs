@@ -9,5 +9,8 @@ namespace Global.Telemetry
         long MonoHeap { get; }
         long Textures { get; }
         int Collections { get; }
+
+        // The textures loaded now, streamed or not; 0 where it does not work.
+        int TextureCount { get; }
     }
 }

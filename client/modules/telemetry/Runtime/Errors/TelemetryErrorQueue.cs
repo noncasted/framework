@@ -9,6 +9,7 @@ namespace Global.Telemetry
         private readonly object _lock = new();
         private readonly TelemetryQueuedError[] _items = new TelemetryQueuedError[TelemetryErrorLimits.MaxQueued];
         private int _count;
+        private int _warnings;
         private bool _isClosed;
 
         public int Count
@@ -46,6 +47,14 @@ namespace Global.Telemetry
                 if (_count == _items.Length)
                     return;
 
+                if (level == TelemetryErrorLevel.Warning)
+                {
+                    if (_warnings == TelemetryErrorLimits.MaxQueuedWarnings)
+                        return;
+
+                    _warnings++;
+                }
+
                 _items[_count++] = new TelemetryQueuedError(level, message, stack);
             }
         }
@@ -60,6 +69,7 @@ namespace Global.Telemetry
                 Array.Copy(_items, into, count);
                 Array.Clear(_items, 0, count);
                 _count = 0;
+                _warnings = 0;
 
                 return count;
             }
@@ -80,6 +90,7 @@ namespace Global.Telemetry
                 _isClosed = true;
                 Array.Clear(_items, 0, _count);
                 _count = 0;
+                _warnings = 0;
             }
         }
     }

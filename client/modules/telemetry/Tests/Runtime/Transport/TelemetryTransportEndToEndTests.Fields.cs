@@ -180,7 +180,7 @@ namespace Global.Telemetry.Tests.Transport
         }
 
         [UnityTest]
-        public IEnumerator ErrorLevels_ErrorExceptionAssert_ReadAsTheirLevel() => UniTask.ToCoroutine(async () =>
+        public IEnumerator ErrorLevels_ErrorExceptionAssertWarning_ReadAsTheirLevel() => UniTask.ToCoroutine(async () =>
         {
             var client = Client();
             await client.Connect();
@@ -197,12 +197,17 @@ namespace Global.Telemetry.Tests.Transport
             await TelemetryReadCheck.ReadEqualsSent(client.Transport, id);
 
             var errors = await TelemetryTransportHost.ReadAll(id.ToString(), "errors");
-            Assert.AreEqual(3, errors.Count);
+            Assert.AreEqual(4, errors.Count, "a plain log is not sent");
             Assert.AreEqual("error", errors.Single(error => error.Value<string>("message").Contains("level error")).Value<string>("level"));
+            Assert.AreEqual("warning", errors.Single(error => error.Value<string>("message").Contains("level warning")).Value<string>("level"));
             Assert.AreEqual("exception", errors.Single(error => error.Value<string>("message").Contains("level exception")).Value<string>("level"));
             Assert.AreEqual("error", errors.Single(error => error.Value<string>("message").Contains("level assertion")).Value<string>("level"));
 
-            var groups = (await TelemetryTransportHost.Read("sessions/" + id))["digest"]["errorGroups"]["groups"];
+            var digest = (await TelemetryTransportHost.Read("sessions/" + id))["digest"];
+            Assert.AreEqual(3, digest.Value<long>("errorCount"), "the warnings are counted apart");
+            Assert.AreEqual(1, digest.Value<long>("warningCount"));
+
+            var groups = digest["errorGroups"]["groups"];
             Assert.AreEqual("exception", groups.Single(group => group.Value<string>("message").Contains("level exception")).Value<string>("level"));
         });
 

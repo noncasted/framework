@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Infrastructure;
 using System.Net;
 using System.Text.Json;
 using FluentAssertions;
@@ -356,6 +357,35 @@ public class ClientTelemetryReadEndpointTests : ClientTelemetryEndpointTest
 
         var listed = (await Get(host, $"/sessions?tag={word}")).EnumerateArray().Single(item => item.GetProperty("id").GetGuid() == one);
         listed.GetProperty("tags").EnumerateArray().Single().GetString().Should().Be(word);
+    }
+
+    // The skill reads the previous session of a client in both ways: from the new one, and from the lost one by previousId.
+    [Fact]
+    public async Task ThePreviousSession_IsInTheAnswers_AndPreviousIdFindsTheNextOne()
+    {
+        EnableFlag(true);
+        var host = await StartHost();
+        var lost = Guid.NewGuid();
+        var next = Guid.NewGuid();
+        var previous = new TelemetryPreviousSession(lost, ["menu"], 31_000, null, [new TelemetryMark(30_500, "page.pagehide")]);
+
+        await Cluster.Orleans.GetGrain<IClientTelemetrySession>(next).Start(new TelemetryDevice(), new TelemetrySessionTags([], 0), null, previous);
+        await Store(Request(lost, 1, errors: [TelemetryWire.Error(5, SharedClientTelemetry.ErrorLevel.Warning, "Slow", null, 3)], ended: true));
+        await TestWait.Until(async () => (await Ids(host, $"/sessions?previousId={lost}")).Length == 1);
+
+        (await Ids(host, $"/sessions?previousId={lost}")).Should().Equal(next);
+
+        var card = (await Get(host, $"/sessions/{next}")).GetProperty("previous");
+        card.GetProperty("sessionId").GetGuid().Should().Be(lost);
+        card.GetProperty("lastSampleTime").GetInt64().Should().Be(31_000);
+        card.GetProperty("sinceMs").ValueKind.Should().Be(JsonValueKind.Null);
+        card.GetProperty("marks")[0].GetProperty("name").GetString().Should().Be("page.pagehide");
+        (await Get(host, $"/sessions/{lost}")).GetProperty("previous").ValueKind.Should().Be(JsonValueKind.Null);
+
+        var digest = (await Get(host, $"/sessions/{lost}")).GetProperty("digest");
+        digest.GetProperty("errorCount").GetInt64().Should().Be(0);
+        digest.GetProperty("warningCount").GetInt64().Should().Be(3);
+        (await Get(host, $"/sessions/{lost}/errors")).GetProperty("items")[0].GetProperty("level").GetString().Should().Be("warning");
     }
 
     private async Task<(TestWebHost Host, Guid Session)> StartWithSession(bool ended = false)

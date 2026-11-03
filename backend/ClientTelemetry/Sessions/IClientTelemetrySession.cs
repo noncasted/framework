@@ -4,8 +4,9 @@ namespace Game.ClientTelemetry;
 // the seq of the rows are decided here, one at a time.
 public interface IClientTelemetrySession : IGrainWithGuidKey
 {
-    // StartupId: the record of the startup trace of the same socket, checked by its connection.
-    Task Start(TelemetryDevice device, TelemetrySessionTags tags, Guid? startupId);
+    // StartupId: the record of the startup trace of the same socket, checked by its connection. Previous: what the client reports of
+    // its session before this one that did not close.
+    Task Start(TelemetryDevice device, TelemetrySessionTags tags, Guid? startupId, TelemetryPreviousSession? previous);
 
     // False: the session is not live (closed, or its data went down with a silo), the client stops.
     Task<bool> Accept(TelemetryBatch batch);

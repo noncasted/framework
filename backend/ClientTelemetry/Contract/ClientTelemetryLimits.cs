@@ -16,6 +16,10 @@ public static class ClientTelemetryLimits
     // The detail of a mark is a key of the code (the group or the scene of a load), cut like a name of a startup span.
     public const int MaxMarkDetailLength = 128;
 
+    // The last marks a client keeps of a session that did not close, and the times of it: hours at most, a larger one is garbage.
+    public const int MaxPreviousMarks = 8;
+    public const long MaxPreviousMs = 7 * 24 * 3600 * 1000L;
+
     // A start of a client is about 365 spans with names to 44 characters, about 30 KB on the wire. The spans at names of 20 characters
     // are about 250 KB, so the two limits meet; what they bound is one row of a record, kept for the retention days.
     public const int MaxStartupSpans = 4096;

@@ -175,6 +175,28 @@ namespace Global.Telemetry.Tests
             Assert.AreEqual(0d, message.Device.Dpr);
         }
 
+        [Test]
+        public void Start_ThePreviousSession_AfterMemoryPack()
+        {
+            var previous = new TelemetryPreviousSession(_id, new[] { "menu" }, 31000, 4000, new[] { new TelemetryBatchMark(30500, "page.pagehide") });
+            var message = TelemetryMessages.ToSessionStart(new TelemetrySessionStart(new string[0], new TelemetryDevice(), Guid.Empty, previous));
+
+            var read = MemoryPackSerializer.Deserialize<SharedClientTelemetry.SessionStart>(MemoryPackSerializer.Serialize(message)).Previous;
+
+            Assert.AreEqual(_id, read.SessionId);
+            CollectionAssert.AreEqual(new[] { "menu" }, read.Tags);
+            Assert.AreEqual(31000, read.LastSampleTime);
+            Assert.AreEqual(4000, read.SinceMs);
+            Assert.AreEqual("page.pagehide", read.Marks.Single().Name);
+            Assert.AreEqual(30500, read.Marks.Single().Time);
+        }
+
+        [Test]
+        public void Start_NoPreviousSession_Null()
+        {
+            Assert.IsNull(TelemetryMessages.ToSessionStart(new TelemetrySessionStart(new string[0], new TelemetryDevice(), Guid.Empty)).Previous);
+        }
+
         // The numbers differ on purpose: the enum of the module starts at 0, the one of the wire at 1.
         [Test]
         public void Level_EveryValue_ByName()

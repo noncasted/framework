@@ -34,3 +34,12 @@
 - Загрузки групп каталогов и сцен скоупов отмечаются сами. Загрузку Addressables в обход них обернуть:
   `var load = AssetLoads.Begin("Group: <имя из кода>");` ... `load.Finish();`, при исключении `load.Fail(exception)`. Порог метки
   `load.slow`: `new ClientTelemetryOptions(slowLoadSeconds: 5f)`.
+### Телеметрия: прошлая незакрытая сессия, предупреждения, ошибки WebGL
+Кого касается: клиент и бэкенд игр с телеметрией (протокол телеметрии изменился: новое поле `SessionStart.Previous`, уровень
+`ErrorLevel.Warning`), игры с собственной реализацией `ITelemetryPage` (подделки в тестах).
+Поиск: `git grep -nE 'ITelemetryPage|ErrorLevel\.(Error|Exception)' -- '*.cs'`
+Сделать: выкатывать клиент и бэкенд вместе (старый сервер не прочтёт `SessionStart` нового клиента; хеш протокола игры меняется
+при пересборке). В подделку `ITelemetryPage` добавить `public IEventSource<TelemetryPageEvent> Lifecycle => _lifecycle;`
+(`EventSource<TelemetryPageEvent>`). Свой `switch` по `SharedClientTelemetry.ErrorLevel` дополнить `Warning`. Новые метки и метрики
+(`web.gl.errors`, `webgl.error.*`, `page.*`, `memory.texture_count`, `session.previous_unclosed`) и предупреждения лога Unity
+приходят сами; на странице сессии консоли появляется блок прошлой незакрытой сессии.

@@ -19,8 +19,13 @@ namespace Global.Telemetry.Tests
             IReadOnlyList<ITelemetryLiveCollector> liveCollectors = null,
             bool catchErrors = false,
             ITelemetryTransport transport = null,
-            ITelemetryGlContext glContext = null)
+            ITelemetryGlContext glContext = null,
+            ITelemetryGlErrors glErrors = null,
+            bool pageLifecycle = false,
+            MemoryTraceStore traceStore = null)
         {
+            TraceStore = traceStore ?? new MemoryTraceStore();
+            Trace = new TelemetrySessionTrace(TraceStore, WallClock);
             Options = new ClientTelemetryOptions(
                 sendIntervalSeconds,
                 sampleIntervalSeconds,
@@ -29,7 +34,7 @@ namespace Global.Telemetry.Tests
                 double.MaxValue);
             Guard = new TelemetryNameGuard(strictNames);
             Names = new TelemetryNameTable(Guard);
-            Buffer = new TelemetryBuffer(Options);
+            Buffer = new TelemetryBuffer(Options, Trace);
             Writer = new TelemetryBatchWriter(Names, Buffer);
             Visibility = new TelemetryVisibility(Page);
             Errors = new TelemetryErrors(Buffer, Clock);
@@ -37,8 +42,13 @@ namespace Global.Telemetry.Tests
 
             var glCollector = glContext == null ? null : new GlContextTelemetryCollector(glContext, Buffer, Clock, ErrorQueue);
 
+            var glErrorsCollector = glErrors == null ? null : new GlErrorsTelemetryCollector(glErrors, Buffer, Clock, ErrorQueue);
+
             if (glCollector != null)
                 collectors = new ITelemetryCollector[] { Collector, glCollector };
+
+            if (glErrorsCollector != null)
+                collectors = (collectors ?? new ITelemetryCollector[] { Collector }).Append(glErrorsCollector).ToArray();
 
             collectors = (collectors ?? new ITelemetryCollector[] { Collector }).Append(Added).ToArray();
             Sampler = new TelemetrySampler(collectors, Names, Buffer, Clock, Visibility);
@@ -60,6 +70,12 @@ namespace Global.Telemetry.Tests
             if (glCollector != null)
                 liveCollectors = (liveCollectors ?? Array.Empty<ITelemetryLiveCollector>()).Append(glCollector).ToArray();
 
+            if (glErrorsCollector != null)
+                liveCollectors = (liveCollectors ?? Array.Empty<ITelemetryLiveCollector>()).Append(glErrorsCollector).ToArray();
+
+            if (pageLifecycle)
+                liveCollectors = (liveCollectors ?? Array.Empty<ITelemetryLiveCollector>()).Append(new PageLifecycleTelemetryCollector(Page, Buffer, Clock)).ToArray();
+
             liveCollectors = (liveCollectors ?? Array.Empty<ITelemetryLiveCollector>()).Append(Added).ToArray();
 
             Collection = new TelemetryCollection(
@@ -69,6 +85,7 @@ namespace Global.Telemetry.Tests
                 Writer,
                 Clock,
                 Visibility,
+                Trace,
                 liveCollectors ?? Array.Empty<ITelemetryLiveCollector>());
 
             var deviceSource = new FixedDeviceSource(device ?? new TelemetryDevice());
@@ -93,7 +110,8 @@ namespace Global.Telemetry.Tests
                 deviceSource,
                 Gate,
                 Startup,
-                Added);
+                Added,
+                Trace);
         }
 
         public ScriptedCollector Collector { get; } = new ScriptedCollector();
@@ -116,6 +134,9 @@ namespace Global.Telemetry.Tests
         public FakeTelemetryStartupSource StartupSource { get; } = new FakeTelemetryStartupSource();
         public TelemetryRequestGate Gate { get; }
         public TelemetryStartupReport Startup { get; }
+        public MemoryTraceStore TraceStore { get; }
+        public ManualWallClock WallClock { get; } = new ManualWallClock();
+        public TelemetrySessionTrace Trace { get; }
 
         public void Sample(long time, Action<ITelemetrySample> collect)
         {
@@ -165,6 +186,37 @@ namespace Global.Telemetry.Tests
         }
     }
 
+    public class ManualWallClock : ITelemetryWallClock
+    {
+        public long NowMilliseconds { get; private set; }
+
+        public void Set(long milliseconds)
+        {
+            NowMilliseconds = milliseconds;
+        }
+    }
+
+    // The storage of the page: shared by two fixtures, it is a page that died and the next one.
+    public class MemoryTraceStore : ITelemetryTraceStore
+    {
+        public string Text { get; private set; }
+
+        public string Read()
+        {
+            return Text;
+        }
+
+        public void Write(string text)
+        {
+            Text = text;
+        }
+
+        public void Clear()
+        {
+            Text = null;
+        }
+    }
+
     public class FixedDeviceSource : ITelemetryDeviceSource
     {
         public FixedDeviceSource(TelemetryDevice device)
@@ -183,9 +235,16 @@ namespace Global.Telemetry.Tests
     public class FakeTelemetryPage : ITelemetryPage
     {
         private readonly EventSource _becameHidden = new EventSource();
+        private readonly EventSource<TelemetryPageEvent> _lifecycle = new EventSource<TelemetryPageEvent>();
 
         public bool IsHidden { get; private set; }
         public IEventSource BecameHidden => _becameHidden;
+        public IEventSource<TelemetryPageEvent> Lifecycle => _lifecycle;
+
+        public void Fire(TelemetryPageEvent kind)
+        {
+            _lifecycle.Invoke(kind);
+        }
 
         public void Hide()
         {

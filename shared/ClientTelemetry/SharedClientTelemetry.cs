@@ -20,6 +20,22 @@ namespace Shared
 
             // The startup trace of this client, as StartupTraceResult gave it on this socket. Guid.Empty: none.
             public Guid StartupId { get; set; }
+
+            // The session of this browser before this one that never closed: the page was killed, reloaded or frozen inside it.
+            // Null: none, or the previous one closed.
+            public PreviousSession Previous { get; set; }
+        }
+
+        // What a client kept of its session that did not close, from its own storage: the server may have got less of it. Time and
+        // LastSampleTime are of that session; SinceMs is the time between its last record and the start that reports it, -1 unknown.
+        [MemoryPackable]
+        public partial class PreviousSession
+        {
+            public Guid SessionId { get; set; }
+            public string[] Tags { get; set; }
+            public long LastSampleTime { get; set; }
+            public long SinceMs { get; set; }
+            public Mark[] Marks { get; set; }
         }
 
         // Enabled false: nothing is open, the client sends nothing until its next SessionStart. SessionId comes from the server:
@@ -139,7 +155,10 @@ namespace Shared
         public enum ErrorLevel : byte
         {
             Error = 1,
-            Exception = 2
+            Exception = 2,
+
+            // A warning of the log of Unity: counted apart from the errors.
+            Warning = 3
         }
 
         [MemoryPackable]

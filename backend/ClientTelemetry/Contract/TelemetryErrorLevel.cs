@@ -4,5 +4,6 @@ namespace Game.ClientTelemetry;
 public enum TelemetryErrorLevel
 {
     Error,
-    Exception
+    Exception,
+    Warning
 }

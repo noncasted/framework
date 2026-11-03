@@ -39,7 +39,7 @@ public abstract class ClientTelemetryStorageTest : IAsyncLifetime
             var grain = Cluster.Orleans.GetGrain<IClientTelemetrySession>(step.Id);
 
             if (step.IsFirst)
-                await grain.Start(step.Device, step.Tags, null);
+                await grain.Start(step.Device, step.Tags, null, null);
 
             await grain.Accept(step.Batch);
 

@@ -18,8 +18,10 @@ namespace Global.Telemetry
             ITelemetryDeviceSource device,
             TelemetryRequestGate gate,
             TelemetryStartupReport startup,
-            TelemetryAddedCollectors added)
+            TelemetryAddedCollectors added,
+            TelemetrySessionTrace trace)
         {
+            _trace = trace;
             _options = options;
             _names = names;
             _buffer = buffer;
@@ -44,6 +46,7 @@ namespace Global.Telemetry
         private readonly TelemetryRequestGate _gate;
         private readonly TelemetryStartupReport _startup;
         private readonly TelemetryAddedCollectors _added;
+        private readonly TelemetrySessionTrace _trace;
 
         private TelemetrySession _current;
 
@@ -62,7 +65,7 @@ namespace Global.Telemetry
                 previousSent = _current.Sent;
             }
 
-            _current = new TelemetrySession(_options, _collection, _writer, _transport, _device, _gate, _startup, accepted);
+            _current = new TelemetrySession(_options, _collection, _writer, _transport, _device, _gate, _startup, _trace, accepted);
             _current.Open(lifetime, previousSent);
         }
 

@@ -8,13 +8,14 @@ from text import seconds, table
 EXPECTED = ("frame.fps frame.dt.avg frame.dt.p50 frame.dt.p95 frame.dt.max frame.over33 frame.over50 frame.cpu frame.cpu.main "
             "frame.gpu memory.allocated memory.reserved memory.mono.used memory.mono.heap memory.textures gc.collections "
             "render.draw_calls render.setpass render.triangles render.vertices render.textures render.render_textures "
-            "web.wasm.heap web.js.used web.js.total web.js.limit web.gl.context_lost "
+            "memory.texture_count web.wasm.heap web.js.used web.js.total web.js.limit web.gl.context_lost web.gl.errors "
             "frame.phase.early frame.phase.fixed frame.phase.pre frame.phase.update frame.phase.prelate frame.phase.postlate "
             "frame.fixed_steps frame.spikes frame.gpu.query gc.allocated render.width render.height render.pixels render.canvas_width "
             "render.canvas_height render.dpr settings.quality settings.vsync settings.target_fps settings.time_scale settings.msaa "
             "web.raf.dt.avg web.raf.dt.max web.gl.version web.gl.max_texture_size web.gl.timer_query net.meta.rtt net.meta.bytes_in "
             "net.meta.bytes_out").split()
-_SUMMED = ("frame.over33", "frame.over50", "gc.collections", "frame.spikes", "gc.allocated", "net.meta.bytes_in", "net.meta.bytes_out")
+_SUMMED = ("frame.over33", "frame.over50", "gc.collections", "frame.spikes", "gc.allocated", "net.meta.bytes_in", "net.meta.bytes_out",
+           "web.gl.errors")
 _STACK_LINES = 6
 
 
@@ -27,12 +28,28 @@ def session_line(info):
     device = info["device"]
     digest = info.get("digest")
     duration = f" {digest['durationMs'] / 1000:.0f}s" if digest else ""
-    errors = f" errors={digest['errorCount']}" if digest else ""
+    errors = f" errors={digest['errorCount']} warnings={warnings(digest)}" if digest else ""
     fps = _average(digest["summary"], "frame.fps") if digest else None
     fps_text = f" fps={number(fps, '')}" if fps is not None else ""
+    previous = f" previous_unclosed={info['previous']['sessionId']}" if info.get("previous") else ""
 
     return (f"{info['id']} {info['status']} tags={tags_text(info)} {info['startedAt']}{duration} {_known(device, 'platform')} {_known(device, 'buildVersion')} "
-            f"{_known(device, 'browser')}{device.get('browserMajor') or ''} {_known(device, 'os')}{device.get('osMajor') or ''}{errors}{fps_text}")
+            f"{_known(device, 'browser')}{device.get('browserMajor') or ''} {_known(device, 'os')}{device.get('osMajor') or ''}{errors}{fps_text}{previous}")
+
+
+# A row written before the warnings has none.
+def warnings(digest):
+    return digest.get("warningCount", 0)
+
+
+# What the client kept of a session it did not close: times of that session, since = from its last record to the next start.
+def unclosed_text(previous):
+    last = previous.get("lastSampleTime")
+    since = previous.get("sinceMs")
+    marks = " ".join(f"{mark['time'] / 1000:.1f}s={mark['name']}" for mark in previous["marks"]) or "-"
+
+    return (f"tags={','.join(previous['tags']) or '-'} last_sample={'-' if last is None else f'{last / 1000:.1f}s'} "
+            f"since={'-' if since is None else f'{since / 1000:.1f}s'} last_marks {marks}")
 
 
 def startup_line(info):

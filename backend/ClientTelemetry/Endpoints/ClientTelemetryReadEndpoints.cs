@@ -68,6 +68,7 @@ public static class ClientTelemetryReadEndpoints
         double? averageAbove,
         int? minErrors,
         Guid? startupId,
+        Guid? previousId,
         int? offset,
         int? limit)
     {
@@ -91,6 +92,7 @@ public static class ClientTelemetryReadEndpoints
             AverageAbove = averageAbove,
             MinErrors = minErrors,
             StartupId = startupId,
+            PreviousId = previousId,
             Offset = offset ?? 0,
             Limit = limit ?? _defaultSessions
         };
