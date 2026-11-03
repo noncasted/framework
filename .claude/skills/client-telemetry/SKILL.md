@@ -1,0 +1,155 @@
+---
+name: client-telemetry
+description: Watch and analyse the performance telemetry of game clients - wait for a new session and observe it, only of a menu or only of a run by its tag, or analyse a given session by id, live or archived - and report CPU or GPU limits, freezes, memory growth, overheating and errors. Use when the user runs /client-telemetry, asks to look at the client telemetry, the performance on a phone or a device, a live session, why the game lags on a player's device, or says they are starting the game now and asks to watch it.
+---
+
+# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
+TRIGGERS: /client-telemetry, client-telemetry, телеметрия клиента, посмотри телеметрию, перформанс на телефоне, тормозит на телефоне, почему лагает, живая сессия, посмотри сессию, сессия забега, сессия меню, сейчас запущу игру, client telemetry, phone performance, live session
+BEHAVIOR: When triggered, do not read, summarize, or explain this file. Run the mode that fits the request and give the report.
+
+# Client Telemetry
+
+A session is one part of the game: the game opens it and sets its tags, for example `menu` or `run` (the values belong to the game,
+`sessions` shows them; the script knows no list of them). Outside a session there is no data. The script only reads (GET).
+
+One sitting of a player is several sessions in a row: a menu, a run, a menu again. Each has its own id, and no field ties sessions to
+each other; `startup=` in a report ties a session to the startup trace of its client, on one socket: the same device at adjacent times
+is a guess, say so. A report covers one session: a slow menu says nothing of the
+run.
+
+```
+T=.claude/skills/client-telemetry/telemetry    # from the root of the project
+```
+
+Options go after the subcommand: `$T sessions --url <u>`, not `$T --url <u> sessions`; `--url` and `--env-file` too.
+
+## Modes
+
+**1. New session** ("I start the game now", "watch the next session"):
+
+```
+$T monitor --timeout 300 --seconds 60 [--tag T]... [--platform P] [--build B] [--os O]
+```
+
+It takes the ids of all sessions at the start as the baseline, waits for an id out of it, observes that session and prints the
+report. New means an id the baseline does not hold, not a time: the clock of a device plays no part.
+
+**A run or a menu: `--tag`.** Without it the first new session of a starting game is usually its menu. To watch a run: `--tag run`, and
+leave `--timeout` long enough for the user to reach it. The tag goes to the backend and the baseline is taken under it: an exact match,
+a repeated `--tag` means all of the given, a session of another tag is neither awaited nor counted, a session without tags (`tags=-`)
+never matches. A session opened before `monitor` is in its baseline: to join a run already going, find it with
+`$T sessions --tag run --status live` and use `watch`.
+
+Every player is tracked, so a stranger may come first. Narrow it: `--platform` and `--build` go to the backend, `--os` (`Android`,
+`iOS`, ...) is compared by the script. Check the `new` line against the device the user named: a wrong device is no finding, say so
+and run `monitor` again. When several are new, one is observed (a live one, the newest) and the others are printed as `other_new`
+lines at the end: analyse them with mode 2 if they matter.
+
+**2. A given session** (by id, live or archived; closed ones are kept for the retention of the backend, 7 days by default):
+
+```
+$T summary <id> [--windows 6]      # the whole session so far
+$T watch <id> --seconds 60         # a live one: observes, reports only what came during the watch
+$T errors <id>                     # groups of errors with a stack
+```
+
+No id yet: `$T sessions --tag run` lists only the runs, `--tag menu` only the menus (the tags of the game, the same exact match). A menu
+and the run after it are two ids: analyse each on its own.
+
+Other commands: `$T sessions [--status live|ended|lost] [--tag T]... [--platform P] [--build B] [--metric M --average-below X --average-above X]
+[--min-errors N] [--limit 20]` (newest first, each line with `tags=`; a live session has no summary, so `--metric` and `--min-errors` leave it out) and
+`$T errors` (kinds of errors over the closed sessions).
+
+An observation ends by `--seconds`, or when the session closes (`end reason=` its status):
+- `ended`: its part of the game is over. A new session closes the previous one: the start of a run ends the menu.
+- `lost`: the socket broke, which counts as a crash of the client (nothing shows whether the client really died), or the gateway itself
+  died and the timer of the server closed the session. A closed id stays closed.
+
+To follow a player into the next part, start a new `monitor` before they get there.
+
+## How long a call lasts
+
+A Bash call defaults to 2 minutes and is cut at 10. Give `timeout: 600000` to any `monitor` or a `watch` over 100 seconds, with
+`--timeout` + `--seconds` under 580. A longer wait runs in the background: Bash with `run_in_background: true`, you are called back
+when it exits, its output is in the file of the task. Do not poll it and do not sit in a loop of short calls.
+
+## Where it reads from
+
+The project gives the address and the env file in `${CLAUDE_PROJECT_DIR}/.claude/project-skills.md`:
+
+```
+## client-telemetry
+
+- url: `https://meta.example.com`
+- env-file: `~/.config/<game>/deploy.env`
+```
+
+`--url` and `--env-file` win over the section (a local host or cluster). The env file holds `CONSOLE_TOKEN=...`. The script reads only
+that line, as data, and sends it only in the `Authorization` header.
+
+**The token:** never read, print, source or pass the env file or its value yourself; the script has no argument for it. Plain http
+is refused except on this machine, a redirect is refused.
+
+**Startups** ("why is the start slow", "what loads for so long", a slow scope, addressables):
+
+```
+$T startups [--limit N]
+$T startup <id> [--top N]
+```
+
+The trace of the start of a client, the one thing sent without a session, under the same flag. `startups` lists the records; `final`
+is a whole trace, `snapshot` one still open when it was sent (it stays so when the client goes). `startup <id>` gives `own_time` (the
+longest own times: a duration without the time of the children), `unfinished` and the `sessions` of this start. `summary` of a session
+names its record as `startup=`, `None` when it has none. A device field the client did not send prints as `-`: it is unknown, not a finding.
+
+Read the own time, never the duration of a parent. A long own time over many frames at the frame rate of the game (`ms_per_frame` about
+17) is the game running while it waits, usually for the player: not a load. A load takes few frames, with a high `ms_per_frame`. The
+span names come from the code of the game, requests appear as `GET <url>`. No allocations outside the editor: they are not in the report.
+
+## Exit codes
+
+| Code | Meaning | Do |
+|------|---------|----|
+| 0 | done | analyse |
+| 1 | host unreachable, network timeout, 5xx, 400, redirect, not JSON | report the message; 503: the backend cannot answer now, repeat once |
+| 2 | arguments, section of the project, env file, no token | report what is missing, do not guess an address |
+| 3 | 401, 403 | the token was refused: tell the user, do not look for another one |
+| 4 | no such session | check the id with `sessions` |
+| 5 | no new session in the time of `monitor` | the checks below |
+
+**No new sessions?** In this order: the flag of the client telemetry on the Features page of the console (off: no sessions at all);
+the game opens a session, the flag alone gives nothing; the client is built against this address; the filters of the command;
+with `--tag`, whether the game has reached the part that sets the tag and whether the value is its own (`sessions` shows the tags). Tell the user which of them you could not check.
+
+## Reading the report
+
+A report: `session` (with `tags=`), `device`, `digest` (closed only), `not_reported` (metrics of the framework that have no value), `metric` table
+of the whole range, `trend` (the range cut in windows by time), `marks`, `errors`. Numbers of a live session are of "so far".
+Background samples (`hidden=`) are out of the tables: never read a background pause as a freeze. `dropped_*` above 0 means the summary
+does not cover everything; say it.
+
+Go in this order, each from the numbers:
+
+1. **CPU or GPU limit.** `frame.cpu`, `frame.cpu.main` against `frame.gpu` and the frame budget (`frame.dt.p50`). The larger one close
+   to the frame time is the limit. All three may be in `not_reported` (the build has no frame timing stats, or the platform gives none):
+   then the limit cannot be determined, write that. Do not infer it from the fps. `render.*` tell the load, not the limit.
+2. **Freezes.** `frame.over33`, `frame.over50` (frames over 33 and 50 ms, summed in windows) and `frame.dt.max` against `frame.dt.p50`.
+   Rare high `max` with a calm p95 are single freezes; check the same window for `gc.collections`, `marks`, errors.
+3. **Memory growth.** `growth` and the trend of `memory.*`, `web.wasm.heap`, `web.js.used`: growing to the end of a session is a suspect
+   leak, a step at a mark is a load. Name the metric and the rate per minute.
+4. **Overheating.** The fps falls window by window while the load (`render.draw_calls`, `render.triangles`, the counters of the game)
+   stays the same, usually with `frame.gpu` or `frame.cpu` growing without a new load. No thermal metric exists: this is an
+   inference, name it so. If the load grew too, it is the load, not the heat.
+5. **Errors.** Groups by `fingerprint`: count, rows, `first` and `last` (seconds since the start, on the scale of `t_s`), whether they meet a drop in the trend. The stack: `errors <id>`.
+   `omitted_*` above 0: not all kinds are listed.
+
+## The final report
+
+```
+Conclusion: 1-3 sentences, what limits this session on this device (or "no problem found in this range").
+Numbers: the device; the tags of the session; the range (seconds, samples, hidden); for each point of the order the values and windows that back it.
+Not determined: what the data cannot answer, and why (not_reported, too short a range, a live session, dropped rows).
+```
+
+Never give a guess as a conclusion: a cause the numbers do not show goes under "Not determined", or is marked as a hypothesis with what
+would check it. Coincidence in one window is no cause. Do not advise on the code unless asked.

@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+# Client telemetry for agents, GET only (SKILL.md). Exit codes: common.py.
+#   telemetry sessions [--status S] [--platform P] [--build B] [--tag T]... [--metric M] [--average-below X] [--average-above X] [--min-errors N] [--limit N] [--offset N]
+#   telemetry startups [--limit N]
+#   telemetry startup <id> [--top N]
+#   telemetry summary <id> [--windows N]
+#   telemetry watch <id> [--seconds S] [--windows N]
+#   telemetry errors [<id>] [--limit N]
+#   telemetry monitor [--timeout S] [--seconds S] [--poll S] [--platform P] [--build B] [--os O] [--tag T]... [--windows N]
+# Every subcommand: [--url U] [--env-file F], over the section ## client-telemetry of .claude/project-skills.md.
+import argparse
+import re
+import sys
+
+import commands
+import config
+from api import Api
+from common import Failure
+
+_GUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+_WHOLE_TOKEN_LENGTH = 8
+
+
+class _Scrubbed:
+    # Whatever reaches the output, an echo of the backend or a traceback included, goes without the value of the token. A token so
+    # short that words hold it (a local "dev") is cut only as a word of its own.
+    def __init__(self, stream, secret):
+        self._stream = stream
+        pattern = re.escape(secret)
+        self._secret = re.compile(pattern if len(secret) >= _WHOLE_TOKEN_LENGTH else rf"(?<!\w){pattern}(?!\w)")
+
+    def write(self, text):
+        return self._stream.write(self._secret.sub("***", text))
+
+    def flush(self):
+        self._stream.flush()
+
+
+def _session_id(text):
+    if not _GUID.match(text):
+        raise argparse.ArgumentTypeError("a session id is a GUID")
+
+    return text
+
+
+def _positive(text):
+    value = float(text)
+
+    if value <= 0:
+        raise argparse.ArgumentTypeError("must be above 0")
+
+    return value
+
+
+def _tag(text):
+    if not text.strip():
+        raise argparse.ArgumentTypeError("a tag is not blank")
+
+    return text
+
+
+def _positive_int(text):
+    value = int(text)
+
+    if value < 1:
+        raise argparse.ArgumentTypeError("must be above 0")
+
+    return value
+
+
+def _parser():
+    common = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    common.add_argument("--url")
+    common.add_argument("--env-file")
+
+    parser = argparse.ArgumentParser(prog="telemetry", allow_abbrev=False)
+    commands_parser = parser.add_subparsers(dest="command", required=True)
+
+    def add(name, handler):
+        sub = commands_parser.add_parser(name, parents=[common], allow_abbrev=False)
+        sub.set_defaults(handler=handler)
+
+        return sub
+
+    sessions = add("sessions", commands.sessions)
+    sessions.add_argument("--status", choices=["live", "ended", "lost"])
+    sessions.add_argument("--platform")
+    sessions.add_argument("--build")
+    sessions.add_argument("--tag", action="append", type=_tag)
+    sessions.add_argument("--metric")
+    sessions.add_argument("--average-below", type=float)
+    sessions.add_argument("--average-above", type=float)
+    sessions.add_argument("--min-errors", type=int)
+    sessions.add_argument("--limit", type=int, default=20)
+    sessions.add_argument("--offset", type=int, default=0)
+
+    startups = add("startups", commands.startups)
+    startups.add_argument("--limit", type=int, default=20)
+
+    startup = add("startup", commands.startup)
+    startup.add_argument("id", type=_session_id)
+    startup.add_argument("--top", type=_positive_int, default=15)
+
+    summary = add("summary", commands.summary)
+    summary.add_argument("id", type=_session_id)
+    summary.add_argument("--windows", type=int, default=6)
+
+    watch = add("watch", commands.watch)
+    watch.add_argument("id", type=_session_id)
+    watch.add_argument("--seconds", type=_positive, default=60)
+    watch.add_argument("--windows", type=int, default=6)
+
+    errors = add("errors", commands.errors)
+    errors.add_argument("id", type=_session_id, nargs="?")
+    errors.add_argument("--limit", type=int, default=20)
+
+    monitor = add("monitor", commands.monitor)
+    monitor.add_argument("--timeout", type=_positive, default=300)
+    monitor.add_argument("--seconds", type=_positive, default=60)
+    monitor.add_argument("--poll", type=_positive, default=2)
+    monitor.add_argument("--platform")
+    monitor.add_argument("--build")
+    monitor.add_argument("--os")
+    monitor.add_argument("--tag", action="append", type=_tag)
+    monitor.add_argument("--windows", type=int, default=6)
+
+    return parser
+
+
+def main():
+    arguments = _parser().parse_args()
+
+    try:
+        settings = config.resolve(arguments.url, arguments.env_file)
+        token = config.read_token(settings.env_file)
+        sys.stdout = _Scrubbed(sys.stdout, token)
+        sys.stderr = _Scrubbed(sys.stderr, token)
+        arguments.handler(Api(settings.url, token, settings.env_file), arguments)
+    except Failure as failure:
+        print(f"telemetry: {failure.message}", file=sys.stderr)
+        return failure.code
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
