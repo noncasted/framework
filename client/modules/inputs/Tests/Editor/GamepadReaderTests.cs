@@ -11,6 +11,8 @@ namespace Global.Inputs.Tests
     // without a gamepad layout has its own reader.
     public class GamepadReaderTests
     {
+        private const int Passes = 1000;
+
         private InputOptions _options;
 
         [SetUp]
@@ -32,12 +34,24 @@ namespace Global.Inputs.Tests
             Assert.AreEqual("Gamepad Axis 1", GamepadReader.GetRawAxisName(1));
             Assert.AreEqual("Gamepad Axis 10", GamepadReader.GetRawAxisName(GamepadReader.RawAxisCount));
 
-            var before = System.GC.GetAllocatedBytesForCurrentThread();
+            void Pass()
+            {
+                for (var axis = 1; axis <= GamepadReader.RawAxisCount; axis++)
+                    GamepadReader.GetRawAxisName(axis);
+            }
 
-            for (var axis = 1; axis <= GamepadReader.RawAxisCount; axis++)
-                GamepadReader.GetRawAxisName(axis);
+            // Warmed up: the names are built on the first read.
+            for (var i = 0; i < 10; i++)
+                Pass();
 
-            Assert.AreEqual(0, System.GC.GetAllocatedBytesForCurrentThread() - before);
+            var before = GC.GetAllocatedBytesForCurrentThread();
+
+            for (var i = 0; i < Passes; i++)
+                Pass();
+
+            // Below a byte a pass: nothing per pass (a one-time allocation of the runtime aside, 48 B seen). A name built
+            // on a read would be at least 10 strings a pass.
+            Assert.Less(GC.GetAllocatedBytesForCurrentThread() - before, Passes);
         }
 
         // Without the axes in ProjectSettings/InputManager.asset every read throws ArgumentException, each frame.
