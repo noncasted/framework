@@ -26,4 +26,7 @@ public sealed record TelemetrySessionInfo
 
     // The record of the startup trace of the client: null when there is none, also in a row written before the traces.
     [Id(11)] public Guid? StartupId { get; init; }
+
+    // The session before this one that did not close on its client, as the client reported it: null when there is none.
+    [Id(12)] public TelemetryPreviousSession? Previous { get; init; }
 }

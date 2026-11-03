@@ -117,7 +117,7 @@ public class TelemetryErrorGroupsTests
         }, _start);
 
         var state = new TelemetrySessionState();
-        state.Open(Guid.NewGuid(), new TelemetryDevice(), [], null, _start);
+        state.Open(Guid.NewGuid(), new TelemetryDevice(), [], null, null, _start);
         state.Close(TelemetrySessionStatus.Ended, _start, buffer);
 
         var settings = JsonStateSettings.CreateBase();

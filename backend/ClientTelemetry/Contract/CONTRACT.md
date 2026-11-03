@@ -11,7 +11,7 @@ All are requests with a response, one socket holds at most one open session.
 
 | Request | Response | Meaning |
 |---------|----------|---------|
-| `SessionStart { Device, Tags, StartupId }` | `SessionStarted { Enabled, SessionId }` | closes the session still open on this socket (status `ended`), opens a new one; the guid comes from the server, random, never stored by the client |
+| `SessionStart { Device, Tags, StartupId, Previous }` | `SessionStarted { Enabled, SessionId }` | closes the session still open on this socket (status `ended`), opens a new one; the guid comes from the server, random; the client keeps it only in its own storage while the session is open (see `Previous`) |
 | `Batch { SessionId, Names, Samples, Errors, Marks }` | `BatchResult { Enabled }` | one in flight: the next one goes after the answer |
 | `SessionEnd { SessionId }` | `EmptyResponse` | closes the session with status `ended`; the last batch goes before it |
 | `StartupTrace { StartupId, Device, Name, Final, DurationMs, Frames, Spans }` | `StartupTraceResult { Enabled, StartupId }` | stores a snapshot or the final trace of the start of a client; needs no session |
@@ -21,7 +21,9 @@ Null lists are empty. `Time` is milliseconds since the start of the session, no 
 - `Names`: `{ Name, Unit }`, the new names of the session; each takes the next slot.
 - `Samples`: `{ Time, Values, Hidden }`; `Values[i]` belongs to slot `i`, `NaN` is no value in this sample, a shorter array leaves the
   rest empty; `Hidden`: the page was in the background, the sample stays out of the summary.
-- `Errors`: `{ Time, Level, Message, Stack, Repeat }`; `Level` is `Error` or `Exception`, `Repeat` from 1.
+- `Errors`: `{ Time, Level, Message, Stack, Repeat }`; `Level` is `Error`, `Exception` or `Warning` (the warnings of the log of Unity,
+  under their own client limits), `Repeat` from 1. The digest counts the warnings apart (`warningCount`): `errorRows`, `errorCount` and
+  `minErrors` hold none of them; the groups hold both, by level.
 - `Marks`: `{ Time, Name }`.
 - `Device`, the closed list: `Platform`, `BuildVersion`, `Browser` + `BrowserMajor`, `Os` + `OsMajor` (names without digits, the
   major version apart), `Gpu`, `Cores`, `MemoryClass` (GB: a power of two from 0.25 to 1024), `ScreenWidth`, `ScreenHeight`, `Dpr`. 0
@@ -42,6 +44,19 @@ A batch of 30 metrics with 2 samples (every 2 seconds) is under 600 bytes, the f
 connection closes its session with status `lost`, with the summary and the log. A failure of that write is logged there and never
 reaches the gateway.
 
+## The previous session
+
+`SessionStart.Previous { SessionId, Tags, LastSampleTime, SinceMs, Marks }`: the session of the same browser (its local storage) before
+this one that did not close on the client: the page was killed, reloaded, closed or frozen inside it. Null when the previous one
+closed. The client writes its record at every sample and mark of an open session and removes it at the close; the next start takes
+it once. `LastSampleTime` and the `Time` of the marks are of that session, `SinceMs` is the time from its last record to this start
+(-1 unknown); the marks are the last ones it took (up to `MaxPreviousMarks`), also those the server never got. No clock of the device and
+nothing personal: the id is the random guid the server gave. A tab open next to another one may report a session that is still alive.
+
+The server keeps it with the new session (`previous` of a row and a card, explicit `null` when there is none) and finds the next
+session of a lost one: `sessions?previousId=`. An empty id drops the whole; a tag, a mark or a time out of form (or over
+`MaxPreviousMs`) is dropped alone, counted in `rejectedRequests`.
+
 ## The startup trace
 
 The only exception from "nothing outside a session", under the same flag. `Guid.Empty` as `StartupId` asks for a new record, the id comes
@@ -54,7 +69,7 @@ from the server and lives as long as the socket (after a reconnect a client star
 - `Enabled` false: nothing is written and the client sends no more traces on this socket. The flag is off, the id was not given on this
   socket, a failure, or the limits of a socket (`MaxStartupsPerSocket`, `MaxStartupWritesPerSocket`). It says nothing about the sessions.
 - `SessionStart.StartupId`: the record of this client, `Guid.Empty` for none. An id not given on this socket is not kept and counts
-  in `rejectedRequests`; the start goes on. Sessions refer only to a record, never to each other, and no user id is involved.
+  in `rejectedRequests`; the start goes on. Sessions refer to a record and to the previous session that did not close (above), and no user id is involved.
 - **The server checks:** the spans (4096) and the estimated size (256 KB: a typical start is about 30 KB) cut the tail, counted in
   `droppedSpans`; a name is cut to 128 characters (`cutNames`) and goes through `Scrubber`, so a URL in a span of a request reads `GET <url>`;
   a null or empty name, a control symbol, a time not finite, negative or over `MaxStartupMs`, negative frames or bytes, a `ParentIndex`

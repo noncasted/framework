@@ -30,10 +30,14 @@ public class TelemetrySessionState : IDirectStateValue
     // The startup trace of the client of this session; null: none, or a row written before the traces.
     [Id(13)] [JsonProperty] public Guid? StartupId { get; private set; }
 
+    // The session of the same client before this one that did not close there, as the client reported it; null: none.
+    [Id(14)] [JsonProperty] public TelemetryPreviousSession? Previous { get; private set; }
+
     public int Version => 0;
 
-    public void Open(Guid id, TelemetryDevice device, IReadOnlyList<string> tags, Guid? startupId, DateTime now)
+    public void Open(Guid id, TelemetryDevice device, IReadOnlyList<string> tags, Guid? startupId, TelemetryPreviousSession? previous, DateTime now)
     {
+        Previous = previous;
         Id = id;
         IsStarted = true;
         Device = device;
@@ -71,6 +75,7 @@ public class TelemetrySessionState : IDirectStateValue
             Device = Device,
             Tags = Tags,
             StartupId = StartupId,
+            Previous = Previous,
             StartedAt = StartedAt,
             LastSampleAt = LastSampleAt,
             LastSeq = LastSeq,

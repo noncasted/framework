@@ -1,3 +1,4 @@
+using Console;
 using Console.Infrastructure.ClientTelemetry;
 using Game.ClientTelemetry;
 using Microsoft.AspNetCore.Components;
@@ -39,6 +40,31 @@ public class TelemetryConsoleViewTests
         Assert.Contains("socket", TelemetrySessionFacts.LostMeaning);
         Assert.Contains("timer", TelemetrySessionFacts.LostMeaning);
         Assert.DoesNotContain("title=", ended);
+    }
+
+    [Fact]
+    public async Task PreviousSession_LinksIt_WithTheLastSampleAndMarksOfTheClient()
+    {
+        var lost = Guid.NewGuid();
+        var previous = new TelemetryPreviousSession(lost, ["menu"], 31_000, 4_000, [new TelemetryMark(30_500, "webgl.error.out_of_memory")]);
+
+        var html = await Render<TelemetryPreviousSessionView>(new() { [nameof(TelemetryPreviousSessionView.Previous)] = previous });
+
+        Assert.Contains($"href=\"{ConsoleConstants.Pages.ClientTelemetrySession(lost)}\"", html);
+        Assert.Contains(">menu<", html);
+        Assert.Contains("webgl.error.out_of_memory", html);
+        Assert.Contains(TelemetryValueFormat.Time(31_000), html);
+    }
+
+    [Fact]
+    public async Task NextSession_SaysTheClientDidNotCloseThisOne()
+    {
+        var next = Guid.NewGuid();
+
+        var html = await Render<TelemetryNextSessionView>(new() { [nameof(TelemetryNextSessionView.Next)] = new[] { SessionOf(id: next) } });
+
+        Assert.Contains($"href=\"{ConsoleConstants.Pages.ClientTelemetrySession(next)}\"", html);
+        Assert.Contains("did not close", html);
     }
 
     private static async Task<string> Render<T>(Dictionary<string, object?> parameters) where T : IComponent

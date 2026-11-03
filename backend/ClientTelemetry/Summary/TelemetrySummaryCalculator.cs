@@ -16,15 +16,16 @@ public static class TelemetrySummaryCalculator
 
         return new TelemetrySessionDigest(
             duration,
-            buffer.Errors.Items.Count,
-            buffer.Errors.Items.Sum(error => (long)error.Repeat),
+            buffer.Errors.Items.Count(error => error.Level != TelemetryErrorLevel.Warning),
+            buffer.Errors.Items.Where(error => error.Level != TelemetryErrorLevel.Warning).Sum(error => (long)error.Repeat),
             buffer.Marks.Items.Count,
             buffer.Samples.Dropped,
             buffer.Errors.Dropped,
             buffer.Marks.Dropped,
             buffer.RejectedRequests,
             Calculate(buffer.Names, buffer.Samples.Items),
-            TelemetrySessionErrorGroups.Of(buffer.Errors.Items));
+            TelemetrySessionErrorGroups.Of(buffer.Errors.Items),
+            buffer.Errors.Items.Where(error => error.Level == TelemetryErrorLevel.Warning).Sum(error => (long)error.Repeat));
     }
 
     // The samples in the order of time: the growth takes the first and the last value.

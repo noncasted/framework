@@ -61,14 +61,14 @@ public class ClientTelemetrySession : Grain, IClientTelemetrySession
         _logger.LogInformation("[ClientTelemetry] Session {Session} deactivated: {Reason}, closed here: {WasLive}", Id, reason.ReasonCode, wasLive);
     }
 
-    public async Task Start(TelemetryDevice device, TelemetrySessionTags tags, Guid? startupId)
+    public async Task Start(TelemetryDevice device, TelemetrySessionTags tags, Guid? startupId, TelemetryPreviousSession? previous)
     {
         await _session.Read();
 
         if (_session.Value.IsStarted)
             throw new InvalidOperationException($"The session {Id} is already started");
 
-        _session.Value.Open(Id, device, tags.Accepted, startupId, Now);
+        _session.Value.Open(Id, device, tags.Accepted, startupId, previous, Now);
         await _session.Write();
 
         _buffer = TelemetrySessionBuffer.Empty(_options, tags.Rejected);

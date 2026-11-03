@@ -22,6 +22,9 @@ public sealed record TelemetrySessionFilter
     // The sessions that refer to one startup trace.
     public Guid? StartupId { get; init; }
 
+    // The sessions whose client reported this one as its previous session that did not close.
+    public Guid? PreviousId { get; init; }
+
     public int Offset { get; init; }
     public int Limit { get; init; } = 100;
 
@@ -31,6 +34,9 @@ public sealed record TelemetrySessionFilter
             return false;
 
         if (StartupId != null && session.StartupId != StartupId)
+            return false;
+
+        if (PreviousId != null && session.Previous?.SessionId != PreviousId)
             return false;
 
         if (Platform != null && session.Device.Platform != Platform)

@@ -27,11 +27,12 @@ public static class TelemetryConsoleSamples
         string? platform = "web",
         TelemetrySessionDigest? digest = null,
         DateTime? lastSampleAt = null,
-        IReadOnlyList<string>? tags = null)
+        IReadOnlyList<string>? tags = null,
+        Guid? id = null)
     {
         return new TelemetrySessionInfo
         {
-            Id = Guid.NewGuid(),
+            Id = id ?? Guid.NewGuid(),
             Status = status,
             Device = new TelemetryDevice { Platform = platform },
             StartedAt = _start,
