@@ -8,7 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 PREFIX = "/api/client-telemetry"
 
 
-def session(session_id, status="live", platform="webgl", os_name="Android", started="2026-11-03T10:00:00Z", digest=None, tags=(), startup_id=None):
+def session(session_id, status="live", platform="webgl", os_name="Android", started="2026-11-03T10:00:00Z", digest=None, tags=(), startup_id=None, previous=None):
     return {
         "id": session_id,
         "status": status,
@@ -24,7 +24,13 @@ def session(session_id, status="live", platform="webgl", os_name="Android", star
         "closedAt": None,
         "digest": digest,
         "startupId": startup_id,
+        "previous": previous,
     }
+
+
+def previous_session(session_id, tags=("menu",), last_sample=31000, since=4000, marks=((30500, "webgl.error.out_of_memory"), (31200, "page.pagehide"))):
+    return {"sessionId": session_id, "tags": list(tags), "lastSampleTime": last_sample, "sinceMs": since,
+            "marks": [{"time": time_ms, "name": name} for time_ms, name in marks]}
 
 
 def startup_info(startup_id, final=True, name="Boot", duration=54337.0, frames=3033, span_count=3, depth=2, unfinished=0):
@@ -132,7 +138,8 @@ class FakeBackend:
         items = [item for item in self.sessions
                  if query.get("status") in (None, item["status"])
                  and query.get("platform") in (None, item["device"]["platform"])
-                 and all(tag in item["tags"] for tag in query["tag"])]
+                 and all(tag in item["tags"] for tag in query["tag"])
+                 and query.get("previousId") in (None, (item.get("previous") or {}).get("sessionId"))]
         offset = int(query.get("offset", "0"))
 
         return 200, items[offset:offset + int(query.get("limit", "100"))], {}

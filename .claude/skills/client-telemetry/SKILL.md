@@ -12,9 +12,9 @@ BEHAVIOR: When triggered, do not read, summarize, or explain this file. Run the 
 A session is one part of the game: the game opens it and sets its tags, for example `menu` or `run` (the values belong to the game,
 `sessions` shows them; the script knows no list of them). Outside a session there is no data. The script only reads (GET).
 
-One sitting of a player is several sessions in a row: a menu, a run, a menu again. Each has its own id, and no field ties sessions to
-each other; `startup=` in a report ties a session to the startup trace of its client, on one socket: the same device at adjacent times
-is a guess, say so. A report covers one session: a slow menu says nothing of the
+One sitting of a player is several sessions in a row: a menu, a run, a menu again. Each has its own id; `startup=` in a report ties a
+session to the startup trace of its client, on one socket, and `previous_unclosed` / `unclosed_on_client` tie a session the client did not
+close to the next session of the same browser (below). Otherwise the same device at adjacent times is a guess, say so. A report covers one session: a slow menu says nothing of the
 run.
 
 ```
@@ -62,8 +62,8 @@ Other commands: `$T sessions [--status live|ended|lost] [--tag T]... [--platform
 
 An observation ends by `--seconds`, or when the session closes (`end reason=` its status):
 - `ended`: its part of the game is over. A new session closes the previous one: the start of a run ends the menu.
-- `lost`: the socket broke, which counts as a crash of the client (nothing shows whether the client really died), or the gateway itself
-  died and the timer of the server closed the session. A closed id stays closed.
+- `lost`: the socket broke, which counts as a crash of the client, or the gateway itself died and the timer of the server closed the
+  session. A closed id stays closed. Whether the client really died shows only when the same browser opens a session again: see point 7.
 
 To follow a player into the next part, start a new `monitor` before they get there.
 
@@ -123,7 +123,8 @@ with `--tag`, whether the game has reached the part that sets the tag and whethe
 
 ## Reading the report
 
-A report: `session` (with `tags=`), `device`, `digest` (closed only), `not_reported` (metrics of the framework that have no value), `metric` table
+A report: `session` (with `tags=`), `device`, `digest` (closed only; `warnings=` counted apart from `errors=`), `previous_unclosed` and
+`unclosed_on_client` (point 7), `not_reported` (metrics of the framework that have no value), `metric` table
 of the whole range, `trend` (the range cut in windows by time), `marks`, `errors`. Numbers of a live session are of "so far".
 Background samples (`hidden=`) are out of the tables: never read a background pause as a freeze. `dropped_*` above 0 means the summary
 does not cover everything; say it.
@@ -159,11 +160,27 @@ Go in this order, each from the numbers:
    stays the same, usually with `frame.gpu` or `frame.cpu` growing without a new load. No thermal metric exists: this is an
    inference, name it so. If the load grew too, it is the load, not the heat.
 5. **Errors.** Groups by `fingerprint`: count, rows, `first` and `last` (seconds since the start, on the scale of `t_s`), whether they meet a drop in the trend. The stack: `errors <id>`.
-   `omitted_*` above 0: not all kinds are listed.
+   `omitted_*` above 0: not all kinds are listed. Groups of level `warning` are the warnings of the log of Unity (a glyph missing in a font
+   of TextMeshPro, a texture that failed to load), at most 16 kinds and 48 records a session: a cause only with a matching change in the
+   trend. `WebGL error <CODE>` groups and the marks `webgl.error.<code>` (first 16) come from `gl.getError` once a sample, `web.gl.errors`
+   counts the codes per sample (summed in windows): `out_of_memory` means the GPU memory of the page is over (textures, render targets),
+   a loss of textures or of text often follows. `memory.texture_count` (all loaded textures) and `memory.textures` (bytes) show the load.
 6. **A black screen with a live client.** See `web.gl.context_lost` and the marks `webgl.context_lost` / `webgl.context_restored`, with the error
    `WebGL context lost`. Unity (checked on 7000.0.0a10 in Chromium) stops its whole player loop while the context is lost, so a loss without a restore reaches the
    server as nothing at all: the samples stop and the session closes as `lost`. The marks and the error arrive only after a restore, which the game does not ask for. Samples that
    go on over the black screen with the metric at 0: the engine does not see a lost context, look elsewhere (a hung GPU process is not excluded). A loss outside a session comes at the time 0 of the next one.
+7. **A client that died.** The browser keeps the open session (id, tags, last sample, last 8 marks) and its next session reports it
+   if it did not close. `previous_unclosed <id> server_status=...` in the report of the next one, `unclosed_on_client next=<id>` in
+   the report of the old one; `unclosed_on_client none` for a closed session means no later session of that browser reported it (it
+   closed on the client, or the browser never came back: no proof either way). `last_sample` against the last `t_s` of the old session:
+   later means the last seconds never reached the server (a frozen page, a dead socket). `last_marks`: `page.pagehide` (a reload, a
+   closed tab, a navigation) or `page.pagehide.persisted` (the back-forward cache) before the end is a page that went away; `page.hidden`
+   then nothing is a page killed in the background; no page mark with a running game is a crash of the tab (WebContent on iOS, OOM).
+   `since` is the time from the last record to the next start: seconds is a reload by the browser, hours is the next visit. The new
+   session also has the mark `session.previous_unclosed` at its start. Another tab of the same game may report a session that is
+   still alive: its `server_status` is `live` then.
+   Marks of the page in any session: `page.hidden`/`page.visible` (the tab), `page.freeze`/`page.resume` (Chromium froze the tab), first 64.
+   An iPad is `os=iPadOS` (its version is unknown, `-`, when it shows the user agent of a Mac); Telegram on iOS is `browser=Telegram WebView`.
 
 ## The final report
 

@@ -120,7 +120,8 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
   `AddClientTelemetrySessions` on the silo, `AddClientTelemetry` on the meta gateway and `AddClientTelemetryReader` on the console (the
   panel appears from it, no other registration), maps `MapClientTelemetryRead().RequireConsoleToken()` and keeps the commands of its
   meta socket over `IClientTelemetryConnections.Of(session.Lifetime)`: `Start`, `Accept`, `End`, `AcceptStartup`; the id of the user
-  stays in the game. The test host runs without a game: `--token <value>` (required), `--seed`, `--console <folder>` (`theme.css` and
+  stays in the game. A session holds the previous one its client did not close (`previous`, found back by `sessions?previousId=`);
+  warnings are counted apart from the errors (`warningCount`). The test host runs without a game: `--token <value>` (required), `--seed`, `--console <folder>` (`theme.css` and
   `app.css` of a console of a game: its pages on this host), `--no-telemetry` (the console of a game without the telemetry).
 - **Client core.** Assemblies `Internal`, `Internal.Editor`, `Internal.Tests` (namespace `Internal`, asmdef GUIDs of
   the projects kept; `Internal` is `GUID:f039cb8c565843dba6da5b3c1ccde7d6`, `Framework.Common`
@@ -219,7 +220,11 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
     `requestAnimationFrame`), `web.gl.*` numbers of the context; `AddSocketClientTelemetry` adds `net.meta.rtt` / `bytes_*`. On WebGL `AddClientTelemetry` also listens to the context of the canvas (`Module.canvas`, from the build of the
     scope, nothing prevented): the metric `web.gl.context_lost`, the marks `webgl.context_lost` / `webgl.context_restored` and the error
     `WebGL context lost`; a loss outside a session waits on the page and comes once with the next one. Unity stops its player loop while the
-    context is lost, so all this is sent only after a restore; without one the samples just stop and the session closes as `lost`. Depends on `network`.
+    context is lost, so all this is sent only after a restore; without one the samples just stop and the session closes as `lost`. Also on WebGL:
+    `web.gl.errors` (`gl.getError` once a sample) with the marks `webgl.error.<code>` and an error per code; the marks of the page
+    (`page.hidden` / `visible` / `pagehide[.persisted]` / `pageshow.persisted` / `freeze` / `resume`). Everywhere: `memory.texture_count`,
+    the warnings of the log of Unity as the level `Warning` under their own limits, and the trace of the open session (local storage, a
+    file outside the web) that the next start of the same browser reports as `SessionStart.Previous` when the page died inside it. Depends on `network`.
 - **Platforms.** `itch` (`AddItchSaves`: saves in PlayerPrefs), `web` (`AddWebLoadingScreen`, `AddWebSafeArea`,
   `WebShell.UseMobileCheck`; needs `window.loadingScreen` and, for the shell, `TemplateData/web-shell.js` in the
   WebGL template; register only under `#if UNITY_WEBGL && !UNITY_EDITOR`; editor: `Internal.WebGlBuild.Build`,
@@ -267,7 +272,7 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1512, common 92, Verify 166, control 23, telemetry 64, EditMode 984 (4 of them skipped, the
+Release build replaces it. The expected numbers: backend 1521, common 92, Verify 166, control 23, telemetry 70, EditMode 1011 (4 of them skipped, the
 benchmarks of `ContainerBenchmarkTests`), PlayMode 116 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 

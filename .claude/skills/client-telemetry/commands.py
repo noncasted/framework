@@ -3,7 +3,7 @@ import math
 import time
 
 import report
-from common import WAIT_TIMEOUT, Failure
+from common import NOT_FOUND, WAIT_TIMEOUT, Failure
 
 _MAX_WAIT_SECONDS = 30
 _NEW_PAGE = 100
@@ -88,12 +88,14 @@ def print_report(api, info, windows, first=None):
     print(report.device_line(info))
 
     if digest:
-        print(f"digest duration={digest['durationMs'] / 1000:.0f}s errors={digest['errorCount']} error_rows={digest['errorRows']} marks={digest['marks']} "
+        print(f"digest duration={digest['durationMs'] / 1000:.0f}s errors={digest['errorCount']} warnings={report.warnings(digest)} "
+              f"error_rows={digest['errorRows']} marks={digest['marks']} "
               f"dropped_samples={digest['droppedSamples']} dropped_errors={digest['droppedErrors']} dropped_marks={digest['droppedMarks']} "
               f"rejected_requests={digest['rejectedRequests']}")
     elif info["status"] != "live":
         print("digest none: the session closed without its data, a crash of the silo")
 
+    print_unclosed(api, info)
     print(report.not_reported_line(rows_summary))
 
     if rows_summary["samples"] == 0:
@@ -113,6 +115,37 @@ def print_report(api, info, windows, first=None):
     rows = [row for row in api.errors(info["id"]) if first is None or row["time"] >= first]
 
     print_error_groups(info, rows, {}, whole=first is None)
+
+
+# Both ways of the report of a client: this session names the one before it that it did not close, and a closed session is named by the
+# next session of its client when the client did not close it. A live session has no next one yet.
+def print_unclosed(api, info):
+    previous = info.get("previous")
+
+    if previous:
+        status = _server_status(api, previous["sessionId"])
+        print(f"previous_unclosed {previous['sessionId']} server_status={status} {report.unclosed_text(previous)}")
+
+    if info["status"] == "live":
+        return
+
+    reports = api.sessions(previousId=info["id"], limit=4)
+
+    if not reports:
+        print("unclosed_on_client none: no next session of this client reports it")
+
+    for next_info in reports:
+        print(f"unclosed_on_client next={next_info['id']} {report.unclosed_text(next_info['previous'])}")
+
+
+def _server_status(api, session_id):
+    try:
+        return api.session(session_id)["status"]
+    except Failure as failure:
+        if failure.code == NOT_FOUND:
+            return "gone"
+
+        raise
 
 
 def print_error_groups(info, rows, stacks, whole=True):
