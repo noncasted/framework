@@ -24,7 +24,8 @@ function load(storage) {
     });
 
     vm.runInContext(jslib, context);
-    context.telemetryTraceKey = library.$telemetryTraceKey;
+    // Emscripten puts a value of a $ entry into framework.js as code: `var telemetryTraceKey = <value>;`.
+    vm.runInContext('var telemetryTraceKey = ' + library.$telemetryTraceKey + ';', context);
 
     return { library, read: () => strings.get(library.TelemetryTraceRead()) };
 }

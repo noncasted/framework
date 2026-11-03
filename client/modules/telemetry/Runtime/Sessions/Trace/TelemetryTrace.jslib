@@ -1,7 +1,7 @@
 var LibraryTelemetryTrace = {
     // One key of the local storage of the origin. A storage that throws (a private window, a full quota, storage off) keeps
     // nothing: the trace is a hint, the game goes on.
-    $telemetryTraceKey: 'framework.telemetry.session',
+    $telemetryTraceKey: "'framework.telemetry.session'",
 
     TelemetryTraceRead__deps: ['$telemetryTraceKey'],
     TelemetryTraceRead: function () {

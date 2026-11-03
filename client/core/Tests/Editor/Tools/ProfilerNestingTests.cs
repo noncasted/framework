@@ -122,8 +122,9 @@ namespace Internal.Tests
             var parent = Span(trace, "Meta");
             var child = Span(trace, "Late");
 
-            Assert.GreaterOrEqual(parent.StartMs + parent.DurationMs, child.StartMs + child.DurationMs);
+            // The ends are equal in nanoseconds; their sums in milliseconds may differ in the last bit of a double.
             Assert.AreEqual(child.EndNs, parent.EndNs);
+            Assert.AreEqual(child.StartMs + child.DurationMs, parent.StartMs + parent.DurationMs, 1e-6);
             Assert.AreEqual(child.EndFrame, parent.EndFrame);
             Assert.GreaterOrEqual(parent.AllocBytes, child.AllocBytes);
         }
