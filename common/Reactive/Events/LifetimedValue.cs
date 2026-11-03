@@ -5,12 +5,11 @@ namespace Internal
 {
     public class LifetimedValue<T> : ILifetimedValue<T>
     {
-        // The value and its lifetime exist from the start, also for the default of a value type: Set skips an
-        // equal value, so going through it here would leave ValueLifetime null for (false), (0) and the like.
+        // The value exists from the start, also for the default of a value type: Set skips an equal value, so going
+        // through it here would leave no value for (false), (0) and the like.
         public LifetimedValue(T value)
         {
             _value = value;
-            _lifetime = new Lifetime();
         }
 
         public LifetimedValue() : this(default)
@@ -20,10 +19,13 @@ namespace Internal
         private readonly ValueEventSource _eventSource = new();
 
         private T _value;
+
+        // The lifetime of the current value, made when it is first needed (ValueLifetime, a listener of a change): a
+        // value changed every frame that nobody listens to and nobody asks the lifetime of allocates nothing.
         private Lifetime _lifetime;
 
         public T Value => _value;
-        public IReadOnlyLifetime ValueLifetime => _lifetime;
+        public IReadOnlyLifetime ValueLifetime => _lifetime ??= new Lifetime();
 
         public void Advise(IReadOnlyLifetime lifetime, Action<IReadOnlyLifetime, T> handler)
         {
@@ -46,20 +48,25 @@ namespace Internal
         public void Notify()
         {
             _lifetime?.Terminate();
-            _lifetime = new Lifetime();
-            _eventSource.Invoke(_lifetime, _value);
+            _lifetime = null;
+
+            if (_eventSource.ListenersCount == 0)
+                return;
+
+            _eventSource.Invoke(ValueLifetime, _value);
         }
 
         // The listeners get the current value and its lifetime once more, nothing is renewed: for the ones already
         // advised (a late one catches up through View).
         public void InvokeAdvices()
         {
-            _eventSource.Invoke(_lifetime, _value);
+            _eventSource.Invoke(ValueLifetime, _value);
         }
 
+        // The lifetime of the value ends and stays: ValueLifetime reads as ended after it.
         public void Dispose()
         {
-            _lifetime?.Terminate();
+            ((Lifetime)ValueLifetime).Terminate();
             _eventSource.Dispose();
         }
 
