@@ -26,10 +26,10 @@ namespace Global.Telemetry
                 Samples.Add().Set(time, values, count, isHidden);
         }
 
-        public void AddMark(long time, string name)
+        public void AddMark(long time, string name, string detail = null, long? durationMs = null)
         {
             if (_isOpen)
-                Marks.Add().Set(time, name);
+                Marks.Add().Set(time, name, detail == null ? null : TelemetryLimits.Cut(detail, TelemetryLimits.MaxMarkDetailLength), durationMs);
         }
 
         public void AddError(long time, TelemetryErrorLevel level, string message, string stack, int repeat)

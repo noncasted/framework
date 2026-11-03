@@ -44,7 +44,13 @@ namespace Global.Telemetry.Tests.Transport
                     new TelemetryErrorPump(ErrorQueue, new TelemetryTextCleaner(), new TelemetryErrorGroups(Errors, clock), options)
                 });
 
-            var startup = new TelemetryStartupReport(options, StartupSource, Transport, gate, source);
+            var startup = new TelemetryStartupReport(
+                options,
+                StartupSource,
+                Transport,
+                gate,
+                source,
+                new TelemetryStartupPage(new NoTelemetryPageTimeline(), StartupSource));
 
             startup.OnSetup(_lifetime);
             Telemetry = new ClientTelemetry(options, guard, buffer, clock, collection, writer, Transport, source, gate, startup, new TelemetryAddedCollectors());

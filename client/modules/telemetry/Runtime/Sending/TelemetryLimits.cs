@@ -21,6 +21,8 @@ namespace Global.Telemetry
         public const int MaxStartupNameLength = 128;
         public const int MaxStartupBytes = 256 * 1024;
         public const int StartupSpanBytes = 42;
+        public const int MaxStartupFileLength = 64;
+        public const int MaxMarkDetailLength = 128;
 
         public static string Cut(string text, int length)
         {

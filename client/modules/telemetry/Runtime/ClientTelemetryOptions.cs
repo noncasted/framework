@@ -11,7 +11,8 @@ namespace Global.Telemetry
             float sampleIntervalSeconds = 1f,
             int bufferedSamples = 300,
             bool enabledInEditor = false,
-            double startupFrameBudgetMs = 2d)
+            double startupFrameBudgetMs = 2d,
+            float slowLoadSeconds = 5f)
         {
             if (sendIntervalSeconds <= 0f)
                 throw new ArgumentOutOfRangeException(nameof(sendIntervalSeconds), sendIntervalSeconds, "[Telemetry] Must be above zero");
@@ -25,11 +26,15 @@ namespace Global.Telemetry
             if (startupFrameBudgetMs < 0d)
                 throw new ArgumentOutOfRangeException(nameof(startupFrameBudgetMs), startupFrameBudgetMs, "[Telemetry] Must not be negative");
 
+            if (slowLoadSeconds < 0f)
+                throw new ArgumentOutOfRangeException(nameof(slowLoadSeconds), slowLoadSeconds, "[Telemetry] Must not be negative");
+
             SendInterval = TimeSpan.FromSeconds(sendIntervalSeconds);
             SampleInterval = TimeSpan.FromSeconds(sampleIntervalSeconds);
             BufferedSamples = bufferedSamples;
             _enabledInEditor = enabledInEditor;
             StartupFrameBudgetMs = startupFrameBudgetMs;
+            SlowLoadMs = slowLoadSeconds * 1000d;
         }
 
         private readonly bool _enabledInEditor;
@@ -42,6 +47,9 @@ namespace Global.Telemetry
 
         // The time of a frame the preparation of a startup trace may take.
         public double StartupFrameBudgetMs { get; }
+
+        // A load of an asset that runs longer gets the mark load.slow, once, at the next sample.
+        public double SlowLoadMs { get; }
 
         // False: no session and no collecting in this run.
         public bool IsEnabled => Application.isEditor == false || _enabledInEditor;

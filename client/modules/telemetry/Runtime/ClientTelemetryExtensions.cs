@@ -74,6 +74,10 @@ namespace Global.Telemetry
                    .As<ITelemetryLiveCollector>();
 #endif
 
+            builder.Register<AssetLoadTelemetryCollector>()
+                   .As<ITelemetryCollector>()
+                   .As<ITelemetryLiveCollector>();
+
             builder.Register<TelemetryAddedCollectors>()
                    .As<ITelemetryCollector>()
                    .As<ITelemetryLiveCollector>()
@@ -84,6 +88,16 @@ namespace Global.Telemetry
 
             builder.Register<ProfilerTelemetryStartupSource>()
                    .As<ITelemetryStartupSource>();
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+            builder.Register<WebTelemetryPageTimeline>()
+                   .As<ITelemetryPageTimeline>();
+#else
+            builder.Register<NoTelemetryPageTimeline>()
+                   .As<ITelemetryPageTimeline>();
+#endif
+
+            builder.Register<TelemetryStartupPage>();
 
             builder.Register<TelemetryStartupReport>()
                    .As<IScopeSetup>()

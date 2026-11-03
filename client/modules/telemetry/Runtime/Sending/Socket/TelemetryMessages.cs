@@ -86,7 +86,10 @@ namespace Global.Telemetry
                 DurationMs = span.DurationMs,
                 Frames = span.Frames,
                 Unfinished = span.IsUnfinished,
-                AllocBytes = span.AllocBytes
+                AllocBytes = span.AllocBytes,
+                File = span.File,
+                TransferBytes = span.TransferBytes,
+                Cached = span.IsCached
             };
         }
 
@@ -126,7 +129,9 @@ namespace Global.Telemetry
             return new SharedClientTelemetry.Mark
             {
                 Time = mark.Time,
-                Name = mark.Name
+                Name = mark.Name,
+                Detail = mark.Detail,
+                DurationMs = mark.DurationMs
             };
         }
 

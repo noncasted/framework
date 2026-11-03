@@ -20,7 +20,7 @@ namespace Global.Telemetry.Tests
                     new TelemetryBatchSample(1000, new[] { 16.7, 240d }, false),
                     new TelemetryBatchSample(2000, new[] { double.NaN, 241d }, true)
                 },
-                new[] { new TelemetryBatchMark(1200, "stage.boss_start"), new TelemetryBatchMark(1300, "stage.boss_end") },
+                new[] { new TelemetryBatchMark(1200, "stage.boss_start"), new TelemetryBatchMark(1300, "load.end", "Group: MusicRunAudio", 250) },
                 new[]
                 {
                     new TelemetryBatchError(1500, TelemetryErrorLevel.Exception, "Broken", "Game.Swarm:Update ()", 3),
@@ -51,7 +51,11 @@ namespace Global.Telemetry.Tests
             Assert.AreEqual(1200, message.Marks[0].Time);
             Assert.AreEqual("stage.boss_start", message.Marks[0].Name);
             Assert.AreEqual(1300, message.Marks[1].Time);
-            Assert.AreEqual("stage.boss_end", message.Marks[1].Name);
+            Assert.AreEqual("load.end", message.Marks[1].Name);
+            Assert.AreEqual("Group: MusicRunAudio", message.Marks[1].Detail);
+            Assert.AreEqual(250L, message.Marks[1].DurationMs);
+            Assert.IsNull(message.Marks[0].Detail);
+            Assert.IsNull(message.Marks[0].DurationMs);
 
             Assert.AreEqual(2, message.Errors.Length);
             Assert.AreEqual(1500, message.Errors[0].Time);

@@ -40,6 +40,11 @@ namespace Global.Telemetry.Tests.Transport
             return _snapshot;
         }
 
+        public double SinceStartMs()
+        {
+            return 0d;
+        }
+
         public void ListenFinal(IReadOnlyLifetime lifetime, Action listener)
         {
             _listener = listener;

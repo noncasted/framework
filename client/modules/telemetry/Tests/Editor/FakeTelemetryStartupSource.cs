@@ -11,6 +11,12 @@ namespace Global.Telemetry.Tests
         private Action _listener;
 
         public int Snapshots { get; private set; }
+        public double SinceStart { get; private set; }
+
+        public void SetSinceStart(double milliseconds)
+        {
+            SinceStart = milliseconds;
+        }
 
         public static ProfilerTraceData Trace(string name, params ProfilerSpanData[] spans)
         {
@@ -41,6 +47,11 @@ namespace Global.Telemetry.Tests
         {
             Snapshots++;
             return _snapshot;
+        }
+
+        public double SinceStartMs()
+        {
+            return SinceStart;
         }
 
         public void ListenFinal(IReadOnlyLifetime lifetime, Action listener)

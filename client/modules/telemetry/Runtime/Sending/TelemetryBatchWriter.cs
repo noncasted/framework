@@ -81,10 +81,10 @@ namespace Global.Telemetry
             var marks = _buffer.Marks;
             var written = new List<TelemetryBatchMark>();
 
-            while (written.Count < marks.Count && TryTake(_recordBytes + marks.At(written.Count).Name.Length))
+            while (written.Count < marks.Count && TryTake(_recordBytes + marks.At(written.Count).Name.Length + (marks.At(written.Count).Detail?.Length ?? 0)))
             {
                 var mark = marks.At(written.Count);
-                written.Add(new TelemetryBatchMark(mark.Time, mark.Name));
+                written.Add(new TelemetryBatchMark(mark.Time, mark.Name, mark.Detail, mark.DurationMs));
             }
 
             marks.RemoveOldest(written.Count);

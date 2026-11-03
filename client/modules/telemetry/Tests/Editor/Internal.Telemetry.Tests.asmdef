@@ -4,6 +4,7 @@
     "references": [
         "Internal",
         "Internal.Telemetry",
+        "Internal.Telemetry.Editor",
         "Internal.Telemetry.PlayMode.Tests",
         "Internal.Network",
         "GUID:73681998e594465db2ed389d82d877b6",

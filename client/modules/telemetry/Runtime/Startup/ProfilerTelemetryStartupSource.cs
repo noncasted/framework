@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using Internal;
 
 namespace Global.Telemetry
@@ -13,6 +14,11 @@ namespace Global.Telemetry
         public ProfilerTraceData ReadSnapshot()
         {
             return GameProfiler.Startup?.Snapshot();
+        }
+
+        public double SinceStartMs()
+        {
+            return (Stopwatch.GetTimestamp() - GameProfiler.Startup.StartTimestamp) * 1000d / Stopwatch.Frequency;
         }
 
         public void ListenFinal(IReadOnlyLifetime lifetime, Action listener)

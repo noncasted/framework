@@ -18,13 +18,15 @@ namespace Global.Telemetry
             ITelemetryStartupSource source,
             ITelemetryTransport transport,
             TelemetryRequestGate gate,
-            ITelemetryDeviceSource device)
+            ITelemetryDeviceSource device,
+            TelemetryStartupPage page)
         {
             _options = options;
             _source = source;
             _transport = transport;
             _gate = gate;
             _device = device;
+            _page = page;
         }
 
         private readonly ClientTelemetryOptions _options;
@@ -32,6 +34,7 @@ namespace Global.Telemetry
         private readonly ITelemetryTransport _transport;
         private readonly TelemetryRequestGate _gate;
         private readonly ITelemetryDeviceSource _device;
+        private readonly TelemetryStartupPage _page;
 
         private object _link;
         private Guid _id;
@@ -115,7 +118,13 @@ namespace Global.Telemetry
             }
 
             var isFinal = final != null;
-            var message = await TelemetryStartupTraces.Build(_id, _device.Read(), trace, isFinal, _options.StartupFrameBudgetMs);
+            var message = await TelemetryStartupTraces.Build(
+                _id,
+                _device.Read(),
+                trace,
+                isFinal,
+                _options.StartupFrameBudgetMs,
+                _page.Read());
 
             Accept(await _transport.SendStartup(message), isFinal);
         }

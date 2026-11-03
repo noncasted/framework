@@ -12,6 +12,9 @@ namespace Global.Telemetry
         // The open trace as it is now, null when it never began. The trace goes on untouched.
         ProfilerTraceData ReadSnapshot();
 
+        // The time since the trace began, also after it closed: the clock that places the trace on the time line of the page.
+        double SinceStartMs();
+
         // Called when the trace closes.
         void ListenFinal(IReadOnlyLifetime lifetime, Action listener);
     }

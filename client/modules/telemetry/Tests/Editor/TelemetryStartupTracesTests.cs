@@ -30,7 +30,7 @@ namespace Global.Telemetry.Tests
         // With no budget to run out of, it ends at once.
         private static TelemetryStartupTrace Build(ProfilerTraceData data, bool isFinal = true)
         {
-            return TelemetryStartupTraces.Build(_id, _device, data, isFinal, double.MaxValue).GetAwaiter().GetResult();
+            return TelemetryStartupTraces.Build(_id, _device, data, isFinal, double.MaxValue, TelemetryStartupPrefix.None).GetAwaiter().GetResult();
         }
 
         private static string PlainName(int length)
@@ -133,7 +133,7 @@ namespace Global.Telemetry.Tests
         public IEnumerator Budget_OverIt_TheRestOnTheNextFrames_TheSameTrace() => UniTask.ToCoroutine(async () =>
         {
             var data = FakeTelemetryStartupSource.Trace("Trace", Span(0, -1, "a"), Span(1, 0, "b"), Span(2, 0, "c"));
-            var building = TelemetryStartupTraces.Build(_id, _device, data, true, 0d);
+            var building = TelemetryStartupTraces.Build(_id, _device, data, true, 0d, TelemetryStartupPrefix.None);
 
             Assert.AreEqual(UniTaskStatus.Pending, building.Status);
 
@@ -156,6 +156,56 @@ namespace Global.Telemetry.Tests
             Assert.Less(trace.Spans.Count, spans.Length);
             Assert.LessOrEqual(bytes, TelemetryLimits.MaxStartupBytes);
             Assert.Greater(bytes + TelemetryLimits.StartupSpanBytes + name.Length, TelemetryLimits.MaxStartupBytes);
+        }
+
+        [Test]
+        public void Page_GoesFirst_TheSpansOfTheBuildMoveByItsStart()
+        {
+            var page = new TelemetryStartupPrefix(
+                new[]
+                {
+                    new TelemetryStartupSpan(-1, "Page", 0d, 4000d, 0, false, 0L),
+                    new TelemetryStartupSpan(0, "File", 10d, 3000d, 0, false, 0L, "Build.wasm", 900L, true)
+                },
+                4000d);
+            var data = FakeTelemetryStartupSource.Trace("Trace", Span(0, -1, "Startup"), Span(1, 0, "Scope: Global"));
+            data.Spans[1].StartMs = 5d;
+
+            var trace = TelemetryStartupTraces.Build(_id, _device, data, true, double.MaxValue, page).GetAwaiter().GetResult();
+
+            CollectionAssert.AreEqual(new[] { "Page", "File", "Startup", "Scope: Global" }, trace.Spans.Select(span => span.Name).ToArray());
+            CollectionAssert.AreEqual(new[] { -1, 0, -1, 2 }, trace.Spans.Select(span => span.ParentIndex).ToArray());
+            Assert.AreEqual(4000d, trace.Spans[2].StartMs);
+            Assert.AreEqual(4005d, trace.Spans[3].StartMs);
+            Assert.AreEqual("Build.wasm", trace.Spans[1].File);
+            Assert.AreEqual(900L, trace.Spans[1].TransferBytes);
+            Assert.IsTrue(trace.Spans[1].IsCached);
+            Assert.AreEqual(4100d, trace.DurationMs, "the trace counts from the origin of the page");
+        }
+
+        [Test]
+        public void Page_TheBuildStartsWhereTheClocksMeet()
+        {
+            var fixture = new TelemetryFixture();
+            fixture.PageTimeline.Set(new TelemetryPageTimeline { now = 9000d });
+            fixture.StartupSource.SetSinceStart(2500d);
+
+            var prefix = new TelemetryStartupPage(fixture.PageTimeline, fixture.StartupSource).Read();
+
+            Assert.AreEqual(6500d, prefix.OffsetMs);
+            Assert.AreEqual("Page", prefix.Spans[0].Name);
+            Assert.AreEqual(6500d, prefix.Spans[0].DurationMs);
+        }
+
+        [Test]
+        public void Page_NoneOutsideTheWeb()
+        {
+            var fixture = new TelemetryFixture();
+
+            var prefix = new TelemetryStartupPage(fixture.PageTimeline, fixture.StartupSource).Read();
+
+            Assert.AreEqual(0, prefix.Spans.Count);
+            Assert.AreEqual(0d, prefix.OffsetMs);
         }
     }
 }

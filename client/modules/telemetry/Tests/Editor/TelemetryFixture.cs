@@ -74,7 +74,13 @@ namespace Global.Telemetry.Tests
             var deviceSource = new FixedDeviceSource(device ?? new TelemetryDevice());
 
             Gate = new TelemetryRequestGate();
-            Startup = new TelemetryStartupReport(Options, StartupSource, transport ?? Transport, Gate, deviceSource);
+            Startup = new TelemetryStartupReport(
+                Options,
+                StartupSource,
+                transport ?? Transport,
+                Gate,
+                deviceSource,
+                new TelemetryStartupPage(PageTimeline, StartupSource));
 
             Telemetry = new ClientTelemetry(
                 Options,
@@ -95,6 +101,7 @@ namespace Global.Telemetry.Tests
         public ManualClock Clock { get; } = new ManualClock();
         public RecordingTransport Transport { get; } = new RecordingTransport();
         public FakeTelemetryPage Page { get; } = new FakeTelemetryPage();
+        public FakeTelemetryPageTimeline PageTimeline { get; } = new FakeTelemetryPageTimeline();
         public ClientTelemetryOptions Options { get; }
         public TelemetryNameGuard Guard { get; }
         public TelemetryNameTable Names { get; }
