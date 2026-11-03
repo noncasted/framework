@@ -14,6 +14,20 @@ Safari. A GPU problem is found by bisecting the draws on the device, with the pr
     interpolated varying: interpolating equal values gives the value back.
   - Where such a value is compared (`group == FRONT_GROUP`) or used as an index, `round` it in the fragment shader first:
     the interpolation may miss it by an ulp.
+- **No arrays indexed at run time.** HLSLcc (Unity's GLES3 / WebGL compiler) writes a table of constants (a `const` or
+  `static const` array, a `switch` fxc turns into a lookup) as a non-const `vec4 ImmCB_0[N];`, filled by N assignments at
+  the top of `main()` of every pixel, whether the branch that reads it runs or not; a local array of values
+  (`half4 colors[5] = { _Ramp0, ... }`) becomes `TempArrayN[...]` the same way. On an iPad 7 (A10, Safari 18.2) the
+  4x4 Bayer table of 16 in 8 fragment shaders of pixel-swarm took 29 -> 20 ms of a 30 ms frame.
+  - Compute the value instead (Bayer: `4 * m2(low bits) + m2(high bits)`, `m2(x, y) = ((x ^ y) << 1) | y`), pick among a
+    few with `?:`, or pack the table into `uint` literals picked by the bits of the index (a tree of `?:`). An index that
+    is a literal after `[unroll]` is folded by fxc and leaves no array.
+  - Check the compiled code, not the HLSL: `ShaderUtil.GetShaderData(shader).GetSubshader(s).GetPass(p).CompileVariant(
+    ShaderType.Vertex, keywords, ShaderCompilerPlatform.GLES3x, BuildTarget.WebGL)` returns the GLSL text (vertex and
+    fragment together) to search for `ImmCB_` / `TempArray`; a game keeps this as an EditMode test over its shaders.
+- **Constant weights.** A blur loop without `[unroll]` stays a loop in GLSL and computes `exp()` of its weight per tap;
+  with `[unroll]` the weights and their sum are constants. A blur of a linear value reads two taps with one linear
+  read at their weighted middle (half the reads); a mask computed per tap (a threshold) cannot.
 - **Compressed textures.** iOS has no DXT: Unity decompresses DXT textures on the CPU at load. A WebGL build that targets
   iOS uses ASTC (or ships both).
 
