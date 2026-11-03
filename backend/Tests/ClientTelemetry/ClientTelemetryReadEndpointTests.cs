@@ -312,6 +312,29 @@ public class ClientTelemetryReadEndpointTests : ClientTelemetryEndpointTest
     }
 
     [Fact]
+    public async Task TheDetailAndTheDurationOfAMark_AreRead_NullWithoutThem()
+    {
+        EnableFlag(true);
+        var host = await StartHost();
+        var session = Guid.NewGuid();
+        var batch = TelemetryWire.Batch(session);
+        batch.Marks =
+        [
+            new SharedClientTelemetry.Mark { Time = 6, Name = "load.end", Detail = "Audio: MusicRunAudio", DurationMs = 1200 },
+            new SharedClientTelemetry.Mark { Time = 7, Name = "stage.start" }
+        ];
+
+        await Store(Step(session, 1, false, batch, "web", null));
+        await TestWait.Until(async () => await Reader.GetSession(session) != null);
+
+        var items = (await Get(host, $"/sessions/{session}/marks")).GetProperty("items");
+        items[0].GetProperty("detail").GetString().Should().Be("Audio: MusicRunAudio");
+        items[0].GetProperty("durationMs").GetInt64().Should().Be(1200);
+        items[1].GetProperty("detail").ValueKind.Should().Be(JsonValueKind.Null);
+        items[1].GetProperty("durationMs").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
     public async Task TheTags_AreInTheAnswers_AndTagFiltersByAllOfThem()
     {
         EnableFlag(true);

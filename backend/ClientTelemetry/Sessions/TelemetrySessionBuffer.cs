@@ -57,7 +57,7 @@ public sealed class TelemetrySessionBuffer
 
         Samples.AddRange(batch.Samples.Select(sample => new TelemetryStoredSample(seq, sample.Time, sample.Values, sample.Hidden, receivedAt)));
         Errors.AddRange(batch.Errors.Select(error => new TelemetryStoredError(seq, error.Time, error.Level, error.Message, error.Stack, error.Repeat, receivedAt, TelemetryErrorFingerprint.Of(error.Level, error.Message, error.Stack))));
-        Marks.AddRange(batch.Marks.Select(mark => new TelemetryStoredMark(seq, mark.Time, mark.Name, receivedAt)));
+        Marks.AddRange(batch.Marks.Select(mark => new TelemetryStoredMark(seq, mark.Time, mark.Name, receivedAt, mark.Detail, mark.DurationMs)));
 
         if (batch.Samples.Count > 0)
             LastSampleAt = receivedAt;

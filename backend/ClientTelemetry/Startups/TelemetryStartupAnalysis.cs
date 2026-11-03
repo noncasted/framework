@@ -23,7 +23,10 @@ public static class TelemetryStartupAnalysis
                         Math.Round(span.DurationMs - Covered(span, children[index]), _timeDecimals),
                         span.Frames,
                         span.Unfinished,
-                        span.AllocBytes))
+                        span.AllocBytes,
+                        span.File,
+                        span.TransferBytes,
+                        span.Cached))
                     .ToArray();
     }
 

@@ -22,7 +22,9 @@ Null lists are empty. `Time` is milliseconds since the start of the session, no 
 - `Samples`: `{ Time, Values, Hidden }`; `Values[i]` belongs to slot `i`, `NaN` is no value in this sample, a shorter array leaves the
   rest empty; `Hidden`: the page was in the background, the sample stays out of the summary.
 - `Errors`: `{ Time, Level, Message, Stack, Repeat }`; `Level` is `Error` or `Exception`, `Repeat` from 1.
-- `Marks`: `{ Time, Name }`.
+- `Marks`: `{ Time, Name, Detail, DurationMs }`; `Detail` a text of the code next to the name (the key of a loaded asset), scrubbed,
+  null for none; `DurationMs` what the mark closes, null for none. The client marks the loads of assets this way: `load.start`,
+  `load.end`, `load.failed` (the type of the error in the detail), `load.slow`, `load.unfinished` (at the end of the session).
 - `Device`, the closed list: `Platform`, `BuildVersion`, `Browser` + `BrowserMajor`, `Os` + `OsMajor` (names without digits, the
   major version apart), `Gpu`, `Cores`, `MemoryClass` (GB: a power of two from 0.25 to 1024), `ScreenWidth`, `ScreenHeight`, `Dpr`. 0
   or null is unknown.
@@ -47,8 +49,13 @@ reaches the gateway.
 The only exception from "nothing outside a session", under the same flag. `Guid.Empty` as `StartupId` asks for a new record, the id comes
 from the server and lives as long as the socket (after a reconnect a client starts a new record).
 
-- `Spans`: `{ ParentIndex, Name, StartMs, DurationMs, Frames, Unfinished, AllocBytes }`; `ParentIndex` is below the index of the span, -1
-  for a root; times from the start of the trace; `AllocBytes` 0 where not measured.
+- `Spans`: `{ ParentIndex, Name, StartMs, DurationMs, Frames, Unfinished, AllocBytes, File, TransferBytes, Cached }`; `ParentIndex` is
+  below the index of the span, -1 for a root; times from the start of the trace; `AllocBytes` 0 where not measured. `File`: a file the
+  page loaded before the build, by the last segment of its address only, null for any other span; `TransferBytes` what came over the
+  network (0 unknown), `Cached` from the cache of the browser.
+- On the web the trace starts at the origin of the page (`performance.timeOrigin`): the first root `Page` holds the navigation, the
+  parsing, the files, the gap to the start of the build (`Build start`) and the spans of the template; the spans of the build follow
+  on the same time line.
 - The final trace replaces the snapshot of the same record; a snapshot after the final one changes nothing (`Enabled` true). A closed
   socket changes nothing: a snapshot stays with `final` false. The time of a record is the time of the server, no clock of the device.
 - `Enabled` false: nothing is written and the client sends no more traces on this socket. The flag is off, the id was not given on this
@@ -58,7 +65,8 @@ from the server and lives as long as the socket (after a reconnect a client star
 - **The server checks:** the spans (4096) and the estimated size (256 KB: a typical start is about 30 KB) cut the tail, counted in
   `droppedSpans`; a name is cut to 128 characters (`cutNames`) and goes through `Scrubber`, so a URL in a span of a request reads `GET <url>`;
   a null or empty name, a control symbol, a time not finite, negative or over `MaxStartupMs`, negative frames or bytes, a `ParentIndex`
-  not below the index: the span goes with its children, counted in `rejectedSpans`.
+  not below the index: the span goes with its children, counted in `rejectedSpans`. A `File` out of the form of a name (words of
+  `[A-Za-z0-9_-]` between dots, up to 64) is dropped, the span stays; negative `TransferBytes` drop the span.
 
 ## What the game does
 
@@ -87,7 +95,8 @@ without a grain.
   values: { <name>: <value> } }] }`. A metric without a value is absent from `values`. `lastSeq` goes into the next `after`.
   With `wait` the request asks the grain every 500 ms until rows come, never the database; it ends when the session closes.
   An empty `items` at the end of the wait is the normal answer. Works with several gateways.
-- `GET .../sessions/{id}/marks?after=&limit=`, `.../errors?after=&limit=`: the same page without `wait`.
+- `GET .../sessions/{id}/marks?after=&limit=`, `.../errors?after=&limit=`: the same page without `wait`. A mark holds `detail` and
+  `durationMs`, null when absent (also in a row written before them).
   A row of `errors` has its `fingerprint`: 16 hex digits of a SHA-256 over the level, the message and the stack, already scrubbed
   and without the `<n>` and `<id>` left in place of numbers and addresses. The same for another line or address, also with an
   empty stack (then only the level and the message decide).
@@ -100,7 +109,8 @@ without a grain.
 
 - `GET /api/client-telemetry/startups?limit=`: the records, newest first: `{ id, device, name, final, receivedAt, updatedAt, durationMs, frames,
   spanCount, depth, unfinishedSpans, droppedSpans, rejectedSpans, cutNames }`.
-- `GET .../startups/{id}`: `{ startup, spans: [{ index, parentIndex, depth, name, startMs, durationMs, ownMs, frames, unfinished, allocBytes }],
+- `GET .../startups/{id}`: `{ startup, spans: [{ index, parentIndex, depth, name, startMs, durationMs, ownMs, frames, unfinished, allocBytes,
+  file, transferBytes, cached }],
   sessions }`. `ownMs` is the duration without the time covered by the children, overlaps counted once. `sessions` are rows of the list.
 - A row and the card of a session hold `startupId` (explicit `null` when there is none); `sessions?startupId=` filters by it.
 
@@ -124,7 +134,9 @@ The client is not trusted; `TelemetryBatchParser` is the only way into the model
   `Message` or `Stack`, a negative time, a repeat under 1, an infinite value, a null item, more than 200 names per session or values
   without a name (`TelemetrySessionLimits`). The names of the batch stay when they fit: the client counts its values by the slots.
 - **Drops one item, the batch goes on:** a name or a mark out of `[a-z0-9._]` or over 64 characters (a dropped name keeps its slot), a
-  unit by the same rule (the name stays), an error of another level, a field of `Device` of a wrong form.
+  unit by the same rule (the name stays), an error of another level, a field of `Device` of a wrong form, the `Detail` of a mark with a
+  control symbol or blank (the mark stays; a long one is cut to 128 and goes through `Scrubber`). A negative `DurationMs` rejects the
+  rows like a negative time.
 - **Scrubs** `Message` and `Stack` (`Scrubber`); the client scrubs them too, by the same corpus (`Tests/ClientTelemetry/Golden/pii_corpus.json`).
 
 The limit of a plain word: `Scrubber` cannot tell a name written without quotes or a key ("Player Ivan left") from the

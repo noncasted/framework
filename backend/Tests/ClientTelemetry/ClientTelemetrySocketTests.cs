@@ -94,6 +94,10 @@ public class ClientTelemetrySocketTests : ClientTelemetryEndpointTest
         var spans = page.GetProperty("spans");
         spans[0].GetProperty("name").GetString().Should().Be("Scope: Boot");
         spans[0].GetProperty("ownMs").GetDouble().Should().Be(150);
+        spans[0].GetProperty("file").GetString().Should().Be("Build.wasm");
+        spans[0].GetProperty("transferBytes").GetInt64().Should().Be(4096);
+        spans[0].GetProperty("cached").GetBoolean().Should().BeTrue();
+        spans[1].GetProperty("file").ValueKind.Should().Be(System.Text.Json.JsonValueKind.Null);
         spans[1].GetProperty("name").GetString().Should().Be("GET <url>");
         spans[1].GetProperty("parentIndex").GetInt32().Should().Be(0);
         spans[1].GetProperty("depth").GetInt32().Should().Be(1);
@@ -175,7 +179,7 @@ public class ClientTelemetrySocketTests : ClientTelemetryEndpointTest
             Frames = 7,
             Spans =
             [
-                new SharedClientTelemetry.StartupSpan { ParentIndex = -1, Name = "Scope: Boot", StartMs = 0, DurationMs = durationMs },
+                new SharedClientTelemetry.StartupSpan { ParentIndex = -1, Name = "Scope: Boot", StartMs = 0, DurationMs = durationMs, File = "Build.wasm", TransferBytes = 4096, Cached = true },
                 new SharedClientTelemetry.StartupSpan { ParentIndex = 0, Name = "GET https://api.example.com/users/1?token=abc", StartMs = 0, DurationMs = durationMs - 150 > 0 ? 50 : durationMs, Unfinished = true }
             ]
         };

@@ -170,4 +170,54 @@ public class TelemetryStartupParserTests
         TelemetryStartupParser.Parse(new SharedClientTelemetry.StartupTrace { Name = "GET https://a.example.com/x?y=1" }).Name.Should().Be("GET <url>");
         TelemetryStartupParser.Parse(new SharedClientTelemetry.StartupTrace { Name = "a\nb" }).Name.Should().BeEmpty();
     }
+
+    [Fact]
+    public void AFileOfThePage_KeepsItsNameSizeAndCache()
+    {
+        var file = Span(0, "File");
+        file.File = "Build.wasm.unityweb";
+        file.TransferBytes = 12_000_000;
+        file.Cached = true;
+
+        var span = Parse(Span(-1, "Page"), file).Spans[1];
+
+        span.File.Should().Be("Build.wasm.unityweb");
+        span.TransferBytes.Should().Be(12_000_000);
+        span.Cached.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("https://cdn.example.com/Build.wasm")]
+    [InlineData("Build/Build.wasm")]
+    [InlineData("Build.wasm?v=1")]
+    [InlineData("ivan@mail.ru")]
+    [InlineData("")]
+    public void AFileOutOfTheFormOfAName_IsDropped_TheSpanStays(string name)
+    {
+        var file = Span(-1, "File");
+        file.File = name;
+
+        var trace = Parse(file);
+
+        trace.Spans.Should().ContainSingle().Which.File.Should().BeNull();
+        trace.RejectedSpans.Should().Be(0);
+    }
+
+    [Fact]
+    public void AFileNameOverTheLimit_IsDropped()
+    {
+        var file = Span(-1, "File");
+        file.File = new string('a', ClientTelemetryLimits.MaxStartupFileLength + 1) + ".js";
+
+        Parse(file).Spans[0].File.Should().BeNull();
+    }
+
+    [Fact]
+    public void NegativeTransferBytes_DropTheSpan()
+    {
+        var file = Span(-1, "File");
+        file.TransferBytes = -1;
+
+        Parse(file).RejectedSpans.Should().Be(1);
+    }
 }

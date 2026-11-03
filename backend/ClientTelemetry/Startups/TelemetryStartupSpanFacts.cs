@@ -1,6 +1,7 @@
 namespace Game.ClientTelemetry;
 
-// A span with what its tree tells. OwnMs: the duration without the time covered by its children.
+// A span with what its tree tells. OwnMs: the duration without the time covered by its children. File, TransferBytes, Cached: a
+// file of the page, see TelemetryStartupSpan.
 public sealed record TelemetryStartupSpanFacts(
     int Index,
     int ParentIndex,
@@ -11,4 +12,7 @@ public sealed record TelemetryStartupSpanFacts(
     double OwnMs,
     int Frames,
     bool Unfinished,
-    long AllocBytes);
+    long AllocBytes,
+    string? File,
+    long TransferBytes,
+    bool Cached);

@@ -33,7 +33,7 @@ public static class TelemetryStartupParser
                 continue;
             }
 
-            bytes += _spanBytes + name.Length;
+            bytes += _spanBytes + name.Length + Math.Min(span.File?.Length ?? 0, ClientTelemetryLimits.MaxStartupFileLength);
 
             if (spans.Count == ClientTelemetryLimits.MaxStartupSpans || bytes > ClientTelemetryLimits.MaxStartupBytes)
             {
@@ -52,7 +52,10 @@ public static class TelemetryStartupParser
                 Math.Round(span.DurationMs, _timeDecimals),
                 span.Frames,
                 span.Unfinished,
-                span.AllocBytes));
+                span.AllocBytes,
+                span.File != null && TelemetryNames.IsValidFile(span.File) ? span.File : null,
+                span.TransferBytes,
+                span.Cached));
         }
 
         var hasDuration = IsTime(trace.DurationMs);
@@ -92,6 +95,7 @@ public static class TelemetryStartupParser
                && IsTime(span.DurationMs)
                && span.Frames >= 0
                && span.AllocBytes >= 0
+               && span.TransferBytes >= 0
                && span.ParentIndex >= _noParent
                && span.ParentIndex < index;
     }

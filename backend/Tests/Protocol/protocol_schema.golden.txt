@@ -23,13 +23,13 @@ type Shared.SharedClientTelemetry+Batch SessionId:System.Guid,Names:Shared.Share
 type Shared.SharedClientTelemetry+BatchResult Enabled:System.Boolean
 type Shared.SharedClientTelemetry+Device Platform:System.String,BuildVersion:System.String,Browser:System.String,BrowserMajor:System.Int32,Os:System.String,OsMajor:System.Int32,Gpu:System.String,Cores:System.Int32,MemoryClass:System.Double,ScreenWidth:System.Int32,ScreenHeight:System.Int32,Dpr:System.Double
 type Shared.SharedClientTelemetry+Error Time:System.Int64,Level:Shared.SharedClientTelemetry+ErrorLevel,Message:System.String,Stack:System.String,Repeat:System.Int32
-type Shared.SharedClientTelemetry+Mark Time:System.Int64,Name:System.String
+type Shared.SharedClientTelemetry+Mark Time:System.Int64,Name:System.String,Detail:System.String,DurationMs:System.Nullable<System.Int64>
 type Shared.SharedClientTelemetry+MetricName Name:System.String,Unit:System.String
 type Shared.SharedClientTelemetry+Sample Time:System.Int64,Values:System.Double[],Hidden:System.Boolean
 type Shared.SharedClientTelemetry+SessionEnd SessionId:System.Guid
 type Shared.SharedClientTelemetry+SessionStart Device:Shared.SharedClientTelemetry+Device,Tags:System.String[],StartupId:System.Guid
 type Shared.SharedClientTelemetry+SessionStarted Enabled:System.Boolean,SessionId:System.Guid
-type Shared.SharedClientTelemetry+StartupSpan ParentIndex:System.Int32,Name:System.String,StartMs:System.Double,DurationMs:System.Double,Frames:System.Int32,Unfinished:System.Boolean,AllocBytes:System.Int64
+type Shared.SharedClientTelemetry+StartupSpan ParentIndex:System.Int32,Name:System.String,StartMs:System.Double,DurationMs:System.Double,Frames:System.Int32,Unfinished:System.Boolean,AllocBytes:System.Int64,File:System.String,TransferBytes:System.Int64,Cached:System.Boolean
 type Shared.SharedClientTelemetry+StartupTrace StartupId:System.Guid,Device:Shared.SharedClientTelemetry+Device,Name:System.String,Final:System.Boolean,DurationMs:System.Double,Frames:System.Int32,Spans:Shared.SharedClientTelemetry+StartupSpan[]
 type Shared.SharedClientTelemetry+StartupTraceResult Enabled:System.Boolean,StartupId:System.Guid
 type Shared.SharedLobbies+CreateLobby

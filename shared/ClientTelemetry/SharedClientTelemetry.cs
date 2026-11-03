@@ -83,7 +83,9 @@ namespace Shared
         }
 
         // ParentIndex: the index of the parent in StartupTrace.Spans, below the index of this span; -1 for a root. Times: milliseconds
-        // since the start of the trace. AllocBytes: 0 where the platform does not measure them.
+        // since the start of the trace. AllocBytes: 0 where the platform does not measure them. File: the name of a file the page loaded
+        // before the build started (no host, path or query), null for any other span; TransferBytes: what came over the network, 0
+        // unknown; Cached: it came from the cache of the browser.
         [MemoryPackable]
         public partial class StartupSpan
         {
@@ -94,6 +96,9 @@ namespace Shared
             public int Frames { get; set; }
             public bool Unfinished { get; set; }
             public long AllocBytes { get; set; }
+            public string File { get; set; }
+            public long TransferBytes { get; set; }
+            public bool Cached { get; set; }
         }
 
         // The closed list of what a client tells about its device. 0 or null: unknown.
@@ -147,11 +152,15 @@ namespace Shared
             public int Repeat { get; set; }
         }
 
+        // Detail: a free text of the code (the key of a loaded asset), scrubbed by the server, null for none. DurationMs: what the
+        // mark closes (a load), null for none.
         [MemoryPackable]
         public partial class Mark
         {
             public long Time { get; set; }
             public string Name { get; set; }
+            public string Detail { get; set; }
+            public long? DurationMs { get; set; }
         }
     }
 }

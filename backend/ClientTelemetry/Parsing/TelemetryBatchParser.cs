@@ -24,7 +24,7 @@ public static class TelemetryBatchParser
             NameSlots = slots,
             Samples = (batch.Samples ?? []).Select(ReadSample).ToArray(),
             Errors = (batch.Errors ?? []).Select(ReadError).OfType<TelemetryError>().ToArray(),
-            Marks = (batch.Marks ?? []).Where(mark => mark.Name != null && TelemetryNames.IsValidName(mark.Name)).Select(mark => new TelemetryMark(mark.Time, mark.Name)).ToArray()
+            Marks = (batch.Marks ?? []).Where(mark => mark.Name != null && TelemetryNames.IsValidName(mark.Name)).Select(ReadMark).ToArray()
         };
     }
 
@@ -64,7 +64,7 @@ public static class TelemetryBatchParser
 
         if (samples.Any(sample => sample.Time < 0 || (sample.Values ?? []).Any(double.IsInfinity))
             || errors.Any(error => error.Time < 0 || error.Repeat < 1 || error.Message == null)
-            || marks.Any(mark => mark.Time < 0))
+            || marks.Any(mark => mark.Time < 0 || mark.DurationMs < 0))
             return ClientTelemetryRejection.Malformed;
 
         if (errors.Any(error => error.Message.Length > ClientTelemetryLimits.MaxMessageLength))
@@ -81,7 +81,7 @@ public static class TelemetryBatchParser
     {
         return samples.Sum(sample => _rowBytes + (long)(sample.Values?.Length ?? 0) * _valueBytes)
                + errors.Sum(error => _rowBytes + (long)error.Message.Length + (error.Stack?.Length ?? 0))
-               + marks.Sum(mark => _rowBytes + (long)(mark.Name?.Length ?? 0));
+               + marks.Sum(mark => _rowBytes + (long)(mark.Name?.Length ?? 0) + Math.Min(mark.Detail?.Length ?? 0, ClientTelemetryLimits.MaxMarkDetailLength));
     }
 
     private static IReadOnlyList<TelemetryMetricName> ReadNames(SharedClientTelemetry.MetricName[]? names)
@@ -104,6 +104,21 @@ public static class TelemetryBatchParser
         var values = (sample.Values ?? []).Select(value => double.IsNaN(value) ? (double?)null : value).ToArray();
 
         return new TelemetrySample(sample.Time, values, sample.Hidden);
+    }
+
+    // A detail that is not a text is dropped alone. Cut before the scrubbing, so its cost does not depend on the client, and after it.
+    private static TelemetryMark ReadMark(SharedClientTelemetry.Mark mark)
+    {
+        var detail = string.IsNullOrWhiteSpace(mark.Detail) || mark.Detail.Any(char.IsControl)
+            ? null
+            : CutDetail(Scrubber.Scrub(CutDetail(mark.Detail)));
+
+        return new TelemetryMark(mark.Time, mark.Name, detail, mark.DurationMs);
+    }
+
+    private static string CutDetail(string detail)
+    {
+        return detail.Length <= ClientTelemetryLimits.MaxMarkDetailLength ? detail : detail[..ClientTelemetryLimits.MaxMarkDetailLength];
     }
 
     // Plain logs are not sent: a level outside the closed list has no way into the storage.

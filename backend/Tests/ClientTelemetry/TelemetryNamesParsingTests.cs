@@ -70,6 +70,45 @@ public class TelemetryNamesParsingTests
     }
 
     [Fact]
+    public void TheDetailAndTheDurationOfAMark_AreKept_AndTheDetailIsScrubbed()
+    {
+        var batch = TelemetryBatchParser.Parse(Marks(
+            new SharedClientTelemetry.Mark { Time = 5, Name = "load.end", Detail = "Audio: MusicRunAudio", DurationMs = 1200 },
+            new SharedClientTelemetry.Mark { Time = 6, Name = "load.failed", Detail = "Scene: https://cdn.example.com/run.bundle?k=1" },
+            new SharedClientTelemetry.Mark { Time = 7, Name = "stage.start" }));
+
+        batch.Marks.Should().Equal(
+            new TelemetryMark(5, "load.end", "Audio: MusicRunAudio", 1200),
+            new TelemetryMark(6, "load.failed", "Scene: <url>", null),
+            new TelemetryMark(7, "stage.start", null, null));
+    }
+
+    [Fact]
+    public void ABadDetail_IsDropped_TheMarkStays_ALongOneIsCut()
+    {
+        var batch = TelemetryBatchParser.Parse(Marks(
+            new SharedClientTelemetry.Mark { Time = 1, Name = "load.end", Detail = "a\nb" },
+            new SharedClientTelemetry.Mark { Time = 2, Name = "load.end", Detail = " " },
+            new SharedClientTelemetry.Mark { Time = 3, Name = "load.end", Detail = string.Concat(Enumerable.Repeat("word ", 60)) }));
+
+        batch.Marks[0].Detail.Should().BeNull();
+        batch.Marks[1].Detail.Should().BeNull();
+        batch.Marks[2].Detail.Should().HaveLength(ClientTelemetryLimits.MaxMarkDetailLength);
+    }
+
+    [Fact]
+    public void ANegativeDurationOfAMark_RejectsTheBatch()
+    {
+        TelemetryBatchParser.Parse(Marks(new SharedClientTelemetry.Mark { Time = 1, Name = "load.end", DurationMs = -1 }))
+            .Rejection.Should().Be(ClientTelemetryRejection.Malformed);
+    }
+
+    private static SharedClientTelemetry.Batch Marks(params SharedClientTelemetry.Mark[] marks)
+    {
+        return new SharedClientTelemetry.Batch { SessionId = Guid.Empty, Marks = marks };
+    }
+
+    [Fact]
     public void Tags_GoByTheRulesOfTheNames_AndTheRestIsCounted()
     {
         var over = Enumerable.Range(0, ClientTelemetryLimits.MaxTagsPerSession + 2).Select(index => $"t{index}");
