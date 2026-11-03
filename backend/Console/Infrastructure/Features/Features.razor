@@ -1,5 +1,6 @@
 @page "/features"
 @using Cluster.State
+@using Game.ClientTelemetry
 @using global::Common.Extensions
 @using global::Internal
 @inherits UiComponent
@@ -57,6 +58,14 @@
             }
         </div>
     }
+
+    @foreach (var telemetry in TelemetrySwitches)
+    {
+        <ClientTelemetryToggle
+            Switch="telemetry"
+            OnToggle="() => Toggle(ClientTelemetryAuditName, telemetry.Set, !telemetry.IsEnabled)"
+            Saving="_isSaving" />
+    }
 </div>
 
 @code {
@@ -64,6 +73,11 @@
     [Inject] private ToastService ToastService { get; set; } = null!;
     [Inject] private IAuditLogStorage AuditLog { get; set; } = null!;
     [Inject] private IEnumerable<ConsoleGameFlag> GameFlags { get; set; } = null!;
+
+    // Empty on the console of a game without the telemetry (AddClientTelemetryReader registers it).
+    [Inject] private IEnumerable<IClientTelemetrySwitch> TelemetrySwitches { get; set; } = null!;
+
+    private const string ClientTelemetryAuditName = "ClientTelemetry";
 
     private ClusterFeaturesState _state = new();
     private bool _isSaving;

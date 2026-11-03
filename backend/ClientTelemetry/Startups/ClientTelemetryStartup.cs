@@ -1,0 +1,80 @@
+using Infrastructure.State;
+using Orleans.Runtime;
+
+namespace Game.ClientTelemetry;
+
+// Holds nothing between the calls: the states are the truth and the reading goes to them without a grain.
+public class ClientTelemetryStartup : Grain, IClientTelemetryStartup
+{
+    public ClientTelemetryStartup(
+        [State] State<TelemetryStartupState> startup,
+        IStateStorage storage,
+        ITelemetryStartupCollection collection,
+        ClientTelemetryStorageOptions options,
+        TelemetrySessionClock time)
+    {
+        _startup = startup;
+        _storage = storage;
+        _collection = collection;
+        _options = options;
+        _time = time;
+    }
+
+    private readonly State<TelemetryStartupState> _startup;
+    private readonly IStateStorage _storage;
+    private readonly ITelemetryStartupCollection _collection;
+    private readonly ClientTelemetryStorageOptions _options;
+    private readonly TelemetrySessionClock _time;
+
+    private Guid Id => this.GetPrimaryKey();
+
+    public async Task Store(TelemetryStartupTrace trace)
+    {
+        DeactivateOnIdle();
+
+        // A failed write dropped the value of the state.
+        await _startup.Read();
+
+        if (_startup.Value.Final)
+            return;
+
+        _startup.Value.Store(Id, trace, _time.UtcNow);
+
+        await _storage.Write(new StateWriteRequest
+        {
+            Records = new Dictionary<StateIdentity, IStateValue>
+            {
+                [Identity<TelemetryStartupState>()] = _startup.Value,
+                [Identity<TelemetryStartupTraceState>()] = TelemetryStartupTraceState.Of(trace)
+            }
+        });
+
+        await Notify();
+    }
+
+    public async Task Sweep()
+    {
+        DeactivateOnIdle();
+
+        await _startup.Read();
+
+        if (!_startup.Value.IsStored || _startup.Value.UpdatedAt > _time.UtcNow - TimeSpan.FromDays(_options.RetentionDays))
+            return;
+
+        await _storage.Delete(new StateDeleteRequest { Identities = [Identity<TelemetryStartupState>(), Identity<TelemetryStartupTraceState>()] });
+
+        // A notification only names the key: every host re-reads the row, finds none and drops the entry.
+        await Notify();
+    }
+
+    // A copy: the collection of this host keeps what it is given.
+    private Task Notify()
+    {
+        return _collection.OnUpdated(Id, _startup.Value.Snapshot());
+    }
+
+    private StateIdentity Identity<T>() where T : IStateValue
+    {
+        return GrainContext.GrainId.ToIdentity(_storage.Registry.Get<T>());
+    }
+}

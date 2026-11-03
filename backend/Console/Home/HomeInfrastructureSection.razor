@@ -1,3 +1,4 @@
+@using Game.ClientTelemetry
 <HomeSection Title="Infrastructure">
     @foreach (var card in ProjectCards)
     {
@@ -51,9 +52,21 @@
         Title="Monitoring"
         Description="Collect heap snapshots from all cluster services and download memory reports"
         Target="@ConsoleConstants.Pages.Monitoring" />
+
+    @if (TelemetryReaders.Any())
+    {
+        <HomeNavCard
+            Icon="gauge"
+            Title="Client Telemetry"
+            Description="Sessions of the game clients: FPS, memory, errors over time"
+            Target="@ConsoleConstants.Pages.ClientTelemetry" />
+    }
 </HomeSection>
 
 @code {
     // Cards of the project (AddConsoleInfrastructureCard) come first.
     [Inject] private IEnumerable<ConsoleInfrastructureCard> ProjectCards { get; set; } = null!;
+
+    // Empty on the console of a game without the telemetry (AddClientTelemetryReader registers it).
+    [Inject] private IEnumerable<IClientTelemetryReader> TelemetryReaders { get; set; } = null!;
 }

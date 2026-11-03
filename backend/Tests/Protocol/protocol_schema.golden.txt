@@ -1,5 +1,6 @@
 enum Shared.ErrorCode System.Byte Internal=1,UnknownCommand=2,InvalidRequest=3,Forbidden=4,NotFound=5
 enum Shared.SessionAuthStatus System.Int32 Ok=0,InvalidTicket=1,Expired=2,NoReservation=3,Closed=4
+enum Shared.SharedClientTelemetry+ErrorLevel System.Byte Error=1,Exception=2
 enum Shared.SharedSessionPeer+SignalKind System.Byte Description=0,Candidate=1
 enum Shared.SharedSessionRequests+EntryStatus System.Int32 Ok=0,NotFound=1,Full=2,Started=3
 type Framework.Tests.Protocol.TestEntityPayload Kind:System.Int32
@@ -18,6 +19,19 @@ type Shared.RequestMessageFromClient Context:Shared.INetworkContext,RequestId:Sy
 type Shared.RequestMessageFromServer Context:Shared.INetworkContext,RequestId:System.Int32
 type Shared.ResponseMessageFromClient Context:Shared.INetworkContext,RequestId:System.Int32
 type Shared.ResponseMessageFromServer Context:Shared.INetworkContext,RequestId:System.Int32
+type Shared.SharedClientTelemetry+Batch SessionId:System.Guid,Names:Shared.SharedClientTelemetry+MetricName[],Samples:Shared.SharedClientTelemetry+Sample[],Errors:Shared.SharedClientTelemetry+Error[],Marks:Shared.SharedClientTelemetry+Mark[]
+type Shared.SharedClientTelemetry+BatchResult Enabled:System.Boolean
+type Shared.SharedClientTelemetry+Device Platform:System.String,BuildVersion:System.String,Browser:System.String,BrowserMajor:System.Int32,Os:System.String,OsMajor:System.Int32,Gpu:System.String,Cores:System.Int32,MemoryClass:System.Double,ScreenWidth:System.Int32,ScreenHeight:System.Int32,Dpr:System.Double
+type Shared.SharedClientTelemetry+Error Time:System.Int64,Level:Shared.SharedClientTelemetry+ErrorLevel,Message:System.String,Stack:System.String,Repeat:System.Int32
+type Shared.SharedClientTelemetry+Mark Time:System.Int64,Name:System.String
+type Shared.SharedClientTelemetry+MetricName Name:System.String,Unit:System.String
+type Shared.SharedClientTelemetry+Sample Time:System.Int64,Values:System.Double[],Hidden:System.Boolean
+type Shared.SharedClientTelemetry+SessionEnd SessionId:System.Guid
+type Shared.SharedClientTelemetry+SessionStart Device:Shared.SharedClientTelemetry+Device,Tags:System.String[],StartupId:System.Guid
+type Shared.SharedClientTelemetry+SessionStarted Enabled:System.Boolean,SessionId:System.Guid
+type Shared.SharedClientTelemetry+StartupSpan ParentIndex:System.Int32,Name:System.String,StartMs:System.Double,DurationMs:System.Double,Frames:System.Int32,Unfinished:System.Boolean,AllocBytes:System.Int64
+type Shared.SharedClientTelemetry+StartupTrace StartupId:System.Guid,Device:Shared.SharedClientTelemetry+Device,Name:System.String,Final:System.Boolean,DurationMs:System.Double,Frames:System.Int32,Spans:Shared.SharedClientTelemetry+StartupSpan[]
+type Shared.SharedClientTelemetry+StartupTraceResult Enabled:System.Boolean,StartupId:System.Guid
 type Shared.SharedLobbies+CreateLobby
 type Shared.SharedLobbies+Entry Code:System.String,LeaderName:System.String,PlayersCount:System.Int32,MaxPlayers:System.Int32,IsRunning:System.Boolean
 type Shared.SharedLobbies+JoinLobby Code:System.String
@@ -79,6 +93,13 @@ union Shared.INetworkContext 182 Shared.SharedLobbies+List
 union Shared.INetworkContext 183 Shared.SharedLobbies+JoinMatch
 union Shared.INetworkContext 184 Shared.SharedSessionRequests+CreateSolo
 union Shared.INetworkContext 20 Shared.SharedSessionEntity+CreateRequest
+union Shared.INetworkContext 200 Shared.SharedClientTelemetry+SessionStart
+union Shared.INetworkContext 201 Shared.SharedClientTelemetry+SessionStarted
+union Shared.INetworkContext 202 Shared.SharedClientTelemetry+Batch
+union Shared.INetworkContext 203 Shared.SharedClientTelemetry+BatchResult
+union Shared.INetworkContext 204 Shared.SharedClientTelemetry+SessionEnd
+union Shared.INetworkContext 205 Shared.SharedClientTelemetry+StartupTrace
+union Shared.INetworkContext 206 Shared.SharedClientTelemetry+StartupTraceResult
 union Shared.INetworkContext 21 Shared.SharedSessionEntity+CreateResponse
 union Shared.INetworkContext 22 Shared.SharedSessionEntity+CreatedOverview
 union Shared.INetworkContext 23 Shared.SharedSessionEntity+Destroy

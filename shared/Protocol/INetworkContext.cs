@@ -21,7 +21,8 @@
     // Tag ranges of the INetworkContext union, shared by the framework and every project:
     // - 0-249 framework (one byte on the wire): 0 EmptyResponse, 1 ErrorResponse, 10-19 session auth, 20-29 entity,
     //   30-39 object, 40-49 player, 50-59 service, 60-69 latency, 70-79 peers, 100-149 backend meta, 150-179 session
-    //   requests, 180-199 lobbies; one exception: SessionCreateSolo (a session request) took 184 in the lobbies range;
+    //   requests, 180-199 lobbies, 200-219 client telemetry; one exception: SessionCreateSolo (a session request) took 184 in the
+    //   lobbies range;
     // - 1000+ game.
     // A tag is never moved: shipped clients have it on the wire. A removed type leaves a hole: tags are never reused.
     // A duplicated tag fails the MemoryPack generator.
@@ -81,6 +82,15 @@
 
         // A session request (SharedSessionRequests.CreateSolo) in the lobbies range: added after it, kept for the wire.
         public const ushort SessionCreateSolo = 184;
+
+        // The client telemetry (ClientTelemetry/SharedClientTelemetry): a project with the telemetry module lists all of them.
+        public const ushort TelemetrySessionStart = 200;
+        public const ushort TelemetrySessionStarted = 201;
+        public const ushort TelemetryBatch = 202;
+        public const ushort TelemetryBatchResult = 203;
+        public const ushort TelemetrySessionEnd = 204;
+        public const ushort TelemetryStartupTrace = 205;
+        public const ushort TelemetryStartupTraceResult = 206;
 
         public const ushort GameFirst = 1000;
     }

@@ -1,0 +1,160 @@
+# Client telemetry: the contract
+
+MemoryPack messages over the meta socket of a client (`shared/ClientTelemetry/SharedClientTelemetry`), never the socket of a game
+session and no HTTP. Union tags `NetworkContextTags.Telemetry*`, 200-206: a project lists them in its `NetworkContextUnion`.
+Limits: `ClientTelemetryLimits`. A session is a part of the game the game names with its tags (a menu, a match): the framework
+knows no values of them. Nothing is sent outside a session but the startup trace (below).
+
+## Messages
+
+All are requests with a response, one socket holds at most one open session.
+
+| Request | Response | Meaning |
+|---------|----------|---------|
+| `SessionStart { Device, Tags, StartupId }` | `SessionStarted { Enabled, SessionId }` | closes the session still open on this socket (status `ended`), opens a new one; the guid comes from the server, random, never stored by the client |
+| `Batch { SessionId, Names, Samples, Errors, Marks }` | `BatchResult { Enabled }` | one in flight: the next one goes after the answer |
+| `SessionEnd { SessionId }` | `EmptyResponse` | closes the session with status `ended`; the last batch goes before it |
+| `StartupTrace { StartupId, Device, Name, Final, DurationMs, Frames, Spans }` | `StartupTraceResult { Enabled, StartupId }` | stores a snapshot or the final trace of the start of a client; needs no session |
+
+Null lists are empty. `Time` is milliseconds since the start of the session, no clock of the device.
+
+- `Names`: `{ Name, Unit }`, the new names of the session; each takes the next slot.
+- `Samples`: `{ Time, Values, Hidden }`; `Values[i]` belongs to slot `i`, `NaN` is no value in this sample, a shorter array leaves the
+  rest empty; `Hidden`: the page was in the background, the sample stays out of the summary.
+- `Errors`: `{ Time, Level, Message, Stack, Repeat }`; `Level` is `Error` or `Exception`, `Repeat` from 1.
+- `Marks`: `{ Time, Name }`.
+- `Device`, the closed list: `Platform`, `BuildVersion`, `Browser` + `BrowserMajor`, `Os` + `OsMajor` (names without digits, the
+  major version apart), `Gpu`, `Cores`, `MemoryClass` (GB: a power of two from 0.25 to 1024), `ScreenWidth`, `ScreenHeight`, `Dpr`. 0
+  or null is unknown.
+- `Tags`: named in the code of the game, `[a-z0-9._]` up to 64 characters, up to 8. The others are dropped and counted in
+  `rejectedRequests`; the start goes on.
+
+**`Enabled` false** stops the sending until the next `SessionStart`: nothing is retried. It answers:
+- the flag is off: a start creates nothing, a batch is not written and closes the open session (status `ended`);
+- a batch of a session that is not the one open on this socket: another socket, an older session, a closed one; it is dropped. So a
+  client ignores the answers to the batches of a session it has left;
+- a second batch while one is in flight;
+- a failure of the cluster (logged without the contents), or a session the grain has already closed.
+
+A batch of 30 metrics with 2 samples (every 2 seconds) is under 600 bytes, the first one with the names under 1500.
+
+**The socket decides.** Its close counts as a crash of the client: no retry, no reconnect, no queue. The end of the lifetime of the
+connection closes its session with status `lost`, with the summary and the log. A failure of that write is logged there and never
+reaches the gateway.
+
+## The startup trace
+
+The only exception from "nothing outside a session", under the same flag. `Guid.Empty` as `StartupId` asks for a new record, the id comes
+from the server and lives as long as the socket (after a reconnect a client starts a new record).
+
+- `Spans`: `{ ParentIndex, Name, StartMs, DurationMs, Frames, Unfinished, AllocBytes }`; `ParentIndex` is below the index of the span, -1
+  for a root; times from the start of the trace; `AllocBytes` 0 where not measured.
+- The final trace replaces the snapshot of the same record; a snapshot after the final one changes nothing (`Enabled` true). A closed
+  socket changes nothing: a snapshot stays with `final` false. The time of a record is the time of the server, no clock of the device.
+- `Enabled` false: nothing is written and the client sends no more traces on this socket. The flag is off, the id was not given on this
+  socket, a failure, or the limits of a socket (`MaxStartupsPerSocket`, `MaxStartupWritesPerSocket`). It says nothing about the sessions.
+- `SessionStart.StartupId`: the record of this client, `Guid.Empty` for none. An id not given on this socket is not kept and counts
+  in `rejectedRequests`; the start goes on. Sessions refer only to a record, never to each other, and no user id is involved.
+- **The server checks:** the spans (4096) and the estimated size (256 KB: a typical start is about 30 KB) cut the tail, counted in
+  `droppedSpans`; a name is cut to 128 characters (`cutNames`) and goes through `Scrubber`, so a URL in a span of a request reads `GET <url>`;
+  a null or empty name, a control symbol, a time not finite, negative or over `MaxStartupMs`, negative frames or bytes, a `ParentIndex`
+  not below the index: the span goes with its children, counted in `rejectedSpans`.
+
+## What the game does
+
+`AddClientTelemetry()` on the gateway registers `IClientTelemetryConnections`. The four commands of the meta socket stay in the game:
+`telemetry.Of(session.Lifetime).Start(request)`, `.Accept(request)`, `.End(request)`, `.AcceptStartup(request)`.
+
+## Reading
+
+`MapClientTelemetryRead()`, under the token the game puts on the group. Answers in camelCase, statuses and levels as words.
+
+A live session is read from the memory of its grain, without the database. A closed one: the row and the log from the states,
+without a grain.
+
+- `GET /api/client-telemetry/sessions?status=live|ended|lost&platform=&tag=&metric=&averageBelow=&averageAbove=&minErrors=&offset=&limit=`,
+  newest first, from the collection of the sessions in memory of the host. `tag` is an exact match, several of them mean all of
+  them. Each row and the card of a session hold `tags` (`[]` when there are none, also in a row written before the tags). `metric` with no average: sessions that have the metric in the summary;
+  `averageBelow`, `averageAbove` need `metric` (400 otherwise). A live session has no summary yet, so `metric` and `minErrors` leave it out.
+- `GET .../sessions/{id}`: `ackSeq` is the `seq` of the last batch in memory, `after` of a live reading (the name stays for the skill); `digest` (the summary of the close, the counts of errors and marks, the dropped counters, `errorGroups:
+  { groups: [{ fingerprint, level, message, count, rows, firstSeenAt, lastSeenAt }], omittedGroups, omittedCount }` with up to 12
+  groups) is null
+  while it is live and for a session closed without its data.
+- `GET .../sessions/{id}/summary?from=&to=`: the window in `t` of the session, inclusive. `{ samples, hiddenSamples, metrics: [{ name,
+  unit, count, average, p50, p95, min, max, growth }] }`. Hidden samples are out of everything; percentiles are by the nearest
+  rank; `growth` (last minus first value) only for the unit `bytes`, else null; a metric without a point is not listed.
+- `GET .../sessions/{id}/samples?after=<seq>&wait=<0-30 s>&limit=`: `{ status, lastSeq, items: [{ seq, time, hidden, receivedAt,
+  values: { <name>: <value> } }] }`. A metric without a value is absent from `values`. `lastSeq` goes into the next `after`.
+  With `wait` the request asks the grain every 500 ms until rows come, never the database; it ends when the session closes.
+  An empty `items` at the end of the wait is the normal answer. Works with several gateways.
+- `GET .../sessions/{id}/marks?after=&limit=`, `.../errors?after=&limit=`: the same page without `wait`.
+  A row of `errors` has its `fingerprint`: 16 hex digits of a SHA-256 over the level, the message and the stack, already scrubbed
+  and without the `<n>` and `<id>` left in place of numbers and addresses. The same for another line or address, also with an
+  empty stack (then only the level and the message decide).
+- `GET /api/client-telemetry/errors?limit=`: the kinds of errors over the digests in memory of the host, by `count` (with
+  repeats), of equal counts by `lastSeenAt`. `{ totalGroups, countedSessions, sessionsWithoutDigest, omittedGroups, omittedCount,
+  droppedErrors, groups: [{ fingerprint, level, message, count, sessions, firstSeenAt, lastSeenAt, sessionIds }] }`. `message` is
+  cut to 120 characters, `sessionIds` holds up to 20 of the freshest sessions, `sessions` counts them all. A session counts from its
+  close: a live one and one lost in a crash have no digest (`sessionsWithoutDigest`), and a session that comes back leaves the
+  list until it closes again.
+
+- `GET /api/client-telemetry/startups?limit=`: the records, newest first: `{ id, device, name, final, receivedAt, updatedAt, durationMs, frames,
+  spanCount, depth, unfinishedSpans, droppedSpans, rejectedSpans, cutNames }`.
+- `GET .../startups/{id}`: `{ startup, spans: [{ index, parentIndex, depth, name, startMs, durationMs, ownMs, frames, unfinished, allocBytes }],
+  sessions }`. `ownMs` is the duration without the time covered by the children, overlaps counted once. `sessions` are rows of the list.
+- A row and the card of a session hold `startupId` (explicit `null` when there is none); `sessions?startupId=` filters by it.
+
+404: no such session or record. 400: a query out of range.
+
+## The flag
+
+`IClientTelemetrySwitch`, off by default, set on the Features page of the console (with a record in the audit log). It is not one
+of `ClusterFeatures.GameFlags`: those are keyed by the deploy id and the coordinator generates a new id on every process start.
+
+The value is one row of `ClientTelemetrySettingsState` in `configs`, with a fixed key and no deploy id: it survives a new deploy and a restart
+of the coordinator. A host reads the row once when it starts and then holds the value in memory: a message makes no query for it. A change
+goes to the other hosts by the channel of `AddressableState`; a gap of the channel reloads the row. Until the first read ends
+the flag reads as off: a session started in that moment is not tracked, and that is all.
+
+## What the server does with a message
+
+The client is not trusted; `TelemetryBatchParser` is the only way into the model. Telemetry never breaks the socket of a player.
+
+- **Rejects the rows of a batch**, counted in `rejectedRequests`: over `MaxBatchBytes` (estimated), too many items of a list, too long
+  `Message` or `Stack`, a negative time, a repeat under 1, an infinite value, a null item, more than 200 names per session or values
+  without a name (`TelemetrySessionLimits`). The names of the batch stay when they fit: the client counts its values by the slots.
+- **Drops one item, the batch goes on:** a name or a mark out of `[a-z0-9._]` or over 64 characters (a dropped name keeps its slot), a
+  unit by the same rule (the name stays), an error of another level, a field of `Device` of a wrong form.
+- **Scrubs** `Message` and `Stack` (`Scrubber`); the client scrubs them too, by the same corpus (`Tests/ClientTelemetry/Golden/pii_corpus.json`).
+
+The limit of a plain word: `Scrubber` cannot tell a name written without quotes or a key ("Player Ivan left") from the
+template. Such a text must not get into the messages of the code.
+
+## What the storage does
+
+One grain per session (`ClientTelemetrySession`, the guid is its key). The samples, errors and marks stay in its memory. Two states:
+`TelemetrySessionState` (metadata with the tags and the compact summary, for the list and the search) and `TelemetrySessionLogState`
+(everything). No user id, no address and no user agent in either: the gateway does not pass them.
+
+- **Two writes.** The metadata before the start is answered; the summary and the log at the close, in one batch.
+- **`seq`** of a row is the number of its batch in the session, the cursor of the reading.
+- **A slot is never lost.** A dropped name stays an empty slot. A name the session already has takes a slot too, but stays empty: the
+  first slot is the only series of a name.
+- **The memory is bounded** (`ClientTelemetryStorageOptions`: `MaxSamples`, `MaxErrors`, `MaxMarks`): over the limit the oldest rows
+  go and are counted (`droppedSamples`, `droppedErrors`, `droppedMarks`).
+
+The close, once; a closed session never opens again:
+- **`SessionEnd`, the next `SessionStart`, a batch under the flag off:** status `ended`.
+- **The end of the socket:** status `lost`.
+- **No batch for `LostAfter`** (120 s, the timer of the grain): status `lost`. The reserve for a gateway gone without closing its
+  sockets, so a page in the background, which sends rarely, keeps its session. A failed write is repeated by the next tick.
+- **A deactivation of a live grain** (a stop of the silo, a migration): status `lost`, the same write.
+
+**After a crash** of a silo the memory is lost. The next activation of the session (a batch of its client, or the sweep) closes the
+row as `lost` without a log and a digest; the client gets `Enabled` false.
+
+**A startup record** (`ClientTelemetryStartup`, a grain without memory): `TelemetryStartupState` (metadata, in the collection of the hosts)
+and `TelemetryStartupTraceState` (the spans), written together on every message and read without a grain. It goes `RetentionDays` after its last write, by the sweep.
+
+**The sweep** (`ClientTelemetrySweep`, every hour on each silo): sessions the collection knows as open go to their grains, a live grain
+ignores it and the others close as above; both states of a session closed more than `RetentionDays` (7) ago are deleted.

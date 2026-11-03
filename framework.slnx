@@ -10,6 +10,8 @@
         <Project Path="client/core/Source~/ContainerGenerator.Verify/ContainerGenerator.Verify.csproj" />
     </Folder>
     <Folder Name="/backend/">
+        <Project Path="backend/ClientTelemetry/ClientTelemetry.csproj" />
+        <Project Path="backend/ClientTelemetry.TestHost/ClientTelemetry.TestHost.csproj" />
         <Project Path="backend/Cluster/Cluster.csproj" />
         <Project Path="backend/Common/Common.csproj" />
         <Project Path="backend/Console/Console.csproj" />

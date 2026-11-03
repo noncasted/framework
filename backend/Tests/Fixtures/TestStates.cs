@@ -21,6 +21,7 @@ public static class TestStates
     [
         typeof(IGrainStatesRegistry).Assembly,
         typeof(ServiceTag).Assembly,
+        typeof(Game.ClientTelemetry.TelemetrySessionState).Assembly,
         typeof(TestStates).Assembly
     ];
 

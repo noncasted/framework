@@ -45,6 +45,13 @@ namespace Framework.Tests.Protocol;
 [MemoryPackUnion(NetworkContextTags.LobbiesList, typeof(SharedLobbies.List))]
 [MemoryPackUnion(NetworkContextTags.LobbyJoinMatch, typeof(SharedLobbies.JoinMatch))]
 [MemoryPackUnion(NetworkContextTags.SessionCreateSolo, typeof(SharedSessionRequests.CreateSolo))]
+[MemoryPackUnion(NetworkContextTags.TelemetrySessionStart, typeof(SharedClientTelemetry.SessionStart))]
+[MemoryPackUnion(NetworkContextTags.TelemetrySessionStarted, typeof(SharedClientTelemetry.SessionStarted))]
+[MemoryPackUnion(NetworkContextTags.TelemetryBatch, typeof(SharedClientTelemetry.Batch))]
+[MemoryPackUnion(NetworkContextTags.TelemetryBatchResult, typeof(SharedClientTelemetry.BatchResult))]
+[MemoryPackUnion(NetworkContextTags.TelemetrySessionEnd, typeof(SharedClientTelemetry.SessionEnd))]
+[MemoryPackUnion(NetworkContextTags.TelemetryStartupTrace, typeof(SharedClientTelemetry.StartupTrace))]
+[MemoryPackUnion(NetworkContextTags.TelemetryStartupTraceResult, typeof(SharedClientTelemetry.StartupTraceResult))]
 public partial class TestNetworkContextUnion
 {
 }
