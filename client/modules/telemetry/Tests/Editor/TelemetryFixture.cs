@@ -21,11 +21,11 @@ namespace Global.Telemetry.Tests
             ITelemetryTransport transport = null,
             ITelemetryGlContext glContext = null,
             ITelemetryGlErrors glErrors = null,
+            ITelemetryGlCalls glCalls = null,
             bool pageLifecycle = false,
             MemoryTraceStore traceStore = null)
         {
             TraceStore = traceStore ?? new MemoryTraceStore();
-            Trace = new TelemetrySessionTrace(TraceStore, WallClock);
             Options = new ClientTelemetryOptions(
                 sendIntervalSeconds,
                 sampleIntervalSeconds,
@@ -34,6 +34,7 @@ namespace Global.Telemetry.Tests
                 double.MaxValue);
             Guard = new TelemetryNameGuard(strictNames);
             Names = new TelemetryNameTable(Guard);
+            Trace = new TelemetrySessionTrace(TraceStore, WallClock, Names);
             Buffer = new TelemetryBuffer(Options, Trace);
             Writer = new TelemetryBatchWriter(Names, Buffer);
             Visibility = new TelemetryVisibility(Page);
@@ -49,6 +50,11 @@ namespace Global.Telemetry.Tests
 
             if (glErrorsCollector != null)
                 collectors = (collectors ?? new ITelemetryCollector[] { Collector }).Append(glErrorsCollector).ToArray();
+
+            var glCallsCollector = glCalls == null ? null : new GlCallsTelemetryCollector(glCalls, Buffer, Clock);
+
+            if (glCallsCollector != null)
+                collectors = (collectors ?? new ITelemetryCollector[] { Collector }).Append(glCallsCollector).ToArray();
 
             collectors = (collectors ?? new ITelemetryCollector[] { Collector }).Append(Added).ToArray();
             Sampler = new TelemetrySampler(collectors, Names, Buffer, Clock, Visibility);
@@ -73,8 +79,12 @@ namespace Global.Telemetry.Tests
             if (glErrorsCollector != null)
                 liveCollectors = (liveCollectors ?? Array.Empty<ITelemetryLiveCollector>()).Append(glErrorsCollector).ToArray();
 
+            if (glCallsCollector != null)
+                liveCollectors = (liveCollectors ?? Array.Empty<ITelemetryLiveCollector>()).Append(glCallsCollector).ToArray();
+
             if (pageLifecycle)
-                liveCollectors = (liveCollectors ?? Array.Empty<ITelemetryLiveCollector>()).Append(new PageLifecycleTelemetryCollector(Page, Buffer, Clock)).ToArray();
+                liveCollectors = (liveCollectors ?? Array.Empty<ITelemetryLiveCollector>()).Append(new PageLifecycleTelemetryCollector(Page, Buffer, Clock))
+                                                                                                .Append(new PageResizeTelemetryCollector(Page, Buffer, Clock)).ToArray();
 
             liveCollectors = (liveCollectors ?? Array.Empty<ITelemetryLiveCollector>()).Append(Added).ToArray();
 
@@ -236,14 +246,21 @@ namespace Global.Telemetry.Tests
     {
         private readonly EventSource _becameHidden = new EventSource();
         private readonly EventSource<TelemetryPageEvent> _lifecycle = new EventSource<TelemetryPageEvent>();
+        private readonly EventSource<TelemetryCanvasSize> _resized = new EventSource<TelemetryCanvasSize>();
 
         public bool IsHidden { get; private set; }
         public IEventSource BecameHidden => _becameHidden;
         public IEventSource<TelemetryPageEvent> Lifecycle => _lifecycle;
+        public IEventSource<TelemetryCanvasSize> Resized => _resized;
 
         public void Fire(TelemetryPageEvent kind)
         {
             _lifecycle.Invoke(kind);
+        }
+
+        public void Resize(TelemetryCanvasSize size)
+        {
+            _resized.Invoke(size);
         }
 
         public void Hide()

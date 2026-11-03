@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using Shared;
+using TMPro;
 using UnityEngine;
 using UnityEngine.TestTools;
 
@@ -68,6 +69,29 @@ namespace Internal.Tests
             Assert.IsNotNull(GameObject.Find(OverlayName));
             Assert.AreNotEqual(Waiting, harness.Monitor.Report);
         });
+
+        // A text without a font of the game took TMP_Settings.defaultFontAsset and warned in every session when there was none.
+        [UnityTest]
+        public IEnumerator Overlay_TakesTheFontOfTheOptions() => UniTask.ToCoroutine(async () =>
+        {
+            var harness = Create();
+            harness.Monitor.OnSetup(harness.Lifetime);
+            harness.AddLocal(1);
+            await harness.FirstRound();
+
+            var label = GameObject.Find(OverlayName).GetComponentInChildren<TextMeshProUGUI>(true);
+
+            Assert.AreSame(harness.Options.LatencyOverlayFont, label.font);
+        });
+
+        [Test]
+        public void OptionsWithoutAFont_Throw()
+        {
+            var options = ScriptableObject.CreateInstance<NetworkOptions>();
+
+            Assert.Throws<InvalidOperationException>(() =>
+                new NetworkLatencyMonitor(new FakeConnection(new FakeWriter()), new FakeSession(new FakeUsers()), new PeerMatch(), new FakeClock(), options));
+        }
 
         [UnityTest]
         public IEnumerator EveryHalfSecond_PingAndProbeGoOutWithOneRisingId() => UniTask.ToCoroutine(async () =>
@@ -607,7 +631,10 @@ namespace Internal.Tests
             public Harness()
             {
                 Connection = new FakeConnection(Writer);
-                Monitor = new NetworkLatencyMonitor(Connection, new FakeSession(Users), Match, Clock);
+                Options = ScriptableObject.CreateInstance<NetworkOptions>();
+                typeof(NetworkOptions).GetField("_latencyOverlayFont", BindingFlags.Instance | BindingFlags.NonPublic)
+                                      .SetValue(Options, Font);
+                Monitor = new NetworkLatencyMonitor(Connection, new FakeSession(Users), Match, Clock, Options);
             }
 
             public readonly Lifetime Lifetime = new();
@@ -616,6 +643,15 @@ namespace Internal.Tests
             public readonly PeerMatch Match = new();
             public readonly FakeClock Clock = new();
             public readonly FakeConnection Connection;
+            public readonly NetworkOptions Options;
+
+            // The font the forked ugui package ships: the tests run in the editor only.
+            private static TMP_FontAsset Font =>
+#if UNITY_EDITOR
+                UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Packages/com.unity.ugui/Package Resources/Fonts & Materials/LiberationSans SDF.asset");
+#else
+                throw new System.InvalidOperationException("[Tests] The editor only");
+#endif
             public readonly NetworkLatencyMonitor Monitor;
 
             public int LastId => Writer.Sent.OfType<SharedSessionLatency.Ping>().Last().Id;

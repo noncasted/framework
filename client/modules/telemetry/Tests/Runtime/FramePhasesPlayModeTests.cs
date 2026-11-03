@@ -83,7 +83,7 @@ namespace Global.Telemetry.Tests
         [Test]
         public void Cost_PerFrame_UnderTenMicroseconds()
         {
-            var buffer = new TelemetryBuffer(new ClientTelemetryOptions(), TelemetryMemoryTraceStore.Trace());
+            var buffer = new TelemetryBuffer(new ClientTelemetryOptions(), TelemetryMemoryTraceStore.Trace(new TelemetryNameTable(new TelemetryNameGuard(true))));
             buffer.Open();
             var listeners = new IFramePhaseListener[]
             {

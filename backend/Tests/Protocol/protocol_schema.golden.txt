@@ -25,7 +25,7 @@ type Shared.SharedClientTelemetry+Device Platform:System.String,BuildVersion:Sys
 type Shared.SharedClientTelemetry+Error Time:System.Int64,Level:Shared.SharedClientTelemetry+ErrorLevel,Message:System.String,Stack:System.String,Repeat:System.Int32
 type Shared.SharedClientTelemetry+Mark Time:System.Int64,Name:System.String,Detail:System.String,DurationMs:System.Nullable<System.Int64>
 type Shared.SharedClientTelemetry+MetricName Name:System.String,Unit:System.String
-type Shared.SharedClientTelemetry+PreviousSession SessionId:System.Guid,Tags:System.String[],LastSampleTime:System.Int64,SinceMs:System.Int64,Marks:Shared.SharedClientTelemetry+Mark[]
+type Shared.SharedClientTelemetry+PreviousSession SessionId:System.Guid,Tags:System.String[],LastSampleTime:System.Int64,SinceMs:System.Int64,Marks:Shared.SharedClientTelemetry+Mark[],SampleNames:System.String[],Samples:Shared.SharedClientTelemetry+Sample[]
 type Shared.SharedClientTelemetry+Sample Time:System.Int64,Values:System.Double[],Hidden:System.Boolean
 type Shared.SharedClientTelemetry+SessionEnd SessionId:System.Guid
 type Shared.SharedClientTelemetry+SessionStart Device:Shared.SharedClientTelemetry+Device,Tags:System.String[],StartupId:System.Guid,Previous:Shared.SharedClientTelemetry+PreviousSession

@@ -367,7 +367,8 @@ public class ClientTelemetryReadEndpointTests : ClientTelemetryEndpointTest
         var host = await StartHost();
         var lost = Guid.NewGuid();
         var next = Guid.NewGuid();
-        var previous = new TelemetryPreviousSession(lost, ["menu"], 31_000, null, [new TelemetryMark(30_500, "page.pagehide")]);
+        var samples = new[] { new TelemetryPreviousSample(30_000, true, new Dictionary<string, double> { ["frame.dt.max"] = 41.5 }) };
+        var previous = new TelemetryPreviousSession(lost, ["menu"], 31_000, null, [new TelemetryMark(30_500, "page.pagehide")]) { Samples = samples };
 
         await Cluster.Orleans.GetGrain<IClientTelemetrySession>(next).Start(new TelemetryDevice(), new TelemetrySessionTags([], 0), null, previous);
         await Store(Request(lost, 1, errors: [TelemetryWire.Error(5, SharedClientTelemetry.ErrorLevel.Warning, "Slow", null, 3)], ended: true));
@@ -380,7 +381,16 @@ public class ClientTelemetryReadEndpointTests : ClientTelemetryEndpointTest
         card.GetProperty("lastSampleTime").GetInt64().Should().Be(31_000);
         card.GetProperty("sinceMs").ValueKind.Should().Be(JsonValueKind.Null);
         card.GetProperty("marks")[0].GetProperty("name").GetString().Should().Be("page.pagehide");
+        var sample = card.GetProperty("samples").EnumerateArray().Single();
+        sample.GetProperty("time").GetInt64().Should().Be(30_000);
+        sample.GetProperty("hidden").GetBoolean().Should().BeTrue();
+        sample.GetProperty("values").EnumerateObject().Select(value => (value.Name, value.Value.GetDouble())).Should().Equal(("frame.dt.max", 41.5));
         (await Get(host, $"/sessions/{lost}")).GetProperty("previous").ValueKind.Should().Be(JsonValueKind.Null);
+
+        var without = Guid.NewGuid();
+        await Cluster.Orleans.GetGrain<IClientTelemetrySession>(without).Start(new TelemetryDevice(), new TelemetrySessionTags([], 0), null,
+            new TelemetryPreviousSession(lost, [], null, null, []));
+        (await Get(host, $"/sessions/{without}")).GetProperty("previous").GetProperty("samples").GetArrayLength().Should().Be(0);
 
         var digest = (await Get(host, $"/sessions/{lost}")).GetProperty("digest");
         digest.GetProperty("errorCount").GetInt64().Should().Be(0);

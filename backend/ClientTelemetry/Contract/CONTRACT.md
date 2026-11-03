@@ -48,7 +48,7 @@ reaches the gateway.
 
 ## The previous session
 
-`SessionStart.Previous { SessionId, Tags, LastSampleTime, SinceMs, Marks }`: the session of the same browser (its local storage) before
+`SessionStart.Previous { SessionId, Tags, LastSampleTime, SinceMs, Marks, SampleNames, Samples }`: the session of the same browser (its local storage) before
 this one that did not close on the client: the page was killed, reloaded, closed or frozen inside it. Null when the previous one
 closed. The client writes its record at every sample and mark of an open session and removes it at the close; the next start takes
 it once. `LastSampleTime` and the `Time` of the marks are of that session, `SinceMs` is the time from its last record to this start
@@ -56,9 +56,21 @@ it once. `LastSampleTime` and the `Time` of the marks are of that session, `Sinc
 `DurationMs` of a batch (a page that died inside a load names the load). No clock of the device and
 nothing personal: the id is the random guid the server gave. A tab open next to another one may report a session that is still alive.
 
+`Samples` are the last samples it took (`{ Time, Values, Hidden }` of a batch, oldest first), with the main numbers of a frame only:
+`Values` go by the slots of `SampleNames` (not the names of the session), NaN no value. The client sends up to 5 of them by about 7
+names (`frame.dt.max`, `frame.cpu.main`, `frame.phase.update`, `frame.phase.postlate`, `web.raf.dt.max`, `render.draw_calls`,
+`web.gl.shader_compile_ms`); null lists are none (a client before them).
+
 The server keeps it with the new session (`previous` of a row and a card, explicit `null` when there is none) and finds the next
 session of a lost one: `sessions?previousId=`. An empty id drops the whole; a tag, a mark (a negative duration too) or a time out of
 form (or over `MaxPreviousMs`) is dropped alone, counted in `rejectedRequests`; a detail is scrubbed and cut as in a batch.
+
+The samples are checked the same way, each part counted once in `rejectedRequests`: a name out of the form of a metric name (`[a-z0-9._]`,
+up to 64), null or repeated is dropped with the values of its slot; the names over `MaxPreviousSampleNames` (16) are cut with their values;
+a null sample, a negative `Time` or one over `MaxPreviousMs` drops the sample; over `MaxPreviousSamples` (8) the oldest ones are cut; an
+infinite value is no value and counts; values past the end of `SampleNames` are ignored and count once for the sample; NaN is no value
+and does not count. The answers hold `previous.samples: [{ time, hidden, values: { "<name>": <value> } }]`, a metric without a value
+absent from `values` (as in `/samples`); `[]` when there are none, also in a row written before the samples.
 
 ## The startup trace
 

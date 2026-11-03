@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 
 namespace Internal
@@ -23,10 +24,15 @@ namespace Internal
         // Off: the guests play through the tunnel of the server only (a test of the fallback).
         [SerializeField] private bool _isPeerDirectAllowed = true;
 
+        // The font of the text of NetworkLatencyOverlay, required by every session (NetworkLatencyMonitor): the framework has no font
+        // of its own, and TMP_Settings.defaultFontAsset of a game may be missing.
+        [SerializeField] private TMP_FontAsset _latencyOverlayFont;
+
         public float PropertiesSyncInterval => 1f / _propertiesSyncRate;
 
         public WebRtcPeerOptions PeerOptions => new(_peerIceServers, TimeSpan.FromSeconds(_peerConnectTimeout));
         public bool IsPeerMatches => _isPeerMatches;
         public bool IsPeerDirectAllowed => _isPeerDirectAllowed;
+        public TMP_FontAsset LatencyOverlayFont => _latencyOverlayFont;
     }
 }

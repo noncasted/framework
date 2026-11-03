@@ -4,19 +4,36 @@ using UnityEngine;
 
 namespace Global.Telemetry
 {
-    // The trace of the open session outside the page: its id, tags, last sample and last marks, renewed at every sample and mark and
+    // The trace of the open session outside the page: its id, tags, last marks and the main numbers of its last samples, renewed at every sample and mark and
     // removed at its close. A page killed, reloaded or frozen for good inside a session leaves it, and the next start of this device
     // reports it (SessionStart.Previous): the server sees a lost socket, this says what the client did last. The id is the random guid
     // of the server and goes as a field, never through the scrubbing of a text. Main thread only.
     public class TelemetrySessionTrace
     {
-        public TelemetrySessionTrace(ITelemetryTraceStore store, ITelemetryWallClock wallClock)
+        public TelemetrySessionTrace(ITelemetryTraceStore store, ITelemetryWallClock wallClock, TelemetryNameTable names)
         {
             _store = store;
             _wallClock = wallClock;
+            _names = names;
         }
 
         public const int MaxMarks = 8;
+        public const int MaxSamples = 5;
+
+        // What a frame did: its longest one, the main thread, the phases where the scripts and the rendering go, the frames of the
+        // browser, the draw calls, the compilations of shaders. Every one is a time or a count.
+        public static readonly string[] SampleNames =
+        {
+            "frame.dt.max",
+            "frame.cpu.main",
+            "frame.phase.update",
+            "frame.phase.postlate",
+            "web.raf.dt.max",
+            "render.draw_calls",
+            "web.gl.shader_compile_ms"
+        };
+
+        private const double NoValue = -1d;
 
         private const long NoDuration = -1;
 
@@ -26,12 +43,18 @@ namespace Global.Telemetry
         private readonly string[] _markNames = new string[MaxMarks];
         private readonly string[] _markDetails = new string[MaxMarks];
         private readonly long[] _markDurations = new long[MaxMarks];
+        private readonly TelemetryNameTable _names;
+        private readonly long[] _sampleTimes = new long[MaxSamples];
+        private readonly bool[] _sampleHidden = new bool[MaxSamples];
+        private readonly double[] _sampleValues = new double[MaxSamples * SampleNames.Length];
         private readonly TelemetrySessionTraceData _data = new();
 
         private Guid _id;
         private bool _isOpen;
         private int _marks;
         private int _nextMark;
+        private int _samples;
+        private int _nextSample;
 
         // What a session that did not close left, or null. Read, not taken: the trace of the session that reports it replaces it.
         public TelemetryPreviousSession ReadPrevious()
@@ -50,10 +73,31 @@ namespace Global.Telemetry
             _isOpen = true;
             _marks = 0;
             _nextMark = 0;
+            _samples = 0;
+            _nextSample = 0;
             _data.id = id.ToString();
             _data.tags = ToArray(tags);
             _data.lastSample = -1;
             Write();
+        }
+
+        // The values of a sample by the slots of the names of the session, kept until the next write.
+        public void Took(long time, double[] values, bool isHidden)
+        {
+            if (_isOpen == false)
+                return;
+
+            _sampleTimes[_nextSample] = time;
+            _sampleHidden[_nextSample] = isHidden;
+
+            for (var i = 0; i < SampleNames.Length; i++)
+            {
+                var value = _names.TryFind(SampleNames[i], out var slot) ? values[slot] : double.NaN;
+                _sampleValues[_nextSample * SampleNames.Length + i] = double.IsFinite(value) && value >= 0d ? value : NoValue;
+            }
+
+            _nextSample = (_nextSample + 1) % MaxSamples;
+            _samples = Math.Min(_samples + 1, MaxSamples);
         }
 
         public void Sampled(long time)
@@ -111,8 +155,28 @@ namespace Global.Telemetry
                 _data.markDurations[i] = _markDurations[slot];
             }
 
+            WriteSamples();
             _data.writtenAt = _wallClock.NowMilliseconds;
             _store.Write(JsonUtility.ToJson(_data));
+        }
+
+        private void WriteSamples()
+        {
+            var first = _samples < MaxSamples ? 0 : _nextSample;
+
+            _data.sampleNames = SampleNames;
+            _data.sampleTimes = new long[_samples];
+            _data.sampleHidden = new bool[_samples];
+            _data.sampleValues = new double[_samples * SampleNames.Length];
+
+            for (var i = 0; i < _samples; i++)
+            {
+                var slot = (first + i) % MaxSamples;
+
+                _data.sampleTimes[i] = _sampleTimes[slot];
+                _data.sampleHidden[i] = _sampleHidden[slot];
+                Array.Copy(_sampleValues, slot * SampleNames.Length, _data.sampleValues, i * SampleNames.Length, SampleNames.Length);
+            }
         }
 
         // A text of another version or a broken one is no report: dropped with one line.
@@ -144,7 +208,36 @@ namespace Global.Telemetry
 
             var since = _wallClock.NowMilliseconds - data.writtenAt;
 
-            return new TelemetryPreviousSession(id, data.tags ?? Array.Empty<string>(), data.lastSample, since >= 0 ? since : -1, marks);
+            var (sampleNames, samples) = SamplesOf(data);
+
+            return new TelemetryPreviousSession(id, data.tags ?? Array.Empty<string>(), data.lastSample, since >= 0 ? since : -1, marks, sampleNames, samples);
+        }
+
+        // A trace written before the samples, or one with arrays that do not agree, has none.
+        private static (string[] Names, TelemetryBatchSample[] Samples) SamplesOf(TelemetrySessionTraceData data)
+        {
+            var names = data.sampleNames;
+            var count = data.sampleTimes?.Length ?? 0;
+
+            if (names == null || names.Length == 0 || count == 0 || data.sampleHidden?.Length != count || data.sampleValues?.Length != count * names.Length)
+                return (Array.Empty<string>(), Array.Empty<TelemetryBatchSample>());
+
+            var samples = new TelemetryBatchSample[count];
+
+            for (var i = 0; i < count; i++)
+            {
+                var values = new double[names.Length];
+
+                for (var j = 0; j < names.Length; j++)
+                {
+                    var value = data.sampleValues[i * names.Length + j];
+                    values[j] = value >= 0d ? value : double.NaN;
+                }
+
+                samples[i] = new TelemetryBatchSample(data.sampleTimes[i], values, data.sampleHidden[i]);
+            }
+
+            return (names, samples);
         }
 
         // A trace written before the marks had a detail has neither array.

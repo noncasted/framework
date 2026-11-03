@@ -24,8 +24,11 @@ namespace Global.Telemetry
 
         public void AddSample(long time, double[] values, int count, bool isHidden)
         {
-            if (_isOpen)
-                Samples.Add().Set(time, values, count, isHidden);
+            if (_isOpen == false)
+                return;
+
+            Samples.Add().Set(time, values, count, isHidden);
+            _trace.Took(time, values, isHidden);
         }
 
         public void AddMark(long time, string name, string detail = null, long? durationMs = null)

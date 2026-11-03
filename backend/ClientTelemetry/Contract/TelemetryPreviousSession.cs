@@ -8,4 +8,9 @@ public sealed record TelemetryPreviousSession(
     IReadOnlyList<string> Tags,
     long? LastSampleTime,
     long? SinceMs,
-    IReadOnlyList<TelemetryMark> Marks);
+    IReadOnlyList<TelemetryMark> Marks)
+{
+    // The last samples of the client, oldest first. A row written before them reads as an empty list. The ids of the parameters
+    // above are their positions.
+    [Id(5)] public IReadOnlyList<TelemetryPreviousSample> Samples { get; init; } = [];
+}

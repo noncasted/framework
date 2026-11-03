@@ -15,6 +15,16 @@ namespace Global.Telemetry
 
         // The browser stopped the tasks of a page in the background (Chromium) and started them again.
         Freeze = 5,
-        Resume = 6
+        Resume = 6,
+
+        FullscreenEnter = 7,
+        FullscreenExit = 8,
+
+        // The AudioContext of Unity changed its state. Interrupted: Safari took the audio away (a call, another tab).
+        AudioRunning = 9,
+        AudioSuspended = 10,
+        AudioInterrupted = 11,
+        AudioClosed = 12,
+        AudioOther = 13
     }
 }

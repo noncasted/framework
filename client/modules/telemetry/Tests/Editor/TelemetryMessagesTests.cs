@@ -178,7 +178,14 @@ namespace Global.Telemetry.Tests
         [Test]
         public void Start_ThePreviousSession_AfterMemoryPack()
         {
-            var previous = new TelemetryPreviousSession(_id, new[] { "menu" }, 31000, 4000, new[] { new TelemetryBatchMark(30000, "load.slow", "Group: MusicRunAudio", 5000), new TelemetryBatchMark(30500, "page.pagehide") });
+            var previous = new TelemetryPreviousSession(
+                _id,
+                new[] { "menu" },
+                31000,
+                4000,
+                new[] { new TelemetryBatchMark(30000, "load.slow", "Group: MusicRunAudio", 5000), new TelemetryBatchMark(30500, "page.pagehide") },
+                new[] { "frame.dt.max", "render.draw_calls" },
+                new[] { new TelemetryBatchSample(30000, new[] { 41.5, double.NaN }, true) });
             var message = TelemetryMessages.ToSessionStart(new TelemetrySessionStart(new string[0], new TelemetryDevice(), Guid.Empty, previous));
 
             var read = MemoryPackSerializer.Deserialize<SharedClientTelemetry.SessionStart>(MemoryPackSerializer.Serialize(message)).Previous;
@@ -195,6 +202,11 @@ namespace Global.Telemetry.Tests
             Assert.AreEqual(30500, read.Marks[1].Time);
             Assert.IsNull(read.Marks[1].Detail);
             Assert.IsNull(read.Marks[1].DurationMs);
+            CollectionAssert.AreEqual(new[] { "frame.dt.max", "render.draw_calls" }, read.SampleNames);
+            Assert.AreEqual(30000, read.Samples.Single().Time);
+            Assert.IsTrue(read.Samples.Single().Hidden);
+            Assert.AreEqual(41.5, read.Samples.Single().Values[0]);
+            Assert.IsTrue(double.IsNaN(read.Samples.Single().Values[1]));
         }
 
         [Test]

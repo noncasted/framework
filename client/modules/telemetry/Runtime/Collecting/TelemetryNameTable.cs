@@ -44,6 +44,12 @@ namespace Global.Telemetry
             return true;
         }
 
+        // A name the session already has, without taking a new one.
+        public bool TryFind(string name, out int index)
+        {
+            return _indices.TryGetValue(name, out index);
+        }
+
         // A new session: its names take the slots from the first one and are sent again.
         public void Clear()
         {

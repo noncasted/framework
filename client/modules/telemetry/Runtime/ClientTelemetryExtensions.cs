@@ -50,6 +50,9 @@ namespace Global.Telemetry
             builder.Register<PageLifecycleTelemetryCollector>()
                    .As<ITelemetryLiveCollector>();
 
+            builder.Register<PageResizeTelemetryCollector>()
+                   .As<ITelemetryLiveCollector>();
+
 #if UNITY_WEBGL && !UNITY_EDITOR
             builder.Register<TelemetryWebTraceStore>()
                    .As<ITelemetryTraceStore>();

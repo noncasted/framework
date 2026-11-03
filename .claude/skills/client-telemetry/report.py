@@ -12,10 +12,15 @@ EXPECTED = ("frame.fps frame.dt.avg frame.dt.p50 frame.dt.p95 frame.dt.max frame
             "frame.phase.early frame.phase.fixed frame.phase.pre frame.phase.update frame.phase.prelate frame.phase.postlate "
             "frame.fixed_steps frame.spikes frame.gpu.query gc.allocated render.width render.height render.pixels render.canvas_width "
             "render.canvas_height render.dpr settings.quality settings.vsync settings.target_fps settings.time_scale settings.msaa "
-            "web.raf.dt.avg web.raf.dt.max web.gl.version web.gl.max_texture_size web.gl.timer_query net.meta.rtt net.meta.bytes_in "
+            "web.raf.dt.avg web.raf.dt.max web.gl.version web.gl.max_texture_size web.gl.timer_query web.gl.shader_compiles web.gl.shader_compile_ms web.gl.program_links web.gl.program_link_ms web.gl.buffer_bytes "
+            "web.gl.buffer_data_calls web.gl.texture_bytes web.gl.texture_uploads web.gl.errors_ms net.meta.rtt net.meta.bytes_in "
             "net.meta.bytes_out").split()
 _SUMMED = ("frame.over33", "frame.over50", "gc.collections", "frame.spikes", "gc.allocated", "net.meta.bytes_in", "net.meta.bytes_out",
-           "web.gl.errors")
+           "web.gl.errors", "web.gl.shader_compiles", "web.gl.shader_compile_ms", "web.gl.program_links", "web.gl.program_link_ms",
+           "web.gl.buffer_bytes", "web.gl.buffer_data_calls", "web.gl.texture_bytes", "web.gl.texture_uploads")
+# The numbers of a kept sample of an unclosed session worth a look, in this order; the others are only counted.
+_PREVIOUS_SAMPLE_NAMES = ("frame.dt.max", "frame.cpu.main", "frame.phase.update", "frame.phase.postlate", "web.raf.dt.max", "render.draw_calls",
+                          "web.gl.shader_compile_ms")
 _STACK_LINES = 6
 
 
@@ -46,14 +51,34 @@ def warnings(digest):
 def unclosed_text(previous):
     last = previous.get("lastSampleTime")
     since = previous.get("sinceMs")
-    marks = " ".join(_previous_mark(mark) for mark in previous["marks"]) or "-"
+    marks = " ".join(mark_text(mark) for mark in previous["marks"]) or "-"
 
     return (f"tags={','.join(previous['tags']) or '-'} last_sample={'-' if last is None else f'{last / 1000:.1f}s'} "
             f"since={'-' if since is None else f'{since / 1000:.1f}s'} last_marks {marks}")
 
 
-# A mark of a load has the key of the load and its time so far: name[detail,duration]. A row written before them has neither.
-def _previous_mark(mark):
+# The last samples the client kept of that session, old first. An answer written before them has no key.
+def unclosed_sample_lines(previous):
+    samples = previous.get("samples") or []
+
+    if not samples:
+        return ["  previous_samples none"]
+
+    return [f"  previous_samples {len(samples)} (old first)"] + [_previous_sample(row) for row in samples]
+
+
+def _previous_sample(row):
+    values = row["values"]
+    shown = [f"{name}={number(values[name], '')}" for name in _PREVIOUS_SAMPLE_NAMES if name in values]
+    others = len(values) - len(shown)
+    parts = [f"{row['time'] / 1000:.1f}s", *(["hidden"] if row["hidden"] else []), *shown, *([f"+{others} other"] if others else [])]
+
+    return "  " + " ".join(parts)
+
+
+# A mark with a detail (the key of a load, the call of a slow shader, the sizes of a resize) and a duration: name[detail,duration].
+# A row written before them has neither.
+def mark_text(mark):
     extra = [part for part in (mark.get("detail"), None if mark.get("durationMs") is None else seconds(mark["durationMs"])) if part]
     text = f"{mark['time'] / 1000:.1f}s={mark['name']}"
 
@@ -155,7 +180,7 @@ def trend_lines(rows, units, windows):
     for name in sorted({name for row in visible for name in row["values"]}):
         table_rows.append([name, *(_window_cell(part, name, units.get(name, "")) for part in slices)])
 
-    return ["trend (over*, gc.collections: sum; *.max: max; bytes: last value; the rest: average)", *table(table_rows)]
+    return ["trend (over*, gc.collections, the per-sample counters: sum; *.max: max; bytes: last value; the rest: average)", *table(table_rows)]
 
 
 def group_rows(rows):

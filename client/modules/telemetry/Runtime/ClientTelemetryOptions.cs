@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Global.Telemetry
@@ -12,7 +13,9 @@ namespace Global.Telemetry
             int bufferedSamples = 300,
             bool enabledInEditor = false,
             double startupFrameBudgetMs = 2d,
-            float slowLoadSeconds = 5f)
+            float slowLoadSeconds = 5f,
+            double slowShaderMs = 50d,
+            IReadOnlyList<string> devProfilerMarkers = null)
         {
             if (sendIntervalSeconds <= 0f)
                 throw new ArgumentOutOfRangeException(nameof(sendIntervalSeconds), sendIntervalSeconds, "[Telemetry] Must be above zero");
@@ -29,12 +32,25 @@ namespace Global.Telemetry
             if (slowLoadSeconds < 0f)
                 throw new ArgumentOutOfRangeException(nameof(slowLoadSeconds), slowLoadSeconds, "[Telemetry] Must not be negative");
 
+            if (slowShaderMs < 0d)
+                throw new ArgumentOutOfRangeException(nameof(slowShaderMs), slowShaderMs, "[Telemetry] Must not be negative");
+
+            devProfilerMarkers ??= Array.Empty<string>();
+
+            foreach (var marker in devProfilerMarkers)
+            {
+                if (string.IsNullOrWhiteSpace(marker))
+                    throw new ArgumentException("[Telemetry] A marker of the profiler without a name", nameof(devProfilerMarkers));
+            }
+
             SendInterval = TimeSpan.FromSeconds(sendIntervalSeconds);
             SampleInterval = TimeSpan.FromSeconds(sampleIntervalSeconds);
             BufferedSamples = bufferedSamples;
             _enabledInEditor = enabledInEditor;
             StartupFrameBudgetMs = startupFrameBudgetMs;
             SlowLoadMs = slowLoadSeconds * 1000d;
+            SlowShaderMs = slowShaderMs;
+            DevProfilerMarkers = devProfilerMarkers;
         }
 
         private readonly bool _enabledInEditor;
@@ -50,6 +66,13 @@ namespace Global.Telemetry
 
         // A load of an asset that runs longer gets the mark load.slow, once, at the next sample.
         public double SlowLoadMs { get; }
+
+        // A single compilation or link of a shader of WebGL, or a query of its status, that runs longer: the mark webgl.shader.slow.
+        public double SlowShaderMs { get; }
+
+        // A development build only: the markers of the profiler timed per frame (dev.marker.<name>), by name: Unity's
+        // ("Shader.CreateGPUProgram", "Camera.Render") or the ProfilerMarker of the game. None by default.
+        public IReadOnlyList<string> DevProfilerMarkers { get; }
 
         // False: no session and no collecting in this run.
         public bool IsEnabled => Application.isEditor == false || _enabledInEditor;

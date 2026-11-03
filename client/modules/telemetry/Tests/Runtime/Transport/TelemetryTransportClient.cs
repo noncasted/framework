@@ -19,7 +19,7 @@ namespace Global.Telemetry.Tests.Transport
             var options = new ClientTelemetryOptions(sendIntervalSeconds, sampleIntervalSeconds, 300, true, double.MaxValue);
             var guard = new TelemetryNameGuard(strictNames);
             var names = new TelemetryNameTable(guard);
-            var trace = TelemetryMemoryTraceStore.Trace();
+            var trace = TelemetryMemoryTraceStore.Trace(names);
             var buffer = new TelemetryBuffer(options, trace);
             var writer = new TelemetryBatchWriter(names, buffer);
             var visibility = new TelemetryVisibility(Page);

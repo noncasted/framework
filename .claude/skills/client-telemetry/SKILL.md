@@ -127,6 +127,9 @@ not the web, or a client built before the page trace.
 | 4 | no such session | check the id with `sessions` |
 | 5 | no new session in the time of `monitor` | the checks below |
 
+A timeout (the TLS handshake too) or a broken connection is repeated by the script itself, 3 times after 1, 2, 2 s; code 1 for them comes only
+after that. An answer with a status (4xx, 5xx) is never repeated by the script.
+
 **No new sessions?** In this order: the flag of the client telemetry on the Features page of the console (off: no sessions at all);
 the game opens a session, the flag alone gives nothing; the client is built against this address; the filters of the command;
 with `--tag`, whether the game has reached the part that sets the tag and whether the value is its own (`sessions` shows the tags). Tell the user which of them you could not check.
@@ -160,6 +163,21 @@ Go in this order, each from the numbers:
    `frame.dt` - Unity does not keep up (with `settings.target_fps` set, Unity may skip browser frames on purpose). `settings.*` (quality
    index, `vsync`, `target_fps` -1 the default, `time_scale`, `msaa`) and `web.gl.*` (version, `max_texture_size`, `antialias`,
    `preserve_buffer`, `power_preference` 0 default 1 high-performance 2 low-power) are the configuration; compare sessions with them.
+   **GL work of a sample on WebGL** (counted per sample, summed in windows):
+   - shaders: `web.gl.shader_compiles` / `web.gl.shader_compile_ms` and `web.gl.program_links` / `web.gl.program_link_ms`, the number and
+     the total time of the calls. The ms include the first query of the status (`getShaderParameter`, `getProgramParameter`, `get*InfoLog`),
+     where Chromium / ANGLE puts off the real work. A burst in a run without a warm-up meets a freeze: hypothesis H1. The mark
+     `webgl.shader.slow[<call>,<ms>]` names the one call over 50 ms that blocked: `compile`, `compile status`, `link`, `link status`.
+     The page counts from its start: the first sample of the first session holds what Unity compiled while it loaded (most of its
+     shaders), the first sample of a later session what came between the sessions. Only the samples after it say what a scene compiles.
+   - uploads: `web.gl.buffer_bytes` (bytes of `bufferData` + `bufferSubData`), `web.gl.buffer_data_calls` (the `bufferData` calls, that is
+     reallocations of buffers): growing with the number of enemies is hypothesis H2.
+     `web.gl.texture_bytes` / `web.gl.texture_uploads`: `texImage*`, `texSubImage*`, `compressedTex*`, bytes by the size of the data.
+   - `web.gl.errors_ms` (averaged in windows): the time of the synchronous loop of `getError` of the telemetry, once a sample. Growing
+     together with `frame.phase.postlate` is hypothesis H3: the GPU is behind and the main thread waits for it.
+   **`dev.*`** exist only in a development build: counters `dev.*` and the profiler markers of the options `dev.marker.<name>` (avg) and
+   `dev.marker.<name>.max`, ms per frame. A release has none of them, and they are not in `not_reported`. A development build is slower:
+   never compare its numbers with a release.
 2. **Freezes.** `frame.over33`, `frame.over50` (frames over 33 and 50 ms, summed in windows) and `frame.dt.max` against `frame.dt.p50`.
    Rare high `max` with a calm p95 are single freezes; check the same window for `gc.collections`, `marks`, errors. Every frame of 250 ms
    or more is counted in `frame.spikes` and the first 64 of a session leave the marks `frame.spike` and `frame.spike.<phase>`: the longest
@@ -190,10 +208,18 @@ Go in this order, each from the numbers:
    then nothing is a page killed in the background; no page mark with a running game is a crash of the tab (WebContent on iOS, OOM).
    A mark with a detail or a duration reads `name[detail,duration]`: `load.start[Group: X]` or `load.slow[Group: X,5.00s]` last
    without its `load.end` is a page that died inside that load (point 8).
+   `previous_samples` under the line: the last samples (up to 5, old first) the client kept of that session, one line each: the time,
+   `hidden` for a background one, the main numbers present (`frame.dt.max`, `frame.cpu.main`, `frame.phase.update`, `frame.phase.postlate`,
+   `web.raf.dt.max`, `render.draw_calls`, `web.gl.shader_compile_ms`) and `+N other`. They show what the page did just before it died even
+   when the server never got these samples; `previous_samples none`: none kept, or a backend from before them.
    `since` is the time from the last record to the next start: seconds is a reload by the browser, hours is the next visit. The new
    session also has the mark `session.previous_unclosed` at its start. Another tab of the same game may report a session that is
    still alive: its `server_status` is `live` then.
    Marks of the page in any session: `page.hidden`/`page.visible` (the tab), `page.freeze`/`page.resume` (Chromium froze the tab), first 64.
+   Also `page.fullscreen.enter`/`exit`, `page.resize[css WxH buffer WxH]` (the CSS size and the drawing buffer, a burst of resizes is one
+   mark): a step of `render.pixels` or of the frame time right after one is the new size. `audio.context.<running|suspended|interrupted|closed|other>`:
+   the state of the audio of the page (`interrupted` on iOS: a call, another app); sound missing after `suspended` is held by the browser (autoplay, a
+   background tab) until a `running`.
    An iPad is `os=iPadOS` (its version is unknown, `-`, when it shows the user agent of a Mac); Telegram on iOS is `browser=Telegram WebView`.
 
 8. **Loads.** `loads` counts the loads of assets of the session (the catalogue groups `Group: <name>`, the scenes `Scene: <name>`, a

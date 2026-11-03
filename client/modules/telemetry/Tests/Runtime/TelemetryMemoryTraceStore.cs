@@ -5,9 +5,9 @@ namespace Global.Telemetry.Tests
     {
         private string _text;
 
-        public static TelemetrySessionTrace Trace()
+        public static TelemetrySessionTrace Trace(TelemetryNameTable names)
         {
-            return new TelemetrySessionTrace(new TelemetryMemoryTraceStore(), new TelemetryWallClock());
+            return new TelemetrySessionTrace(new TelemetryMemoryTraceStore(), new TelemetryWallClock(), names);
         }
 
         public string Read()

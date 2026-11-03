@@ -6,8 +6,8 @@ using UnityEngine.UI;
 namespace Internal
 {
     // Debug overlay of NetworkLatencyMonitor and the frame rate, toggled by N (F-keys are taken by the browser: F3 opens
-    // the page search) or a three finger tap on a phone. Built from code on its own canvas (UGUI + TMP with the default
-    // TMP font): no prefab. Not IMGUI: one OnGUI in the player keeps the IMGUI, TextCoreTextEngine and
+    // the page search) or a three finger tap on a phone. Built from code on its own canvas (UGUI + TMP with the font of the
+    // game from NetworkOptions): no prefab. Not IMGUI: one OnGUI in the player keeps the IMGUI, TextCoreTextEngine and
     // TextCoreFontEngine engine modules in a WebGL build.
     public class NetworkLatencyOverlay : MonoBehaviour
     {
@@ -25,7 +25,7 @@ namespace Internal
         private float _windowWorst;
         private string _frameRate = "FPS -";
 
-        public static void Create(IReadOnlyLifetime lifetime, INetworkLatencyMonitor monitor)
+        public static void Create(IReadOnlyLifetime lifetime, INetworkLatencyMonitor monitor, TMP_FontAsset font)
         {
             var gameObject = new GameObject(nameof(NetworkLatencyOverlay), typeof(RectTransform));
             DontDestroyOnLoad(gameObject);
@@ -36,13 +36,13 @@ namespace Internal
 
             var overlay = gameObject.AddComponent<NetworkLatencyOverlay>();
             overlay._monitor = monitor;
-            overlay.CreatePanel();
+            overlay.CreatePanel(font);
 
             lifetime.Listen(() => Destroy(gameObject));
         }
 
         // No GraphicRaycaster on the canvas and no raycast targets: the overlay never takes clicks or touches.
-        private void CreatePanel()
+        private void CreatePanel(TMP_FontAsset font)
         {
             var panel = new GameObject("Panel", typeof(RectTransform));
             var rect = (RectTransform)panel.transform;
@@ -70,9 +70,13 @@ namespace Internal
             var label = new GameObject("Label", typeof(RectTransform));
             label.transform.SetParent(rect, false);
 
-            // Awake of TextMeshProUGUI (run by AddComponent) takes TMP_Settings.defaultFontAsset and its default
-            // settings: the properties go after it.
+            // TextMeshProUGUI.Awake (run by AddComponent on an active object) loads the font: with none assigned yet it takes
+            // TMP_Settings.defaultFontAsset and warns when it is missing. On an inactive object Awake waits for the activation,
+            // so the font is assigned first; the other properties go after Awake, its LoadDefaultSettings would replace them.
+            label.SetActive(false);
             _label = label.AddComponent<TextMeshProUGUI>();
+            _label.font = font;
+            label.SetActive(true);
             _label.fontSize = FontSize;
             _label.color = Color.white;
             _label.alignment = TextAlignmentOptions.TopLeft;

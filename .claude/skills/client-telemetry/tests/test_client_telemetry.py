@@ -6,11 +6,14 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SKILL = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SKILL))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import api  # noqa: E402
+from common import AUTH, SERVICE, Failure  # noqa: E402
 from fake_backend import FakeBackend, previous_session, sample, session, startup_info, startup_span  # noqa: E402
 
 SCRIPT = SKILL / "telemetry"
@@ -256,6 +259,63 @@ class ExitCodeTests(Base):
 
         self.assertEqual(API, result.returncode)
         self.assertIn("JSON", result.stderr)
+
+
+# In the process: the pauses between the repeats are recorded, not slept.
+class RetryTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.pauses = []
+        self.api = api.Api(self.backend.url, TOKEN, self.env_file, pause=self.pauses.append)
+        self.backend.sessions = [session(OLD, status="ended")]
+
+    def test_a_broken_connection_is_repeated(self):
+        self.backend.drops = 1
+
+        self.assertEqual([OLD], [info["id"] for info in self.api.sessions()])
+        self.assertEqual(2, len(self.backend.requests))
+        self.assertEqual([1], self.pauses)
+
+    def test_a_timeout_is_repeated(self):
+        self.backend.stalls = 2
+        self.backend.stall_seconds = 0.5
+
+        with mock.patch.object(api, "_TIMEOUT_SECONDS", 0.1):
+            self.assertEqual(OLD, self.api.session(OLD)["id"])
+
+        self.assertEqual([1, 2], self.pauses)
+
+    def test_after_the_repeats_the_failure_is_the_old_one(self):
+        self.backend.drops = 10
+
+        with self.assertRaises(Failure) as raised:
+            self.api.sessions()
+
+        self.assertEqual(SERVICE, raised.exception.code)
+        self.assertIn("cannot reach", raised.exception.message)
+        self.assertEqual(4, len(self.backend.requests))
+        self.assertEqual([1, 2, 2], self.pauses)
+
+    def test_an_answer_with_a_status_is_not_repeated(self):
+        for status, code in ((400, SERVICE), (401, AUTH), (500, SERVICE), (503, SERVICE)):
+            self.backend.requests.clear()
+            self.backend.forced = (status, "", {})
+
+            with self.assertRaises(Failure) as raised:
+                self.api.sessions()
+
+            self.assertEqual(code, raised.exception.code, status)
+            self.assertEqual(1, len(self.backend.requests), status)
+
+        self.assertEqual([], self.pauses)
+
+    def test_a_refused_connection_is_not_repeated(self):
+        refused = api.Api("http://127.0.0.1:1", TOKEN, self.env_file, pause=self.pauses.append)
+
+        with self.assertRaises(Failure):
+            refused.sessions()
+
+        self.assertEqual([], self.pauses)
 
 
 class MonitorTests(Base):
@@ -659,6 +719,31 @@ class StartupTests(Base):
         self.assertIn("last_marks 3.0s=load.start[Group: MusicRunAudio] 8.0s=load.slow[Group: MusicRunAudio,5.00s] 9.0s=page.hidden", line)
         self.assertIn("loads started=1 ended=1 failed=0 slow=0 unfinished=0", result.stdout, "the loads of this session are printed next to it")
 
+    # The last samples the client kept of that session, old first: the main numbers of each, a value it had not is absent.
+    def test_the_samples_of_the_previous_session_are_lines_of_their_own(self):
+        samples = [(29000, False, {"frame.dt.max": 41.5, "frame.cpu.main": 12.25, "frame.phase.update": 3, "render.draw_calls": 140,
+                                   "memory.allocated": 1048576}),
+                   (30000, True, {"frame.dt.max": 950, "web.gl.shader_compile_ms": 800, "frame.phase.postlate": 21, "web.raf.dt.max": 1000})]
+        self.backend.sessions = [session(NEW, status="ended", previous=previous_session(OLD, samples=samples)), session(OLD, status="lost")]
+        out = self.run_cli("summary", NEW).stdout.splitlines()
+
+        index = next(index for index, line in enumerate(out) if line.startswith("previous_unclosed"))
+        self.assertEqual("  previous_samples 2 (old first)", out[index + 1])
+        self.assertEqual("  29.0s frame.dt.max=41.5 frame.cpu.main=12.2 frame.phase.update=3 render.draw_calls=140 +1 other", out[index + 2])
+        self.assertEqual("  30.0s hidden frame.dt.max=950 frame.phase.postlate=21 web.raf.dt.max=1000 web.gl.shader_compile_ms=800", out[index + 3])
+
+        old = self.run_cli("summary", OLD).stdout.splitlines()
+        index = next(index for index, line in enumerate(old) if line.startswith("unclosed_on_client"))
+        self.assertEqual("  previous_samples 2 (old first)", old[index + 1])
+
+    def test_no_samples_of_the_previous_session_say_so_also_in_an_old_answer(self):
+        for samples in ((), None):
+            self.backend.sessions = [session(NEW, status="ended", previous=previous_session(OLD, samples=samples)), session(OLD, status="lost")]
+            out = self.run_cli("summary", NEW).stdout.splitlines()
+
+            index = next(index for index, line in enumerate(out) if line.startswith("previous_unclosed"))
+            self.assertEqual("  previous_samples none", out[index + 1], samples)
+
     def test_summary_of_a_lost_session_finds_the_report_of_its_client(self):
         self.backend.sessions = [session(NEW, status="ended", previous=previous_session(OLD, since=None)), session(OLD, status="lost")]
         result = self.run_cli("summary", OLD)
@@ -697,8 +782,45 @@ class StartupTests(Base):
         self.backend.samples[OLD] = [sample(1, 0, {"frame.fps": 60})]
         line = next(line for line in self.run_cli("summary", OLD).stdout.splitlines() if line.startswith("not_reported"))
 
-        for name in ("web.gl.errors", "memory.texture_count"):
+        for name in ("web.gl.errors", "memory.texture_count", "web.gl.shader_compiles", "web.gl.shader_compile_ms", "web.gl.program_links",
+                     "web.gl.program_link_ms", "web.gl.buffer_bytes", "web.gl.buffer_data_calls", "web.gl.texture_bytes",
+                     "web.gl.texture_uploads", "web.gl.errors_ms"):
             self.assertIn(name, line)
+
+        self.assertNotIn("dev.", line, "the names of a development build only are not expected of every build")
+
+    # The counters of a sample add up in a window; the time of the loop of getError is a cost of each sample, averaged.
+    def test_the_gl_counters_are_summed_in_windows(self):
+        self.backend.sessions = [session(OLD, status="ended")]
+        self.backend.samples[OLD] = [sample(1, 0, {"web.gl.shader_compiles": 3, "web.gl.shader_compile_ms": 120, "web.gl.buffer_data_calls": 10,
+                                                   "web.gl.errors_ms": 2}),
+                                     sample(2, 1000, {"web.gl.shader_compiles": 5, "web.gl.shader_compile_ms": 300, "web.gl.buffer_data_calls": 30,
+                                                      "web.gl.errors_ms": 4})]
+        out = self.run_cli("summary", OLD, "--windows", "1").stdout
+
+        def trend(name):
+            return [line for line in out.splitlines() if line.startswith(f"{name} ")][-1].split()[1:]
+
+        self.assertEqual(["8"], trend("web.gl.shader_compiles"))
+        self.assertEqual(["420"], trend("web.gl.shader_compile_ms"))
+        self.assertEqual(["40"], trend("web.gl.buffer_data_calls"))
+        self.assertEqual(["3"], trend("web.gl.errors_ms"))
+
+    # The marks of the shaders, the page and the audio carry a detail and a duration; none of them is lost among the others.
+    def test_the_marks_show_their_detail_and_duration(self):
+        def mark(seq, time_ms, name, detail=None, duration=None):
+            return {"seq": seq, "time": time_ms, "name": name, "detail": detail, "durationMs": duration, "receivedAt": "2026-11-03T10:00:00Z"}
+
+        self.backend.sessions = [session(OLD, status="ended")]
+        self.backend.marks[OLD] = [mark(1, 1000, "webgl.shader.slow", "compile status", 180), mark(2, 1500, "page.fullscreen.enter"),
+                                   mark(3, 1600, "page.resize", "css 800x600 buffer 1600x1200"), mark(4, 2000, "audio.context.suspended"),
+                                   mark(5, 2500, "audio.context.running"), mark(6, 3000, "page.fullscreen.exit"),
+                                   mark(7, 3500, "webgl.shader.slow", "link", 75)]
+        line = next(line for line in self.run_cli("summary", OLD).stdout.splitlines() if line.startswith("marks "))
+
+        self.assertIn("1.0s=webgl.shader.slow[compile status,180ms] 1.5s=page.fullscreen.enter "
+                      "1.6s=page.resize[css 800x600 buffer 1600x1200] 2.0s=audio.context.suspended 2.5s=audio.context.running "
+                      "3.0s=page.fullscreen.exit 3.5s=webgl.shader.slow[link,75ms]", line)
 
 
 class PageTests(Base):

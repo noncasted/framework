@@ -1,6 +1,7 @@
 ﻿using System;
 using Cysharp.Threading.Tasks;
 using Shared;
+using TMPro;
 using UnityEngine;
 
 namespace Internal
@@ -19,8 +20,13 @@ namespace Internal
             INetworkConnection connection,
             INetworkSession session,
             IPeerMatch peerMatch,
-            ILatencyClock clock)
+            ILatencyClock clock,
+            NetworkOptions options)
         {
+            if (options.LatencyOverlayFont == null)
+                throw new InvalidOperationException("[Network] NetworkOptions has no latency overlay font: set it in the options asset");
+
+            _overlayFont = options.LatencyOverlayFont;
             _session = session;
             _clock = clock;
             _probes = new LatencyProbes(connection, clock);
@@ -37,6 +43,7 @@ namespace Internal
         private readonly LatencyProbes _probes;
         private readonly LatencyStats _stats;
         private readonly LatencyReport _report;
+        private readonly TMP_FontAsset _overlayFont;
 
         private float _probeTimer = ProbeInterval;
         private float _rateTimer;
@@ -67,7 +74,7 @@ namespace Internal
             // Probes go out once the backend knows this user: before the auth it has no session to answer from.
             await UniTask.WaitUntil(() => _session.Users.Local != null, cancellationToken: lifetime.Token);
 
-            NetworkLatencyOverlay.Create(lifetime, this);
+            NetworkLatencyOverlay.Create(lifetime, this, _overlayFont);
 
             while (lifetime.IsTerminated == false)
             {

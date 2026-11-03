@@ -11,5 +11,8 @@ namespace Global.Telemetry
 
         // Every event of the life of the page, on the main thread between the frames, a session or not.
         IEventSource<TelemetryPageEvent> Lifecycle { get; }
+
+        // The canvas of the game changed its size and kept the new one for a while: many resizes in a row come as one.
+        IEventSource<TelemetryCanvasSize> Resized { get; }
     }
 }
