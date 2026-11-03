@@ -33,5 +33,7 @@
 - Union: теги `NetworkContextTags.Telemetry*` (200-206).
 - Бэкенд: gateway `AddClientTelemetry()`, silo `AddClientTelemetrySessions()`, консоль `AddClientTelemetryReader()`, `MapClientTelemetryRead().RequireConsoleToken()`; команды meta-сокета над `telemetry.Of(session.Lifetime)`: `Start`, `Accept`, `End`, `AcceptStartup`.
 - Клиент: `AddSocketClientTelemetry(options)` и `AddStandardTelemetryCollectors()` в скоупе meta, `ITelemetrySocket` на соединении с meta. После авторизации сокета `SendStartupTrace()`, затем `StartSession(lifetime, tags)` на каждый участок игры (меню, забег).
+- Проекты: `ProjectReference` на `backend/ClientTelemetry` у gateway, консоли и `GameComposition` (без неё `StatesLookup` не создаст таблицы `state_client_telemetry_*`), список состояний в тесте генератора `StatesLookup`; `"com.noncasted.framework.telemetry"` в `manifest.json`.
+- `enableFrameTimingStats: 1` в `ProjectSettings.asset` и в каждом Build Profile: иначе нет `frame.cpu*`, `frame.gpu`.
 - Включить флаг на странице Features консоли: без него телеметрия не пишется.
 
