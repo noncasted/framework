@@ -2,6 +2,7 @@
 # Redirects are refused: urllib would carry the header to whatever host a redirect names.
 import http.client
 import json
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -12,6 +13,10 @@ from config import TOKEN_NAME
 _PREFIX = "/api/client-telemetry"
 _TIMEOUT_SECONDS = 20
 _PAGE = 1000
+# A single failure of the network (a timeout, the TLS handshake included, a connection the other side broke) is repeated after these
+# pauses; an answer with a status never is, it is the word of the backend.
+_RETRY_PAUSES = (1, 2, 2)
+_TRANSIENT = (TimeoutError, ConnectionResetError, ConnectionAbortedError, http.client.RemoteDisconnected)
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -20,8 +25,9 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class Api:
-    def __init__(self, url, token, env_file):
+    def __init__(self, url, token, env_file, pause=time.sleep):
         self._url = url
+        self._pause = pause
         self._token = token
         self._env_file = env_file
         # Plain http is only local (config), the proxies of the environment must not see the header.
@@ -84,21 +90,33 @@ class Api:
         given = {name: value for name, value in query.items() if value is not None}
         target = f"{self._url}{_PREFIX}{path}"
         full = f"{target}?{urllib.parse.urlencode(given, doseq=True)}" if given else target
-        request = urllib.request.Request(full)
-        request.add_unredirected_header("Authorization", f"Bearer {self._token}")
-
-        try:
-            with self._opener.open(request, timeout=_TIMEOUT_SECONDS + extra_timeout) as response:
-                body = response.read()
-        except urllib.error.HTTPError as error:
-            raise self._status_failure(error, target) from None
-        except (OSError, http.client.HTTPException) as error:
-            raise Failure(SERVICE, f"cannot reach {target}: {getattr(error, 'reason', error)}") from None
+        body = self._read(full, target, extra_timeout)
 
         try:
             return json.loads(body)
         except ValueError:
             raise Failure(SERVICE, f"the answer of {target} is not JSON: wrong url, or a proxy in the way?") from None
+
+    def _read(self, full, target, extra_timeout):
+        pauses = iter(_RETRY_PAUSES)
+
+        while True:
+            request = urllib.request.Request(full)
+            request.add_unredirected_header("Authorization", f"Bearer {self._token}")
+
+            try:
+                with self._opener.open(request, timeout=_TIMEOUT_SECONDS + extra_timeout) as response:
+                    return response.read()
+            except urllib.error.HTTPError as error:
+                with error:
+                    raise self._status_failure(error, target) from None
+            except (OSError, http.client.HTTPException) as error:
+                pause = next(pauses, None) if _is_transient(error) else None
+
+                if pause is None:
+                    raise Failure(SERVICE, f"cannot reach {target}: {getattr(error, 'reason', error)}") from None
+
+                self._pause(pause)
 
     def _status_failure(self, error, target):
         status = error.code
@@ -118,3 +136,10 @@ class Api:
         detail = error.read(300).decode("utf-8", "replace").strip()
 
         return Failure(SERVICE, f"{status} from {target}: {detail}")
+
+
+# urllib wraps what failed while connecting in a URLError; a failure while reading comes as it is.
+def _is_transient(error):
+    cause = error.reason if isinstance(error, urllib.error.URLError) else error
+
+    return isinstance(cause, _TRANSIENT)

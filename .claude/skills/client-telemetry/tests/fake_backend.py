@@ -28,9 +28,16 @@ def session(session_id, status="live", platform="webgl", os_name="Android", star
     }
 
 
-def previous_session(session_id, tags=("menu",), last_sample=31000, since=4000, marks=((30500, "webgl.error.out_of_memory"), (31200, "page.pagehide"))):
-    return {"sessionId": session_id, "tags": list(tags), "lastSampleTime": last_sample, "sinceMs": since,
-            "marks": [{"time": time_ms, "name": name} for time_ms, name in marks]}
+# samples=None leaves the key out, as an answer written before the samples of the previous session.
+def previous_session(session_id, tags=("menu",), last_sample=31000, since=4000, marks=((30500, "webgl.error.out_of_memory"), (31200, "page.pagehide")),
+                     samples=()):
+    previous = {"sessionId": session_id, "tags": list(tags), "lastSampleTime": last_sample, "sinceMs": since,
+                "marks": [{"time": time_ms, "name": name} for time_ms, name in marks]}
+
+    if samples is not None:
+        previous["samples"] = [{"time": time_ms, "hidden": hidden, "values": dict(values)} for time_ms, hidden, values in samples]
+
+    return previous
 
 
 def startup_info(startup_id, final=True, name="Boot", duration=54337.0, frames=3033, span_count=3, depth=2, unfinished=0):
@@ -78,6 +85,10 @@ class FakeBackend:
         self.requests = []
         self.authorizations = []
         self.forced = None
+        # The next requests closed without an answer, or answered only after a pause: a broken connection, a timeout of the client.
+        self.drops = 0
+        self.stalls = 0
+        self.stall_seconds = 0.0
         self.list_calls = 0
         self.on_list = None
         self.on_samples = None
@@ -186,6 +197,15 @@ class FakeBackend:
                 backend.requests.append(self.path)
                 backend.authorizations.append(authorization)
 
+                if backend.drops > 0:
+                    backend.drops -= 1
+                    self.close_connection = True
+                    return
+
+                if backend.stalls > 0:
+                    backend.stalls -= 1
+                    time.sleep(backend.stall_seconds)
+
                 if authorization != f"Bearer {backend.token}":
                     self._send(401, "", {})
                 else:
@@ -200,7 +220,12 @@ class FakeBackend:
 
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
-                self.wfile.write(data)
+
+                # A stalled answer finds the client gone: it timed out.
+                try:
+                    self.wfile.write(data)
+                except (BrokenPipeError, ConnectionResetError):
+                    self.close_connection = True
 
             def log_message(self, *arguments):
                 pass

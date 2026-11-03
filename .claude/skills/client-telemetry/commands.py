@@ -114,7 +114,7 @@ def print_report(api, info, windows, first=None):
     plain = [mark for mark in marks if not is_load(mark)]
 
     if plain:
-        print("marks " + " ".join(f"{mark['time'] / 1000:.1f}s={mark['name']}" for mark in plain))
+        print("marks " + " ".join(report.mark_text(mark) for mark in plain))
 
     print("\n".join(load_lines(marks)))
 
@@ -131,6 +131,7 @@ def print_unclosed(api, info):
     if previous:
         status = _server_status(api, previous["sessionId"])
         print(f"previous_unclosed {previous['sessionId']} server_status={status} {report.unclosed_text(previous)}")
+        print("\n".join(report.unclosed_sample_lines(previous)))
 
     if info["status"] == "live":
         return
@@ -142,6 +143,7 @@ def print_unclosed(api, info):
 
     for next_info in reports:
         print(f"unclosed_on_client next={next_info['id']} {report.unclosed_text(next_info['previous'])}")
+        print("\n".join(report.unclosed_sample_lines(next_info["previous"])))
 
 
 def _server_status(api, session_id):
