@@ -3,7 +3,7 @@ using Internal;
 namespace Global.Telemetry
 {
     // The events of the life of the page as marks of the open session: whether a page that died went away (pagehide), went
-    // into the cache or was frozen in the background, or died while it was shown. A mark also renews the trace of the session
+    // into the cache or was frozen in the background, or died while it was shown; its fullscreen and the state of the audio of Unity. A mark also renews the trace of the session
     // (TelemetrySessionTrace), so the next start knows the last events of a page that did not close it.
     public class PageLifecycleTelemetryCollector : ITelemetryLiveCollector
     {
@@ -48,6 +48,13 @@ namespace Global.Telemetry
                 TelemetryPageEvent.PageShowPersisted => "page.pageshow.persisted",
                 TelemetryPageEvent.Freeze => "page.freeze",
                 TelemetryPageEvent.Resume => "page.resume",
+                TelemetryPageEvent.FullscreenEnter => "page.fullscreen.enter",
+                TelemetryPageEvent.FullscreenExit => "page.fullscreen.exit",
+                TelemetryPageEvent.AudioRunning => "audio.context.running",
+                TelemetryPageEvent.AudioSuspended => "audio.context.suspended",
+                TelemetryPageEvent.AudioInterrupted => "audio.context.interrupted",
+                TelemetryPageEvent.AudioClosed => "audio.context.closed",
+                TelemetryPageEvent.AudioOther => "audio.context.other",
                 _ => throw new System.ArgumentOutOfRangeException(nameof(kind), kind, "[Telemetry] Unknown event of the page")
             };
         }

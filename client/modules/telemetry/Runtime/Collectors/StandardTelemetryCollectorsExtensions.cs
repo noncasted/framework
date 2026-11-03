@@ -69,6 +69,22 @@ namespace Global.Telemetry
             builder.Register<WebGlInfoTelemetryCollector>()
                    .As<ITelemetryCollector>()
                    .As<ITelemetryLiveCollector>();
+
+            builder.Register<TelemetryGlCalls>()
+                   .As<ITelemetryGlCalls>();
+
+            builder.Register<GlCallsTelemetryCollector>()
+                   .As<ITelemetryCollector>()
+                   .As<ITelemetryLiveCollector>();
+#endif
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            builder.Register<ProfilerTelemetryFrameSeriesSource>()
+                   .As<ITelemetryFrameSeriesSource>();
+
+            builder.Register<DevProfilerTelemetryCollector>()
+                   .As<ITelemetryCollector>()
+                   .As<ITelemetryLiveCollector>();
 #endif
 
             return builder;

@@ -65,6 +65,17 @@ namespace Global.Telemetry.Tests
         }
 
         [Test]
+        public void TheTimeOfTheTake_IsSampled()
+        {
+            var running = _fixture.Collection.Begin();
+
+            _errors.CostOfTheNextTake(3.5);
+            _fixture.Sampler.Sample();
+
+            CollectionAssert.AreEqual(new[] { 3.5 }, ValuesOf(_fixture.Collection.End(running), "web.gl.errors_ms"));
+        }
+
+        [Test]
         public void AnUnknownCode_IsOther()
         {
             var running = _fixture.Collection.Begin();

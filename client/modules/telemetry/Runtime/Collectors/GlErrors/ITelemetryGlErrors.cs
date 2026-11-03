@@ -5,5 +5,8 @@ namespace Global.Telemetry
     {
         // Up to the length of the array, the codes in the order the context gives them. The count taken.
         int Take(int[] into);
+
+        // How long the last take kept the main thread: each question waits for the context to finish what it was given.
+        double LastTakeMs { get; }
     }
 }

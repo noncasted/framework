@@ -7,9 +7,11 @@ namespace Global.Telemetry
     {
         private readonly EventSource _becameHidden = new();
         private readonly EventSource<TelemetryPageEvent> _lifecycle = new();
+        private readonly EventSource<TelemetryCanvasSize> _resized = new();
 
         public bool IsHidden => false;
         public IEventSource BecameHidden => _becameHidden;
         public IEventSource<TelemetryPageEvent> Lifecycle => _lifecycle;
+        public IEventSource<TelemetryCanvasSize> Resized => _resized;
     }
 }

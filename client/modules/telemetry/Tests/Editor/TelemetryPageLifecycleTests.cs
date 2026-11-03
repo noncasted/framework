@@ -36,6 +36,57 @@ namespace Global.Telemetry.Tests
         }
 
         [Test]
+        public void TheFullscreenAndTheAudioOfUnity_AreMarks()
+        {
+            var fixture = new TelemetryFixture(pageLifecycle: true);
+            var running = fixture.Collection.Begin();
+
+            fixture.Page.Fire(TelemetryPageEvent.FullscreenEnter);
+            fixture.Page.Fire(TelemetryPageEvent.AudioRunning);
+            fixture.Page.Fire(TelemetryPageEvent.FullscreenExit);
+            fixture.Page.Fire(TelemetryPageEvent.AudioSuspended);
+            fixture.Page.Fire(TelemetryPageEvent.AudioInterrupted);
+            fixture.Page.Fire(TelemetryPageEvent.AudioClosed);
+            fixture.Page.Fire(TelemetryPageEvent.AudioOther);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "page.fullscreen.enter", "audio.context.running", "page.fullscreen.exit", "audio.context.suspended",
+                    "audio.context.interrupted", "audio.context.closed", "audio.context.other"
+                },
+                MarksOf(fixture.Collection.End(running)));
+        }
+
+        [Test]
+        public void AResize_IsAMark_WithBothSizes()
+        {
+            var fixture = new TelemetryFixture(pageLifecycle: true);
+            var running = fixture.Collection.Begin();
+
+            fixture.Clock.Set(2500);
+            fixture.Page.Resize(new TelemetryCanvasSize(810, 1080, 1620, 2160));
+
+            var mark = fixture.Collection.End(running).SelectMany(batch => batch.Marks).Single();
+            Assert.AreEqual("page.resize", mark.Name);
+            Assert.AreEqual("css 810x1080 buffer 1620x2160", mark.Detail);
+            Assert.AreEqual(2500, mark.Time);
+            Assert.IsNull(mark.DurationMs);
+        }
+
+        [Test]
+        public void ManyResizes_OnlyTheFirstOnesOfASession()
+        {
+            var fixture = new TelemetryFixture(pageLifecycle: true);
+            var running = fixture.Collection.Begin();
+
+            for (var i = 0; i < PageResizeTelemetryCollector.MaxMarks + 5; i++)
+                fixture.Page.Resize(new TelemetryCanvasSize(i, i, i, i));
+
+            Assert.AreEqual(PageResizeTelemetryCollector.MaxMarks, MarksOf(fixture.Collection.End(running)).Count());
+        }
+
+        [Test]
         public void ManyEvents_OnlyTheFirstOnesOfASession()
         {
             var fixture = new TelemetryFixture(pageLifecycle: true);

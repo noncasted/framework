@@ -11,8 +11,13 @@ namespace Global.Telemetry
             return TelemetryGlErrorsTake(into, into.Length);
         }
 
+        public double LastTakeMs => TelemetryGlErrorsLastMs();
+
         [DllImport("__Internal")]
         private static extern int TelemetryGlErrorsTake(int[] into, int max);
+
+        [DllImport("__Internal")]
+        private static extern double TelemetryGlErrorsLastMs();
     }
 }
 #endif

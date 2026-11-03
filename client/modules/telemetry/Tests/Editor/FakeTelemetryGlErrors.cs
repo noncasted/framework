@@ -9,6 +9,12 @@ namespace Global.Telemetry.Tests
         private readonly List<int> _codes = new List<int>();
 
         public int LastMax { get; private set; }
+        public double LastTakeMs { get; private set; }
+
+        public void CostOfTheNextTake(double ms)
+        {
+            LastTakeMs = ms;
+        }
 
         public void Raise(params int[] codes)
         {

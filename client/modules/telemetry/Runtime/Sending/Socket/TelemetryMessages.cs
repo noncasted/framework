@@ -28,7 +28,9 @@ namespace Global.Telemetry
                 Tags = previous.Tags.ToArray(),
                 LastSampleTime = previous.LastSampleTime,
                 SinceMs = previous.SinceMs,
-                Marks = Map(previous.Marks, ToMark)
+                Marks = Map(previous.Marks, ToMark),
+                SampleNames = previous.SampleNames.ToArray(),
+                Samples = Map(previous.Samples, ToSample)
             };
         }
 

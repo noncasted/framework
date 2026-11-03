@@ -50,3 +50,18 @@
 `ClientOutdatedNoticeStyle`): без него `NetworkLatencyMonitor` бросает при сборке скоупа сессии. Предупреждение TMP «LiberationSans
 SDF Font Asset was not found» в каждой сессии уходит. Свой код, который создаёт `NetworkLatencyMonitor` напрямую (тесты), передаёт
 `NetworkOptions` последним аргументом.
+### Телеметрия: вызовы WebGL, страница, сэмплы следа сессии, development-сборка
+Кого касается: клиент и бэкенд игр с телеметрией (протокол: у `SharedClientTelemetry.PreviousSession` поля `SampleNames`, `Samples`),
+игры с собственными `ITelemetryPage`, `ITelemetryGlErrors` (подделки в тестах), игры, которые сами создают `TelemetrySessionTrace`.
+Поиск: `git grep -nE ': ITelemetryPage|: ITelemetryGlErrors|new TelemetrySessionTrace\(|new TelemetryPreviousSession\(' -- '*.cs'`
+Сделать:
+- BREAKING (протокол): клиент и бэкенд выкладываются вместе, хеш протокола игры меняется при пересборке.
+- Подделка `ITelemetryPage`: `public IEventSource<TelemetryCanvasSize> Resized => _resized;` (`EventSource<TelemetryCanvasSize>`);
+  подделка `ITelemetryGlErrors`: `public double LastTakeMs => 0d;`. `TelemetrySessionTrace` принимает третьим аргументом
+  `TelemetryNameTable`, `TelemetryPreviousSession` - ещё `sampleNames` и `samples`.
+- Приходят сами (WebGL): `web.gl.shader_compiles`, `web.gl.shader_compile_ms`, `web.gl.program_links`, `web.gl.program_link_ms`,
+  `web.gl.buffer_bytes`, `web.gl.buffer_data_calls`, `web.gl.texture_bytes`, `web.gl.texture_uploads`, `web.gl.errors_ms`, метки
+  `webgl.shader.slow` (порог `new ClientTelemetryOptions(slowShaderMs: 50d)`), `page.fullscreen.enter` / `exit`, `page.resize`,
+  `audio.context.<состояние>`; в `SessionStart.Previous` - последние 5 сэмплов с главными числами кадра.
+- По желанию, для development-сборки: `new ClientTelemetryOptions(devProfilerMarkers: new[] { "Shader.CreateGPUProgram",
+  "Camera.Render", "<свой ProfilerMarker>" })` - время маркеров `dev.marker.*` и счётчики `dev.*`; в релизе их нет.

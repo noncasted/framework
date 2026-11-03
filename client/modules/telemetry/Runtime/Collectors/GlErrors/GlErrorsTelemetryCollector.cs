@@ -5,7 +5,8 @@ namespace Global.Telemetry
 {
     // The errors of WebGL in a release build, where nobody else asks: web.gl.errors is the number of the codes taken in the sample,
     // the first ones of a session leave a mark by the code, and every code is an error of the session (the groups count the repeats).
-    // OUT_OF_MEMORY is the one a page that loses its textures or its text is expected to show. Registered after TelemetryErrorPump.
+    // OUT_OF_MEMORY is the one a page that loses its textures or its text is expected to show. web.gl.errors_ms: how long the
+    // synchronous loop of the take kept the main thread, high when the GPU is behind. Registered after TelemetryErrorPump.
     public class GlErrorsTelemetryCollector : ITelemetryCollector, ITelemetryLiveCollector
     {
         public GlErrorsTelemetryCollector(ITelemetryGlErrors errors, TelemetryBuffer buffer, ITelemetryClock clock, TelemetryErrorQueue queue)
@@ -20,6 +21,7 @@ namespace Global.Telemetry
         public const int MaxMarks = 16;
 
         private const string Metric = "web.gl.errors";
+        private const string TimeMetric = "web.gl.errors_ms";
 
         private readonly ITelemetryGlErrors _errors;
         private readonly TelemetryBuffer _buffer;
@@ -38,6 +40,7 @@ namespace Global.Telemetry
             var count = _errors.Take(_codes);
 
             sample.Gauge(Metric, count, TelemetryUnits.Count);
+            sample.Gauge(TimeMetric, _errors.LastTakeMs, TelemetryUnits.Milliseconds);
 
             for (var i = 0; i < count; i++)
                 Report(_codes[i]);

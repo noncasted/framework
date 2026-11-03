@@ -158,6 +158,54 @@ namespace Global.Telemetry.Tests
             Assert.IsNull(marks[3].DurationMs);
         }
 
+        // What the frames did right before the page died: the main numbers of the last samples, by the names of the trace.
+        [Test]
+        public void TheSamples_AreTheLastOnes_WithTheMainNumbersOnly()
+        {
+            var dead = new TelemetryFixture();
+            dead.Telemetry.StartSession(new Lifetime());
+
+            for (var i = 0; i < TelemetrySessionTrace.MaxSamples + 2; i++)
+            {
+                var value = 10d + i;
+                dead.Collector.Script(sample =>
+                {
+                    sample.Gauge("other.metric", 1d);
+                    sample.Gauge("frame.dt.max", value, TelemetryUnits.Milliseconds);
+                    sample.Gauge("render.draw_calls", 140d, TelemetryUnits.Count);
+                });
+                dead.Clock.Set(1000 * (i + 1));
+                dead.Collection.Sample();
+            }
+
+            dead.Page.Hide();
+            dead.Collector.Script(sample => sample.Gauge("frame.dt.max", 950d, TelemetryUnits.Milliseconds));
+            dead.Clock.Set(20000);
+            dead.Collection.Sample();
+
+            var next = new TelemetryFixture(traceStore: dead.TraceStore);
+            next.Telemetry.StartSession(new Lifetime());
+
+            var previous = PreviousOf(next, 0);
+            CollectionAssert.AreEqual(TelemetrySessionTrace.SampleNames, previous.SampleNames);
+            CollectionAssert.DoesNotContain(previous.SampleNames, "other.metric");
+            Assert.AreEqual(TelemetrySessionTrace.MaxSamples, previous.Samples.Count);
+
+            var dtMax = previous.SampleNames.ToList().IndexOf("frame.dt.max");
+            var drawCalls = previous.SampleNames.ToList().IndexOf("render.draw_calls");
+            var last = previous.Samples[previous.Samples.Count - 1];
+            var beforeLast = previous.Samples[previous.Samples.Count - 2];
+
+            Assert.AreEqual(20000, last.Time);
+            Assert.IsTrue(last.IsHidden);
+            Assert.AreEqual(950d, last.Values[dtMax]);
+            Assert.IsTrue(double.IsNaN(last.Values[drawCalls]), "no value in that sample");
+            Assert.AreEqual(10d + TelemetrySessionTrace.MaxSamples + 1, beforeLast.Values[dtMax]);
+            Assert.AreEqual(140d, beforeLast.Values[drawCalls]);
+            Assert.IsFalse(beforeLast.IsHidden);
+            Assert.AreEqual(previous.Samples.Select(sample => sample.Time).OrderBy(time => time), previous.Samples.Select(sample => sample.Time));
+        }
+
         // A trace written before the marks had a detail reads as marks without one.
         [Test]
         public void ATraceWithoutDetails_ReadsAsMarksWithoutThem()
@@ -168,7 +216,11 @@ namespace Global.Telemetry.Tests
 
             fixture.Telemetry.StartSession(new Lifetime());
 
-            var mark = PreviousOf(fixture, 0).Marks.Single();
+            var previous = PreviousOf(fixture, 0);
+            Assert.IsEmpty(previous.SampleNames);
+            Assert.IsEmpty(previous.Samples);
+
+            var mark = previous.Marks.Single();
             Assert.AreEqual("page.hidden", mark.Name);
             Assert.IsNull(mark.Detail);
             Assert.IsNull(mark.DurationMs);
