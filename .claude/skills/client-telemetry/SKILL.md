@@ -135,7 +135,9 @@ Go in this order, each from the numbers:
    then the limit cannot be determined, write that. Do not infer it from the fps. `render.*` tell the load, not the limit.
    Where the timings are missing or disagree, split the frame (14 metrics, all platforms): `frame.phase.<early|fixed|pre|update|prelate|postlate>`
    (ms per frame, `.max` the worst frame of the sample) are the top systems of the player loop timed by Stopwatch, in a release WebGL too;
-   their sum is close to `frame.cpu.main`. `update` and `prelate` are the scripts of the game (UniTask continuations included), `fixed`
+   their sum is close to `frame.cpu.main` (in a browser each is rounded to the step of `performance.now`, 0.1 ms without cross-origin
+   isolation: read the means, not a `.max` under 0.1). A long frame is in the `.max` of its phase in one sample, its `frame.dt.max`,
+   `frame.over*` and `frame.fixed_steps.max` may be in the next: they are measured one frame later. `update` and `prelate` are the scripts of the game (UniTask continuations included), `fixed`
    physics and `FixedUpdate` with `frame.fixed_steps` steps per frame (above 1 with a long frame: the steps feed the lag), `postlate` the
    rendering on the main thread (WebGL issues the GL calls there, so a GPU that blocks shows here). `frame.dt` well above the sum of the
    phases: the time is outside the player loop (the browser, the compositor, a GPU that holds the next frame).
