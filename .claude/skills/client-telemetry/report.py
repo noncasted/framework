@@ -5,7 +5,7 @@ from datetime import datetime
 EXPECTED = ("frame.fps frame.dt.avg frame.dt.p50 frame.dt.p95 frame.dt.max frame.over33 frame.over50 frame.cpu frame.cpu.main "
             "frame.gpu memory.allocated memory.reserved memory.mono.used memory.mono.heap memory.textures gc.collections "
             "render.draw_calls render.setpass render.triangles render.vertices render.textures render.render_textures "
-            "web.wasm.heap web.js.used web.js.total web.js.limit").split()
+            "web.wasm.heap web.js.used web.js.total web.js.limit web.gl.context_lost").split()
 _SUMMED = ("frame.over33", "frame.over50", "gc.collections")
 _STACK_LINES = 6
 

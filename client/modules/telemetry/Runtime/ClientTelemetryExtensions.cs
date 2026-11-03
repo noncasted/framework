@@ -56,6 +56,15 @@ namespace Global.Telemetry
 
             builder.AddTelemetryErrorCatching();
 
+#if UNITY_WEBGL && !UNITY_EDITOR
+            builder.Register<TelemetryGlContext>()
+                   .As<ITelemetryGlContext>();
+
+            builder.Register<GlContextTelemetryCollector>()
+                   .As<ITelemetryCollector>()
+                   .As<ITelemetryLiveCollector>();
+#endif
+
             builder.Register<TelemetryCollection>();
             builder.Register<TelemetryRequestGate>();
 

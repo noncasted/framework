@@ -142,6 +142,10 @@ Go in this order, each from the numbers:
    inference, name it so. If the load grew too, it is the load, not the heat.
 5. **Errors.** Groups by `fingerprint`: count, rows, `first` and `last` (seconds since the start, on the scale of `t_s`), whether they meet a drop in the trend. The stack: `errors <id>`.
    `omitted_*` above 0: not all kinds are listed.
+6. **A black screen with a live client.** See `web.gl.context_lost` and the marks `webgl.context_lost` / `webgl.context_restored`, with the error
+   `WebGL context lost`. Unity (checked on 7000.0.0a10 in Chromium) stops its whole player loop while the context is lost, so a loss without a restore reaches the
+   server as nothing at all: the samples stop and the session closes as `lost`. The marks and the error arrive only after a restore, which the game does not ask for. Samples that
+   go on over the black screen with the metric at 0: the engine does not see a lost context, look elsewhere (a hung GPU process is not excluded). A loss outside a session comes at the time 0 of the next one.
 
 ## The final report
 

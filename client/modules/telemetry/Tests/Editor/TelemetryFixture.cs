@@ -18,7 +18,8 @@ namespace Global.Telemetry.Tests
             IReadOnlyList<ITelemetryCollector> collectors = null,
             IReadOnlyList<ITelemetryLiveCollector> liveCollectors = null,
             bool catchErrors = false,
-            ITelemetryTransport transport = null)
+            ITelemetryTransport transport = null,
+            ITelemetryGlContext glContext = null)
         {
             Options = new ClientTelemetryOptions(
                 sendIntervalSeconds,
@@ -31,9 +32,15 @@ namespace Global.Telemetry.Tests
             Buffer = new TelemetryBuffer(Options);
             Writer = new TelemetryBatchWriter(Names, Buffer);
             Visibility = new TelemetryVisibility(Page);
-            Sampler = new TelemetrySampler(collectors ?? new ITelemetryCollector[] { Collector }, Names, Buffer, Clock, Visibility);
             Errors = new TelemetryErrors(Buffer, Clock);
             ErrorQueue = new TelemetryErrorQueue();
+
+            var glCollector = glContext == null ? null : new GlContextTelemetryCollector(glContext, Buffer, Clock, ErrorQueue);
+
+            if (glCollector != null)
+                collectors = new ITelemetryCollector[] { Collector, glCollector };
+
+            Sampler = new TelemetrySampler(collectors ?? new ITelemetryCollector[] { Collector }, Names, Buffer, Clock, Visibility);
 
             if (catchErrors)
             {
@@ -47,6 +54,10 @@ namespace Global.Telemetry.Tests
                         Options)
                 };
             }
+
+            // As in AddClientTelemetry: after the pump, which opens the queue of the errors for the session.
+            if (glCollector != null)
+                liveCollectors = (liveCollectors ?? Array.Empty<ITelemetryLiveCollector>()).Append(glCollector).ToArray();
 
             Collection = new TelemetryCollection(
                 Buffer,
