@@ -19,6 +19,9 @@ namespace Global.Inputs
 
         private static readonly GamepadButton[] AllButtons = (GamepadButton[])Enum.GetValues(typeof(GamepadButton));
 
+        // Built once: a name concatenated per read took 8 strings a frame (about 400 B).
+        private static readonly string[] RawAxisNames = BuildRawAxisNames();
+
         private readonly InputOptions _options;
         private readonly GamepadLayout _layout;
 
@@ -38,7 +41,17 @@ namespace Global.Inputs
         // all joysticks. ProjectSettings/InputManager.asset holds an axis of each name.
         public static string GetRawAxisName(int axis)
         {
-            return "Gamepad Axis " + axis;
+            return RawAxisNames[axis - 1];
+        }
+
+        private static string[] BuildRawAxisNames()
+        {
+            var names = new string[RawAxisCount];
+
+            for (var axis = 1; axis <= RawAxisCount; axis++)
+                names[axis - 1] = "Gamepad Axis " + axis;
+
+            return names;
         }
 
         // Without them every read throws, each frame, also for a player without a gamepad.

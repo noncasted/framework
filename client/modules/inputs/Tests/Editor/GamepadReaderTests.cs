@@ -25,6 +25,21 @@ namespace Global.Inputs.Tests
             UnityEngine.Object.DestroyImmediate(_options);
         }
 
+        // The names of the axes are read for every axis each frame: built once, a read allocates nothing.
+        [Test]
+        public void GetRawAxisName_AllocatesNothing()
+        {
+            Assert.AreEqual("Gamepad Axis 1", GamepadReader.GetRawAxisName(1));
+            Assert.AreEqual("Gamepad Axis 10", GamepadReader.GetRawAxisName(GamepadReader.RawAxisCount));
+
+            var before = System.GC.GetAllocatedBytesForCurrentThread();
+
+            for (var axis = 1; axis <= GamepadReader.RawAxisCount; axis++)
+                GamepadReader.GetRawAxisName(axis);
+
+            Assert.AreEqual(0, System.GC.GetAllocatedBytesForCurrentThread() - before);
+        }
+
         // Without the axes in ProjectSettings/InputManager.asset every read throws ArgumentException, each frame.
         [Test]
         public void Construct_AxesOfTheProject_MissingOnesNamedAtOnce()
