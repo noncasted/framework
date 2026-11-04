@@ -36,6 +36,36 @@ updated: 2026-11-03
 | 11b деплой и телефон | 11a, решение пользователя | 16 | ORCH-client_telemetry-11b-g1 | 1 | done | — |
 | 12 документация, релиз | 11a | 17 | ORCH-client_telemetry-12-g1 | 1 | done | — |
 
+| 18 | 17 | 18 | ORCH-client_telemetry-18-g1 / a1734102078603bd8 | 1 | done d5ad9586 | — |
+| 19 | 18 | 19 | ORCH-client_telemetry-19-g1 / a4b881f8f74c96bcb | 1 | done 97c482cc | — |
+| 20 | 19 | 20 | ORCH-client_telemetry-20-g1 / abbfec80cb038f5d1 | 1 | done b9a7ebda | — |
+| 21 | 20 | 21 | ORCH-client_telemetry-21-g1 / a5b9508e89e3232b3 | 1 | done d0794b4d | — |
+| 22 | 21 | 22 | ORCH-client_telemetry-22-g1 / a6780647915048a62 | 1 | done 660bcd02 | — |
+| 23 | 18 | 23 | ORCH-client_telemetry-23-g1 / ab849b07328136d26 | 1 | done f65cd918, deployed | — |
+| 24 | 22 | 24 | ORCH-client_telemetry-24-g1 / a54024fb9b67b6cbf | 1 | done 302fa3e1, deployed | — |
+| 25 | 19 | 24 | ORCH-client_telemetry-25-g2 / af225d184e26af047 | 2 | done c8eab753, 9cb4886e, 8c6b0161, deployed | handoff/25_g1.md |
+| 26 | 24 | 24 | ORCH-client_telemetry-24-g1 (тот же агент) | 1 | done 5263aeba, deployed | — |
+| 27 | 24 | 25 | ORCH-client_telemetry-27-g1 / af8b1a23d78e3faad | 1 | done 36344436 (не задеплоен) | — |
+| 28 | 25 | 26 | ORCH-client_telemetry-28-g1 / a4397a360d8b6fda6 | 1 | done 53d34f1e, b46f6674, bd185f79, 56c1c94e (не задеплоен) | — |
+| 29 | 25 | 26 | ORCH-client_telemetry-29-g1 / aa1c4963b43ab6c2d | 1 | done 58784946, 97409ac0, 8a19dd79 (не задеплоен) | — |
+| 30 | 29 | 27 | ORCH-client_telemetry-30-g1 / abad3e3186dd61ab2 | 1 | done (framework ea2debce, игра edf0f733) | — |
+| 31 | 30 | 28 | ORCH-client_telemetry-31-g1 / a894321ac4c891e22 | 1 | done (c95939ae: канвасы Screen Space - Camera, UICamera) | — |
+| 32 | 31 | 29 | ORCH-client_telemetry-32-g1 / a928e3c9d2f0b657b | 1 | done (сабмодуль screen-canvas-camera 6c384eda, f38e9819; diff игры tmp/step32_game.diff, не закоммичен) | — |
+| 33 | 31 | 29 | ORCH-client_telemetry-33-g1 / a46c911e2a2fa6692 | 1 | done (звук: audioSession не playback - гипотеза; экраны забега видны) | — |
+| 34 | 33 | 30 | ORCH-client_telemetry-34-g1 / a099ea72673e579c2 | 1 | done (GPU: ImmCB_0 таблица Bayer ~9 мс, occlusion ~2, outline ~1) | — |
+| 35 | 32 | 31 | ORCH-client_telemetry-35-g1 / abd2f4dc095ed1bb3 | 1 | done (186674d5, e8213524, 10ca0bf3) | — |
+| 36 | 34 | 32 | ORCH-client_telemetry-36-g1 / a7eda116ced66ca7a | 1 | done (e8a88090; framework 222cdc3f) | — |
+| 37 | 36 | 33 | ORCH-client_telemetry-37-g1 / a63c9632cff766989 | 1 | done (исследование, без правок; стенд /tmp/claude-1000/s37) | — |
+| 38 | 36 | 33 | ORCH-client_telemetry-38-g1 / a9328e642225093f4 | 1 | done (de41cbce; framework 5be98f13) | — |
+| 39 | 37 | 34 | ORCH-client_telemetry-39-g1 / aa11564dca9f65d5c | 1 | done (03b14144) | — |
+| 40 | 37 | 34 | ORCH-client_telemetry-40-g1 / a6db2562a1cf2f87e | 1 | done (7c7ea5c8 в worktree, не выложен) | — |
+| 41 | 37 | 34 | ORCH-client_telemetry-41-g1 / a2b7a2a970ca6e740 | 1 | done (gl-diag b201c829, 7fdf2e8a; не смержен) | — |
+| 42 | 40 | 35 | ORCH-client_telemetry-42-g1 / a89ff0df29ae196e7 | 1 | done (de6bf4e8) | — |
+| 43 | 42 | 34 | ORCH-client_telemetry-43-g1 / a232d7a61d87fa544 | 1 | done (исследование, handoff/43_g1.md; копия /var/tmp/ps-prof43 с рычагом ?bodies) | — |
+| 44 | 43 | 35 | ORCH-client_telemetry-44-g1 / a0cf4307c3934c910 | 1 | done (fe76b453 в worktree, не выложен) | — |
+| 45 | 43 | 35 | ORCH-client_telemetry-45-g1 / a389418b247f7486f | 1 | done (framework 0280e2dd, push main; в игре ещё не) | — |
+| 46 | 45 | 36 | ORCH-client_telemetry-46-g2 / a06552d2d41799e0a | 2 | in_progress (стресс-тесты: WebStress, локация, window.stress, тег stress, скилл stress-test; копия /var/tmp/ps-stress) | handoff/46_g1.md |
+
 ## Ресурсы
 
 - Рабочее дерево: `/projects/framework/.claude/worktrees/client_telemetry`, ветка `client-telemetry`, Unity в batchmode там же. Общее дерево `/projects/framework` не трогаем.
@@ -261,3 +291,279 @@ web `20261103-061825-9c3d8b95`, откат `20261103-050316-8b52f07f`; telegram 
 - Причина: `nointerpolation` у `status`/`state`. ANGLE на Metal эмулирует провоцирующую вершину переписыванием индексов каждой отрисовки.
 - Правка в worktree игры (не закоммичена): `client/Assets/Common/Rendering/Sprite.shader`, `nointerpolation` убран, `outlineGroup = round(input.state.z)`. Сборка `builds/local-autorun-fix` (страницы `/autorun-fix-probe/`, `/autorun-fix/`): 2 прогона по 150 с с probe и 270 с без probe (уровень 17), 0 остановок в забеге. Контроль на старой сборке: остановки с 20-й секунды забега.
 - Временный драйвер `TmpLocalWebGlBuild.cs` и патч `WebBootConfigStep` после сборки удалены и откачены.
+
+### 2026-11-03 15:35 — деплой e3acef1b, база iPhone, старт шагов 18-22
+- Фреймворк main `21cbeaf0` (доки WEBGL_IOS.md, merge client-telemetry). Игра main `e3acef1b` (шейдер без flat, откат 7e696f26, баланс 2 другой сессии, submodule). Тесты: backend 567, EditMode 925 (50 skip). web `20261103-151826-e3acef1b`, telegram `20261103-152149-e3acef1b`, мета на протоколе `1b8ac62a9790766c`.
+- База: `handoff/baseline_iphone11.md`. Шаги 18-22 последовательны (один worktree, один Unity batchmode, один iPhone).
+### 2026-11-03 16:15 — шаг 18 готов
+- `d5ad9586`: искры одним мешем (`SparkMesh`), свет искр точками в instanced-батчах (`LightPoints`), +3 теста (EditMode 928/878/50 skip). iPhone: 0 остановок, время кадра в пределах разброса базы (±5 мс в поздних окнах), пик GL draws ниже на 30-50.
+- Локальные сборки НЕ шлют телеметрию: прод-мета отвечает 403 на Origin `http://192.168.0.109:8770`. Замер шагов — по `[Latency] Frame` из remote-log и `drawcount.js` (стенд, `bench18/windows.py`); точное сравнение по телеметрии — на проде после деплоя против базы `fe34c2cb`.
+- Открыто: видимость искр глазами (смотреть на проде), сортировка искр -1 (под телами) — сознательное изменение.
+### 2026-11-03 17:10 — шаг 19 готов
+- `97c482cc`: `PixelParticleBudget` (options, 1500/2500, живые доживают), отсечение по кадру +3 ед., `PixelQuads` (массивы, индексы при росте), `PixelParticles` разбит на 3 файла; +12 тестов (EditMode 940/890/50 skip), backend 567.
+- Замер iPhone сорван: после 16:09 телефон в фазах 115-120 мс/кадр, контроль step18 так же — состояние устройства (возможно, после двух падений промежуточных сборок). Частицы по временному логу: update 0.05-3 мс, пик живых 2424.
+- `Mesh.SetVertexBufferParams/SetVertexBufferData` даёт «memory access out of bounds» в WebGL-плеере (Safari и Chromium) — откачено на SetVertices/SetColors/SetUVs/SetIndices.
+### 2026-11-03 17:25 — шаг 20 готов: `b9a7ebda` OptimizeSpeed (3 файла), wasm.br +391 КБ (+11%), сборка 281 с; тесты зелёные; iPhone стартует (22.0 с до забега против 19.0 у step19, один прогон), скорость не сравнить (медленные фазы телефона).
+### 2026-11-03 18:15 — шаг 21 готов: `d0794b4d` прогрев (PipelineShaders на пайплайне, RunShaders в бандлах забега — вариант греет только свой экземпляр шейдера); iPhone и Chromium: 8 → 0 линковок после старта; открыто: 6 лишних проходов Light (−0.5 с), Metal PSO не покрыт (смотреть program_link_ms/frame.spike на проде), SLOW createBuffer ~250 мс с 90 с забега, дубли шейдеров плеер/бандлы.
+### 2026-11-03 18:45 — шаг 22 готов, деплой 660bcd02, замер на проде: ОТКРЫТЫЙ ВОПРОС
+- `660bcd02` DPR (см. _info). Деплой клиентов: web `20261103-182746-660bcd02`, telegram `20261103-183647-660bcd02`; протокол тот же `1b8ac62a9790766c`, бэкенд/shared не менялись; main игры `660bcd02` запушен.
+- iPhone 11 прод, сессия `9a238952-4b73-4f2c-97fa-3a60616d16d0` (после) против `fe34c2cb` (база), окна по ~50 с:
+  - draw calls 145 → 66 в конце; particles.update 4.1 → 0.4 мс; частиц 971 → 287; линковок в забеге 0 (как и раньше по телеметрии).
+  - НО FPS по окнам 54 / 25 / 16 / 49 / 9 / 30 против базы 48 / 46 / 39 / 30 / 22 / 26: в окнах 2,3,5 postlate 50-80 мс (база 9-20). Те же «медленные фазы», что на телефоне с 16:09 во всех локальных сборках (шаги 19-22, и контроль step18).
+- Не решено: состояние телефона (нагрев/залипание после падений сборок 16:09-16:15) или регрессия одного из шагов 18-22. step18-base и step18 в 15:35-15:54 были без фаз.
+- Следующий шаг: контроль `bench/run-iphone.sh http://192.168.0.109:8770/step18-base/ 330` + `bench18/windows.py /tmp/claude-1000/lan/log.txt <start>`. Если база тоже с фазами — телефон (попросить пользователя перезагрузить iPhone, повторить прод). Если база чистая — бисекция шагов 18-22 (страницы /step18/ … /step22/ на стенде), подозрение на postlate: свет искр `LightPoints` (18) или прогрев (21).
+- Сводки: `/home/nndd/.claude/jobs/9180826f/tmp/base_iphone.txt`, `after_iphone.txt`.
+
+### [2026-11-03 22:30] Троттлинг, Android, регрессия искр
+- iPhone 11: медленные фазы — троттлинг iOS, не фиксы. step18-base без провода: волны ~110 с (провал 40–55 с, 8–24 FPS), прод cc8094cf так же; в провале `update` (CPU) растёт в 5–10 раз при той же нагрузке. На зарядке хуже (провод снят — 60 FPS).
+- Android Mali-G52 (cc5c3597): троттлинга нет, FPS 42 → 22 растёт с роем (30 → 420 тел): swarm step+view+field 5 → 17 мс, postlate 12 → 23 мс; рендер 1230×540 (делитель DPR 2).
+- Предложено следующей волной: лимит 30 FPS на мобильных (`?fps=`), ускорение роя, делитель DPR до 360.
+- Регрессия шага 18 (пользователь, Android): искры опыта — размытые круги света без картинки. Шаг 23 запущен.
+- 22:40 пользователь: «запускай» волну 24–26. 24+26 — один агент (оба в web-shell.js/шаблонах), 25 — параллельно (файлы роя). Все три + 23 в одном worktree, файлы не пересекаются. Пользователь: на iPhone искры нормальные — но смотрел на step18-base (до шага 18), не доказательство.
+- 23 done `f65cd918`: `unity_SpriteColor` = 0 у MeshRenderer → картинка искр прозрачна на всех платформах (в редакторе тоже). Keyword `_SPRITE_MESH`, `SpriteMesh.mat`. Доказательство: step23/editor_before.png, exp_mpb_spritecolor.png, editor_after.png. Деплой — после волны 24–26 (worktree с чужими незакоммиченными правками). Открыто: `OptionsTabTests.Write_Platform_ReachesTheOptions` упал (ItchIO ожидался, Telegram) — скорее всего правки шага 24 в профилях, проверить в его отчёте.
+- 25 g1 → HANDOFF. Сим роя закоммичен `c8eab753`: step 420 тел 1373–1429 → 578–653 мкс (редактор), md5 бенчмарка тот же, EditMode 947/896/0/51. Burst на WebGL компилируется (Burst 2.0.0, `lib_burst_generated.wasm`, `--opt-for-size`), не замерен. g2 запущен: view (сначала свойства только при изменении, потом view на GPU — согласовано пользователем, «если что откатим»), затем поле.
+- 24 done `302fa3e1`: `Application.targetFrameRate = 30` достаточно — Unity 7000 даёт `emscripten_set_main_loop_timing(1, 2)` (каждый второй rAF), не setTimeout; `settings.target_fps` = 30 на телефоне. Headless Chromium мобильный: 30.1 FPS, p50 33.3 мс. Открыто: экраны 90/120 Гц (делитель от оценки частоты rAF).
+- 26 done `5263aeba`: k считался один раз до fullscreen (Chrome Android со строкой адреса → k=2, 1230×540); теперь `followRenderPixelRatio` на каждый resize → 820×360. iPhone 11 без изменений.
+- Деплой-кандидат: чистая копия коммитов `/var/tmp/ps-deploy` (git archive HEAD 5263aeba + framework 21cbeaf0 + reflink Library) — без незакоммиченных правок 25 g2. Тесты запущены там.
+- Пользователь: «да» — деплоить сейчас с жёсткими 30 (искры сломаны на проде), затем адаптивный лимит + пункт в настройках (iPhone 15 Pro и Samsung от $500 тянут 60). Шаг 27 запущен.
+- 25 g2 done: свойства рендерера тел только при изменении `9cb4886e` (160–215 → 61–93 мкс), поле досчитывается при чтении `8c6b0161` (0.72–0.84 → 0.30–0.33 мс). View на GPU не делали: тела должны оставаться отдельными элементами DrawRendererList для сортировки по ногам; MPB ломает SRP batcher. EditMode 950/897/0/53. Открыто: тени роя одним квадом (×6 меньше вершин), SwarmView.cs ~625 строк (P11), Map_BuildTime бенчмарк устарел.
+### [2026-11-03 23:35] Деплой 8c6b0161
+- web `20261103-231532-8c6b0161` (из чистой копии /var/tmp/ps-deploy, тесты 567/947 зелёные), telegram `20261103-233419-8c6b0161`; game main = 8c6b0161 pushed.
+- Первая попытка на Android — бесконечный спиннер после полосы Unity, без телеметрии; откат, не воспроизвелось (headless мобильный, профиль со старым билдом, fullscreen во время загрузки); повторный деплой — загрузилось. Причина неизвестна.
+- Android 8ec21954: 820×360, target_fps 30, 29.7 FPS до ~150 тел; на 200 телах работа 27 мс (update 10, postlate 16), frame.over50 растёт; swarm step 3.0→2.1, view 2.2→1.8, field 4.0→1.5 мс против прошлого прода. Искры видны (пользователь).
+- Волна 28 (рендер) + 29 (GC) запущена.
+- 27 done `36344436`: авто 60/30 (работа кадра >12 мс 8 с → 30, <6 мс 30 с → 60), десктоп без лимита, кнопка «FPS: auto/30/60», память решения на устройстве, марки fps.auto.*; тег MOBILE_TARGET_FPS убран. EditMode 968/915/0/53. Деплой — вместе с метриками рендера шага 28.
+- 28 done: метрики game.render.* `53d34f1e` (чинит HEAD 36344436: в коммит 27 попала регистрация метрик из 28), пустой проход формы игроков убран `b46f6674`, clear 4 целей одним вызовом `bd185f79`, тени роя одним квадом `56c1c94e` (10080 → 1680 вершин, 363 → 54 КБ/кадр). Кадр пайплайна совпадает по хэшу. EditMode 976/923/0/53. Открыто: cull ~1.4 мс в редакторе; рой рисуется дважды (scene + форма врагов); GamePipeline.cs ~630 строк; SwarmShadowMesh ≈ PixelQuads (P13); `control copy create` не работает из worktree с сабмодулем. Копия редактора render28 остановлена.
+- Деплой 27+28: чистая копия /var/tmp/ps-deploy2 (HEAD 56c1c94e), тесты запущены.
+- 29 done: аллокации игры в кадре боя ~0, кроме массива тел снапшота при смене числа (1045 → 721 Б/кадр); стражи FrameAllocationTests. Основное осталось во фреймворке: сеть (Collect/Send/serialize ~4 КБ/кадр, растёт с телами), GamepadReader строки 400 Б, LifetimedValue.Notify, ModifiableList boxing, NetworkProperty.Set boxing, ViewableDictionary.Values. В файлах 28: SwarmView.cs:178 foreach Entries.Values 64 Б, GamePipeline.RenderCamera 120 Б, LightPass.Draw 80 Б. WebGL GC не инкрементальный.
+- Тесты копии 56c1c94e: backend 567, generator, EditMode 974/920/1/53 — упал только OptionsTabTests.Write_Platform_ReachesTheOptions: PlatformOptions.PlatformType под #if PLATFORM_TELEGRAM всегда Telegram, define из активного профиля в Library (копия Library после сборки telegram). Недочёт теста фреймворка (зависит от активного профиля), не кода. Сборка web+telegram из /var/tmp/ps-deploy2 = 8a19dd79.
+### [2026-11-04 00:30] Прод 8a19dd79 (web 20261104-001753), telegram не выложен
+- Android 51beaedc: авто 60→30 в первом окне; рендер на 370 телах total 16.4 (scene 9.3, cull 2.9, outline 1.1, light 0.9, прочее 1.0), postlate − total ≈ 4; gc.allocated 13–15 МБ/окно — сеть фреймворка → шаг 30.
+- iPad (Chrome 141, iPadOS 18): загрузка 38 с — сеть iPad (wasm 3.7 МБ за 34.7 с против 2.8 с у Android в ту же минуту). ПРОБЛЕМА: через ~30 с в меню пропадает интерфейс (плашки апгрейдов без текста, кнопки кликаются), звука нет вовсе. Телеметрия: draw calls 12 и ui.graphics 19 ровные, ошибок нет; ?dpr=native не помог (но render.dpr в той сессии = 1 — проверить, применился ли ключ). iPad считается десктопом (target_fps 60 ровно, авто не переключал). Не выяснено, было ли так на прошлых билдах.
+### [2026-11-04 00:45] iPad: пропажа UI — давняя, не регрессия
+- iPad 7 (iPad7,11, A10, 3 ГБ), iPadOS 18.2.1, сопряжён по USB, Developer Mode включён, DDI смонтирован (`pmd mounter auto-mount`), скриншоты `pmd developer dvt screenshot --udid 02b7e8238d208cfe4d51d78c71be308139e40c98` (no-root userspace tunnel), инспектор Safari: `ios_webkit_debug_proxy -c <udid>:9223`, `tmp/ipad/iosctl.py` (порт 9223). Стенд: `tmp/ipad/try-release.sh <tag> <out>` (прод → релиз, свежий Safari, 8 скриншотов, grid.png).
+- В Safari пропадает на всех релизах: 8c6b0161, 660bcd02, e3acef1b (~25–30 с после меню), e19b6b7e (там старый бэкенд → окно «Update available» фреймворка: через ~30 с пропал ТЕКСТ, панели и кнопка остались). Консоль без ошибок. В меню пропадают карточки целиком, сияние фона и звёзды остаются. Звука на iPad нет.
+- Гипотезы: тексты TMP / UI-материалы теряют текстуру (атлас шрифта, UI-атлас) через ~30 с — память A10 3 ГБ (WebKit выкидывает ресурсы без context lost?), или первая сборка мусора / UnloadUnusedAssets уничтожает объекты без сильной ссылки. Проверить: JS — `GLctx.isContextLost()`, перехват `deleteTexture` / `texImage2D` в probe с меткой времени около 30 с; Unity — `Resources.UnloadUnusedAssets`, GC.Collect по времени.
+- Прод возвращён на 20261104-001753-8a19dd79. Telegram НЕ выложен (готов в /var/tmp/ps-deploy2/builds/telegram).
+- Шаг 30 (сеть фреймворка, ветка network-alloc в сабмодуле worktree) работает.
+
+### [2026-11-04 01:15] iPad: UI пропадает из-за порчи матрицы, не ресурсов
+- Пробники GL на iPad (`tmp/ipad/probe/*.js`, прогоны r1-r7): без deleteTexture, без потери контекста; 48 текстур RGBA8 читаются байт в байт как загружены; вершинные буферы не меняются; поток GL-команд кадра тот же.
+- Меняется одно значение: между 18 и 22 с у программ UI `glstate_matrix_projection[3]` и `unity_MatrixVP[3]` из `[0,0,0,1]` становятся `[0,0,0,0]` (w = 0, вершины UI вырождаются). Upscale фона в том же кадре получает правильную матрицу.
+- GC (первая сборка на 22 с сессии) по времени не совпадает с пропажей (12-18 с) - не причина.
+- Гипотеза: ошибка оптимизирующего JIT wasm Safari 18.2 (функция Unity становится горячей через ~20 с). Проверка: сборка 8a19dd79 с `webWasm2023: 0` (без SIMD / нативных исключений) - `/var/tmp/ps-deploy2/builds/website-nowasm23`.
+- Шаг 30 (сеть без аллокаций) DONE: ветка `network-alloc` сабмодуля worktree, коммиты 5552281a..ea2debce, не смержено.
+
+### [2026-11-04 01:35] iPad: поломка привязана к числу кадров
+- Без `webWasm2023` Unity 7000.0.0a10 не линкуется (`undefined symbol: $jspiPromising`), выключить SIMD нельзя; матрицу считает предкомпилированный движок, флаги emscripten его не трогают.
+- `?fps=30`: матрица ломается между 34 и 38 с (при 60 FPS - 18-22 с): ~1100-1200 кадров, не время. Довод за tier-up JIT wasm Safari (iPadOS 18.2.1), не доказательство.
+- Локальный WebKit (Playwright WPE) на Arch не запустился (glib), брошено.
+- Варианты: обновить iPadOS (если Apple починила JSC - баг уходит); обход в игре - нарисовать оверлей UI самим с явными матрицами или канвасы в Screen Space Camera.
+- Закрыты: 6 Chromium стендов (/tmp/claude-1000/lb), серверы 8770/8791/8792.
+
+### [2026-11-04 01:45] Шаг 30 смержен, шаг 31 запущен
+- Шаг 30: framework main 21cbeaf0..ea2debce (push, fast-forward); указатель сабмодуля в игре - edf0f733 (не запушено в main игры).
+- iPadOS не обновляем (решение пользователя). Шаг 31: оверлей UI рисует наш pipeline с явными матрицами - ORCH-client_telemetry-31-g1 / a894321ac4c891e22. Держит iPad и прод web на время проверки, вернёт прод на 20261104-001753-8a19dd79.
+
+### [2026-11-04 02:30] Шаг 31 done (c95939ae)
+- Вариант rendersUIOverlay + CreateUIOverlayRendererList не помог: движок ставит свою матрицу внутри листа (iPad ipad-a сломался на t22).
+- Сделано: канвасы в Screen Space - Camera на слое UI, `UICamera` (скрытая ortho-камера, матрицы считает C#), `ScreenCanvas`, ветка в GamePipeline. iPad 60/30 FPS: матрица цела до t66, UI на скриншоте 72 с. Chromium: кадр меню тот же (12 px звёзд). Тесты 934/0.
+- Открыто: UI-камера создаётся кодом (отклонение от P3); канвасы фреймворка из кода (`NetworkLatencyOverlay`, `ClientOutdatedNotice`) остались Overlay и на iPad пропадут; экраны забега на iPad не прогонялись.
+- Деплой: копия /var/tmp/ps-deploy3 = c95939ae + framework ea2debce: тесты, website, telegram.
+
+### [2026-11-04 02:20] Деплой c95939ae
+- Копия ps-deploy3: тесты backend 567 / generator / Unity 934 passed 0 failed; website 361 с, telegram 341 с.
+- Выложено: web 20261104-021512-c95939ae, telegram 20261104-021525-c95939ae. Main игры запушен 8c6b0161..c95939ae.
+- Прод на iPad (probe/prod1): матрицы целы до t66, UI виден на ~70 с.
+- Дальше: канвасы фреймворка из кода (NetworkLatencyOverlay, ClientOutdatedNotice) в Camera-режим или общий механизм UI-камеры во фреймворке; экраны забега на iPad; звук на iPad; scene 9.3 мс на Mali.
+
+### [2026-11-04 03:00] Шаг 33 done, шаг 34 запущен
+- Звук iPad: AudioContext разблокируется тапом, клипы декодируются (AAC, 0 ошибок), сигнал на destination есть. `navigator.audioSession.type = auto` - WebAudio глушится беззвучным режимом iPadOS. Фикс: `navigator.audioSession.type = 'playback'` до createUnityInstance (platforms/web фреймворка) - после шага 32 (один коммит сабмодуля за раз). Пользователю: проверить колокольчик в Пункте управления; тест `tmp/step33/usertap.sh`.
+- Экраны забега на iPad видны 4.5 мин, матрицы целы. Находка: пауза на 4:3 - панель Upgrades перекрывает Stats.
+- Перф забега iPad Safari (d6eb00ab): ~30 FPS при CPU 10-11 мс, render CPU 3.5 мс, web.raf.dt.avg ~31 мс - упор в GPU/композитор. Шаг 34: бисекция на устройстве.
+
+### [2026-11-04 03:10] Шаг 32 done, шаг 35 запущен
+- IScreenCanvasCamera в core, AddScreenCanvasCamera / AddScreenCanvasOverlay; без регистрации - скоуп не собирается (BREAKING, mines-leader и peace-data-reborn добавят AddScreenCanvasOverlay). Визуально проверено в batchmode (tmp/step32_camera.png), на iPad - после выкладки.
+- На чистом ea2debce падают 4 EditMode-теста фреймворка (GamepadReader 48 Б, 3 TelemetrySocket: тип вне union) - вероятно шаг 30; чинит шаг 35 вместе с audioSession.
+
+### [2026-11-04 03:25] Шаги 32 и 35 смержены
+- framework main ea2debce..10ca0bf3 (push): IScreenCanvasCamera, тесты после шага 30 (только тесты: union тестов без тегов телеметрии, прогрев стража GamepadReader), audio-session.js первым в <head> каждой WebGL-сборки (WebAudioSessionInjection, BuiltPageScripts). test-all фреймворка зелёный.
+- Игра 90c8052b. Копия /var/tmp/ps-deploy4: тесты и сборки; выкладка - после шага 34 (он меряет прод на iPad).
+
+### [2026-11-04 03:45] Шаг 34 done: забег iPad упирается в фрагментные шейдеры
+- rAF dt: база 29-31 мс; все draw пропущены 16.7; 1x1 scissor 18.0 (вершины ~1.3 мс).
+- Главное: HLSLcc делает из `const float matrix4[16]` в `Bayer()` (ShaderLibrary/Core.hlsl) не-const `vec4 ImmCB_0[16]`, заполняемый в каждом пикселе и индексируемый вычисленным индексом. const в 8 шейдерах (подмена исходника в браузере): 29.3 -> 20.5 мс. + без occlusion 18.5, + без outline 17.4, + без upscale/bloom 16.7.
+- Предложено: Bayer вычислением (битовая формула, проверена); отладочные рампы Composite (Heat, HeightColor) в keyword-вариант; найти таблицу ImmCB_0[33] в p1dsjz; Occlusion без exp на тап и с линейной выборкой; Outline меньше чтений; тест-страж «нет не-const ImmCB_ в шейдерах WebGL»; правило в WEBGL_IOS.md. Файлы стенда: tmp/step34 (bis.js, pre.js, src_*.glsl).
+
+### [2026-11-04 03:55] Деплой 90c8052b, шаг 36 запущен
+- Копия ps-deploy4: backend 567, generator, Unity 939/1 (флейк OptionsTabTests - активный профиль telegram в Library). audioSession в index.html обеих сборок.
+- Выложено: web 20261104-031146-90c8052b, telegram 20261104-031159-90c8052b; main игры c95939ae..90c8052b.
+- Шаг 36 (шейдеры по итогам 34) держит iPad и прод web, вернёт прод на 20261104-031146-90c8052b.
+
+### [2026-11-04 04:10] Шаг 36 done (e8a88090)
+- iPad 7 забег: rAF dt 29-31 -> 19-20 мс (~33 -> ~52 FPS), держится на большом рое (120 с). Пол 16.7.
+- Bayer формулой, EyeCodes без массива (eyes.py), рампы Composite под _LIGHTING_DEBUG_VIEW, Occlusion константные веса и 17->9 во втором проходе (единственное изменение картинки: ~1/255 в среднем), Outline 26->18, MenuBack/LobbyBack без массивов, страж WebGlShaderTablesTests (ImmCB_/TempArray). Док WEBGL_IOS.md - framework main 222cdc3f.
+- Остаток до 16.7 (~2.5 мс): спрайты сцены 1.3, occlusion 1.1 (первый проход 17 точечных), outline 0.9, composite 0.9, upscale 0.7 - дальше только с изменением картинки/ресурсов (решение пользователя).
+- Деплой: копия ps-deploy5.
+
+### [2026-11-04 04:20] Деплой e8a88090
+- Копия ps-deploy5: backend 567, generator, Unity 941/0. Выложено: web 20261104-035133-e8a88090, telegram 20261104-035146-e8a88090; main игры 90c8052b..e8a88090.
+- Дальше (предложено пользователю): замер Android на проде (scene 9.3 мс Mali), проверка звука/окон фреймворка на iPad, решение по остатку 2.5 мс на iPad, мелочи (пауза 4:3, файлы > 300 строк, SwarmShadowMesh, флейк OptionsTabTests, UICamera в префаб), релиз фреймворка и /workflow-complete.
+
+### [2026-11-04 04:35] Замер e8a88090 на устройствах, шаги 37 и 38
+- iPad Safari (3ba4483b): забег ~50 FPS (было ~30) до 185 тел, CPU 10 мс, rAF 20 мс.
+- Android Mali (eacd26c2): 30 FPS (авто), упор в CPU 21-23 мс; render total 11.8 (было 12.3 при тех же телах; 12.4 против 14.3 при ~140 телах), scene 5.5-6.3, cull 1.6; update 7-8 (было 10); gc 1.5-3 МБ за окно (было 13-15). Рендер ~11 мс CPU даже при 0 телах - цена GL-вызовов через ANGLE.
+- Одна `WebGL error INVALID_OPERATION` на ~1.1 с меню (Android и iPad).
+- Шаг 37: CPU рендера Android + INVALID_OPERATION (не трогает UI-префабы, UICamera, сабмодуль). Шаг 38: пауза 4:3, UICamera в префаб, OptionsTabTests (не трогает Rendering кроме UICamera/ScreenCanvas, шейдеры, Swarm*).
+
+### [2026-11-04 05:10] Шаг 38 done (de41cbce)
+- Пауза 4:3: под 608 единиц апгрейды в одну колонку плиток (UIWidthLayout меняет размер цели); сетки по числу влезающих колонок. Рендеры до/после 7 размеров: tmp/step38_shots.
+- Global_UI_Camera.prefab + GlobalUICamera (в сборке Global: генератор каталогов не пускает группу из двух сборок); UICamera только регистрирует, ScreenCanvas ждёт камеру.
+- OptionsTabTests читает сериализованное поле - framework main 5be98f13 (push), сабмодуль в игре 5be98f13.
+- Не выложено: ждём шаг 37, деплой одним заходом.
+
+### [2026-11-04 05:30] Шаг 37 done (без правок), деплой de41cbce, контекст оркестратора > 100%
+- Кадр Android headless (CPU x6, ANGLE): ~1060 GL-вызовов; синхронных запросов нет (getError не каждый кадр, 6-9 getParameter COPY_WRITE_BUFFER, 2 clientWaitSync Unity); 154 texParameteri (14 на каждую временную цель, пересоздаются каждый кадр); ~100 bufferSubData; 30 useProgram, 45 draw.
+- CPU-профиль рендера: Submit 62% (renderer lists); тайлмапы трансформируют вершины на CPU каждый кадр (TilemapRendererGeometryJob, 17%) + заливка; cull 17%, половина - чанки тайлмапов (15 TilemapRenderer в D2BlueRedX2Location, Chunk). Тайлмапы ~25-30% CPU рендера (~3-4 мс на телефоне).
+- Опробовано и откачено: Tilemap SRPBatch (cull x3 хуже); Submit частей 1 кадр из 8 (без выигрыша; /tmp/claude-1000/s37/sampled-submit.diff).
+- INVALID_OPERATION в headless не воспроизведён (8 прогонов); совпадает с первым сэмплом меню, загрузкой забега, page.resize после выхода/входа fullscreen.
+- Предложения (следующие шаги): 39 - запечь тайлмапы в статические меши при загрузке (-3..-4 мс, сортировка как в Chunk, P10); 40 - цели рендера держать между кадрами (класс-владелец, режет GamePipeline.cs по P11, -0.5..-1 мс) + дубль SwarmShadowMesh/PixelQuads; 41 - фреймворк telemetry: GL.lastError emscripten отдельно от getError + режим диагностики (URL-параметр: getError после каждого вызова с именем вызова). 39/40/41 файлы не пересекаются (41 - сабмодуль).
+- Деплой de41cbce: копия /var/tmp/ps-deploy6, тесты+сборки в фоне (bsl5yvkeu); после - выложить web+telegram, push main, попросить пользователя забег на Android.
+
+### [2026-11-04 04:35] Компакт оркестратора; шаги 39, 40, 41 запущены
+- (Время в записях 05:10/05:30 выше - ошибка часов оркестратора, реально ~04:20-04:30.)
+- 39 и 40 работают в своих копиях (/var/tmp/ps-step39, ps-step40: git archive + reflink Library), отдают diff в jobs tmp/step39.diff, step40.diff; 41 - в сабмодуле worktree на ветке gl-diag, без push.
+- Деплой de41cbce: тесты в /var/tmp/ps-deploy6 ещё идут (bsl5yvkeu).
+
+### [2026-11-04 04:45] Деплой de41cbce
+- Тесты ps-deploy6: backend 567, generator ok, unity 995 (942 passed, 0 failed); сборки web/telegram exit 0.
+- Прод: web 20261104-044416-de41cbce, telegram 20261104-044429-de41cbce; main игры = de41cbce (push).
+- Дальше: забег Android пользователя, сравнить с eacd26c2.
+
+### [2026-11-04 05:00] Android забег на de41cbce (c2a8132f, live, 98 сэмплов)
+- 30 FPS (авто), cpu.main 20.9 (было 25.9 в eacd26c2), postlate 13.0 (15.5), update 6.4 (8.7), gc 0.2MB/сэмпл (так же), bufferData 229 (374), draw 50 (64), web.gl.errors 0 (INVALID_OPERATION не было).
+- Нагрузка ниже: тел 53 против 158 - сравнение не равное. Спайки 250 мс только в первые 6 с (загрузка).
+- Попросить длинный забег (3-5 мин) после выкладки 39/40.
+
+### [2026-11-04 05:05] Шаг 41 done (ветка gl-diag сабмодуля worktree)
+- b201c829, 7fdf2e8a: GL.recordError emscripten отдельно (web.gl.emscripten_errors, марка webgl.emscripten.<code> с gl*-функцией); ?glcheck=1 - getError после каждого вызова, марка webgl.check.<code> `call(args) frame N at T ms`, ошибка `WebGL error <CODE> in <call>`; без параметра обёртки нет.
+- Evidence агента: node 109/109, python 84, EditMode client/project 1086/1090 (4 skip), браузер: искусственный bindTexture(0x1234) дошёл в сокет с именем вызова. Backend/common/PlayMode не гонялись.
+- Утечка стенда: s37 run.mjs отправлял сессии в прод meta (Linux Chrome сессии, в т.ч. de5e1726 с искусственной invalid_enum). Исправлено: meta.pixel-swarm.xyz -> 127.0.0.1:1.
+- Сабмодуль worktree стоит на gl-diag. Мерж: после 39/40, одним деплоем.
+
+### [2026-11-04 05:10] Android ?dpr=1.4 (5e5ea6d4): INVALID_OPERATION за page.resize
+- webgl.error.invalid_operation через 0.1-0.3 с после каждого page.resize (17.7->18.0, 33.3->33.4) при входе/выходе fullscreen. Подсказка отправлена агенту шага 40 (цели рендера при смене размера).
+- dpr 1.4 держался только до fullscreen (1113x411), потом 820x360; цена в кадрах не видна (cpu.main 20.5, dt p50 33).
+- Пользователь: «шакалит» - ждём скриншот (мир / UI / свет).
+
+### [2026-11-04 05:25] Шаг 40 done (7c7ea5c8), шаг 42 запущен
+- 40: PersistentTarget/FrameTargets/BloomTargets, GamePipeline 638 -> 166 строк (PixelCameraRenderer, LitSceneViewRenderer, Passes/*), QuadMesh общий. texParameteri 154 -> ~0.4, invalidateFramebuffer 10 -> 0; md5 10 кадров (2 локации, со сменой размера) до = после; run-tests 946/999 (0 failed, 53 skip). INVALID_OPERATION после resize в headless не воспроизведён (getError после каждого вызова, 3 resize).
+- Android ?dpr=native (2178102a): 2460x1080, кадр 33 мс, cpu.main 20, raf 16.8, postlate 14.4 (у 820x360 13), тел 45. Пользователь: на native «нормально», на 820x360 «шакалит». Решение пользователя: настройка в опциях (Авто = native Android / как сейчас iOS, Высокое, Низкое) - шаг 42.
+- Стенд агента 39 тоже слал сессии в прод (Chrome140 Android10: f9083f35, 1cbb7a31) - агенту отправлено.
+
+### [2026-11-04 05:40] Слияние веток
+- Framework: gl-diag -> origin/main (7fdf2e8a, fast-forward). Игра: 0d5578f3 указатель сабмодуля 7fdf2e8a.
+- Пользователь закоммитил свою работу в локальный main общего дерева: 7eb7e90f (оружие, звуки), от 660bcd02 (не от de41cbce). Слит в client-telemetry без конфликтов: f4be9516. Общие файлы: ERRORS.md, PIXEL_UI.md, Localization.json, SwarmSimulation.cs, index.html обоих шаблонов.
+- Тесты слияния в /var/tmp/ps-deploy7 (b3nfh6mt9); после зелёного - push HEAD:main. Диффы шагов 39/42 сделаны от de41cbce/7c7ea5c8 - накладывать через git apply -3.
+
+### [2026-11-04 05:50] Шаг 39 done (03b14144), тесты main+39-41
+- StaticTilemaps: меш на (тайлмап, текстура), bounds = localBounds (ключ сортировки Chunk), TilemapRenderer выключен; двойники материалов с _SPRITE_MESH (Water.shader). 42 кадра md5 до = после; run-tests в копии 944/997. Стенд: GamePipeline.Render -30%, submit -37%, cull -42%, задачи TilemapRenderer исчезли. Открыто: стоимость запекания при загрузке, вершины без отсечения чанков на GPU.
+- Наложен поверх слияния f4be9516 через apply -3 чисто. Тесты 03b14144 в /var/tmp/ps-deploy7 (bt40lknxf). Затем push HEAD:main.
+
+### [2026-11-04 06:05] Всё влито в main
+- Тесты 03b14144 + правка LocalizationTests (описания оружия из 7eb7e90f): backend 567, generator ok, unity 956/1009 (0 failed).
+- Слит main пользователя 22f811ac (без изменений содержимого). origin/main = origin/client-telemetry = 5e7da630 (framework 7fdf2e8a). Main общего дерева пользователя - fast-forward.
+- Не выложено: 39, 40, 41. Ждём шаг 42, потом один деплой.
+
+### [2026-11-04 06:20] Шаг 42 done (de6bf4e8), деплой 39-42
+- Настройка «Разрешение» (Авто/Низкое/Высокое): Авто = native везде кроме iOS/iPadOS; кнопка скрыта на desktop; settings.resolution; localStorage webShell.resolution для старта без resize; ?dpr сильнее. run-tests копии 954/1007. Headless: Android Авто 2461x1081, Низкое 820x360; iPhone Авто как было; iPad 4:3 Авто 1024x768.
+- Наложен на 5e7da630 чисто. Тесты и сборки в /var/tmp/ps-deploy8 (b1w1dd7ix).
+
+### [2026-11-04 06:40] Слияние 5ba47077 (Phone UI scale) с шагом 42
+- Общее дерево: конфликт указателя сабмодуля (5ba47077 случайно откатил на 21cbeaf0) решён на 7fdf2e8a по просьбе пользователя: 63cdce51; локальная правка ContainerGraphAssetScanner.cs в сабмодуле сохранена.
+- Ветка: f4a1a986. Конфликты web-shell.js (комментарий) и SettingsWindow.prefab (кнопка Resolution, взята). Совмещение: Высокое = k 1 пользователя (его UI scale), Низкое = предел 360, MOBILE_MAX_PIXEL_RATIO обратно 1 (было 4 в 5ba47077), Авто = Высокое кроме iOS/iPadOS.
+- Тесты + сборки в /var/tmp/ps-deploy9 (ba1njcwkb), затем деплой и push main.
+
+### [2026-11-04 06:50] Задача parallel_client_deploy
+- По просьбе пользователя: docs/tasks/current/parallel_client_deploy/parallel_client_deploy_info.md (тесты и сборки целей параллельно в копиях), для параллельной сессии.
+
+### [2026-11-04 06:55] Деплой f4a1a986 (шаги 39-42 + оружие + phone UI scale)
+- Тесты ps-deploy9: backend 567, generator ok, unity 978/1031 (0 failed); сборки web/telegram exit 0, web-shell.js одинаковые, MOBILE_MAX_PIXEL_RATIO 1.
+- Прод: web 20261104-062409-f4a1a986, telegram 20261104-062421-f4a1a986. origin/main = origin/client-telemetry = f4a1a986.
+- Дальше: длинный забег Android (сравнить с c2a8132f/2178102a), забег iPad с «Высоким» (решение Авто для iOS), ?glcheck=1 на Android для INVALID_OPERATION.
+
+### [2026-11-04 07:05] Замеры f4a1a986
+- iPad (автозабеги через стенд): Низкое 1080x740 (e783de0d) p50 17 мс = 60 FPS (было ~50), cpu 7.1; родное 2160x1480 (3a4b21d7, ?dpr=native) p50 25 мс = 40 FPS, cpu 8.1 - GPU. Авто на iOS = Низкое остаётся. INVALID_OPERATION x3 на iPad в первые 6 с загрузки.
+- Android автозабег (a5c40bd9, Авто = родное 2460x1080): 247 сэмплов, тел до 367 (ср. 181); 30 FPS до ~250 тел (cpu 19-21), при ~300 тел cpu 29.8, p50 36.8; update 7.7, postlate 13.1; GL-ошибок 0. Было (eacd26c2, 820x360, 158 тел): cpu 25.9, postlate 15.5.
+
+### [2026-11-04 07:20] Шаг 43 запущен
+- Пользователь: «делай это» (профиль CPU под ~300 тел). Агент 43 в копии /var/tmp/ps-prof43 (f4a1a986), сборка с именами wasm, стенд s37, срезы 50/150/300 тел; без коммитов.
+
+### [2026-11-04 07:25] Деплой f498cb39 (main пользователя)
+- main f498cb39 = f4a1a986 + 7f1154dd (баланс v20, выстрелы с руки, планшетные стики, без насекомых) + merge. Сабмодуль 7fdf2e8a.
+- Копия /var/tmp/ps-deploy10 (git archive + reflink Library), тесты + сборки web/telegram в фоне. Живые: web 20261104-062409-f4a1a986, telegram 20261104-062421-f4a1a986.
+- Новый deploy-client.sh фреймворка не закоммичен (параллельная сессия) - не использован.
+
+### [2026-11-04 07:40] Шаг 43 done (без правок)
+- Рост с телами (стенд, ~50->300): update 3.6->6.4 (SwarmSteering.Run 0.35->1.38 - IsClear вдоль луча; SwarmView 0.30->1.16; Movement 0.06->0.26), postlate 4.7->6.4 (Submit 2.24->3.29, Cull 0.53->0.83, UpdateAllRenderers 0.2->0.5; тела рисуются в Scene и Outline). Наклон ~1.4 мс / 100 тел. Постоянно: SafeAreaPadding.OnUpdate 0.5 мс (rect каждый кадр).
+- Предложения: (1) IsClear раз в 4 кадра по очереди (-1 мс стенд / ~-2 телефон); (2) SafeAreaPadding по событию (фреймворк ui, -0.5/-1); (3) тела роя одним мешем вместо SpriteRenderer (-1.5..2 / -3..4, сортировка по Y, Outline-слой).
+
+### [2026-11-04 07:45] Шаги 44 и 45 запущены
+- Пользователь выбрал предложения 1 и 2 шага 43. 44 - игра (diff tmp/step44.diff), 45 - фреймворк (tmp/step45-framework.diff + msg). Файлы не пересекаются, стенды на разных портах (8792 / 8793).
+- Выложено: web 20261104-074551-f498cb39, telegram 20261104-074603-f498cb39 (тесты 567 / generator / unity 985 passed 0 failed). Копия удалена.
+
+### [2026-11-04 08:20] Шаг 45 done (framework 0280e2dd)
+- SafeAreaPadding: area подпиской, Screen и sizeDelta корня сравниваются; 0.55 -> 0.007 мс/кадр на стенде. Тесты 9 новых (SafeAreaPadding/Insets), run-tests игры 1014 passed 0 failed. HUD до/после с подставленными отступами и resize совпадает (tmp/step45-hud-compare.png). Не BREAKING.
+- Закоммичено в сабмодуле worktree (ветка gl-diag), push origin main ff. Указатель в игре - вместе с шагом 44.
+
+### [2026-11-04 08:32] Деплой c8becfcb (пачка пользователя)
+- main c8becfcb = f498cb39 + 3510221e, bb629c84, cb2c0682, a674260a, c8becfcb. Сабмодуль 7fdf2e8a (шаг 45 0280e2dd не входит). Копия /var/tmp/ps-deploy11, тесты + сборки в фоне. Живые: web 20261104-074551-f498cb39, telegram 20261104-074603-f498cb39.
+
+### [2026-11-04 08:40] Шаг 44: результат и перенос
+- SwarmSight (ECS), K=_sightInterval в SwarmOptions (4). SwarmSteering ~1.0 -> ~0.62 мс при ~260 телах на стенде (-35% на тело; остаток SwarmField.TryGetDirection). Тесты 988/0; эталоны md5 при K=1 совпали со старыми.
+- Поведение: опоздание видимости до 3 кадров; смена ближайшей цели между ходами - старый результат.
+- Worktree client-telemetry ff до c8becfcb. step44.diff конфликтует с c8becfcb (SwarmWorld.cs, SwarmFieldTests.cs) - агент 44 переносит (SendMessage), итог tmp/step44-c8.diff + step44-msg.txt.
+
+### [2026-11-04 09:15] Шаг 44 перенесён, коммиты в worktree
+- fe76b453 шаг 44 (на c8becfcb, конфликты SwarmWorld/SwarmFieldTests руками, эталоны пользователя при K=1 совпали), 116deded указатель framework 0280e2dd. Тесты копии ps-step44b: 567 / generator / unity 1005 passed 0 failed. Не запушено, ждёт деплоя c8becfcb.
+- Выложено: web 20261104-084748-c8becfcb, telegram 20261104-084800-c8becfcb (тесты 567 / generator / unity 1002 passed 0 failed). Копия удалена.
+
+### [2026-11-04 08:55] iPad на c8becfcb (d6326c5b)
+- Авто (=Низкое 1080x740), 4 мин autorun: fps 55-57, dt p50 17-18, cpu.main 7.8-8.2, update 2.4-2.6, postlate 4.9-5.2, тел до 171 (среднее за окна 34/72/103/134). Сопоставимо с e783de0d (f4a1a986). 5x INVALID_OPERATION и спайки только в первые 10 с загрузки (линковка шейдеров до 290 мс).
+
+### [2026-11-04 09:05] iPhone 11 на c8becfcb (b9f8dbfa)
+- Авто (=Низкое 414x715), 4 мин autorun: 60 FPS ровно, dt p50 17, cpu.main 4.8-4.9, update 1.2-1.4, postlate 3.2-3.3, тел до 162. 3x INVALID_OPERATION и спайки только при загрузке.
+
+### [2026-11-04 09:20] iPhone ландшафт и Android на c8becfcb
+- iPhone 11 (560655ca), ландшафт 1792x662 (родное, Низкое в ландшафте = dpr 2): 60 FPS, cpu.main 4.9-5.9, update 1.3-1.8, postlate 3.4-3.9, тел до ~140 (средние окон 37/78/99/138).
+- Android Mali-G52 (24545363), Авто 2460x1080, target 30: 30 FPS, cpu.main 17.9-20.3, update 5.5-6.3, postlate 10.9-12.5, render.total 9.3-10.4, тел 38/89/138/185. Как a5c40bd9 (f4a1a986). 1 INVALID_OPERATION в первом окне.
+
+### [2026-11-04 09:35] Деплой 73eae103 (новый deploy-client), push main
+- main 70e543fb пользователя + шаги 44 (fe76b453), 45 (framework 0280e2dd) + framework 6f49c1df (параллельный deploy-client). Тесты 567 / generator / unity 1006 passed 0 failed; сборки параллельно 471 с; всего 515 с (было ~16-20 мин).
+- web 20261104-093234-73eae103, telegram 20261104-093248-73eae103. origin/main = client-telemetry = 73eae103.
+- Анализ 60 FPS Android: handoff/android_60fps.md; ждём замер ?autorun=1&fps=60 High vs Low.
+
+### [2026-11-04 10:15] Android остывший (f2b47e3a), шаг 46 запущен
+- f2b47e3a на 73eae103: 30 FPS, cpu.main 18.4-19.5 до 183 тел (было 17.9-20.0), без тел (монолит) 15.2 / рендер 7.8. Пик тел ~185 (лимиты cb2c0682) - 300 в первой стадии не бывает.
+- Пользователь: отдельный workflow стресс-тестов - агент 46 (локация из ассетов, стресс-забег без боссов с апгрейдами и числом врагов, JS API через jslib, тег stress, скилл). Diff tmp/step46-stress.diff.
+- Уточнение пользователя к 46: отдельная платформа PlatformType.WebStress (framework, отдельный diff), профиль web_stress.asset с define, ассеты стресса только в нём, шаблон WebGLTemplates/Stress со своим index.html; на устройства - LAN 8770, без прод-деплоя.
+- Задача фреймворка web_perf_tools заведена (перенос стенда, DPR, адаптивного FPS, проверки шейдеров, прогрева, стража аллокаций). Агент документа WebGL Troubleshooting запущен.
+
+### [2026-11-04 11:05] Шаг 46 g1 -> HANDOFF, g2 запущен
+- g1: код вслепую (не компилировался): WebStress (framework diff), web_stress.asset, шаблон Stress, GamePlay/Stress (спавнер, апгрейды, window.stress, тег stress), скилл, tools/stress. Нет: каталога StressAssets, исключения группы из обычных сборок, локации/сцены, сборки, стенда.
+- g2: редактор на копии, генерация, сцена Stress.unity из LocationAssembler, IPlayerBuildStep для группы, тесты, сборки stress и website (чистота), ступени.
+- Задачи: web_bench_tools (параллельная сессия, snapshot скриптов), plan render_mesh_utilities.md.
+
+### [2026-11-04 11:10] Подготовка к компакту
+- orchestrator_resume.md переписан: прод 73eae103, агенты 46 g2 и webgl-doc в работе, новые задачи web_perf_tools / web_bench_tools / plan.
+
+### [2026-11-04 10:35] WebGL Troubleshooting закоммичен
+- Агент a8f305355e700dc03 (с подагентом по транскриптам) закончил: 58 записей, источники в jobs tmp/webgl-doc/sources.md.
+- Framework 15728825 `[Docs] WEBGL_TROUBLESHOOTING.md ...` запушен в main (из submodule worktree); WEBGL_IOS.md удалён, INDEX обновлён.
+- TODO игры: комментарий `client/Assets/GamePlay/Tests/WebGlShaderTablesTests.cs:16` ссылается на WEBGL_IOS.md — поправить вместе с коммитом шага 46 (там же pointer submodule).
+
+### [2026-11-04 10:40] Шаг 46: g2 → HANDOFF, запущен g3
+- g2 (a06552d2d41799e0a): стресс собирается, тесты 1070/0, гейтинг через StressBuildStep, StressOptions в своей сборке, setGodMode. Handoff handoff/46_g2.md.
+- Осталось: баг счётчика тел в stats()/спавнере, ступени 50-500, чистота website, msg, ссылка на WEBGL_IOS.md в тесте.
+- Локация: принят fallback на сцену Game (своя сцена тянет ассеты в Shared_* и меняет обычные бандлы).
+- g3: ORCH-client_telemetry-46-g3 / a86b67a68bab7e6d0, та же копия /var/tmp/ps-stress.
