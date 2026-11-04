@@ -59,7 +59,7 @@ public class LobbyService : Service
         BindProperty(_properties.Game);
         BindProperty(_properties.Visibility);
 
-        var matchStart = new LobbyMatchStart(_properties, users, admission, matches, time, info, logger);
+        var matchStart = new LobbyMatchStart(_properties, owner, users, admission, matches, time, info, logger);
 
         _countdown = new LobbyCountdown(_properties, matchStart, executionQueue, time, CountdownStep, logger);
         _listing = new LobbyListingReporter(_properties, owner, users, listings, info, logger);

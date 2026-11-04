@@ -120,6 +120,19 @@ public class LobbyStartTests
 
         lobby.Advance(TimeSpan.FromSeconds(5));
         lobby.Game.SessionId.Should().NotBe(Guid.Empty);
+        lobby.World.MatchLeaderId.Should().Be(lobby.Users[1].BackendId);
+    }
+
+    [Fact]
+    public async Task Zero_TheMatchIsCreatedForTheLeader()
+    {
+        var lobby = await TestLobby.Create(guests: 2);
+
+        lobby.WriteStart(true);
+        lobby.Advance(TimeSpan.FromSeconds(5));
+
+        lobby.Game.SessionId.Should().NotBe(Guid.Empty);
+        lobby.World.MatchLeaderId.Should().Be(lobby.Users[0].BackendId);
     }
 
     [Fact]

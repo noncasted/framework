@@ -139,3 +139,9 @@ Submodule Stripping Settings, закоммитить ассет и `ProjectSetti
 (`host`, `metaHost`, `builds` - папки полных сборок с `Build/`, `autorunQuery`, `scenarioApi`; схема в `SKILL.md` скилла, пример -
 pixel-swarm); раздел `## device-lab` в `.claude/project-skills.md` (какая сборка свежая, файл строк `profile.py --rows`, если есть).
 Устройства машины - в `~/.config/device-lab/devices.json`, не в игре.
+### Хостинг: лидер лобби в `ILobbyMatches.Create`
+Кого касается: бэкенд игр с лобби (своя реализация `ILobbyMatches`, подделки в тестах).
+Поиск: `git grep -nE 'LobbyMatch Create\(' -- '*.cs'`
+Сделать: BREAKING. Сигнатура `Create(Guid lobbySessionId, Guid leaderId, IReadOnlyList<Guid> userIds, bool isOpen)`: `leaderId` - мета-id
+лидера лобби в момент старта (владелец сессии лобби, один из `userIds`). Игре, у которой матч хостит клиент (P2P), стоит отдать
+роль владельца матча ему, а не первому вошедшему: иначе хостом становится тот, кто быстрее загрузился.

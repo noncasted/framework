@@ -93,6 +93,9 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     private Exception? _lobbyCreationFailure;
     private Exception? _matchCreationFailure;
 
+    // The leader the last match was created for (ILobbyMatches.Create).
+    public Guid MatchLeaderId { get; private set; }
+
     public string WebSocketUrl => ServerUrl.ServerUrlToWebSocket();
 
     // The place check of the gateway path (after the ticket): null is the refusal.
@@ -178,10 +181,12 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
 
     // ILobbyMatches: what the game does at zero of the countdown - a private match with a place for every user of the
     // lobby, listed by the code of the lobby; a closed room of one player is a match of one place.
-    public LobbyMatch Create(Guid lobbySessionId, IReadOnlyList<Guid> userIds, bool isOpen)
+    public LobbyMatch Create(Guid lobbySessionId, Guid leaderId, IReadOnlyList<Guid> userIds, bool isOpen)
     {
         if (_matchCreationFailure != null)
             throw _matchCreationFailure;
+
+        MatchLeaderId = leaderId;
 
         if (userIds.Count > Options.MaxUsers)
             throw new InvalidOperationException($"A lobby starts a match for {userIds.Count} users, the limit is {Options.MaxUsers}");
