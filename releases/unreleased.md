@@ -20,3 +20,13 @@
   папки и исключения (сторонние шейдеры) задаёт игра. Проверка ловит ещё и flat varyings (`nointerpolation`, G1 в
   `WEBGL_TROUBLESHOOTING.md`), а не только `ImmCB_` / `TempArray`: шейдер с `nointerpolation` теперь валит тест. Пример: pixel-swarm
   `client/Assets/GamePlay/Tests/WebGlShaderTablesTests.cs`.
+### Разрешение рендера на телефонах и частота кадров 60/30: модули `resolution` и `framerate`
+
+Кому: клиент игр с WebGL, где есть свои копии этого из pixel-swarm (`Global.Resolution`, `Global.FrameRate`, `webShell.renderPixelRatio`).
+Поиск: `git grep -nE "renderPixelRatio|followRenderPixelRatio|frameRateRequest|setResolution|class (FrameRateLimit|AutoFrameRate|RenderResolution|FrameRateTelemetryMarks|ResolutionTelemetryCollector)\b" client`.
+Что сделать:
+- `client/Packages/manifest.json`: `com.noncasted.framework.resolution` и `com.noncasted.framework.framerate` (`file:../../tools/framework/client/modules/<имя>`), оба в `testables`; удалить свои копии классов и `.jslib` (типы и пространства имён те же: `Global.Resolution`, `Global.FrameRate`).
+- asmdef, где используются типы, и каждый asmdef скоупа под скоупом с `AddFrameRate` / `AddResolution` (иначе `CINGR003`, ссылки не транзитивны): `Internal.Resolution`, `Internal.FrameRate`; asmdef скоупа телеметрии: `Internal.Resolution.Telemetry`, `Internal.FrameRate.Telemetry`.
+- Настройки игры реализуют `IResolutionSetting` / `IFrameRateSetting` (свойства `Resolution` / `FrameRate`) и регистрируются `.As<IResolutionSetting>().As<IFrameRateSetting>()`.
+- Глобальный скоуп: `AddFrameRate(<AutoFrameRateOptions из ассета опций игры>)`, `AddResolution()`. Скоуп телеметрии: `AddFrameRateTelemetry()`, `AddResolutionTelemetry()` вместо своих `FrameRateTelemetryMarks` / `ResolutionTelemetryCollector`.
+- WebGL-шаблон: `webShell.renderPixelRatio(max)` -> `renderResolution.pixelRatio(canvas, max)`, `webShell.followRenderPixelRatio(module, max)` -> `renderResolution.follow(module, canvas, max)`; из своего `web-shell.js` убрать разрешение и `?fps=` (`render-resolution.js` кладётся в `<head>` собранного `index.html` сам, ключ `webShell.resolution` в localStorage сохранён).

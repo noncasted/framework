@@ -1,0 +1,28 @@
+{
+    "name": "Internal.Resolution.Tests",
+    "rootNamespace": "",
+    "references": [
+        "Internal",
+        "Internal.Editor",
+        "Internal.Resolution",
+        "Internal.Resolution.Editor",
+        "GUID:3ea5c3f1172040daa713d5ad71728b78",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

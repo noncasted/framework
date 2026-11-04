@@ -214,6 +214,17 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
     the settings of the player in the saves (`ISaves`): the volumes as the `IAudioVolume` of `audio`, the defaults from the options asset of the game; a game with settings of its own derives
     `SettingsSave`, `Settings<TSave>` (`OnPush`) and `SettingsOptions<TSave>` and injects its own interface over
     `ISettings<TSave>`. A language is a field of the save of the game (`OnLoad`, `OnPush`). Depends on `audio`, `publish`.
+  - `resolution` (`AddResolution()`, namespace `Global.Resolution`): the render resolution of a phone or a tablet on the web,
+    Auto / Low / High (`ResolutionMode`; Auto is Low on iOS and iPadOS). The settings of the game implement `IResolutionSetting`.
+    The build puts `WebTemplate~/render-resolution.js` first into the `<head>` (`RenderResolutionInjection`); the template calls
+    `renderResolution.pixelRatio(canvas, max)` before `createUnityInstance` and `renderResolution.follow(module, canvas, max)` on a
+    mobile page (device / k with k a whole number, the short side at least 360, `?dpr=native|<n>`). `AddResolutionTelemetry` in the
+    scope of the telemetry: `settings.resolution`.
+  - `framerate` (`AddFrameRate(AutoFrameRateOptions)`, after `AddUpdater`, namespace `Global.FrameRate`): `Application.targetFrameRate`,
+    strongest first: `?fps=native|<n>` of the page, the choice of the settings (`IFrameRateSetting`, Auto / 30 / 60), Auto: the rate
+    of the screen on a desktop, on a phone `AutoFrameRateRule` (work of a frame above 12 ms for 8 s -> 30, below 6 ms for 30 s -> 60),
+    remembered on the device (`FrameRate.AutoLow`). `AddFrameRateTelemetry`: the marks `fps.auto.<limit>`. The `*.Telemetry` assemblies
+    of both compile only with the `telemetry` package (`FRAMEWORK_TELEMETRY`, a version define; `client/project` sets it).
   - `lobbies` (`Internal.Lobbies`, namespace `Global.Lobbies`; `AddMatchmaking`, `AddLobbyNetworkService`):
     `IMatchmaking` (search, solo, lobby create / join / match join, tickets) over the meta socket the game registers
     as `IMetaSocket`; `LobbyNetworkService`, the client of the lobby service of a lobby session (a derived one adds the
