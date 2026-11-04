@@ -10,6 +10,7 @@
 | [0.2.1](0.2.1.md) | 2026-11-03 | Скилл `media-cleanup`, команды `update-framework` в zsh | Да: ссылка на скилл `media-cleanup` |
 | [0.2.2](0.2.2.md) | 2026-11-03 | `deploy-client`: аргумент `--notest` | Нет |
 | [0.3.0](0.3.0.md) | 2026-11-03 | Телеметрия клиентов (необязательно), стадии трейса запуска | Да: `GameProfiler.Stage` |
+| [0.4.0](0.4.0.md) | 2026-11-04 | Телеметрия: кадр, WebGL, страница, прошлая сессия; сеть без аллокаций; экранные канвасы; стрип WebGL; `deploy-client` параллельно, `device-lab` | Да: `IScreenCanvasCamera`, шрифт `NetworkOptions`, API сети, стрип, `deploy-client.json`, `ILobbyMatches.Create` |
 
 ## Версии
 
