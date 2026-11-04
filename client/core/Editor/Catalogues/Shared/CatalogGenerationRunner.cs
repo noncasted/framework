@@ -1,4 +1,5 @@
 using System;
+using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
 using UnityEngine;
 
@@ -6,9 +7,15 @@ namespace Internal
 {
     // Catalog generators are triggered by editor events in bursts, so a run is
     // guarded against reentrancy, postponed during import/compilation and debounced.
-    public sealed class CatalogGenerationRunner
+    [AutoStaticsCleanup]
+    public sealed partial class CatalogGenerationRunner
     {
         private const float DebounceSeconds = 0.5f;
+
+        // Pauses of the scheduled and delayed runs, counted: the temporary assets of the editor tests schedule the
+        // generators, and a generation of the catalogues of the project between two tests costs seconds. A run due
+        // while paused is dropped; Run, RunNow and the menu items still generate.
+        private static int _pauses;
 
         private readonly string _logTag;
         private readonly Action _generate;
@@ -111,9 +118,28 @@ namespace Internal
             Run();
         }
 
+        public static void PauseScheduled()
+        {
+            _pauses++;
+        }
+
+        public static void ResumeScheduled()
+        {
+            if (_pauses == 0)
+                throw new InvalidOperationException("Scheduled catalogue generation is not paused.");
+
+            _pauses--;
+        }
+
         public void RunDelayed()
         {
-            EditorApplication.delayCall += Run;
+            EditorApplication.delayCall += RunUnlessPaused;
+        }
+
+        private void RunUnlessPaused()
+        {
+            if (_pauses == 0)
+                Run();
         }
 
         public void Schedule()
@@ -134,7 +160,7 @@ namespace Internal
 
             EditorApplication.update -= TickSchedule;
             _isScheduled = false;
-            Run();
+            RunUnlessPaused();
         }
     }
 }

@@ -19,6 +19,10 @@ run, the json, the environment and the exit codes are in the comment at the top 
 Why copies: Unity's incremental build (Bee) deletes the output of the previous build when the next one writes to another
 folder (2026-10-17: building telegram after web removed `client/Build/Build/*`, the web upload shipped an `index.html`
 without its wasm). Each target now builds in its own copy and uploads from it, so no build sees the output of another.
+A passed build leaves its `client/Library` (without `Bee` and the stripping backups) in
+`/var/tmp/<game>-deploy-client.<key of the tree>.<target>`; the next build of that target from the same tree starts from it
+when it is newer than the Library of the tree, so a tree without its own editor (a worktree) does not import again in every
+build what came since its Library was last updated.
 
 The game describes itself in `.claude/deploy-client.json`: the tests and deploy scripts, the targets (name, build
 profile, output, arguments of the deploy script, what `index.html` must or must not hold, files the output must hold),
@@ -40,6 +44,7 @@ DEPLOY below is the `deploy` script of the json, ARGS(t) the `deployArgs` of tar
 | none | `deploy-client.sh`: tests + every target of the json, in its order |
 | `<target>` ... | `deploy-client.sh <target> ...`: tests + those targets |
 | `--notest` / `skip-tests` (with any of the above) | `deploy-client.sh [targets] --notest`: no tests |
+| `--no-deploy` (with any of the above) | `deploy-client.sh [targets] --no-deploy`: tests, builds and checks, no upload (a dry run, or a measure of the times) |
 | `--list [t]` | only `DEPLOY ARGS(t) --list` (every target when none is given), then report |
 | `--rollback <t> <tag>` | only `DEPLOY ARGS(t) --rollback <tag>`, then report. The target is required: tags of the targets look alike |
 

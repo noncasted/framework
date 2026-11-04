@@ -5,12 +5,19 @@ using UnityEditor;
 
 namespace Internal.EditorTests
 {
-    // The assets of these tests schedule the catalogue generators (debounced 0.5 s), and a generator logs an error in a
-    // project without addressables. Here it fires between the tests, all synchronous, but the assemblies after this one
-    // have tests that wait over frames: an error logged inside one fails it. What is scheduled ends with the assembly.
+    // The assets of these tests schedule the catalogue generators (debounced 0.5 s): a scheduled run is paused for the
+    // assembly (a generation of the catalogues of the project between two tests cost 5-6 s of every run). What is
+    // scheduled ends with the assembly too: the assemblies after this one have tests that wait over frames, and a
+    // generator logs an error in a project without addressables, which fails such a test.
     [SetUpFixture]
     public class EditorTestsSetUpFixture
     {
+        [OneTimeSetUp]
+        public void OneTimeSetUp()
+        {
+            CatalogGenerationRunner.PauseScheduled();
+        }
+
         [OneTimeTearDown]
         public void OneTimeTearDown()
         {
@@ -31,6 +38,8 @@ namespace Internal.EditorTests
                 if (callback.Target is CatalogGenerationRunner)
                     EditorApplication.delayCall -= callback;
             }
+
+            CatalogGenerationRunner.ResumeScheduled();
         }
 
         private static EditorApplication.CallbackFunction[] Callbacks(EditorApplication.CallbackFunction list)
