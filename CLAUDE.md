@@ -42,7 +42,8 @@ backend/
   ClientTelemetry.TestHost/  the same without a game: Kestrel, a silo, its own PostgreSQL container
 .claude/docs/           docs of the patterns shared by the games, for Claude Code (INDEX.md: principles, keyword table)
 .claude/skills/         skills shared by the games, linked from `.claude/skills` of each project
-tools/scripts/          scripts shared by the projects
+tools/scripts/          scripts shared by the projects; web-bench/: the headless stand and the devices of the web client
+                        (skill device-lab)
 releases/               releases: X.Y.Z.md with the steps a game takes to update, unreleased.md, README.md (format, versions)
 ```
 

@@ -131,3 +131,11 @@ Submodule Stripping Settings, закоммитить ассет и `ProjectSetti
 Сделать: ничего, если игре на телефоне не нужно работать в фоне: `UseMobileCheck` на мобильной странице ставит
 `Application.runInBackground = false` (на десктопе остаётся настройка плеера). Игре, которой фон нужен (сеть, таймеры), вернуть
 `Application.runInBackground = true` после вызова.
+
+### Скилл `device-lab`: стенд и устройства web-клиента
+Кого касается: игры с WebGL-клиентом, которым нужны headless-стенд, профили wasm, iPhone / iPad / Android или сборки в LAN.
+Поиск: `ls .claude/skills/device-lab .claude/device-lab.json; grep -n '## device-lab' .claude/project-skills.md`
+Сделать: ссылка `ln -s ../../tools/framework/.claude/skills/device-lab .claude/skills/device-lab`; `.claude/device-lab.json` игры
+(`host`, `metaHost`, `builds` - папки полных сборок с `Build/`, `autorunQuery`, `scenarioApi`; схема в `SKILL.md` скилла, пример -
+pixel-swarm); раздел `## device-lab` в `.claude/project-skills.md` (какая сборка свежая, файл строк `profile.py --rows`, если есть).
+Устройства машины - в `~/.config/device-lab/devices.json`, не в игре.
