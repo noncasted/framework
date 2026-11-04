@@ -124,3 +124,10 @@ Submodule Stripping Settings, закоммитить ассет и `ProjectSetti
 § deploy-client файла `.claude/project-skills.md`; фразы про открытый редактор оттуда убрать. Копии ставятся в `/var/tmp`
 (`DEPLOY_COPY_DIR`) и требуют reflink (btrfs) на одной файловой системе с игрой. Игровые `run-tests.sh` и `deploy-webgl.sh`
 не меняются.
+
+### Web: на мобильной странице игра останавливается в фоне
+Кого касается: клиент WebGL-игр, вызывающих `WebShell.UseMobileCheck` (pixel-swarm, peace-data-reborn).
+Поиск: `git grep -n 'WebShell.UseMobileCheck' -- 'client/Assets/*.cs'`
+Сделать: ничего, если игре на телефоне не нужно работать в фоне: `UseMobileCheck` на мобильной странице ставит
+`Application.runInBackground = false` (на десктопе остаётся настройка плеера). Игре, которой фон нужен (сеть, таймеры), вернуть
+`Application.runInBackground = true` после вызова.

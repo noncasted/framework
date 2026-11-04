@@ -247,7 +247,7 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
     `WebTemplate~/startup-trace.js` (`window.startupTrace.begin/end/mark`) first into the `<head>` of the built `index.html`
     (`TelemetryStartupTraceInjection`), the template of the game only calls it. Depends on `network`.
 - **Platforms.** `itch` (`AddItchSaves`: saves in PlayerPrefs), `web` (`AddWebLoadingScreen`, `AddWebSafeArea`,
-  `WebShell.UseMobileCheck`; needs `window.loadingScreen` and, for the shell, `TemplateData/web-shell.js` in the
+  `WebShell.UseMobileCheck`, which also turns Run In Background off on a mobile page; needs `window.loadingScreen` and, for the shell, `TemplateData/web-shell.js` in the
   WebGL template; register only under `#if UNITY_WEBGL && !UNITY_EDITOR`; editor: `Internal.WebGlBuild.Build`,
   the batchmode build with the active build profile inside `PlayerBuildSteps.Run`, exit code 1 on any failure; every WebGL
   build gets `WebTemplate~/audio-session.js` first in the `<head>` of its `index.html` (`WebAudioSessionInjection`:
