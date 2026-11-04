@@ -1,0 +1,6 @@
+## R1 - run-tests.sh pixel-swarm (DONE)
+- Снимок: take_snapshot стр.322-391, cp -a --reflink=always в /var/tmp (btrfs; /tmp tmpfs), рабочее дерево с правками и сабмодулем. Library без BuildCache/BuildHistory/BuildPlayerData/PlayerDataCache/com.unity.web.stripping-tool/ManagedCapture. Fixed-папки pixel-swarm-tests.fixed<i> под flock -n fd8; Bee/ScriptAssemblies переносятся в fixed<i>.state (иначе перекомпиляция 28-30 с: Bee хранит абсолютные пути).
+- Слоты: acquire_unity_slot стр.557-607, flock -n fd9, /tmp/claude-1000/unity-batchmode.lock (слот 0) + unity-batchmode.slot<i>.lock, UNITY_SLOTS=2; MemAvailable >= 8 ГБ (+8 если шард стартовал <30 с), ждёт память до 900 с. Unity запускается с 9>&- 8>&-.
+- Batchmode: run_unity_once стр.641-721, timeout --signal=KILL 3600, убийство по маркеру в /proc/*/environ (kill_own_processes 237-261), разбор кодов 137/fatal signal.
+- Нет параметра «тестируй этот каталог»; снимок всегда из ROOT скрипта. Итог: Summary, Logs:, ALL TESTS PASSED/TESTS FAILED (exit 0/1, 2 - аргументы). TEST_LOG_DIR задаёт логи.
+- Другие игры: свои упрощённые копии (~350 строк), один блокирующий flock на unity-batchmode.lock, память проверяется один раз. test-all.sh фреймворка - без снимка и слотов.
