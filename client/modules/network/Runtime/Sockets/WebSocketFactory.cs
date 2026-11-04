@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace Internal
 {
@@ -36,6 +36,7 @@ namespace Internal
                 case PlatformType.Website:
                 case PlatformType.ItchIO:
                 case PlatformType.Telegram:
+                case PlatformType.WebStress:
                     return new JsWebSocket(url, lifetime);
 #if UNITY_EDITOR || !UNITY_WEBGL
                 case PlatformType.IOS:
