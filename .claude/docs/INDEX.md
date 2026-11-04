@@ -41,4 +41,4 @@ Research media of a project: work in progress is in `docs/media/research/<topic>
 | delivery semantics, DurableQueue, RuntimeChannel, RuntimePipe, catch-up, GapDetected, observer keep-alive, dead letter | MESSAGING.md |
 | Blazor, razor, @inject, UiComponent, early return, console UI | BLAZOR.md |
 | which pattern to use, decision | DECISION_TREES.md |
-| WebGL, iOS, Safari, iPhone, shader, nointerpolation, flat varying, GPU hang, frame every 5 s, test on a device, ANGLE, Metal | WEBGL_IOS.md |
+| WebGL, iOS, iPadOS, Safari, WebKit, Android, Mali, ANGLE, Metal, shader, nointerpolation, flat varying, ImmCB, GPU hang, frame every 5 s, black screen, context lost, INVALID_OPERATION, ?glcheck, DPR, fullscreen, silent mode, JSPI, emscripten, wasm, stripping, Bee, Brotli, CRC Mismatch, Telegram WebView, test on a device | WEBGL_TROUBLESHOOTING.md |
