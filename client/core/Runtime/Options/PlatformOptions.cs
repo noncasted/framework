@@ -10,7 +10,7 @@ namespace Internal
 
         private static Func<bool> _mobileCheck;
 
-        // A build gets Telegram or Steam from the define of its profile (web_telegram, steam_*), not from this shared
+        // A build gets Telegram, Steam or WebStress from the define of its profile (web_telegram, steam_*, web_stress), not from this shared
         // asset: the builds would overwrite one field. The serialized Telegram or Steam is for the editor only (a
         // debug run of the platform: the debug API of Telegram, a running Steam client for Steam).
         public PlatformType PlatformType
@@ -21,6 +21,8 @@ namespace Internal
                 return PlatformType.Telegram;
 #elif PLATFORM_STEAM
                 return PlatformType.Steam;
+#elif PLATFORM_STRESS
+                return PlatformType.WebStress;
 #else
                 if (_platform == PlatformType.Telegram && IsEditor == false)
                     throw new InvalidOperationException(
@@ -29,6 +31,10 @@ namespace Internal
                 if (_platform == PlatformType.Steam && IsEditor == false)
                     throw new InvalidOperationException(
                         "[Platform] PlatformType.Steam without the PLATFORM_STEAM define: build with a steam_* profile");
+
+                if (_platform == PlatformType.WebStress && IsEditor == false)
+                    throw new InvalidOperationException(
+                        "[Platform] PlatformType.WebStress without the PLATFORM_STRESS define: build with the web_stress profile");
 
                 return _platform;
 #endif
