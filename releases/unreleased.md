@@ -114,3 +114,13 @@ SDF Font Asset was not found» в каждой сессии уходит. Сво
 `SubmoduleStrippingSettings` (Assets > Create > Web Optimization), заполнить список сабмодулей, Assets > Web Optimization > Set as Active
 Submodule Stripping Settings, закоммитить ассет и `ProjectSettings/Packages/com.unity.web.stripping-tool/Settings.json`.
 
+### `deploy-client`: тесты и сборки целей параллельно, в копиях, без редактора
+Кого касается: игры, которые деплоят клиент общим скиллом `deploy-client` (ссылка в `.claude/skills`).
+Поиск: `ls .claude/skills/deploy-client .claude/deploy-client.json`
+Сделать: скилл больше не собирает в открытом редакторе через MCP, а запускает `tools/framework/tools/scripts/deploy-client.sh`:
+тесты игры и batchmode-сборка каждой цели одновременно, каждая в своей reflink-копии рабочего дерева, выкладка только после
+прохода всех. Цели скрипт читает из `.claude/deploy-client.json` игры, без него выходит с кодом 2: добавить файл (схема - комментарий
+в начале `tools/framework/tools/scripts/deploy-client.sh`, пример - `.claude/deploy-client.json` pixel-swarm) и сослаться на него в
+§ deploy-client файла `.claude/project-skills.md`; фразы про открытый редактор оттуда убрать. Копии ставятся в `/var/tmp`
+(`DEPLOY_COPY_DIR`) и требуют reflink (btrfs) на одной файловой системе с игрой. Игровые `run-tests.sh` и `deploy-webgl.sh`
+не меняются.
