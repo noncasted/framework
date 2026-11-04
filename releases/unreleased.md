@@ -102,3 +102,10 @@ SDF Font Asset was not found» в каждой сессии уходит. Сво
 Сделать: ничего, если не найдено. Сборка WebGL кладёт `navigator.audioSession.type = 'playback'` первым скриптом в `<head>`
 собранного `index.html` (`WebAudioSessionInjection`), до `createUnityInstance`: на iOS / iPadOS звук слышен и в беззвучном
 режиме. Своё выставление `audioSession` в шаблоне удалить.
+
+### Хостинг: лидер лобби в `ILobbyMatches.Create`
+Кого касается: бэкенд игр с лобби (своя реализация `ILobbyMatches`, подделки в тестах).
+Поиск: `git grep -nE 'LobbyMatch Create\(' -- '*.cs'`
+Сделать: BREAKING. Сигнатура `Create(Guid lobbySessionId, Guid leaderId, IReadOnlyList<Guid> userIds, bool isOpen)`: `leaderId` - мета-id
+лидера лобби в момент старта (владелец сессии лобби, один из `userIds`). Игре, у которой матч хостит клиент (P2P), стоит отдать
+роль владельца матча ему, а не первому вошедшему: иначе хостом становится тот, кто быстрее загрузился.

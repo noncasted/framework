@@ -9,6 +9,7 @@ internal class LobbyMatchStart
 {
     public LobbyMatchStart(
         LobbyProperties properties,
+        ISessionOwner owner,
         ISessionUsers users,
         ISessionAdmission admission,
         ILobbyMatches matches,
@@ -17,6 +18,7 @@ internal class LobbyMatchStart
         ILogger logger)
     {
         _properties = properties;
+        _owner = owner;
         _users = users;
         _admission = admission;
         _matches = matches;
@@ -26,6 +28,7 @@ internal class LobbyMatchStart
     }
 
     private readonly LobbyProperties _properties;
+    private readonly ISessionOwner _owner;
     private readonly ISessionUsers _users;
     private readonly ISessionAdmission _admission;
     private readonly ILobbyMatches _matches;
@@ -64,11 +67,20 @@ internal class LobbyMatchStart
         });
     }
 
+    // The countdown belongs to the leader that started it (a change of the leader resets it): the leader is here.
+    private Guid GetLeaderId()
+    {
+        var leader = _owner.Owner.Value
+                     ?? throw new InvalidOperationException($"Lobby {_info.SessionId} starts its match without a leader");
+
+        return leader.BackendId;
+    }
+
     private LobbyMatch CreateMatch(IReadOnlyList<Guid> userIds)
     {
         try
         {
-            return _matches.Create(_info.SessionId, userIds, _properties.Visibility.Value.IsOpen);
+            return _matches.Create(_info.SessionId, GetLeaderId(), userIds, _properties.Visibility.Value.IsOpen);
         }
         catch (Exception)
         {
