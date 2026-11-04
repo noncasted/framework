@@ -32,5 +32,28 @@ mergeInto(LibraryManager.library,
 
             if (isCopied === false)
                 console.error('[Clipboard] Failed to copy: execCommand rejected');
+        },
+
+        // The browser gives the clipboard to the page only in its paste event (Ctrl+V / Cmd+V on the canvas):
+        // the listener keeps the last pasted text until the game takes it. The first call starts the listener.
+        WebClipboardTakePaste: function () {
+            if (window.webClipboardPaste === undefined) {
+                window.webClipboardPaste = { text: null };
+
+                document.addEventListener('paste', function (e) {
+                    window.webClipboardPaste.text = e.clipboardData.getData('text');
+                });
+            }
+
+            const text = window.webClipboardPaste.text;
+            window.webClipboardPaste.text = null;
+
+            if (text === null)
+                return null;
+
+            const size = lengthBytesUTF8(text) + 1;
+            const buffer = _malloc(size);
+            stringToUTF8(text, buffer, size);
+            return buffer;
         }
     });
