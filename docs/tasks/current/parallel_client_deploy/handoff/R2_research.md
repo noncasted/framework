@@ -1,8 +1,0 @@
-## R2 - batchmode-сборка (DONE)
-- WebGlBuild.cs (client/platforms/web/Editor): -buildOutput (по умолч. build), профиль только через -activeBuildProfile при старте Unity; PlayerBuildSteps.Run; SharedAddressablesSync.Sync() вызывается (стр.62) после BeforeBuild; exit 0/1.
-- Stripping (форк com.unity.web.stripping-tool): настройки из ProjectSettings/Packages/com.unity.web.stripping-tool/Settings.json (InitializeOnLoad + повтор через delayCall - патч форка); у pixel-swarm AssetPath=Assets/Settings/DefaultSubmoduleStrippingSettings.asset, StripAutomaticallyAfterBuild=true, закоммичено. SubmoduleStrippingBuildProcessor - обычный postprocess, работает в batchmode; при null ActiveSettings молча пропускает - РИСК. Предложение: в WebGlBuild перед Run явно загрузить настройки, выставить флаг, бросить при null (без пути игры).
-- Папка бэкапа Library/com.unity.web.stripping-tool/<folder>-<guid> создаётся ВСЕГДА (даже без стрипа) - слабая проверка; сильная: stripping_info.json и *.wasm.br.bak в ней. ps-deploy9: .bak 7.6 МБ, wasm.br 3.9 МБ.
-- Addressables: строятся внутри сборки в Library/com.unity.addressables/aa/<activeBuildTarget>, папка удаляется перед сборкой; при -buildTarget WebGL устаревших aa быть не должно; проверка catalog.bin без StandaloneLinux64 остаётся.
-- build-guid.txt пишет WebBuildPreprocessor.cs:50-51 (report guid) после каждой успешной сборки.
-- pixel-swarm: IPlayerBuildStep нет; WebBootConfigStep.cs и WebAudioSessionInjection - postprocess без зависимости от редактора.
-- client_telemetry: Bee удалял выход другой цели при сборке в ОДНОЙ копии; тест OptionsTabTests падал в копии после telegram-сборки (исправлено коммитом 5be98f13).
