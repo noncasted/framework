@@ -102,3 +102,15 @@ SDF Font Asset was not found» в каждой сессии уходит. Сво
 Сделать: ничего, если не найдено. Сборка WebGL кладёт `navigator.audioSession.type = 'playback'` первым скриптом в `<head>`
 собранного `index.html` (`WebAudioSessionInjection`), до `createUnityInstance`: на iOS / iPadOS звук слышен и в беззвучном
 режиме. Своё выставление `audioSession` в шаблоне удалить.
+
+### WebGL-сборка требует стрип сабмодулей
+Кого касается: клиент, игры с `com.noncasted.framework.platform.web` (сейчас без настроек стрипа только storytale-workshop).
+Поиск: `ls client/ProjectSettings/Packages/com.unity.web.stripping-tool/Settings.json; grep -n 'stripping-tool' client/Packages/manifest.json`
+Сделать: BREAKING. `Internal.WebGlBuild.Build` перед сборкой загружает настройки Web Stripping Tool и бросает (exit 1 в batchmode), если
+активных настроек нет или в них пустой `SubmodulesToStrip`; `StripAutomaticallyAfterBuild` включает сам (и сохраняет в `Settings.json`).
+Пакет web теперь зависит от `com.unity.web.stripping-tool`: в `manifest.json` игры нужна строка форка
+`"com.unity.web.stripping-tool": "file:../../tools/framework/client/packages/com.unity.web.stripping-tool"` (без неё подтянется
+пакет из реестра без патчей, и `LoadSettings` не найдётся). Игре без настроек: создать ассет
+`SubmoduleStrippingSettings` (Assets > Create > Web Optimization), заполнить список сабмодулей, Assets > Web Optimization > Set as Active
+Submodule Stripping Settings, закоммитить ассет и `ProjectSettings/Packages/com.unity.web.stripping-tool/Settings.json`.
+

@@ -11,6 +11,7 @@ namespace Internal
     ///     Unity -quit -batchmode -projectPath client -executeMethod Internal.WebGlBuild.Build
     ///     Output goes to client/build (or -buildOutput), with the settings of the active build profile.
     ///     The project <see cref="IPlayerBuildStep" />s run around the build (<see cref="PlayerBuildSteps" />).
+    ///     The submodule stripping of the build is required (<see cref="WebGlStripping" />).
     /// </summary>
     public static class WebGlBuild
     {
@@ -46,6 +47,8 @@ namespace Internal
 
         private static void BuildChecked(string output)
         {
+            WebGlStripping.Require();
+
             var report = PlayerBuildSteps.Run(BuildTarget.WebGL, () => BuildPlayer(output));
             var summary = report.summary;
 
