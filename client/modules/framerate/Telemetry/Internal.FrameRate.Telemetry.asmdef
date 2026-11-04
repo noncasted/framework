@@ -1,0 +1,27 @@
+{
+    "name": "Internal.FrameRate.Telemetry",
+    "rootNamespace": "",
+    "references": [
+        "GUID:f039cb8c565843dba6da5b3c1ccde7d6",
+        "GUID:3ea5c3f1172040daa713d5ad71728b78",
+        "GUID:90f39b7295db4ddf82e39fa22b13988d",
+        "GUID:f633eeac40e2491984f08e394079da0a"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "FRAMEWORK_TELEMETRY"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.noncasted.framework.telemetry",
+            "expression": "",
+            "define": "FRAMEWORK_TELEMETRY"
+        }
+    ],
+    "noEngineReferences": false
+}

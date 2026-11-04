@@ -102,9 +102,58 @@ check_same_files() {
     echo "$count same pairs"
 }
 
-# The tree a target builds in: a reflink copy of the snapshot, taken before the tests write into it.
+# The tree a target builds in: a reflink copy of the snapshot, taken before the tests write into it. Its client/Library is
+# the one the last passed build of this target from this tree left (target_library) when that one is newer than the
+# Library of the snapshot (by the times of ArtifactDB and SourceAssetDB): the tree of a worktree without an editor stays
+# behind, and every build would import again what came since (800-1400 assets, 50-80 s). Bee of the snapshot stays: the
+# saved one holds the paths of an earlier copy.
 make_target_copy() {
-    local target="$1"
+    local target="$1" saved
+    saved="$(target_library "$target")"
     echo "Copy of $target: $WORK/$target"
     cp -a --reflink=always "$SNAP" "$WORK/$target"
+    (
+        flock 6
+        if [[ -d "$saved/Library" ]] && (($(library_time "$saved/Library") > $(library_time "$SNAP/client/Library"))); then
+            mv "$WORK/$target/client/Library" "$WORK/$target/client/Library.tree"
+            cp -a --reflink=always "$saved/Library" "$WORK/$target/client/Library"
+            mv "$WORK/$target/client/Library.tree/Bee" "$WORK/$target/client/Library/"
+            echo "Library of $target: the last build of this target ($saved)"
+        else
+            echo "Library of $target: the snapshot"
+        fi
+    ) 6>"$saved.lock"
+}
+
+# The folder of the Library of the last passed build of "<target>" from this tree, next to the copies.
+target_library() {
+    echo "${DEPLOY_COPY_DIR:-/var/tmp}/$GAME-deploy-client.$(realpath "$ROOT" | sha1sum | cut -c1-10).$1"
+}
+
+# The time of the last import into a Library: the newer of its asset databases, 0 without them.
+library_time() {
+    local file newest=0 time
+    for file in "$1/ArtifactDB" "$1/SourceAssetDB"; do
+        time="$(stat -c %Y "$file" 2>/dev/null || echo 0)"
+        ((time > newest)) && newest=$time
+    done
+    echo "$newest"
+}
+
+# Keeps the Library of the passed build of "<target>" for the next one (moved, no copy), without what holds the paths of
+# this copy or belongs to this build only (Bee, stripping backups, build reports): they stay in the copy.
+save_target_library() {
+    local target="$1" library="$WORK/$1/client/Library" saved rest="$WORK/$1/client/Library.build" name
+    saved="$(target_library "$target")"
+    mkdir -p "$rest"
+    for name in Bee com.unity.web.stripping-tool BuildHistory; do
+        [[ ! -e "$library/$name" ]] || mv "$library/$name" "$rest/"
+    done
+    (
+        flock 6
+        rm -rf "$saved"
+        mkdir -p "$saved"
+        mv "$library" "$saved/Library"
+    ) 6>"$saved.lock"
+    echo "Library of $target kept in $saved"
 }

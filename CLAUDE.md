@@ -148,6 +148,10 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
   (`core/Editor/Tools/Build`: `BeforeBuild` / `AfterBuild(target, succeeded)`, a parameterless class, found by
   `TypeCache`, ordered by full type name); `PlayerBuildSteps.Run(target, build)` calls `AfterBuild` of every started
   step also after a failed build or a throwing step, then rethrows. Unity's postprocess callbacks skip failed builds.
+- **Test tools.** `Internal.TestTools` (`core/Tests/Tools`, Editor, `UNITY_INCLUDE_TESTS`; a game references it from its test asmdef
+  and lists `com.noncasted.framework.core` in `testables`): `FrameAllocations.AssertNone(what, passes, pass, warmup)` / `Measure`, the
+  guard of a hot path (below a byte a pass); `WebGlShaderCheck.Find(folders, excluded)` + `AssertSafe(shaders)`, the WebGL code of the
+  shaders without `ImmCB_` / `TempArray` / flat varyings (`WEBGL_TROUBLESHOOTING.md` G1, G2); the folders are the game's, in its test.
 - **Startup trace.** `GameProfiler.Stage` opens a big step of the game (`Global`, `Meta`, a menu, a run), a root of the
   trace; `LoadRoot` opens `Startup`. A record made with an empty stack (after an await) goes to the last stage, `Detached` to
   the last stage off the stack, and a parent covers its late children. A branch that outlives its stage opens `Detached` in its
@@ -210,6 +214,17 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
     the settings of the player in the saves (`ISaves`): the volumes as the `IAudioVolume` of `audio`, the defaults from the options asset of the game; a game with settings of its own derives
     `SettingsSave`, `Settings<TSave>` (`OnPush`) and `SettingsOptions<TSave>` and injects its own interface over
     `ISettings<TSave>`. A language is a field of the save of the game (`OnLoad`, `OnPush`). Depends on `audio`, `publish`.
+  - `resolution` (`AddResolution()`, namespace `Global.Resolution`): the render resolution of a phone or a tablet on the web,
+    Auto / Low / High (`ResolutionMode`; Auto is Low on iOS and iPadOS). The settings of the game implement `IResolutionSetting`.
+    The build puts `WebTemplate~/render-resolution.js` first into the `<head>` (`RenderResolutionInjection`); the template calls
+    `renderResolution.pixelRatio(canvas, max)` before `createUnityInstance` and `renderResolution.follow(module, canvas, max)` on a
+    mobile page (device / k with k a whole number, the short side at least 360, `?dpr=native|<n>`). `AddResolutionTelemetry` in the
+    scope of the telemetry: `settings.resolution`.
+  - `framerate` (`AddFrameRate(AutoFrameRateOptions)`, after `AddUpdater`, namespace `Global.FrameRate`): `Application.targetFrameRate`,
+    strongest first: `?fps=native|<n>` of the page, the choice of the settings (`IFrameRateSetting`, Auto / 30 / 60), Auto: the rate
+    of the screen on a desktop, on a phone `AutoFrameRateRule` (work of a frame above 12 ms for 8 s -> 30, below 6 ms for 30 s -> 60),
+    remembered on the device (`FrameRate.AutoLow`). `AddFrameRateTelemetry`: the marks `fps.auto.<limit>`. The `*.Telemetry` assemblies
+    of both compile only with the `telemetry` package (`FRAMEWORK_TELEMETRY`, a version define; `client/project` sets it).
   - `lobbies` (`Internal.Lobbies`, namespace `Global.Lobbies`; `AddMatchmaking`, `AddLobbyNetworkService`):
     `IMatchmaking` (search, solo, lobby create / join / match join, tickets) over the meta socket the game registers
     as `IMetaSocket`; `LobbyNetworkService`, the client of the lobby service of a lobby session (a derived one adds the
@@ -297,7 +312,7 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1550, common 92, Verify 166, control 23, telemetry 84, EditMode 1066 (4 of them skipped, the
+Release build replaces it. The expected numbers: backend 1550, common 92, Verify 166, control 23, telemetry 84, EditMode 1076 (4 of them skipped, the
 benchmarks of `ContainerBenchmarkTests`), PlayMode 118 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 

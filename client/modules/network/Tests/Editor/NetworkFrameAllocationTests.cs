@@ -15,10 +15,7 @@ namespace Internal.Tests
     public class NetworkFrameAllocationTests
     {
         private const int Passes = 200;
-
-        // Below a byte a pass: nothing is allocated per pass (a one-time allocation of the runtime aside, 48 B seen).
-        // Asserts stay out of the passes, NUnit allocates in them.
-        private const string PerPass = "bytes allocated by the passes";
+        private const int Warmup = FrameAllocations.DefaultWarmup;
 
         private int _completed;
 
@@ -69,15 +66,11 @@ namespace Internal.Tests
                 CountCompleted(run.SendQueued());
             }
 
-            for (var i = 0; i < 10; i++)
-                Pass();
-
             var sends = socket.Sends;
-            var bytes = Measure(Pass);
+            FrameAllocations.AssertNone("a sync of the properties", Passes, Pass);
 
-            Assert.AreEqual(Passes, socket.Sends - sends, "every pass sends its SetProperties");
-            Assert.Less(bytes, Passes, PerPass);
-            Assert.AreEqual(10 + Passes, _completed, "every send completes synchronously");
+            Assert.AreEqual(Warmup + Passes, socket.Sends - sends, "every pass sends its SetProperties");
+            Assert.AreEqual(Warmup + Passes, _completed, "every send completes synchronously");
 
             UnityEngine.Object.DestroyImmediate(options);
             lifetime.Terminate();
@@ -100,26 +93,13 @@ namespace Internal.Tests
                 CountCompleted(run.SendQueued());
             }
 
-            for (var i = 0; i < 10; i++)
-                Pass();
-
             var sends = socket.Sends;
+            FrameAllocations.AssertNone("a one-way message", Passes, Pass);
 
-            Assert.Less(Measure(Pass), Passes, PerPass);
-            Assert.AreEqual(10 + Passes, _completed, "every send completes synchronously");
-            Assert.AreEqual(2 * Passes, socket.Sends - sends);
+            Assert.AreEqual(Warmup + Passes, _completed, "every send completes synchronously");
+            Assert.AreEqual(2 * (Warmup + Passes), socket.Sends - sends);
             CollectionAssert.AreEqual(MemoryPackSerializer.Serialize<IMessageFromClient>(message), socket.Last);
             lifetime.Terminate();
-        }
-
-        private static long Measure(Action pass)
-        {
-            var before = GC.GetAllocatedBytesForCurrentThread();
-
-            for (var i = 0; i < Passes; i++)
-                pass.Invoke();
-
-            return GC.GetAllocatedBytesForCurrentThread() - before;
         }
 
         // The sync runs on real time: the next pass waits until the clock moves past the (tiny) interval.

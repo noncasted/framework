@@ -7,7 +7,8 @@
 #                with the working tree of tools/framework (or of FRAMEWORK_SOURCE) and client/Library (minus what a
 #                build must not inherit, see deploy-client/snapshot.sh); the "same" files are compared there
 #   2. at once   the tests: the "tests" script of the game run FROM the snapshot (it tests exactly that tree);
-#                one reflink copy of the snapshot per target, each built by its own batchmode Unity
+#                one reflink copy of the snapshot per target, each built by its own batchmode Unity, with the Library
+#                of the last passed build of that target from this tree when it is newer (deploy-client/snapshot.sh)
 #                (Internal.WebGlBuild.Build with -activeBuildProfile), at most UNITY_BUILD_SLOTS builds on the machine
 #   3. checks    of every build right after it (deploy-client/verify.sh)
 #   4. deploy    only when the tests passed and every target passed its checks: target after target, the "deploy"
@@ -17,7 +18,8 @@
 #
 # The game describes itself in .claude/deploy-client.json (no values of a game in this script):
 #   {
-#     "tests": "tools/scripts/run-tests.sh",       // run in the snapshot with TEST_LOG_DIR, exit 0 = passed
+#     "tests": "tools/scripts/run-tests.sh",       // run in the snapshot with TEST_LOG_DIR and TEST_TREE (the root of
+#                                                  // the game: the key of its caches), exit 0 = passed
 #     "deploy": "tools/scripts/deploy-webgl.sh",   // run in the game root with BUILD_DIR=<abs>; prints "Deployed ... <tag>";
 #                                                  // with --list its last line names the current release
 #     "exclude": ["builds", "client/Build"],       // paths (globs, from the root) left out of the snapshot
@@ -171,7 +173,7 @@ echo "Copies ready in $((SECONDS - stage_start)) s"
 TESTS_START=$SECONDS
 if [[ "$NO_TEST" == 0 ]]; then
     tests_script="$(config_value tests)"
-    (cd "$SNAP" && exec env "$TESTS_MARKER" TEST_LOG_DIR="$LOG_DIR/tests" "$SNAP/$tests_script") >"$LOG_DIR/tests.log" 2>&1 &
+    (cd "$SNAP" && exec env "$TESTS_MARKER" TEST_LOG_DIR="$LOG_DIR/tests" TEST_TREE="$ROOT" "$SNAP/$tests_script") >"$LOG_DIR/tests.log" 2>&1 &
     TESTS_PID=$!
     echo "Tests started: $tests_script (log: $LOG_DIR/tests.log)"
 fi
@@ -182,6 +184,7 @@ for target in "${TARGETS[@]}"; do
 done
 
 TESTS_CODE=""
+TESTS_SECONDS=0
 pending=("${BUILD_PIDS[@]}")
 [[ -n "$TESTS_PID" ]] && pending+=("$TESTS_PID")
 while ((${#pending[@]} > 0)); do
@@ -196,7 +199,8 @@ while ((${#pending[@]} > 0)); do
     if [[ "$done_pid" == "$TESTS_PID" ]]; then
         TESTS_PID=""
         TESTS_CODE=$code
-        echo "Tests finished in $((SECONDS - TESTS_START)) s, exit $code"
+        TESTS_SECONDS=$((SECONDS - TESTS_START))
+        echo "Tests finished in $TESTS_SECONDS s, exit $code"
         if ((code != 0)); then
             echo "Tests failed: the builds of this run are stopped, nothing is uploaded" >&2
             stop_builds
@@ -211,7 +215,8 @@ done
 if [[ "$NO_TEST" == 1 ]]; then
     record tests SKIP 0 "--notest"
 else
-    record_tests "$TESTS_CODE" $((SECONDS - TESTS_START))
+    # Stopped by a failure of the builds: the time until now.
+    record_tests "$TESTS_CODE" "$((TESTS_SECONDS > 0 ? TESTS_SECONDS : SECONDS - TESTS_START))"
 fi
 for target in "${TARGETS[@]}"; do
     record_build "$target"

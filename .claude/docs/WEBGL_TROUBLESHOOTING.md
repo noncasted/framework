@@ -74,8 +74,8 @@ iPad 7 (A10, 3 GB) is iPadOS 18.2.1; the Android phone is a Mali-G52 MC2 with Ch
   varying; `round` it in the fragment shader where it is compared or indexes something.
 - **Recognize:** `web.raf.dt.max` ~5000, `frame.dt` ~5 s while `frame.cpu.main` stays normal; on the probe,
   `clientWaitSync` returns `TIMEOUT_EXPIRED` (37147) and Unity creates new buffers every frame (a consequence).
-- **Status:** fixed in pixel-swarm (`Sprite.shader`, `_SWARM_BODY`, e3acef1b); the guard test of [G2](#g2-arrays-indexed-at-run-time)
-  also rejects `nointerpolation`.
+- **Status:** fixed in pixel-swarm (`Sprite.shader`, `_SWARM_BODY`, e3acef1b); `WebGlShaderCheck` of [G2](#g2-arrays-indexed-at-run-time)
+  also rejects a flat varying (`flat in` / `flat out` in the compiled code).
 
 ### G2. Arrays indexed at run time
 - **Symptom:** a fragment-bound frame; on iPad 7 rAF dt 29-31 ms with the CPU at 10 ms.
@@ -88,7 +88,8 @@ iPad 7 (A10, 3 GB) is iPadOS 18.2.1; the Android phone is a Mali-G52 MC2 with Ch
   folded by fxc. Debug-only branches (ramps, heat views) go into a keyword variant.
 - **Recognize:** check the compiled code, not the HLSL: `ShaderUtil.GetShaderData(shader).GetSubshader(s).GetPass(p)
   .CompileVariant(ShaderType.Vertex, keywords, ShaderCompilerPlatform.GLES3x, BuildTarget.WebGL)` returns the GLSL (vertex and
-  fragment) to search for `ImmCB_` / `TempArray`; a game keeps this as an EditMode test over its shaders.
+  fragment) to search for `ImmCB_` / `TempArray`. `WebGlShaderCheck` of `Internal.TestTools` does it: a game keeps an EditMode test
+  `WebGlShaderCheck.AssertSafe(WebGlShaderCheck.Find(new[] { "Assets" }, thirdPartyPrefixes))` over its shaders.
 - **Status:** fixed in pixel-swarm (e8a88090, test `WebGlShaderTablesTests`); iPad run ~33 -> ~52 FPS.
 
 ### G3. Constant weights

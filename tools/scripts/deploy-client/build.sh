@@ -105,6 +105,7 @@ build_target() {
     details="$(verify_target "$target" "$copy" "$output" "$log" "$started" 2>&1)" || result=FAIL
     echo "$details"
     echo "$result|$((SECONDS - verify_start))|$(tr '\n' ' ' <<<"$details" | sed 's/ *$//')" >"$STATE/verify.$target"
+    [[ "$result" != PASS ]] || save_target_library "$target"
 }
 
 # Stops the build subshells of this run and every process of their Unity.

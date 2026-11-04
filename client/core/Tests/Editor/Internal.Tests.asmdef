@@ -7,7 +7,8 @@
         "UniTask",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "GUID:3ea5c3f1172040daa713d5ad71728b78"
+        "GUID:3ea5c3f1172040daa713d5ad71728b78",
+        "GUID:10a40de432a949f8bf47435b99afbeb1"
     ],
     "includePlatforms": [
         "Editor"

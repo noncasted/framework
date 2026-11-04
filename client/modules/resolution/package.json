@@ -1,0 +1,11 @@
+{
+  "name": "com.noncasted.framework.resolution",
+  "displayName": "Framework Resolution",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "The render resolution of a phone or a tablet on the web: render-resolution.js of the page (a whole fraction of the device pixel ratio, 360 units of the short side, ?dpr=), the choice of the settings of the game (Auto / Low / High); settings.resolution with the telemetry module (namespace Global.Resolution).",
+  "dependencies": {
+    "com.noncasted.framework.core": "0.1.0",
+    "com.noncasted.framework.common": "0.1.0"
+  }
+}
