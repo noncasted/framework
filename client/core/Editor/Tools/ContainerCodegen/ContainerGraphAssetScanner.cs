@@ -9,6 +9,12 @@ namespace Internal
     {
         private const string SceneServicesFactoryGuid = "acd7e370b6b3474e8b51f677a9edd625";
 
+        // A file with none of these holds nothing of the map: a big prefab of art is not parsed line by line after each save.
+        private static readonly string[] Markers =
+        {
+            "_autoDetected", "_register", "_services", "ScopeEntity", "SceneServicesFactory", SceneServicesFactoryGuid
+        };
+
         public static List<ContainerGraphAsset> Scan(string assetsRoot)
         {
             var results = new List<ContainerGraphAsset>();
@@ -58,7 +64,12 @@ namespace Internal
             bool prefab)
         {
             // A failure to read throws: taken for an empty result, it would delete what the generator did not see.
-            var lines = File.ReadAllLines(fullPath);
+            var text = File.ReadAllText(fullPath);
+
+            if (Array.TrueForAll(Markers, m => text.IndexOf(m, StringComparison.Ordinal) < 0))
+                return;
+
+            var lines = text.Split('\n');
 
             RequireNoVariantOverride(lines, fullPath);
 
