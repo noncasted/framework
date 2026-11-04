@@ -1,4 +1,3 @@
-using System;
 using NUnit.Framework;
 
 namespace Internal.Tests
@@ -37,16 +36,7 @@ namespace Internal.Tests
             }
 
             // Warmed up: the lists grow and the comparers are made on the first passes.
-            for (var i = 0; i < 10; i++)
-                Pass();
-
-            var before = GC.GetAllocatedBytesForCurrentThread();
-
-            for (var i = 0; i < Passes; i++)
-                Pass();
-
-            // Below a byte a pass: nothing per pass (a one-time allocation of the runtime aside, 48 B seen).
-            Assert.Less(GC.GetAllocatedBytesForCurrentThread() - before, Passes);
+            FrameAllocations.AssertNone("a removal of a handle", Passes, Pass);
             Assert.AreEqual(handles.Length, list.Count);
         }
 

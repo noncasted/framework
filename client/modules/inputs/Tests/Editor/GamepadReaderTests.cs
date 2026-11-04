@@ -40,18 +40,8 @@ namespace Global.Inputs.Tests
                     GamepadReader.GetRawAxisName(axis);
             }
 
-            // Warmed up: the names are built on the first read.
-            for (var i = 0; i < 10; i++)
-                Pass();
-
-            var before = GC.GetAllocatedBytesForCurrentThread();
-
-            for (var i = 0; i < Passes; i++)
-                Pass();
-
-            // Below a byte a pass: nothing per pass (a one-time allocation of the runtime aside, 48 B seen). A name built
-            // on a read would be at least 10 strings a pass.
-            Assert.Less(GC.GetAllocatedBytesForCurrentThread() - before, Passes);
+            // Warmed up: the names are built on the first read. A name built on a read would be at least 10 strings a pass.
+            FrameAllocations.AssertNone("a read of the names of the axes", Passes, Pass);
         }
 
         // Without the axes in ProjectSettings/InputManager.asset every read throws ArgumentException, each frame.
