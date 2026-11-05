@@ -73,7 +73,7 @@ namespace Internal
         {
             var sdpText = NativeWebRtcApi.String(sdp);
             var typeText = NativeWebRtcApi.String(type);
-            Dispatch(user, peer => peer.Events.OnLocalDescription(typeText, sdpText));
+            Dispatch(user, peer => peer.LocalDescription(typeText, sdpText));
         }
 
         [MonoPInvokeCallback(typeof(NativeWebRtcApi.CandidateCallback))]
@@ -81,7 +81,7 @@ namespace Internal
         {
             var candidateText = NativeWebRtcApi.String(candidate);
             var midText = NativeWebRtcApi.String(mid);
-            Dispatch(user, peer => peer.Events.OnLocalCandidate(candidateText, midText));
+            Dispatch(user, peer => peer.LocalCandidate(candidateText, midText));
         }
 
         [MonoPInvokeCallback(typeof(NativeWebRtcApi.StateCallback))]
@@ -107,7 +107,7 @@ namespace Internal
         [MonoPInvokeCallback(typeof(NativeWebRtcApi.ChannelCallback))]
         private static void OnOpen(int id, IntPtr user)
         {
-            Dispatch(user, peer => peer.Opened());
+            Dispatch(user, peer => peer.Opened(id));
         }
 
         [MonoPInvokeCallback(typeof(NativeWebRtcApi.ChannelCallback))]
@@ -135,7 +135,7 @@ namespace Internal
 
             var bytes = new byte[size];
             Marshal.Copy(message, bytes, 0, size);
-            Dispatch(user, peer => peer.Events.OnMessage(bytes));
+            Dispatch(user, peer => peer.Message(id, bytes));
         }
     }
 }

@@ -121,7 +121,8 @@ namespace Internal.Tests
 
         private static int Channel(IWebRtcPeer peer)
         {
-            return (int)peer.GetType().GetField("_channel", Instance).GetValue(peer);
+            var channels = (int[])peer.GetType().GetField("_channels", Instance).GetValue(peer);
+            return channels[0];
         }
 
         private static IWebRtcPeer Create()

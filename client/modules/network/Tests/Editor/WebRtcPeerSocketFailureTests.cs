@@ -25,7 +25,7 @@ namespace Internal.Tests
             try
             {
                 var socket = new WebRtcPeerSocket(WebRtcPeerRole.Answer, new PeerHostTests.SignalingEnd(), Options, lifetime);
-                var events = (IWebRtcPeerEvents)socket;
+                var events = Events(socket);
                 var connect = socket.Connect();
 
                 // The open comes from the test, not from the native channel: the peer has no channel to ask.
@@ -77,7 +77,7 @@ namespace Internal.Tests
             var lifetime = new Lifetime();
             var signaling = new ThrowingSignaling();
             var socket = new WebRtcPeerSocket(WebRtcPeerRole.Answer, signaling, Options, lifetime);
-            var events = (IWebRtcPeerEvents)socket;
+            var events = Events(socket);
 
             try
             {
@@ -158,7 +158,7 @@ namespace Internal.Tests
             {
                 var signaling = new RecordingSignaling();
                 var socket = new WebRtcPeerSocket(WebRtcPeerRole.Offer, signaling, Options, lifetime);
-                var events = (IWebRtcPeerEvents)socket;
+                var events = Events(socket);
                 Replace(socket, false);
 
                 events.OnLocalDescription("offer", "sdp");
@@ -189,7 +189,7 @@ namespace Internal.Tests
             {
                 var signaling = new RecordingSignaling();
                 var socket = new WebRtcPeerSocket(WebRtcPeerRole.Answer, signaling, Options, lifetime);
-                var events = (IWebRtcPeerEvents)socket;
+                var events = Events(socket);
                 Replace(socket, false);
 
                 events.OnLocalCandidate("a", "0");
@@ -221,8 +221,7 @@ namespace Internal.Tests
 
             try
             {
-                var socket = new WebRtcPeerSocket(WebRtcPeerRole.Answer, new RecordingSignaling(), Options, lifetime);
-                var peer = WebRtcPeers.Create(Options, socket);
+                var peer = WebRtcPeers.Create(Options, new SilentWebRtcPeerEvents());
                 lifetime.Listen(peer.Dispose);
 
                 Assert.Throws<InvalidOperationException>(() => peer.AddRemoteCandidate("candidate", "0"));
@@ -269,11 +268,24 @@ namespace Internal.Tests
             }
         }
 
+        // The events of the link of the socket: the test plays the platform peer through them.
+        private static IWebRtcChannelEvents Events(WebRtcPeerSocket socket)
+        {
+            return (IWebRtcChannelEvents)Link(socket);
+        }
+
         // The native peer stays under the replacement: it is disposed with it, its callbacks must not outlive the test.
         private static void Replace(WebRtcPeerSocket socket, bool throwsOnSend, WebRtcSignalKind? throwsOnSignal = null)
         {
-            var field = typeof(WebRtcPeerSocket).GetField("_peer", BindingFlags.Instance | BindingFlags.NonPublic);
-            field.SetValue(socket, new FakePeer((IWebRtcPeer)field.GetValue(socket), throwsOnSend, throwsOnSignal));
+            var link = Link(socket);
+            var field = typeof(WebRtcPeerLink).GetField("_peer", BindingFlags.Instance | BindingFlags.NonPublic);
+            field.SetValue(link, new FakePeer((IWebRtcChannels)field.GetValue(link), throwsOnSend, throwsOnSignal));
+        }
+
+        private static WebRtcPeerLink Link(WebRtcPeerSocket socket)
+        {
+            var field = typeof(WebRtcPeerSocket).GetField("_link", BindingFlags.Instance | BindingFlags.NonPublic);
+            return (WebRtcPeerLink)field.GetValue(socket);
         }
 
         [Test]
@@ -289,24 +301,26 @@ namespace Internal.Tests
             Assert.IsFalse(WebRtcPeers.IsSupported(RuntimePlatform.IPhonePlayer));
         }
 
-        private class FakePeer : IWebRtcPeer
+        private class FakePeer : IWebRtcChannels
         {
-            public FakePeer(IWebRtcPeer inner, bool throwsOnSend, WebRtcSignalKind? throwsOnSignal)
+            public FakePeer(IWebRtcChannels inner, bool throwsOnSend, WebRtcSignalKind? throwsOnSignal)
             {
                 _inner = inner;
                 _throwsOnSend = throwsOnSend;
                 _throwsOnSignal = throwsOnSignal;
             }
 
-            private readonly IWebRtcPeer _inner;
+            private readonly IWebRtcChannels _inner;
             private readonly bool _throwsOnSend;
             private readonly WebRtcSignalKind? _throwsOnSignal;
 
-            public int MaxMessageSize => 16384;
-
-            public void CreateChannel(string label)
+            public void CreateChannels()
             {
             }
+
+            public int MaxMessageSize(int channel) => 16384;
+
+            public int BufferedAmount(int channel) => 0;
 
             public void SetRemoteDescription(string type, string sdp)
             {
@@ -318,7 +332,7 @@ namespace Internal.Tests
                 ThrowOn(WebRtcSignalKind.Candidate);
             }
 
-            public void Send(byte[] message)
+            public void Send(int channel, byte[] message)
             {
                 if (_throwsOnSend == true)
                     throw new InvalidOperationException("the channel is closed");

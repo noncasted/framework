@@ -66,6 +66,43 @@ namespace Internal
 #pragma warning restore CS0169
         }
 
+        // rtcReliability of rtc.h v0.24: C bool is one byte, the fields after the two flags are 4-byte aligned.
+        [StructLayout(LayoutKind.Sequential)]
+        public struct Reliability
+        {
+            public byte Unordered;
+            public byte Unreliable;
+            public uint MaxPacketLifeTime;
+            public uint MaxRetransmits;
+        }
+
+        // rtcDataChannelInit of rtc.h v0.24: the pointer is 8-byte aligned after rtcReliability, the two flags and the
+        // stream follow it. The native side reads it by offset.
+        [StructLayout(LayoutKind.Sequential)]
+        public struct DataChannelInit
+        {
+            public Reliability Reliability;
+            public IntPtr Protocol;
+            public byte Negotiated;
+            public byte ManualStream;
+            public ushort Stream;
+
+            public static DataChannelInit Of(WebRtcChannelMode mode)
+            {
+                var init = default(DataChannelInit);
+
+                // A reliable ordered channel is the zero init: the library keeps the defaults of the channel.
+                if (mode == WebRtcChannelMode.Unreliable)
+                {
+                    init.Reliability.Unordered = 1;
+                    init.Reliability.Unreliable = 1;
+                    init.Reliability.MaxRetransmits = 0;
+                }
+
+                return init;
+            }
+        }
+
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void LogCallback(LogLevel level, IntPtr message);
 
@@ -123,6 +160,13 @@ namespace Internal
         [DllImport(Library, EntryPoint = "rtcCreateDataChannel", CallingConvention = CallingConvention.Cdecl)]
         public static extern int CreateDataChannel(int pc, byte[] label);
 
+        [DllImport(Library, EntryPoint = "rtcCreateDataChannelEx", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int CreateDataChannelEx(int pc, byte[] label, ref DataChannelInit init);
+
+        // The buffer is a null-terminated UTF-8 string: null asks its size, one byte past the label.
+        [DllImport(Library, EntryPoint = "rtcGetDataChannelLabel", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int GetDataChannelLabel(int dc, IntPtr buffer, int size);
+
         [DllImport(Library, EntryPoint = "rtcSetOpenCallback", CallingConvention = CallingConvention.Cdecl)]
         public static extern int SetOpenCallback(int id, ChannelCallback callback);
 
@@ -147,6 +191,9 @@ namespace Internal
 
         [DllImport(Library, EntryPoint = "rtcMaxMessageSize", CallingConvention = CallingConvention.Cdecl)]
         public static extern int MaxMessageSize(int id);
+
+        [DllImport(Library, EntryPoint = "rtcGetBufferedAmount", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int GetBufferedAmount(int id);
 
         public static byte[] Utf8(string value)
         {

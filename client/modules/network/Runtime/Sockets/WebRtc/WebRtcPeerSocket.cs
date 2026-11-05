@@ -1,16 +1,14 @@
 using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 
 namespace Internal
 {
-    // IWebSocket over a WebRTC data channel to another player: the same reliable ordered stream of frames as the socket
-    // to the server, so nothing above the socket (reader, writer, commands, session) knows the difference. The two
-    // sides negotiate through IWebRtcSignaling; Connect ends when the channel is open, and fails (the caller falls back
-    // to the server) when the negotiation does not open it within the timeout or the connection fails.
-    public class WebRtcPeerSocket : IWebSocket, IWebRtcPeerEvents
+    // IWebSocket over one data channel of a WebRtcPeerLink to another player: the same reliable ordered stream of
+    // frames as the socket to the server, so nothing above the socket (reader, writer, commands, session) knows the
+    // difference. The two sides negotiate through IWebRtcSignaling; Connect ends when the channel is open, and fails
+    // (the caller falls back to the server) when the negotiation does not open it within the timeout or the connection
+    // fails.
+    public class WebRtcPeerSocket : IWebSocket
     {
         public WebRtcPeerSocket(
             WebRtcPeerRole role,
@@ -18,282 +16,34 @@ namespace Internal
             WebRtcPeerOptions options,
             IReadOnlyLifetime lifetime)
         {
-            _role = role;
-            _signaling = signaling;
-            _options = options;
-            _lifetime = lifetime.Child();
-            _inbox = new SocketInbox<PeerEvent>(_lifetime, Handle);
+            if (options.Channels.Count != 1)
+                throw new ArgumentException(
+                    $"[Network] [WebRtc] A socket carries one channel, the options declare {options.Channels.Count}", nameof(options));
 
-            _peer = WebRtcPeers.Create(options, this);
-            _lifetime.Listen(Dispose);
-
-            // From the start: the offer of the peer may come before Connect.
-            _signaling.Received.Advise(_lifetime, OnSignal);
-            SocketPump.Run(_lifetime, _inbox.Drain).NoAwait();
+            _link = new WebRtcPeerLink(role, signaling, options, lifetime);
+            _channel = _link.Channels[0];
         }
 
-        private const string ChannelLabel = "session";
+        private readonly WebRtcPeerLink _link;
+        private readonly IWebRtcLinkChannel _channel;
 
-        private readonly WebRtcPeerRole _role;
-        private readonly IWebRtcSignaling _signaling;
-        private readonly WebRtcPeerOptions _options;
-        private readonly ILifetime _lifetime;
-        private readonly IWebRtcPeer _peer;
-        private readonly ViewableDelegate<byte[]> _received = new();
-        private readonly ViewableDelegate<SocketCloseInfo> _closed = new();
-        private readonly WebRtcFrameAssembler _assembler = new();
+        public IViewableDelegate<byte[]> Received => _channel.Received;
+        public IViewableDelegate<SocketCloseInfo> Closed => _link.Closed;
 
-        // The events of the peer, from the threads of the platform, in their order.
-        private readonly SocketInbox<PeerEvent> _inbox;
-
-        // Candidates of the peer that came before its description: applied once it is set.
-        private readonly List<WebRtcSignal> _pendingCandidates = new();
-
-        // Candidates of the offering side, kept until the answer is set. The library sets a description on its ICE agent
-        // first and stores it for the check of the DTLS certificate after that: a peer that already has these candidates
-        // connects in between, the check finds no description and the handshake fails.
-        private readonly List<WebRtcSignal> _heldCandidates = new();
-
-        private bool _isRemoteDescriptionSet;
-        private bool _isOpen;
-        private bool _isConnecting;
-        private bool _isClosedNotified;
-        private string _lostReason;
-        private int _payloadSize;
-
-        public IViewableDelegate<byte[]> Received => _received;
-        public IViewableDelegate<SocketCloseInfo> Closed => _closed;
-
-        public async UniTask Connect()
+        public UniTask Connect()
         {
-            if (_isConnecting == true)
-                throw new InvalidOperationException("[Network] [WebRtc] Connect is called twice");
-
-            _isConnecting = true;
-
-            if (_role == WebRtcPeerRole.Offer)
-                _peer.CreateChannel(ChannelLabel);
-
-            var isTimedOut = await UniTask
-                                   .WaitUntil(() => _isOpen == true || _lostReason != null,
-                                       cancellationToken: _lifetime.Token)
-                                   .TimeoutWithoutException(_options.ConnectTimeout, DelayType.Realtime);
-
-            // In this order: TimeoutWithoutException reports a cancellation as a timeout, and a loss right after the open
-            // ends the lifetime before this wakes up. Only the end of the lifetime from outside is not a failed channel.
-            if (_lostReason != null)
-                throw new WebRtcConnectFailedException(_lostReason);
-
-            _lifetime.Token.ThrowIfCancellationRequested();
-
-            if (isTimedOut == true)
-                throw new WebRtcConnectFailedException($"the channel did not open in {_options.ConnectTimeout.TotalSeconds} s");
-
-            Debug.Log($"[Network] [WebRtc] Connected: {_role}, part payload {_payloadSize} B");
+            return _link.Connect();
         }
 
         public UniTask Send(ArraySegment<byte> bytes)
         {
-            // Lost: the loss is reported through Closed, the frame is dropped as every other one left in the queue of
-            // a lost connection - as the other sockets do.
-            if (_lostReason != null || _lifetime.IsTerminated == true)
-                return UniTask.CompletedTask;
-
-            if (_isOpen == false)
-                throw new InvalidOperationException("[Network] [WebRtc] Send before the channel is open");
-
-            // The boundary of the network: the channel closed and its Lost is still in the queue. The sender may be a loop
-            // over the other players, so the failure goes the way of every other loss.
-            try
-            {
-                WebRtcFraming.Split(bytes.ToArray(), _payloadSize, _peer.Send);
-            }
-            catch (Exception exception)
-            {
-                Lose($"send failed: {exception.Message}");
-            }
-
+            _channel.Send(bytes);
             return UniTask.CompletedTask;
         }
 
         public void Drop(string reason)
         {
-            _lostReason ??= $"dropped: {reason}";
-            NotifyClosed();
-        }
-
-        void IWebRtcPeerEvents.OnLocalDescription(string type, string sdp)
-        {
-            _inbox.Enqueue(PeerEvent.OfSignal(WebRtcSignal.Description(type, sdp)));
-        }
-
-        void IWebRtcPeerEvents.OnLocalCandidate(string candidate, string mid)
-        {
-            _inbox.Enqueue(PeerEvent.OfSignal(WebRtcSignal.Candidate(candidate, mid)));
-        }
-
-        void IWebRtcPeerEvents.OnOpen()
-        {
-            _inbox.Enqueue(PeerEvent.OfOpen());
-        }
-
-        void IWebRtcPeerEvents.OnMessage(byte[] bytes)
-        {
-            _inbox.Enqueue(PeerEvent.OfMessage(bytes));
-        }
-
-        void IWebRtcPeerEvents.OnLost(string reason)
-        {
-            _inbox.Enqueue(PeerEvent.OfLost(reason));
-        }
-
-        private void OnSignal(WebRtcSignal signal)
-        {
-            // The rest of the signals of a connection that is gone.
-            if (_lostReason != null)
-                return;
-
-            // The boundary of the network: the peer closed and its Lost is still in the queue, or the other side sent
-            // what the peer does not take. Either way this connection is lost, as when a send fails.
-            try
-            {
-                ApplySignal(signal);
-            }
-            catch (Exception exception)
-            {
-                Lose($"signal failed: {exception.Message}");
-                return;
-            }
-
-            if (signal.Kind == WebRtcSignalKind.Description)
-                SendHeldCandidates();
-        }
-
-        private void ApplySignal(WebRtcSignal signal)
-        {
-            switch (signal.Kind)
-            {
-                case WebRtcSignalKind.Description:
-                    _peer.SetRemoteDescription(signal.Type, signal.Value);
-                    _isRemoteDescriptionSet = true;
-
-                    foreach (var candidate in _pendingCandidates)
-                        _peer.AddRemoteCandidate(candidate.Value, candidate.Mid);
-
-                    _pendingCandidates.Clear();
-                    break;
-                case WebRtcSignalKind.Candidate:
-                    if (_isRemoteDescriptionSet == true)
-                        _peer.AddRemoteCandidate(signal.Value, signal.Mid);
-                    else
-                        _pendingCandidates.Add(signal);
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(signal), signal.Kind, null);
-            }
-        }
-
-        private void Handle(PeerEvent peerEvent)
-        {
-            switch (peerEvent.Kind)
-            {
-                case PeerEventKind.Signal:
-                    SendLocalSignal(peerEvent.Signal);
-                    break;
-                case PeerEventKind.Open:
-                    // Here, not in Connect: a frame in the same pass is answered before Connect wakes up.
-                    _payloadSize = WebRtcFraming.PayloadSize(_peer.MaxMessageSize);
-                    _isOpen = true;
-                    break;
-                case PeerEventKind.Message:
-                    var frame = _assembler.Add(peerEvent.Bytes);
-
-                    if (frame != null)
-                        _received.Invoke(frame);
-                    break;
-                case PeerEventKind.Lost:
-                    _lostReason ??= peerEvent.Reason;
-
-                    // Before the channel opens the loss is the failure of Connect, not a loss of a connection.
-                    if (_isOpen == true)
-                        NotifyClosed();
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(peerEvent), peerEvent.Kind, null);
-            }
-        }
-
-        private void SendLocalSignal(WebRtcSignal signal)
-        {
-            if (_role == WebRtcPeerRole.Offer && signal.Kind == WebRtcSignalKind.Candidate && _isRemoteDescriptionSet == false)
-                _heldCandidates.Add(signal);
-            else
-                _signaling.Send(signal);
-        }
-
-        private void SendHeldCandidates()
-        {
-            foreach (var candidate in _heldCandidates)
-                _signaling.Send(candidate);
-
-            _heldCandidates.Clear();
-        }
-
-        private void Lose(string reason)
-        {
-            Debug.LogWarning($"[Network] [WebRtc] {reason}");
-            _lostReason ??= reason;
-            _inbox.Enqueue(PeerEvent.OfLost(_lostReason));
-        }
-
-        private void NotifyClosed()
-        {
-            if (_isClosedNotified == true || _lifetime.IsTerminated == true)
-                return;
-
-            _isClosedNotified = true;
-
-            var info = new SocketCloseInfo(SocketCloseInfo.AbnormalClosure, $"peer lost: {_lostReason}");
-            Debug.LogWarning($"[Network] [WebRtc] Connection lost: {info}");
-
-            _closed.Invoke(info);
-            _lifetime.Terminate();
-        }
-
-        private void Dispose()
-        {
-            _peer.Dispose();
-            _received.Dispose();
-            _closed.Dispose();
-        }
-
-        private enum PeerEventKind
-        {
-            Signal,
-            Open,
-            Message,
-            Lost
-        }
-
-        private readonly struct PeerEvent
-        {
-            private PeerEvent(PeerEventKind kind, WebRtcSignal signal, byte[] bytes, string reason)
-            {
-                Kind = kind;
-                Signal = signal;
-                Bytes = bytes;
-                Reason = reason;
-            }
-
-            public readonly PeerEventKind Kind;
-            public readonly WebRtcSignal Signal;
-            public readonly byte[] Bytes;
-            public readonly string Reason;
-
-            public static PeerEvent OfSignal(WebRtcSignal signal) => new(PeerEventKind.Signal, signal, null, null);
-            public static PeerEvent OfOpen() => new(PeerEventKind.Open, default, null, null);
-            public static PeerEvent OfMessage(byte[] bytes) => new(PeerEventKind.Message, default, bytes, null);
-            public static PeerEvent OfLost(string reason) => new(PeerEventKind.Lost, default, null, reason);
+            _link.Drop(reason);
         }
     }
 }
