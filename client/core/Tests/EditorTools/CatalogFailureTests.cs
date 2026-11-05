@@ -236,6 +236,8 @@ namespace Internal.EditorTests
                 AssetDatabase.ImportAsset(sprite, ImportAssetOptions.ForceSynchronousImport);
 
                 Assert.AreEqual("CatalogFailureTestsModule.Icons", SpriteCatalogMetadata.GetDefaultGroup(sprite));
+                CollectionAssert.DoesNotContain(Discover(SpriteGroupsRegistry.Instance), "CatalogFailureTestsModule.Icons",
+                    "a folder of a module without marked sprites is offered as a group");
 
                 var importer = AssetImporter.GetAtPath(sprite);
                 SpriteCatalogMetadata.TryRead(importer, out var metadata);

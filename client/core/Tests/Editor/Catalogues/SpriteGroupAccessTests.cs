@@ -37,6 +37,16 @@ namespace Internal.Tests
         }
 
         [Test]
+        public void Sheets_SheetWithoutSprite_Throws()
+        {
+            var group = CreateGroup(
+                ("Alpha", SpriteKind.Sheet, CreateSprite()),
+                ("Beta", SpriteKind.Sheet, null));
+
+            Assert.Throws<InvalidOperationException>(() => _ = group.Sheets);
+        }
+
+        [Test]
         public void GetSheet_ReturnsTheNamedSheet()
         {
             var sheet = CreateSprite();

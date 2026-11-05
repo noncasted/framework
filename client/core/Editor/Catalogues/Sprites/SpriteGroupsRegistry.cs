@@ -52,10 +52,14 @@ namespace Internal
                         continue;
 
                     var assetPath = CatalogPaths.ToAssetPath(projectRoot, file);
-                    var defaultGroup = SpriteCatalogMetadata.GetDefaultGroup(assetPath);
 
-                    if (string.IsNullOrEmpty(defaultGroup) == false && seen.Add(defaultGroup))
-                        yield return defaultGroup;
+                    if (root.OffersFolderGroups)
+                    {
+                        var defaultGroup = SpriteCatalogMetadata.GetDefaultGroup(assetPath);
+
+                        if (string.IsNullOrEmpty(defaultGroup) == false && seen.Add(defaultGroup))
+                            yield return defaultGroup;
+                    }
 
                     var importer = AssetImporter.GetAtPath(assetPath);
 

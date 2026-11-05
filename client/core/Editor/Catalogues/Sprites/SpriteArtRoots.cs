@@ -6,17 +6,22 @@ namespace Internal
 {
     // A root of the sprite sources: the folder itself and the prefix of the group names under it. The shared art folder
     // of the settings has no prefix; the Assets folder of a game module names its groups after the module
-    // ("Construct/Icons"), so a game that keeps runtime assets in the modules marks sprites there.
+    // ("<Module>/<Folder>"), so a game that keeps runtime assets in the modules marks sprites there.
     internal readonly struct SpriteArtRoot
     {
-        internal SpriteArtRoot(string folder, string groupPrefix)
+        internal SpriteArtRoot(string folder, string groupPrefix, bool offersFolderGroups)
         {
             Folder = folder;
             GroupPrefix = groupPrefix;
+            OffersFolderGroups = offersFolderGroups;
         }
 
         internal string Folder { get; }
         internal string GroupPrefix { get; }
+
+        // The shared art folder holds only art: each of its folders is offered as a group. The Assets folder of a module
+        // also holds textures, materials and UI art that never enter a catalogue: only the groups of marked sprites.
+        internal bool OffersFolderGroups { get; }
 
         internal bool Contains(string assetPath)
         {
@@ -46,12 +51,12 @@ namespace Internal
             get
             {
                 var roots = new List<SpriteArtRoot>();
-                Add(roots, FrameworkSettings.ArtFolder, string.Empty);
+                Add(roots, FrameworkSettings.ArtFolder, string.Empty, true);
 
                 foreach (var moduleRoot in FrameworkSettings.ModuleRoots)
                 {
                     var name = Path.GetFileName(moduleRoot.TrimEnd('/'));
-                    Add(roots, moduleRoot.TrimEnd('/') + "/Assets", CatalogNaming.ToGroupName(name));
+                    Add(roots, moduleRoot.TrimEnd('/') + "/Assets", CatalogNaming.ToGroupName(name), false);
                 }
 
                 return roots;
@@ -92,7 +97,7 @@ namespace Internal
             return false;
         }
 
-        private static void Add(List<SpriteArtRoot> roots, string folder, string groupPrefix)
+        private static void Add(List<SpriteArtRoot> roots, string folder, string groupPrefix, bool offersFolderGroups)
         {
             if (string.IsNullOrEmpty(folder))
                 return;
@@ -103,7 +108,7 @@ namespace Internal
                     return;
             }
 
-            roots.Add(new SpriteArtRoot(folder, groupPrefix));
+            roots.Add(new SpriteArtRoot(folder, groupPrefix, offersFolderGroups));
         }
 
         private static bool IsInside(string folder, string root)
