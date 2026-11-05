@@ -29,9 +29,7 @@ namespace Internal
 
         internal static bool IsSourcePath(string path)
         {
-            return string.IsNullOrEmpty(path) == false &&
-                   path.StartsWith(FrameworkSettings.ArtFolder + "/", StringComparison.OrdinalIgnoreCase) &&
-                   IsSourceFile(path);
+            return IsSourceFile(path) && SpriteArtRoots.Contains(path);
         }
     }
 }

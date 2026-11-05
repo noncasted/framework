@@ -33,42 +33,41 @@ namespace Internal
 
         protected override IEnumerable<string> DiscoverGroups()
         {
-            // A project without art has no folder in its settings.
-            if (string.IsNullOrEmpty(FrameworkSettings.ArtFolder) == true)
-                yield break;
-
-            var artRoot = CatalogPaths.ToFullPath(FrameworkSettings.ArtFolder);
-
-            if (Directory.Exists(artRoot) == false)
-                yield break;
-
-            // A failure to read throws: taken for an empty result, it would delete what the generator did not see.
-            var files = Directory.GetFiles(artRoot, "*.*", SearchOption.AllDirectories);
-
             var seen = new HashSet<string>(StringComparer.Ordinal);
             var projectRoot = Path.GetDirectoryName(Application.dataPath);
 
-            foreach (var file in files)
+            foreach (var root in SpriteArtRoots.All)
             {
-                if (IsSourceFile(file) == false)
+                var artRoot = CatalogPaths.ToFullPath(root.Folder);
+
+                if (Directory.Exists(artRoot) == false)
                     continue;
 
-                var assetPath = CatalogPaths.ToAssetPath(projectRoot, file);
-                var defaultGroup = SpriteCatalogMetadata.GetDefaultGroup(assetPath);
+                // A failure to read throws: taken for an empty result, it would delete what the generator did not see.
+                var files = Directory.GetFiles(artRoot, "*.*", SearchOption.AllDirectories);
 
-                if (string.IsNullOrEmpty(defaultGroup) == false && seen.Add(defaultGroup))
-                    yield return defaultGroup;
+                foreach (var file in files)
+                {
+                    if (IsSourceFile(file) == false)
+                        continue;
 
-                var importer = AssetImporter.GetAtPath(assetPath);
+                    var assetPath = CatalogPaths.ToAssetPath(projectRoot, file);
+                    var defaultGroup = SpriteCatalogMetadata.GetDefaultGroup(assetPath);
 
-                if (importer == null)
-                    continue;
+                    if (string.IsNullOrEmpty(defaultGroup) == false && seen.Add(defaultGroup))
+                        yield return defaultGroup;
 
-                if (SpriteCatalogMetadata.TryRead(importer, out var metadata) == false)
-                    continue;
+                    var importer = AssetImporter.GetAtPath(assetPath);
 
-                if (metadata.Included && string.IsNullOrEmpty(metadata.Group) == false && seen.Add(metadata.Group))
-                    yield return metadata.Group;
+                    if (importer == null)
+                        continue;
+
+                    if (SpriteCatalogMetadata.TryRead(importer, out var metadata) == false)
+                        continue;
+
+                    if (metadata.Included && string.IsNullOrEmpty(metadata.Group) == false && seen.Add(metadata.Group))
+                        yield return metadata.Group;
+                }
             }
         }
 

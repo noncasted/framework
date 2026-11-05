@@ -195,19 +195,7 @@ namespace Internal
 
         public static string GetDefaultGroup(string assetPath)
         {
-            var artPrefix = FrameworkSettings.ArtFolder + "/";
-
-            if (string.IsNullOrEmpty(assetPath) ||
-                assetPath.StartsWith(artPrefix, StringComparison.OrdinalIgnoreCase) == false)
-                return string.Empty;
-
-            var relative = assetPath.Substring(artPrefix.Length);
-            var directory = Path.GetDirectoryName(relative);
-
-            if (string.IsNullOrEmpty(directory))
-                return string.Empty;
-
-            return CatalogNaming.ToGroupPath(directory);
+            return SpriteArtRoots.TryGet(assetPath, out var root) ? root.GetGroup(assetPath) : string.Empty;
         }
 
         public static SpriteCatalogKind GetDefaultKind(AssetImporter importer)

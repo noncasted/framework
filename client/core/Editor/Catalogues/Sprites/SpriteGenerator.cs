@@ -13,8 +13,6 @@ namespace Internal
 
         private const string GroupPrefix = "Sprites_";
 
-        private static string ArtFolder => FrameworkSettings.ArtFolder;
-
         private static readonly CatalogGenerationRunner Runner = new("SpriteGenerator", GenerateInternal);
 
         [InitializeOnLoadMethod]
@@ -41,7 +39,7 @@ namespace Internal
 
         private static void GenerateInternal()
         {
-            if (AssetDatabase.IsValidFolder(ArtFolder) == false)
+            if (SpriteArtRoots.HasExistingFolder == false)
                 return;
 
             var groups = new List<SpriteGroupDefinition>();

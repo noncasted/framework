@@ -12,62 +12,69 @@ namespace Internal
         internal static List<SpriteSource> CollectSources()
         {
             var sources = new List<SpriteSource>();
-            var artRoot = CatalogPaths.ToFullPath(FrameworkSettings.ArtFolder);
-
-            if (Directory.Exists(artRoot) == false)
-                return sources;
-
-            // A failure to read throws: taken for an empty result, it would delete what the generator did not see.
-            var files = Directory.GetFiles(artRoot, "*.*", SearchOption.AllDirectories);
-
             var projectRoot = Path.GetDirectoryName(Application.dataPath);
+            var seen = new HashSet<string>(StringComparer.Ordinal);
 
-            foreach (var file in files)
+            foreach (var root in SpriteArtRoots.All)
             {
-                if (SpriteSourcePaths.IsSourceFile(file) == false)
+                var rootFullPath = CatalogPaths.ToFullPath(root.Folder);
+
+                if (Directory.Exists(rootFullPath) == false)
                     continue;
 
-                var path = CatalogPaths.ToAssetPath(projectRoot, file);
+                // A failure to read throws: taken for an empty result, it would delete what the generator did not see.
+                var files = Directory.GetFiles(rootFullPath, "*.*", SearchOption.AllDirectories);
 
-                if (SpriteSourcePaths.IsSourcePath(path) == false)
-                    continue;
-
-                var importer = AssetImporter.GetAtPath(path);
-
-                if (importer == null)
-                    continue;
-
-                var metadata = ResolveMetadata(importer);
-
-                if (metadata == null)
-                    continue;
-
-                var groupName = CatalogNaming.ToGroupPath(metadata.Group);
-
-                if (string.IsNullOrEmpty(groupName))
+                foreach (var file in files)
                 {
-                    Debug.LogError($"[SpriteGenerator] {path} is included and has no group: it is left out of the catalogue");
-                    continue;
+                    if (SpriteSourcePaths.IsSourceFile(file) == false)
+                        continue;
+
+                    var path = CatalogPaths.ToAssetPath(projectRoot, file);
+
+                    if (SpriteSourcePaths.IsSourcePath(path) == false)
+                        continue;
+
+                    if (seen.Add(path) == false)
+                        continue;
+
+                    var importer = AssetImporter.GetAtPath(path);
+
+                    if (importer == null)
+                        continue;
+
+                    var metadata = ResolveMetadata(importer);
+
+                    if (metadata == null)
+                        continue;
+
+                    var groupName = CatalogNaming.ToGroupPath(metadata.Group);
+
+                    if (string.IsNullOrEmpty(groupName))
+                    {
+                        Debug.LogError($"[SpriteGenerator] {path} is included and has no group: it is left out of the catalogue");
+                        continue;
+                    }
+
+                    var propertyName = CatalogNaming.ToGroupName(Path.GetFileNameWithoutExtension(path));
+
+                    if (string.IsNullOrEmpty(propertyName))
+                    {
+                        Debug.LogError($"[SpriteGenerator] Identifier is empty for {path}");
+                        continue;
+                    }
+
+                    sources.Add(new SpriteSource(
+                        path,
+                        groupName,
+                        propertyName,
+                        metadata.Kind == SpriteCatalogKind.Animation ? SpriteKind.Animation : SpriteKind.Sheet,
+                        metadata.Kind == SpriteCatalogKind.MultipleAnimations && SpriteCatalogMetadata.IsAsepriteImporter(importer),
+                        metadata,
+                        metadata.Time,
+                        metadata.Color,
+                        GetPriority(path)));
                 }
-
-                var propertyName = CatalogNaming.ToGroupName(Path.GetFileNameWithoutExtension(path));
-
-                if (string.IsNullOrEmpty(propertyName))
-                {
-                    Debug.LogError($"[SpriteGenerator] Identifier is empty for {path}");
-                    continue;
-                }
-
-                sources.Add(new SpriteSource(
-                    path,
-                    groupName,
-                    propertyName,
-                    metadata.Kind == SpriteCatalogKind.Animation ? SpriteKind.Animation : SpriteKind.Sheet,
-                    metadata.Kind == SpriteCatalogKind.MultipleAnimations && SpriteCatalogMetadata.IsAsepriteImporter(importer),
-                    metadata,
-                    metadata.Time,
-                    metadata.Color,
-                    GetPriority(path)));
             }
 
             return sources;

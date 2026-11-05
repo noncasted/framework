@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -37,6 +38,34 @@ namespace Internal
     public sealed class SpriteGroupAsset : ScriptableObject
     {
         [SerializeField] private SpriteEntry[] _entries;
+
+        // Every sheet of the group in the order of its names: the generated properties are sorted, so an index in a
+        // name (Icon_000) keeps its place when a new sprite is added.
+        public IReadOnlyList<Sprite> Sheets
+        {
+            get
+            {
+                var sheets = new List<Sprite>();
+
+                if (_entries == null)
+                    return sheets;
+
+                var sorted = new List<SpriteEntry>();
+
+                foreach (var entry in _entries)
+                {
+                    if (entry.Kind == SpriteKind.Sheet && entry.Sprites != null && entry.Sprites.Length > 0)
+                        sorted.Add(entry);
+                }
+
+                sorted.Sort((left, right) => string.Compare(left.Name, right.Name, StringComparison.Ordinal));
+
+                foreach (var entry in sorted)
+                    sheets.Add(entry.Sprites[0]);
+
+                return sheets;
+            }
+        }
 
         public Sprite GetSheet(string name)
         {

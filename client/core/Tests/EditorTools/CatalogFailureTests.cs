@@ -176,7 +176,12 @@ namespace Internal.EditorTests
         {
             const string sprite = OpenArtFolder + "/Hero.png";
 
-            Write(json => json["ArtFolder"] = OpenArtFolder);
+            // No module roots: the sprites of the game's modules would be counted as well.
+            Write(json =>
+            {
+                json["ArtFolder"] = OpenArtFolder;
+                json["ModuleRoots"] = new JArray();
+            });
             AssetDatabase.CreateFolder("Assets", "CatalogFailureTestsArt");
 
             try
@@ -209,6 +214,44 @@ namespace Internal.EditorTests
         public void Sprites_AseIsASource()
         {
             Assert.IsTrue((bool)Invoke(typeof(SpriteSourcePaths), "IsSourceFile", "Assets/Art/Hero.ase"));
+        }
+
+        // A game that keeps runtime assets in its modules marks sprites there: the group carries the module name.
+        [Test]
+        public void ModuleAssets_AreAnArtRoot()
+        {
+            const string moduleRoot = "Assets/CatalogFailureTestsModule";
+            const string sprite = moduleRoot + "/Assets/Icons/Hero.png";
+
+            Write(json => json["ModuleRoots"] = new JArray(moduleRoot));
+            AssetDatabase.CreateFolder("Assets", "CatalogFailureTestsModule");
+            AssetDatabase.CreateFolder(moduleRoot, "Assets");
+            AssetDatabase.CreateFolder(moduleRoot + "/Assets", "Icons");
+
+            try
+            {
+                var texture = new Texture2D(2, 2);
+                File.WriteAllBytes(FullPath(sprite), texture.EncodeToPNG());
+                Object.DestroyImmediate(texture);
+                AssetDatabase.ImportAsset(sprite, ImportAssetOptions.ForceSynchronousImport);
+
+                Assert.AreEqual("CatalogFailureTestsModule.Icons", SpriteCatalogMetadata.GetDefaultGroup(sprite));
+
+                var importer = AssetImporter.GetAtPath(sprite);
+                SpriteCatalogMetadata.TryRead(importer, out var metadata);
+                metadata ??= new SpriteCatalogMetadata();
+                metadata.SetIncluded(true);
+                SpriteCatalogMetadata.Write(importer, metadata);
+
+                var sources = (IEnumerable<object>)Invoke(typeof(SpriteSourceCollector), "CollectSources");
+                Assert.AreEqual(1, sources.Count(), "a sprite of a module is taken for no art: its group is never generated");
+
+                CollectionAssert.Contains(Discover(SpriteGroupsRegistry.Instance), "CatalogFailureTestsModule.Icons");
+            }
+            finally
+            {
+                AssetDatabase.DeleteAsset(moduleRoot);
+            }
         }
 
         private string TempAssets()

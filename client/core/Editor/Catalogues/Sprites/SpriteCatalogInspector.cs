@@ -14,8 +14,6 @@ namespace Internal
             Editor.finishedDefaultHeaderGUI += Draw;
         }
 
-        private static string ArtPrefix => FrameworkSettings.ArtFolder + "/";
-
         private static void Draw(Editor editor)
         {
             if (CatalogInspectorGUI.TryCollectImporters(editor, IsCatalogTarget, out var importers) == false)
@@ -56,13 +54,8 @@ namespace Internal
 
         private static bool IsCatalogTarget(AssetImporter importer)
         {
-            if (string.IsNullOrEmpty(importer.assetPath))
-                return false;
-
-            if (importer.assetPath.StartsWith(ArtPrefix, StringComparison.OrdinalIgnoreCase) == false)
-                return false;
-
-            return SpriteSourcePaths.IsSourceFile(importer.assetPath);
+            return string.IsNullOrEmpty(importer.assetPath) == false &&
+                   SpriteSourcePaths.IsSourcePath(importer.assetPath);
         }
 
         private static CatalogStates ResolveStates(IReadOnlyList<AssetImporter> importers)
