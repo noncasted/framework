@@ -28,9 +28,9 @@ namespace Internal.Tests
         };
 
         [UnityTest]
-        public IEnumerator MeshOfThreeAndFive_AllDirect() => UniTask.ToCoroutine(async () =>
+        public IEnumerator MeshOfThreeFiveAndEight_AllDirect() => UniTask.ToCoroutine(async () =>
         {
-            foreach (var count in new[] { 3, 5 })
+            foreach (var count in new[] { 3, 5, 8 })
             {
                 var lifetime = new Lifetime();
 
@@ -126,6 +126,66 @@ namespace Internal.Tests
             finally
             {
                 lifetime.Terminate();
+            }
+        });
+
+        // The offerer publishes its link and sends at once, while the link of the answerer still waits for the id of the
+        // player: the frames of that gap reach a subscriber that attaches when the link of the answerer appears, in
+        // their order. Both routes: a direct connection and the tunnel of the server.
+        [UnityTest]
+        public IEnumerator FramesBeforePublication_Delivered() => UniTask.ToCoroutine(async () =>
+        {
+            foreach (var isDirect in new[] { true, false })
+            {
+                var lifetime = new Lifetime();
+
+                try
+                {
+                    var (servers, server, session) = CreateServer(lifetime);
+                    var offerer = await Join(lifetime, servers, server, session, Guid.NewGuid(), isDirectAllowed: isDirect);
+                    var (answerer, delayed) = await JoinDelayed(lifetime, servers, server, session, Guid.NewGuid());
+
+                    var received = new List<(int Channel, byte Value)>();
+
+                    answerer.Mesh.Links.Advise(lifetime, (_, _, link) =>
+                    {
+                        for (var channel = 0; channel < 2; channel++)
+                        {
+                            var current = channel;
+                            link.Received(current).Advise(lifetime, bytes => received.Add((current, bytes[0])));
+                        }
+                    });
+
+                    await UniTask.WaitUntil(() => offerer.Mesh.Links.Count == 1).Timeout(Timeout);
+
+                    var route = isDirect ? PeerRoute.Direct : PeerRoute.Tunnel;
+                    Assert.AreEqual(route, offerer.Mesh.Links[answerer.Index].Route, "the route of the offerer");
+
+                    var link = offerer.Mesh.Links[answerer.Index];
+
+                    for (byte i = 0; i < 10; i++)
+                        link.Send(i % 2, new ArraySegment<byte>(new[] { i }));
+
+                    // The frames arrive at the answerer and wait there: its link has no id yet.
+                    await UniTask.Delay(TimeSpan.FromSeconds(1));
+                    Assert.AreEqual(0, answerer.Mesh.Links.Count, "the link waits for the id of the player");
+
+                    delayed.Release();
+
+                    await UniTask.WaitUntil(() => received.Count == 10).Timeout(Timeout);
+                    Assert.AreEqual(route, answerer.Mesh.Links[offerer.Index].Route, "the route of the answerer");
+
+                    for (var channel = 0; channel < 2; channel++)
+                    {
+                        var values = received.Where(frame => frame.Channel == channel).Select(frame => (int)frame.Value);
+                        var expected = Enumerable.Range(0, 10).Where(value => value % 2 == channel);
+                        CollectionAssert.AreEqual(expected, values, $"the frames of channel {channel}");
+                    }
+                }
+                finally
+                {
+                    lifetime.Terminate();
+                }
             }
         });
 

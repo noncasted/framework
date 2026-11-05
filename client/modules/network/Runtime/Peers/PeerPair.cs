@@ -52,6 +52,7 @@ namespace Internal
         private WebRtcPeerLink _direct;
         private IWebSocket _tunnel;
         private Func<Guid, IPeerLink> _readyLink;
+        private PeerLinkInbox _inbox;
         private IPeerLink _link;
 
         // The player is in the session (ISessionControl.Peers): the id of the link and the end of the pair come from it.
@@ -137,9 +138,17 @@ namespace Internal
             var attempt = _lifetime.Child();
             var signaling = _control.Signaling.Open(attempt, _remoteIndex);
             var link = new WebRtcPeerLink(_role, signaling, _options, attempt);
+            var inbox = new PeerLinkInbox(_options.Channels.Count, attempt);
+
+            for (var i = 0; i < link.Channels.Count; i++)
+            {
+                var channel = i;
+                link.Channels[i].Received.Advise(attempt, frame => inbox.Receive(channel, frame));
+            }
 
             _attempt = attempt;
             _direct = link;
+            _inbox = inbox;
             _state = PeerPairState.ConnectingDirect;
             link.Closed.Advise(attempt, info => OnDirectClosed(link, info));
 
@@ -172,7 +181,8 @@ namespace Internal
 
             _state = PeerPairState.Connected;
             _retry.Reset();
-            _readyLink = id => new DirectPeerLink(link, _remoteIndex, id, attempt.Child());
+            var inbox = _inbox;
+            _readyLink = id => new DirectPeerLink(link, inbox, _remoteIndex, id, attempt.Child());
             TryPublish();
         }
 
@@ -200,9 +210,13 @@ namespace Internal
 
             var attempt = _lifetime.Child();
             var tunnel = _control.Tunnels.Open(attempt, _remoteIndex);
+            var inbox = new PeerLinkInbox(_options.Channels.Count, attempt);
+
+            TunnelPeerLink.Listen(tunnel, inbox, _remoteIndex, attempt);
 
             _attempt = attempt;
             _tunnel = tunnel;
+            _inbox = inbox;
             _state = PeerPairState.Connected;
             tunnel.Closed.Advise(attempt, info => OnTunnelClosed(tunnel, info));
 
@@ -210,7 +224,7 @@ namespace Internal
             if (_role == WebRtcPeerRole.Offer)
                 RepeatHello(tunnel, attempt).NoAwait();
 
-            _readyLink = id => new TunnelPeerLink(tunnel, _remoteIndex, id, attempt.Child(), _options.Channels);
+            _readyLink = id => new TunnelPeerLink(tunnel, inbox, _remoteIndex, id, attempt.Child());
             TryPublish();
         }
 
@@ -300,20 +314,24 @@ namespace Internal
             _direct = null;
             _tunnel = null;
             _readyLink = null;
+            _inbox = null;
         }
 
         // The link goes to the mesh once its connection is open and the id of the player is known (an offer may come
-        // before the RemoteUpdate of the player).
+        // before the RemoteUpdate of the player). The frames received until then go to the subscribers that attached
+        // when the link appeared.
         private void TryPublish()
         {
             if (_state != PeerPairState.Connected || _readyLink == null || _remoteId == Guid.Empty)
                 return;
 
             var factory = _readyLink;
+            var inbox = _inbox;
             _readyLink = null;
             _link = factory(_remoteId);
             Debug.Log($"[Network] [Mesh] Connected to {_remoteIndex} ({_remoteId}): {_link.Route}");
             _onLink(_link);
+            inbox.Release();
         }
     }
 }
