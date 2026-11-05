@@ -84,6 +84,10 @@ namespace Internal.EditorTests
 
         private static string Capture()
         {
+            // A project of a game runs its EditMode tests with -nographics: there is no device to render the prefab.
+            if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
+                Assert.Ignore("Rendering needs a graphics device, the editor runs with -nographics");
+
             return PrefabScreenshot.Capture(PrefabPath, 32);
         }
 
