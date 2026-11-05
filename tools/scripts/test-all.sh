@@ -17,6 +17,11 @@
 #
 # A stage passes when its process exits with 0 and its report exists, is readable and holds tests, none of them failed.
 #
+# Only the PlayMode copy is a snapshot: build, backend, common, verify and editmode read the tree itself. A source edited
+# during the run (another session working in the tree) is named in the summary and in the reason of a failed stage: a
+# refresh of the EditMode editor that sees a changed script requests a compilation, and while it is pending UniTask does
+# not pump the editor loop, so the next test awaiting a frame hangs until the stage limit.
+#
 # Environment: TEST_ALL_TIMEOUT - the limit of one stage in seconds (default 300).
 # Logs: .build/test-all/logs/<time>, the last 10 runs. Exit code: 0 all passed, 1 a stage failed, 2 could not start.
 set -euo pipefail
@@ -224,6 +229,14 @@ stage_python() {
     fi
 }
 
+# The sources the stages compile, changed since the start of the run: Unity scripts and the dotnet projects.
+changed_sources() {
+    find "$ROOT/client/core" "$ROOT/client/flow" "$ROOT/client/modules" "$ROOT/client/platforms" "$ROOT/common" \
+        "$ROOT/shared" "$ROOT/backend" \( -name bin -o -name obj \) -prune -o -type f \
+        \( -name '*.cs' -o -name '*.asmdef' -o -name '*.asmref' -o -name '*.rsp' -o -name '*.csproj' -o -name '*.props' \
+        -o -name '*.targets' -o -name '*.razor' \) -newer "$LOGS/sources.stamp" -print | sed "s|^$ROOT/||" | sort
+}
+
 # Runs a stage as a job of its own and writes its time.
 start_stage() {
     local stage="$1"
@@ -250,6 +263,7 @@ stage_dotnet() {
 BEGIN_ALL=$EPOCHREALTIME
 echo "load: $(uptime | sed 's/.*load average: //'), logs: $LOGS"
 
+touch "$LOGS/sources.stamp"
 begin=$EPOCHREALTIME
 stage_copy 9>&-
 write_time copy "$begin"
@@ -261,6 +275,13 @@ start_stage editmode stage_unity editmode "$PROJECT" EditMode
 start_stage playmode stage_unity playmode "$COPY/client/project" PlayMode
 wait
 
+changed_sources >"$LOGS/sources.changed"
+if [[ -s "$LOGS/sources.changed" ]]; then
+    for stage in build backend common verify editmode; do
+        [[ -e "$LOGS/$stage.result" ]] && ! passed "$stage" && sed -i 's/$/, sources changed during the run/' "$LOGS/$stage.result"
+    done
+fi
+
 failed=0
 printf '\n%-10s %8s  %-24s %s\n' stage "time, s" tests result
 for stage in copy build backend common verify control telemetry editmode playmode; do
@@ -270,6 +291,12 @@ for stage in copy build backend common verify control telemetry editmode playmod
     printf '%-10s %8s  %-24s %s\n' "$stage" "$(cat "$LOGS/$stage.time" 2>/dev/null || echo -)" "$tests" "$status${reason:+: $reason}"
 done
 echo "wall $(seconds_since "$BEGIN_ALL") s, load: $(uptime | sed 's/.*load average: //')"
+
+if [[ -s "$LOGS/sources.changed" ]]; then
+    echo
+    echo "sources changed during the run, the stages on the tree did not test one state: $LOGS/sources.changed"
+    head -n 10 "$LOGS/sources.changed" | sed 's/^/  /'
+fi
 
 for stage in copy build backend common verify control telemetry editmode playmode; do
     passed "$stage" && continue
