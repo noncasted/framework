@@ -40,6 +40,10 @@ namespace Internal
         private readonly Action<IPeerLink> _onLink;
         private readonly Action<IPeerLink> _onLost;
         private readonly WebRtcPeerRole _role;
+
+        // How long the opening frame of the tunnel is repeated: a peer that joins right after the others is
+        // authorized a little later, and the first hellos are lost.
+        private const int HelloRepeats = 25;
         private readonly PeerRetry _retry;
 
         private PeerPairState _state;
@@ -204,10 +208,31 @@ namespace Internal
 
             // The first frame opens the tunnel on the other side: it belongs to no channel and carries no payload.
             if (_role == WebRtcPeerRole.Offer)
-                tunnel.Send(new ArraySegment<byte>(new[] { TunnelPeerLink.Hello })).NoAwait();
+                RepeatHello(tunnel, attempt).NoAwait();
 
             _readyLink = id => new TunnelPeerLink(tunnel, _remoteIndex, id, attempt.Child(), _options.Channels);
             TryPublish();
+        }
+
+        // The server relays a hello only to a player whose connection is authorized: a hello sent before that is
+        // dropped, so the opening frame is repeated for a while. The other side ignores the extra ones.
+        private async UniTaskVoid RepeatHello(IWebSocket tunnel, IReadOnlyLifetime attempt)
+        {
+            var hellos = 0;
+
+            try
+            {
+                while (attempt.IsTerminated == false && hellos < HelloRepeats)
+                {
+                    tunnel.Send(new ArraySegment<byte>(new[] { TunnelPeerLink.Hello })).NoAwait();
+                    hellos++;
+
+                    await UniTask.Delay(_meshOptions.ReconnectDelay, cancellationToken: attempt.Token);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
         }
 
         private void OnDirectClosed(WebRtcPeerLink link, SocketCloseInfo info)
