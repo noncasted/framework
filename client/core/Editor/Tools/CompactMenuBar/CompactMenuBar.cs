@@ -49,10 +49,19 @@ namespace Internal
             Start();
         }
 
+        // The editor of a clone of Multiplayer Play Mode is started with this argument.
+        internal const string CloneArgument = "--virtual-project-clone";
+
         internal static void Start()
         {
-            // Batchmode has no main toolbar and no native menu: nothing to hide or replace.
-            if (IsSupported == false || Application.isBatchMode == true)
+            Start(Environment.GetCommandLineArgs(), Application.isBatchMode);
+        }
+
+        internal static void Start(IReadOnlyList<string> commandLine, bool isBatchMode)
+        {
+            // Batchmode has no main toolbar and no native menu, a clone of Multiplayer Play Mode shows only its own
+            // window without the toolbar: nothing to hide or replace.
+            if (IsSupported == false || isBatchMode == true || commandLine.Contains(CloneArgument) == true)
                 return;
 
             Apply(IsEnabled);

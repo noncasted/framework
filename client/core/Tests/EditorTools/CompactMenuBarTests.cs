@@ -28,5 +28,25 @@ namespace Internal.EditorTests
                 EditorApplication.delayCall = pending;
             }
         }
+
+        // A clone of Multiplayer Play Mode has no main toolbar either: the start in its editor failed on the missing
+        // overlay at every domain load.
+        [Test]
+        public void CloneOfMultiplayerPlayMode_StartsNothing()
+        {
+            var pending = EditorApplication.delayCall;
+            EditorApplication.delayCall = null;
+
+            try
+            {
+                CompactMenuBar.Start(new[] { "Unity", CompactMenuBar.CloneArgument, "-vp-channel-name=vp-channel" }, false);
+
+                Assert.IsNull(EditorApplication.delayCall);
+            }
+            finally
+            {
+                EditorApplication.delayCall = pending;
+            }
+        }
     }
 }
