@@ -172,7 +172,8 @@ namespace Global.Telemetry.Tests
             return ContainerProbe.Transport.Batches.SelectMany(call => TelemetryFixture.NamesOf(call.Batch)).ToArray();
         }
 
-        // Rule 2 of the framework: the core and the other modules know nothing about this one.
+        // Rule 2 of the framework: the core and the other modules know nothing about this one. A module plugs in only
+        // through its bridge assembly <module>.Telemetry, compiled with FRAMEWORK_TELEMETRY (framerate, resolution).
         [Test]
         public void Module_NothingElseReferencesIt()
         {
@@ -180,6 +181,7 @@ namespace Global.Telemetry.Tests
 
             var referencing = AppDomain.CurrentDomain.GetAssemblies()
                 .Where(assembly => assembly.GetName().Name.StartsWith("Internal.Telemetry") == false)
+                .Where(assembly => assembly.GetName().Name.EndsWith(".Telemetry") == false)
                 .Where(assembly => assembly.GetReferencedAssemblies().Any(reference => reference.Name == name))
                 .Select(assembly => assembly.GetName().Name)
                 .ToArray();
