@@ -26,10 +26,9 @@ namespace Internal
             _options = options;
             _meshOptions = meshOptions;
             _lifetime = lifetime.Child();
-            _onLink = onLink;
-            _onLost = onLost;
             _role = control.LocalIndex < remoteIndex ? WebRtcPeerRole.Offer : WebRtcPeerRole.Answer;
             _retry = new PeerRetry(_lifetime, meshOptions.ReconnectDelay, meshOptions.MaxReconnectDelay, OnRetryTime);
+            _publication = new PeerLinkPublication(remoteIndex, onLink, onLost);
         }
 
         private readonly ISessionControl _control;
@@ -37,23 +36,15 @@ namespace Internal
         private readonly WebRtcPeerOptions _options;
         private readonly PeerMeshOptions _meshOptions;
         private readonly ILifetime _lifetime;
-        private readonly Action<IPeerLink> _onLink;
-        private readonly Action<IPeerLink> _onLost;
         private readonly WebRtcPeerRole _role;
-
-        // How long the opening frame of the tunnel is repeated: a peer that joins right after the others is
-        // authorized a little later, and the first hellos are lost.
-        private const int HelloRepeats = 25;
         private readonly PeerRetry _retry;
+        private readonly PeerLinkPublication _publication;
 
         private PeerPairState _state;
         private Guid _remoteId;
         private ILifetime _attempt;
         private WebRtcPeerLink _direct;
         private IWebSocket _tunnel;
-        private Func<Guid, IPeerLink> _readyLink;
-        private PeerLinkInbox _inbox;
-        private IPeerLink _link;
 
         // The player is in the session (ISessionControl.Peers): the id of the link and the end of the pair come from it.
         public void SetRemoteId(Guid remoteId)
@@ -108,7 +99,7 @@ namespace Internal
                 return;
 
             _state = PeerPairState.Gone;
-            ReportLost();
+            _publication.ReportLost();
             CancelRetry();
             EndAttempt();
             _lifetime.Terminate();
@@ -148,14 +139,13 @@ namespace Internal
 
             _attempt = attempt;
             _direct = link;
-            _inbox = inbox;
             _state = PeerPairState.ConnectingDirect;
             link.Closed.Advise(attempt, info => OnDirectClosed(link, info));
 
-            ConnectAsync(link, attempt).NoAwait();
+            ConnectAsync(link, inbox, attempt).NoAwait();
         }
 
-        private async UniTaskVoid ConnectAsync(WebRtcPeerLink link, ILifetime attempt)
+        private async UniTaskVoid ConnectAsync(WebRtcPeerLink link, PeerLinkInbox inbox, ILifetime attempt)
         {
             try
             {
@@ -181,8 +171,7 @@ namespace Internal
 
             _state = PeerPairState.Connected;
             _retry.Reset();
-            var inbox = _inbox;
-            _readyLink = id => new DirectPeerLink(link, inbox, _remoteIndex, id, attempt.Child());
+            _publication.Prepare(id => new DirectPeerLink(link, inbox, _remoteIndex, id, attempt.Child()), inbox);
             TryPublish();
         }
 
@@ -216,37 +205,14 @@ namespace Internal
 
             _attempt = attempt;
             _tunnel = tunnel;
-            _inbox = inbox;
             _state = PeerPairState.Connected;
             tunnel.Closed.Advise(attempt, info => OnTunnelClosed(tunnel, info));
 
-            // The first frame opens the tunnel on the other side: it belongs to no channel and carries no payload.
             if (_role == WebRtcPeerRole.Offer)
-                RepeatHello(tunnel, attempt).NoAwait();
+                PeerTunnelHello.Repeat(tunnel, _meshOptions.ReconnectDelay, attempt).NoAwait();
 
-            _readyLink = id => new TunnelPeerLink(tunnel, inbox, _remoteIndex, id, attempt.Child());
+            _publication.Prepare(id => new TunnelPeerLink(tunnel, inbox, _remoteIndex, id, attempt.Child()), inbox);
             TryPublish();
-        }
-
-        // The server relays a hello only to a player whose connection is authorized: a hello sent before that is
-        // dropped, so the opening frame is repeated for a while. The other side ignores the extra ones.
-        private async UniTaskVoid RepeatHello(IWebSocket tunnel, IReadOnlyLifetime attempt)
-        {
-            var hellos = 0;
-
-            try
-            {
-                while (attempt.IsTerminated == false && hellos < HelloRepeats)
-                {
-                    tunnel.Send(new ArraySegment<byte>(new[] { TunnelPeerLink.Hello })).NoAwait();
-                    hellos++;
-
-                    await UniTask.Delay(_meshOptions.ReconnectDelay, cancellationToken: attempt.Token);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-            }
         }
 
         private void OnDirectClosed(WebRtcPeerLink link, SocketCloseInfo info)
@@ -269,19 +235,9 @@ namespace Internal
         private void Lose(string reason)
         {
             Debug.LogWarning($"[Network] [Mesh] The connection to {_remoteIndex} is lost: {reason}");
-            ReportLost();
+            _publication.ReportLost();
             EndAttempt();
             ScheduleRetry();
-        }
-
-        private void ReportLost()
-        {
-            if (_link == null)
-                return;
-
-            var link = _link;
-            _link = null;
-            _onLost(link);
         }
 
         private void ScheduleRetry()
@@ -313,25 +269,14 @@ namespace Internal
             _attempt = null;
             _direct = null;
             _tunnel = null;
-            _readyLink = null;
-            _inbox = null;
+            _publication.Clear();
         }
 
-        // The link goes to the mesh once its connection is open and the id of the player is known (an offer may come
-        // before the RemoteUpdate of the player). The frames received until then go to the subscribers that attached
-        // when the link appeared.
+        // The link goes to the mesh once its connection is open and the id of the player is known.
         private void TryPublish()
         {
-            if (_state != PeerPairState.Connected || _readyLink == null || _remoteId == Guid.Empty)
-                return;
-
-            var factory = _readyLink;
-            var inbox = _inbox;
-            _readyLink = null;
-            _link = factory(_remoteId);
-            Debug.Log($"[Network] [Mesh] Connected to {_remoteIndex} ({_remoteId}): {_link.Route}");
-            _onLink(_link);
-            inbox.Release();
+            if (_state == PeerPairState.Connected)
+                _publication.TryPublish(_remoteId);
         }
     }
 }
