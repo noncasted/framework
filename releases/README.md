@@ -11,6 +11,7 @@
 | [0.2.2](0.2.2.md) | 2026-11-03 | `deploy-client`: аргумент `--notest` | Нет |
 | [0.3.0](0.3.0.md) | 2026-11-03 | Телеметрия клиентов (необязательно), стадии трейса запуска | Да: `GameProfiler.Stage` |
 | [0.4.0](0.4.0.md) | 2026-11-04 | Телеметрия: кадр, WebGL, страница, прошлая сессия; сеть без аллокаций; экранные канвасы; стрип WebGL; `deploy-client` параллельно, `device-lab` | Да: `IScreenCanvasCamera`, шрифт `NetworkOptions`, API сети, стрип, `deploy-client.json`, `ILobbyMatches.Create` |
+| [0.5.0](0.5.0.md) | 2026-11-06 | Модули `resolution` и `framerate`, `Internal.TestTools`, пакеты бэкенда, WebRTC с каналами и `PeerMesh`, спрайты из модулей, `audit-swarm` | Да: модули из pixel-swarm, `Aspire.AppHost.Sdk`, `InjectGameObject` |
 
 ## Версии
 
