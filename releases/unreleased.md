@@ -30,3 +30,12 @@
 - Настройки игры реализуют `IResolutionSetting` / `IFrameRateSetting` (свойства `Resolution` / `FrameRate`) и регистрируются `.As<IResolutionSetting>().As<IFrameRateSetting>()`.
 - Глобальный скоуп: `AddFrameRate(<AutoFrameRateOptions из ассета опций игры>)`, `AddResolution()`. Скоуп телеметрии: `AddFrameRateTelemetry()`, `AddResolutionTelemetry()` вместо своих `FrameRateTelemetryMarks` / `ResolutionTelemetryCollector`.
 - WebGL-шаблон: `webShell.renderPixelRatio(max)` -> `renderResolution.pixelRatio(canvas, max)`, `webShell.followRenderPixelRatio(module, max)` -> `renderResolution.follow(module, canvas, max)`; из своего `web-shell.js` убрать разрешение и `?fps=` (`render-resolution.js` кладётся в `<head>` собранного `index.html` сам, ключ `webShell.resolution` в localStorage сохранён).
+
+### Пакеты бэкенда: последние стабильные версии
+
+Кому: бэкенд всех игр (версии берутся из `Directory.Packages.props` фреймворка).
+Поиск: `git grep -n 'Aspire.AppHost.Sdk/' -- '*.csproj'`
+- Orleans 10.4.2, Aspire 13.6.4, Marten 9.58.0, OpenTelemetry 1.20.x, BlazorBlueprint 4.1.0, ASP.NET Core / Extensions 10.0.14, тестовые пакеты
+  (xunit.v3 4.0.2, Testcontainers 4.16.0, ...). Неиспользуемые `MudBlazor` и `Blazor.Bootstrap` удалены из списка.
+- AppHost игры: `Sdk="Aspire.AppHost.Sdk/13.5.3"` -> `Sdk="Aspire.AppHost.Sdk/13.6.4"` (той же версии, что пакеты `Aspire.*`).
+- Свои пакеты игры в её `backend/Directory.Packages.props` обновить до последних стабильных; собрать `backend.slnx` и прогнать тесты.
