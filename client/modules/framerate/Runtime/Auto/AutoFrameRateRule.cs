@@ -1,14 +1,13 @@
 namespace Global.FrameRate
 {
-    // The decision of the automatic frame rate, fed with the work of every frame (AutoFrameRateOptions). The work is averaged
-    // over windows; the limit changes only after the average of every window of a whole hold is past the threshold, and the
-    // count starts anew after a change, after a window that is not past it and after a gap in the frames.
+    // The decision of the automatic frame rate, fed with the work of every frame (AutoFrameRateOptions, checked by FrameRateLimit
+    // at the build of the scope). The work is averaged over windows; the limit changes only after the average of every window
+    // of a whole hold is past the threshold, and the count starts anew after a change, after a window that is not past it and
+    // after a gap in the frames.
     public class AutoFrameRateRule
     {
         public AutoFrameRateRule(AutoFrameRateOptions options, bool isLow)
         {
-            options.Validate();
-
             _options = options;
             IsLow = isLow;
         }

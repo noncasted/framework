@@ -7,7 +7,7 @@ namespace Global.Resolution.Tests
 {
     // render-resolution.js on node, over a made-up page: the render pixel ratio of a phone by the mode, the platform and the
     // address, the mode kept in the local storage, the running engine that follows the setting; and its place in the built
-    // index.html, before the scripts of the template.
+    // index.html, after the <meta charset> and before the scripts of the template.
     public class RenderResolutionScriptTests
     {
         private const string Android = "Mozilla/5.0 (Linux; Android 14; Pixel 8) Mobile";
@@ -15,15 +15,17 @@ namespace Global.Resolution.Tests
         private const string IPad = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)";
 
         [Test]
-        public void Inject_BeforeTheScriptsOfTheTemplate()
+        public void Inject_AfterTheCharsetBeforeTheScriptsOfTheTemplate()
         {
             var html = Internal.BuiltPageScripts.Inject(
-                "<html>\n<head>\n<script src=\"TemplateData/web-shell.js\"></script>\n</head>\n<body><script>createUnityInstance();</script></body>\n</html>",
+                "<html>\n<head>\n<meta charset=\"utf-8\">\n<script src=\"TemplateData/web-shell.js\"></script>\n</head>\n<body><script>createUnityInstance();</script></body>\n</html>",
                 RenderResolutionInjection.Marker, File.ReadAllText(RenderResolutionInjection.ScriptPath()));
 
             var script = html.IndexOf("window.renderResolution =");
-            Assert.Greater(script, html.IndexOf("<head>"));
+            Assert.Greater(script, html.IndexOf("<meta charset=\"utf-8\">"));
             Assert.Less(script, html.IndexOf("web-shell.js"));
+            // The browser looks for the declaration of the encoding in the first 1024 bytes only.
+            Assert.Less(html.IndexOf("<meta charset=\"utf-8\">"), 1024);
             StringAssert.Contains($"<script {RenderResolutionInjection.Marker}>", html);
         }
 

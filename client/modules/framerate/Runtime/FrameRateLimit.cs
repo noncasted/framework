@@ -14,6 +14,8 @@ namespace Global.FrameRate
         public FrameRateLimit(AutoFrameRateOptions options, IFrameRateSetting setting, IFrameRateRequest request,
             IAutoFrameRate auto, PlatformOptions platform)
         {
+            options.Validate();
+
             _options = options;
             _setting = setting;
             _request = request;
@@ -21,14 +23,14 @@ namespace Global.FrameRate
             _platform = platform;
         }
 
-        // Application.targetFrameRate without a limit: the rate of the screen.
-        public const int Native = -1;
-
         private readonly AutoFrameRateOptions _options;
         private readonly IFrameRateSetting _setting;
         private readonly IFrameRateRequest _request;
         private readonly IAutoFrameRate _auto;
         private readonly PlatformOptions _platform;
+
+        // Application.targetFrameRate without a limit: the rate of the screen.
+        public const int Native = -1;
 
         public void OnSetupCompletion(IReadOnlyLifetime lifetime)
         {

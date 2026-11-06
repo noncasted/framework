@@ -6,8 +6,9 @@
 //
 // The ratio is device / k, k whole, so each canvas pixel is exactly k device pixels and a pixelated upscale stays even.
 // - high renders at the device ratio (k 1: a 2.75x Android of 895x393 CSS pixels renders 2460x1080);
-// - low takes k up to device / maxRatio, as the largest k that still leaves the visible short side (the canvas, in device
-//   pixels) at least 360 (maxRatio 1 there: 820x360);
+// - low takes the smallest k with device / k at most maxRatio (k from device / maxRatio up: maxRatio 1 there gives k 3,
+//   820x360); when that would leave the visible short side (the canvas, in device pixels) under 360, the largest k that
+//   keeps it at least 360, the ratio then above maxRatio;
 // - auto is high on Android and the other phones, low on iOS and iPadOS (an iPad 7 is GPU bound already at 1080x740, an
 //   iPhone 11 too).
 // The resolution setting of the game (WebRenderResolution.jslib) calls set(mode) once its settings are loaded, the engine is
@@ -16,7 +17,7 @@
 // goes away after the first tap, Unity starts before it): follow picks k again on every resize and hands it to the running
 // engine (Module.devicePixelRatio is read every frame).
 // Diagnostics, by the address only, stronger than the setting: ?dpr=native renders at the device pixel ratio, ?dpr=<number>
-// replaces maxRatio of the low resolution. Nothing changes without them.
+// replaces maxRatio in every mode, so it caps high too. Nothing changes without them.
 (function () {
     "use strict";
 

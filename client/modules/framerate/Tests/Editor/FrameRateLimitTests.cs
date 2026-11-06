@@ -97,6 +97,21 @@ namespace Global.FrameRate.Tests
             Assert.That(new AutoFrameRateRule(new AutoFrameRateOptions(), memory.IsLow).Target, Is.EqualTo(60));
         }
 
+        // Options with the numbers crossed fail the scope on every platform, not only in Auto on a phone.
+        [TestCase("{\"_low\": 60, \"_high\": 30}", false)]
+        [TestCase("{\"_low\": 60, \"_high\": 30}", true)]
+        [TestCase("{\"_riseWorkMs\": 12, \"_dropWorkMs\": 6}", false)]
+        [TestCase("{\"_windowSeconds\": 0}", false)]
+        public void WrongOptionsThrowAtTheBuildOfTheScope(string json, bool isMobile)
+        {
+            var options = new AutoFrameRateOptions();
+            JsonUtility.FromJsonOverwrite(json, options);
+            PlatformOptions.SetMobileCheck(() => isMobile);
+
+            Assert.Throws<System.InvalidOperationException>(() =>
+                new FrameRateLimit(options, _settings, new FakeRequest(null), _auto, new PlatformOptions()));
+        }
+
         private void Start(bool isMobile, int? request)
         {
             PlatformOptions.SetMobileCheck(() => isMobile);
