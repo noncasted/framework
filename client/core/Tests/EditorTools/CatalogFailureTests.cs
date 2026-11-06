@@ -245,7 +245,11 @@ namespace Internal.EditorTests
                 metadata.SetIncluded(true);
                 SpriteCatalogMetadata.Write(importer, metadata);
 
-                var sources = (IEnumerable<object>)Invoke(typeof(SpriteSourceCollector), "CollectSources");
+                // Only the sources of the test module count: a game keeps its own marked sprites in the other art roots
+                // (pixel-swarm has 264 of them).
+                var sources = ((IEnumerable<object>)Invoke(typeof(SpriteSourceCollector), "CollectSources"))
+                    .Select(source => (string)source.GetType().GetProperty("Path").GetValue(source))
+                    .Where(path => path.StartsWith(moduleRoot + "/", StringComparison.Ordinal));
                 Assert.AreEqual(1, sources.Count(), "a sprite of a module is taken for no art: its group is never generated");
 
                 CollectionAssert.Contains(Discover(SpriteGroupsRegistry.Instance), "CatalogFailureTestsModule.Icons");
