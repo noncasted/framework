@@ -26,7 +26,11 @@ them into one sheet, show it, and wait for the choice. Only the chosen variant g
 2. Find what exists: the current asset / screen (a render or the file), earlier research in
    `docs/media/research/<topic>/`, `docs/media/research/complete/<topic>/` and `docs/art`, so the variants do not repeat
    rejected ones.
-3. Define the **axes of difference**: each variant must differ in a meaningful decision (silhouette, composition,
+3. Find the tools that already draw it: `.claude/project-skills.md` § visualize names the catalogue of the project's
+   generators (environment, floor, walls, paths, trees, water, effects). For every element of the visual write down
+   which generator draws it, or "none". An element a generator draws is varied through that generator (Step 3). A
+   hand mockup of it re-implements the generator and leaves the chosen look to be built a second time.
+4. Define the **axes of difference**: each variant must differ in a meaningful decision (silhouette, composition,
    colour scheme, frame style, motion), not in noise. Write one line per variant: label, idea, what it tests.
    With conditions given, all variants obey them and differ inside them.
 
@@ -42,7 +46,14 @@ the generator scripts if any (`*.py`, like the earlier research folders), and `R
 
 ## Step 3 — Make the variants
 
-Pick the tool by the subject (several can mix):
+Pick the tool by the subject (several can mix). The project's own generators come first:
+- an element a project generator draws (Step 1.3): a variant is an edit of the generator's inputs (settings, recipe,
+  layout) on a temporary copy, rendered by the project and **reverted** after the capture. The project stays unchanged
+  until the choice, and that rule means "revert the temporary edits", not "do not use the tools". A variant that needs an
+  option the generator lacks adds the option with a default that keeps the old output (a test proves the old render
+  is the same). The project's guide says how, e.g. `/recreate-scene` Steps 8-9 for a location;
+- an element no generator draws: a mockup by the ways below. The README lists such elements as **tool gaps** (what is
+  mock, why, which generator would draw it). The implementation plan starts from that list;
 - hand / exact pixel art (icons, UI frames, tiles, small sprites): a Python script (numpy, `magick`) or
   `mcp__pixellab__pixelart_workbench` - draw deterministically, keep the script next to the output;
 - AI pixel art (characters, objects, concept): `mcp__pixellab__*` generators - then fix palette and size
@@ -87,6 +98,7 @@ Read the result PNG yourself before showing it: labels readable, nothing cropped
 
 Бриф: <условия, палитра, размер>
 Лист: <topic>_variants.png[, <topic>_variants.gif]
+Инструменты: <элемент -> генератор и что варьировалось>; пробелы: <элемент - макет, почему, каким генератором рисовать>
 
 | Вариант | Идея | Чем отличается | Исходник |
 |---------|------|----------------|----------|
@@ -114,6 +126,8 @@ decisions file (`auto` skill), and continue - the sheet stays for the user to ov
 ## Rules
 
 - No project changes before the choice (temporary edits for renders are reverted).
+- What a project generator draws is varied with that generator, not redrawn by hand. A mockup covers only the tool
+  gaps, and the README names them. A brief for an agent says the same, never "mockups only, do not touch the tools".
 - Variants differ in decisions, not in noise; each obeys the brief and the project's art rules.
 - One sheet per choice, labelled A, B, C..., at a comparable scale; GIF when anything moves.
 - Files go next to the task or to `docs/media/research/<topic>/`, never into `client/Assets` until chosen.
