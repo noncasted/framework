@@ -64,7 +64,8 @@ namespace Internal
         // The first offer of the player: the channel opened here takes the signal, inside the call of the signaling.
         public void OnOffer()
         {
-            if (_state == PeerPairState.Gone || _role != WebRtcPeerRole.Answer)
+            // Without direct connections the pair has opened the tunnel itself: its hello moves the offering side there.
+            if (_state == PeerPairState.Gone || _role != WebRtcPeerRole.Answer || _meshOptions.IsDirectAllowed == false)
                 return;
 
             // The channel is open and the offer goes to it.
@@ -113,9 +114,9 @@ namespace Internal
                 return;
             }
 
-            // The bigger index waits for the first frame of the tunnel: the smaller one opens it.
-            if (_role == WebRtcPeerRole.Offer)
-                BeginTunnel();
+            // A player without direct connections opens the tunnel whatever its role: the other side may offer a direct
+            // connection and would wait for its timeout before the fallback. The hello moves it to the tunnel at once.
+            BeginTunnel();
         }
 
         private void BeginDirect()
@@ -208,7 +209,9 @@ namespace Internal
             _state = PeerPairState.Connected;
             tunnel.Closed.Advise(attempt, info => OnTunnelClosed(tunnel, info));
 
-            if (_role == WebRtcPeerRole.Offer)
+            // The offering side opens the tunnel after a failed direct connection; a player without direct connections
+            // opens it for any role.
+            if (_role == WebRtcPeerRole.Offer || _meshOptions.IsDirectAllowed == false)
                 PeerTunnelHello.Repeat(tunnel, _meshOptions.ReconnectDelay, attempt).NoAwait();
 
             _publication.Prepare(id => new TunnelPeerLink(tunnel, inbox, _remoteIndex, id, attempt.Child()), inbox);

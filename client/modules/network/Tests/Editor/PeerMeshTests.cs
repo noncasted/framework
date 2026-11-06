@@ -325,6 +325,39 @@ namespace Internal.Tests
             }
         });
 
+        // The player without direct connections answers a direct offer (a smaller index): it opens the tunnel itself,
+        // and the offering side moves there at once, not after the timeout of its direct connection.
+        [UnityTest]
+        public IEnumerator TunnelPeerAnswersOffer_NoDirectTimeout() => UniTask.ToCoroutine(async () =>
+        {
+            var lifetime = new Lifetime();
+            var connectTimeout = TimeSpan.FromSeconds(60);
+
+            try
+            {
+                var (servers, server, session) = CreateServer(lifetime);
+                var first = await Join(lifetime, servers, server, session, Guid.NewGuid(), connectTimeout: connectTimeout);
+                var tunnel = await Join(lifetime, servers, server, session, Guid.NewGuid(), isDirectAllowed: false,
+                    connectTimeout: connectTimeout);
+                var last = await Join(lifetime, servers, server, session, Guid.NewGuid(), connectTimeout: connectTimeout);
+                var peers = new List<MeshPeer> { first, tunnel, last };
+
+                Assert.Less(first.Index, tunnel.Index, "the tunnel peer answers the first one");
+
+                await WaitFullMesh(peers, TimeSpan.FromSeconds(10));
+
+                Assert.AreEqual(2, tunnel.Mesh.TunnelLinks.Value, "the player without direct connections");
+                Assert.AreEqual(PeerRoute.Tunnel, first.Mesh.Links[tunnel.Index].Route);
+                Assert.AreEqual(PeerRoute.Direct, first.Mesh.Links[last.Index].Route);
+
+                await AssertChannelsWork(peers, lifetime);
+            }
+            finally
+            {
+                lifetime.Terminate();
+            }
+        });
+
         private sealed class MeshPeer
         {
             public ILifetime Lifetime;
