@@ -33,3 +33,5 @@ Agent ORCH-web_perf_tools-doc-g1: `.claude/docs/WEBGL_TROUBLESHOOTING.md` from t
 - [13:05] 46-g1 DONE: framework 68d439f0 (Internal.TestTools: FrameAllocations, WebGlShaderCheck), game d2431301 (+ Light.shader flat varying fix, visual check pending). Unity 1083/0 in the copy. Pushed main.
 - [13:13] 23-g2 DONE: tests 1088/0 in the copy, stand before/after identical (resolution modes, ?dpr, ?fps). Framework f5affc6a pushed; game e9272395 local (not pushed to main: the user saw a backend redeploy in Coolify after my push of d2431301, asked). Deploy-client of e9272395 started 13:12.
 - [13:40] main 58daa21e deployed: web 20261104-133943-58daa21e7, tg 20261104-133955-58daa21e7 (tests backend 576, Unity 1098/0). Research of slow Unity tests: ORCH-client_telemetry-unitytests-g1 / a9430c5c94a1c1676 -> handoff/unity_tests_research.md.
+- [14:03] Unity tests speedup: ORCH-client_telemetry-unitytests-fix-g1 / a19711044816f14f1, copy /var/tmp/ps-tests; results jobs tmp/tests-*.diff.
+- [14:45] Tests speedup committed: framework f058f001, game f5208155 (pushed main). Unity step 102 -> 56-67 s, tests stage 263 -> 160 s, deploy-client 539 -> 495 s.

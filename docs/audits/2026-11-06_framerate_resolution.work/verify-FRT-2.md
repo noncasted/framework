@@ -1,0 +1,13 @@
+### FRT-2 CONFIRMED
+- Severity: minor (was minor)
+- Evidence: reading
+- Why: `AutoFrameRateOptions.Validate()` (the only ordering check: `_low >= _high`, `_riseWorkMs >= _dropWorkMs`, `_windowSeconds <= 0`) has exactly one call site, the `AutoFrameRateRule` constructor, and that rule is constructed only inside `AutoFrameRate.Run`, which `FrameRateLimit.Choose` reaches only in the Auto branch when `_platform.IsMobile` is true. The fixed branches apply `_options.Low` / `_options.High` directly, and the `?fps=` branch returns before anything else; nothing else in the module (or in `client/core`, `client/flow`) validates the asset — `AddFrameRate` only registers the instance, and the fields carry only `[Min(1)]` serialization hints, so `_low = 60, _high = 30` is accepted and applied reversed on desktop, in the editor and for explicit choices, throwing only when a phone later enters Auto. There is no written exception covering this. Severity stays minor rather than important because no code path produces such values: it needs an authored options asset with the numbers crossed (manual input), matching the "bug only on a manual input" band, and the consequence is a wrong-but-functioning limit, not a crash or data loss.
+- Lines: `client/modules/framerate/Runtime/Auto/AutoFrameRateOptions.cs:36-49` - `Validate()` is the only check of the option numbers
+- `client/modules/framerate/Runtime/Auto/AutoFrameRateRule.cs:10-13` - `options.Validate()` in the constructor, the only call site
+- `client/modules/framerate/Runtime/Auto/AutoFrameRate.cs:32` - the rule is created in `Run`, nothing validates earlier
+- `client/modules/framerate/Runtime/FrameRateLimit.cs:35-40` - the `?fps=` branch returns without validation
+- `client/modules/framerate/Runtime/FrameRateLimit.cs:43-51` - `Low` / `High` applied straight from the options, unvalidated
+- `client/modules/framerate/Runtime/FrameRateLimit.cs:53-71` - `_auto.Run` only for Auto on a mobile device, so the throw is unreachable elsewhere
+- `client/modules/framerate/Runtime/FrameRateExtensions.cs:10-33` - registration only, no `Validate`
+- Run: none (Unity-only module, decided by reading; a repository-wide `git grep Validate` over the module finds only the definition and the single call)
+- Fix check: right direction; calling `options.Validate()` at the top of `FrameRateLimit.OnSetupCompletion` (before the request check) throws on every platform at scene start. Slightly better: validate in `AddFrameRate` right after `RegisterInstance(options)`, so a wrong asset fails during the root scope construction, before any scene logic, and keeping the rule's check for direct construction in tests/other callers.
