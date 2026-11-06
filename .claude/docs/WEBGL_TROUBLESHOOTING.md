@@ -57,6 +57,7 @@ iPad 7 (A10, 3 GB) is iPadOS 18.2.1; the Android phone is a Mali-G52 MC2 with Ch
 | Audio memory large, importer settings change nothing, a clip "not loaded" | [AU2](#au2-clips-on-webgl) |
 | `Unable to parse ...framework.js.br`, `function signature mismatch` after a release, 503 | [B12](#b12-the-server-of-the-build) |
 | `ld.lld: undefined symbol` / `duplicate symbol` of a native plugin | [B13](#b13-native-code-in-a-webgl-build) |
+| 7000.0.0a16+: player stops at start, `Unable to load required ICU Globalization data` / an ICU call failed | [B14](#b14-submodule-stripping-on-the-net-10-bcl) |
 | Mini App collapses on a swipe, wrong insets in Telegram | [T2](#t2-the-mini-app-shell) |
 | Telegram build: stuck on the loading screen outside Telegram | [T1](#t1-a-telegram-build-outside-telegram) |
 
@@ -510,6 +511,12 @@ switcher does. A test after the game has hung the GPU measures the stuck browser
 - A plugin source (`.cpp` / `.c`) put into `Assets/Plugins` before its `.meta` is compiled into every IL2CPP platform: `duplicate
   symbol` against the same library of another package in the WebGL link. Write the `.meta` (platforms) first (storytale-workshop
   b1d603421).
+
+### B14. Submodule stripping on the .NET 10 BCL
+- From 7000.0.0a16 the BCL calls ICU at the start of the player (`Il2CppData/Icu/icudt.dat`): keep the submodule `ICU`. The group
+  `Advanced Text Generator Support` of the stripping tool contains ICU (with HarfBuzz and TextCoreTextEngine), so stripping the
+  group strips ICU too; strip `TextCoreTextEngine` alone. The `System.*` definitions of the tool target the old mscorlib and
+  match nothing on .NET 10. Sizes per Unity version and the profiling of unused submodules: `client/measurements` (ANALYSIS.md).
 
 ## Telegram WebView
 

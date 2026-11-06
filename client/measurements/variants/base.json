@@ -1,0 +1,29 @@
+{
+  "description": "The stripping of pixel-swarm: a game works with it (sprites, 2D physics, audio, uGUI and TextMeshPro with static SDF fonts)",
+  "parts": [
+    "ui",
+    "physics"
+  ],
+  "packages": {
+    "com.unity.ugui": "framework:client/packages/com.unity.ugui"
+  },
+  "strip": [
+    "base.txt"
+  ],
+  "overrides": [
+    {
+      "unity": "6000.",
+      "why": "the uGUI fork is made from the package of Unity 7000: Unity 6 takes its built-in uGUI (without the patches of the fork) and the TextMeshPro shaders of its essential resources",
+      "packages": {
+        "com.unity.ugui": "builtin"
+      },
+      "unitypackages": [
+        {
+          "package": "com.unity.ugui",
+          "file": "Package Resources/TMP Essential Resources.unitypackage",
+          "only": "Assets/TextMesh Pro/Shaders/"
+        }
+      ]
+    }
+  ]
+}

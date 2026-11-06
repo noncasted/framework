@@ -1,0 +1,9 @@
+{
+    "name": "Measurement.Physics",
+    "rootNamespace": "Measurement",
+    "references": [
+        "Measurement.Runtime",
+        "UniTask"
+    ],
+    "autoReferenced": true
+}

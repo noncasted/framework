@@ -1,0 +1,11 @@
+{
+    "name": "Measurement.UI",
+    "rootNamespace": "Measurement",
+    "references": [
+        "Measurement.Runtime",
+        "UniTask",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "autoReferenced": true
+}

@@ -1,0 +1,10 @@
+{
+    "name": "Measurement.Runtime",
+    "rootNamespace": "Measurement",
+    "references": [
+        "Framework.Common",
+        "UniTask"
+    ],
+    "autoReferenced": true,
+    "allowUnsafeCode": false
+}

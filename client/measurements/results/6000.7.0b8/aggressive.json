@@ -1,0 +1,170 @@
+{
+  "unity": "6000.7.0b8",
+  "variant": "aggressive",
+  "description": "base without uGUI, TextMeshPro and the 2D physics: the engine modules nothing uses taken out of the manifest, the text, physics, tilemap, mesh and unused BCL submodules stripped",
+  "measured": "2026-11-06 06:21 UTC",
+  "build": {
+    "unityVersion": "6000.7.0b8",
+    "result": "Succeeded",
+    "buildSeconds": 135.019196,
+    "reportedSize": 7791224,
+    "errors": 0,
+    "warnings": 0,
+    "strippedSubmodules": 128,
+    "missingSubmodules": "Ignore",
+    "profiled": false
+  },
+  "strippingSkipped": [
+    "Audio Random Container",
+    "Graphics State Collection Serializer"
+  ],
+  "overrides": [],
+  "files": [
+    {
+      "name": "50703726ba93666b880a974753df5865.framework.js.br",
+      "kind": "framework",
+      "compressed": 62312,
+      "raw": 315004
+    },
+    {
+      "name": "67d269c0e12c56fed9909e5d9a703c71.wasm.br",
+      "kind": "wasm",
+      "compressed": 1860984,
+      "raw": 6560977,
+      "sections": {
+        "type": 2610,
+        "import": 10086,
+        "function": 31899,
+        "table": 9,
+        "memory": 7,
+        "tag": 3,
+        "global": 9,
+        "export": 482,
+        "element": 89076,
+        "datacount": 2,
+        "code": 5416314,
+        "data": 1010436
+      }
+    },
+    {
+      "name": "b81084340bd4086c6e470643762331b1.data.br",
+      "kind": "data",
+      "compressed": 708893,
+      "raw": 2086744,
+      "contents": [
+        {
+          "name": "RuntimeInitializeOnLoads.json",
+          "raw": 162,
+          "compressed": 126
+        },
+        {
+          "name": "ScriptingAssemblies.json",
+          "raw": 3481,
+          "compressed": 672
+        },
+        {
+          "name": "data.unity3d",
+          "raw": 343296,
+          "compressed": 237709
+        },
+        {
+          "name": "sharedassets0.resource",
+          "raw": 10237,
+          "compressed": 9495
+        },
+        {
+          "name": "boot.config",
+          "raw": 114,
+          "compressed": 92
+        },
+        {
+          "name": "Il2CppData/Metadata/global-metadata.dat",
+          "raw": 1264540,
+          "compressed": 345160
+        },
+        {
+          "name": "Resources/unity default resources",
+          "raw": 464640,
+          "compressed": 105873
+        }
+      ]
+    },
+    {
+      "name": "b8693b8fd20c7b92f11b56cba0dd7e3b.loader.js",
+      "kind": "loader",
+      "compressed": 28175,
+      "raw": 28175
+    }
+  ],
+  "wasmBeforeStripping": {
+    "compressed": 2877103,
+    "raw": 12591334
+  },
+  "managed": {
+    "mscorlib.dll": 1218048,
+    "UnityEngine.CoreModule.dll": 332800,
+    "UniTask.dll": 75264,
+    "MemoryPack.Core.dll": 53760,
+    "UnityEngine.U2DRuntimeModule.dll": 50688,
+    "UnityEngine.ManagedKernelModule.dll": 47104,
+    "Unity.Scripting.dll": 46080,
+    "UnityEngine.BurstModule.dll": 37888,
+    "System.dll": 37888,
+    "System.Core.dll": 37376,
+    "UnityEngine.AudioModule.dll": 34304,
+    "UnityEngine.dll": 33792,
+    "Measurement.Runtime.dll": 25088,
+    "UnityEngine.ScriptingModule.dll": 23552,
+    "UnityEngine.ContentLoadModule.dll": 22528,
+    "Framework.Common.dll": 14336,
+    "UnityEngine.MathematicsModule.dll": 12288,
+    "System.Runtime.CompilerServices.Unsafe.dll": 5120
+  },
+  "smoke": {
+    "status": "ready",
+    "line": "[measurement] ready libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames; audio: 0.50 s clip, playing True",
+    "seconds": 2.6,
+    "errors": [],
+    "console": [
+      "log:     \"memorysetup-temp-allocator-size-background-worker=32768\"\n",
+      "log:     \"memorysetup-allocator-temp-initial-block-size-main=262144\"\n",
+      "log:     \"memorysetup-allocator-temp-initial-block-size-worker=262144\"\n",
+      "log:     \"memorysetup-temp-allocator-size-audio-worker=65536\"\n",
+      "log:     \"memorysetup-entities-archetype-allocator-budget=16777216\"\n",
+      "log:     \"memorysetup-entities-query-allocator-budget=16777216\"\n",
+      "log:     \"memorysetup-remapper-allocator-initial-capacity=32768\"\n",
+      "log: CodeReloadManager initialized\n",
+      "log: Loading player data from data.unity3d\n",
+      "log: Initialize engine version: 6000.7.0b8 (0bc2e945afca)\n",
+      "log: [EntityIdStore] init: page-table path, blockCount=262144, entitiesPerBlock=1024, top-level=2097152 bytes, sizeof(Block)=16512 (lazily allocated per committed block)\n",
+      "log: Creating WebGL 2.0 context.",
+      "log: Renderer: WebKit WebGL\n",
+      "log: Vendor:   WebKit\n",
+      "log: Version:  OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))\n",
+      "log: GLES:     3\n",
+      "log:  EXT_clip_control EXT_color_buffer_float EXT_color_buffer_half_float EXT_conservative_depth EXT_depth_clamp EXT_disjoint_timer_query_webgl2 EXT_float_blend EXT_polygon_offset_clamp EXT_texture_compression_bptc EXT_texture_compression_rgtc EXT_texture_filter_anisotropic NV_shader_noperspective_interp",
+      "log: mpressed_texture_astc GL_WEBGL_compressed_texture_etc GL_WEBGL_compressed_texture_etc1 GL_WEBGL_compressed_texture_s3tc GL_WEBGL_compressed_texture_s3tc_srgb GL_WEBGL_debug_renderer_info GL_WEBGL_debug_shaders GL_WEBGL_lose_context GL_WEBGL_multi_draw GL_WEBGL_polygon_mode\n",
+      "log: OPENGL LOG: Creating OpenGL ES 3.0 graphics device ; Context level  <OpenGL ES 3.0> ; Context handle 1\n",
+      "log: FMOD returns error code 78 (FMOD_ERR_UNIMPLEMENTED) executing setRecordMuted",
+      "log: FMOD returns error code 78 (r) executing setRecordMuted",
+      "log: Input Manager initialize...\n",
+      "log: UnloadTime: 0.500000 ms\n",
+      "log: Audio context resumed after 0.043 seconds.",
+      "log: [measurement] part libraries\n",
+      "log: [measurement] part sprites\n",
+      "log: [measurement] part audio\n",
+      "log: Trying to get length of sound which is not loaded yet.",
+      "log: Trying to get metadata of sound which is not loaded.",
+      "log: [measurement] ready libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames; audio: 0.50 s clip, playing True\n"
+    ],
+    "requests": [
+      "/",
+      "/Build/b8693b8fd20c7b92f11b56cba0dd7e3b.loader.js",
+      "/Build/50703726ba93666b880a974753df5865.framework.js.br",
+      "/Build/67d269c0e12c56fed9909e5d9a703c71.wasm.br",
+      "/favicon.ico",
+      "/Build/b81084340bd4086c6e470643762331b1.data.br"
+    ],
+    "screenshot": "/projects/framework/client/measurements/projects/6000.7.0b8-aggressive/smoke.png"
+  }
+}

@@ -1,0 +1,194 @@
+{
+  "unity": "6000.6.8f1",
+  "variant": "base",
+  "description": "The stripping of pixel-swarm: a game works with it (sprites, 2D physics, audio, uGUI and TextMeshPro with static SDF fonts)",
+  "measured": "2026-11-06 06:16 UTC",
+  "build": {
+    "unityVersion": "6000.6.8f1",
+    "result": "Succeeded",
+    "buildSeconds": 77.965626,
+    "reportedSize": 17244664,
+    "errors": 3,
+    "warnings": 1,
+    "strippedSubmodules": 94,
+    "missingSubmodules": "Ignore",
+    "profiled": false
+  },
+  "strippingSkipped": [],
+  "overrides": [
+    "the uGUI fork is made from the package of Unity 7000: Unity 6 takes its built-in uGUI (without the patches of the fork) and the TextMeshPro shaders of its essential resources"
+  ],
+  "files": [
+    {
+      "name": "Build-WebGL.data.br",
+      "kind": "data",
+      "compressed": 991963,
+      "raw": 4231576,
+      "contents": [
+        {
+          "name": "RuntimeInitializeOnLoads.json",
+          "raw": 162,
+          "compressed": 126
+        },
+        {
+          "name": "ScriptingAssemblies.json",
+          "raw": 3508,
+          "compressed": 690
+        },
+        {
+          "name": "data.unity3d",
+          "raw": 342105,
+          "compressed": 262421
+        },
+        {
+          "name": "sharedassets0.resource",
+          "raw": 10237,
+          "compressed": 9495
+        },
+        {
+          "name": "boot.config",
+          "raw": 114,
+          "compressed": 97
+        },
+        {
+          "name": "Il2CppData/Metadata/global-metadata.dat",
+          "raw": 2243496,
+          "compressed": 583458
+        },
+        {
+          "name": "Resources/unity default resources",
+          "raw": 1631680,
+          "compressed": 128874
+        }
+      ]
+    },
+    {
+      "name": "Build-WebGL.framework.js.br",
+      "kind": "framework",
+      "compressed": 61478,
+      "raw": 311897
+    },
+    {
+      "name": "Build-WebGL.loader.js",
+      "kind": "loader",
+      "compressed": 27914,
+      "raw": 27914
+    },
+    {
+      "name": "Build-WebGL.wasm.br",
+      "kind": "wasm",
+      "compressed": 3027773,
+      "raw": 12704655,
+      "sections": {
+        "type": 3371,
+        "import": 9920,
+        "function": 38708,
+        "table": 9,
+        "memory": 7,
+        "tag": 5,
+        "global": 9,
+        "export": 472,
+        "element": 127558,
+        "datacount": 2,
+        "code": 10785325,
+        "data": 1739225
+      }
+    }
+  ],
+  "wasmBeforeStripping": {
+    "compressed": 4986261,
+    "raw": 24371438
+  },
+  "managed": {
+    "mscorlib.dll": 1233920,
+    "UnityEngine.CoreModule.dll": 391680,
+    "Unity.TextMeshPro.dll": 330752,
+    "UnityEngine.UI.dll": 247808,
+    "UnityEngine.TextCoreTextEngineModule.dll": 226816,
+    "UnityEngine.PhysicsCore2DModule.dll": 80384,
+    "UniTask.dll": 73216,
+    "UnityEngine.IMGUIModule.dll": 72192,
+    "MemoryPack.Core.dll": 53760,
+    "UnityEngine.U2DRuntimeModule.dll": 49152,
+    "UnityEngine.dll": 45056,
+    "Unity.Scripting.dll": 40448,
+    "System.dll": 39424,
+    "System.Core.dll": 38400,
+    "UnityEngine.BurstModule.dll": 35328,
+    "UnityEngine.UIModule.dll": 32768,
+    "UnityEngine.AudioModule.dll": 27136,
+    "UnityEngine.TextCoreFontEngineModule.dll": 27136,
+    "UnityEngine.ScriptingModule.dll": 24064,
+    "Measurement.Runtime.dll": 23552,
+    "UnityEngine.AnimationModule.dll": 23040,
+    "UnityEngine.Physics2DModule.dll": 19968,
+    "UnityEngine.InputLegacyModule.dll": 19456,
+    "UnityEngine.ContentLoadModule.dll": 18944,
+    "UnityEngine.PhysicsModule.dll": 18944,
+    "UnityEngine.UIElementsModule.dll": 15872,
+    "UnityEngine.ParticleSystemModule.dll": 15872,
+    "UnityEngine.TilemapModule.dll": 15360,
+    "UnityEngine.GridModule.dll": 14848,
+    "UnityEngine.SpriteShapeModule.dll": 14848,
+    "Framework.Common.dll": 14336,
+    "UnityEngine.TextRenderingModule.dll": 13824,
+    "UnityEngine.MathematicsModule.dll": 12288,
+    "Measurement.Physics.dll": 6144,
+    "Measurement.UI.dll": 5632,
+    "System.Runtime.CompilerServices.Unsafe.dll": 5120,
+    "Unity.InternalAPIEngineBridge.004.dll": 3072
+  },
+  "smoke": {
+    "status": "ready",
+    "line": "[measurement] ready libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames; audio: 0.50 s clip, playing True; hud: 21 characters, 30 clicks; physics: 16 of 16 bodies fell",
+    "seconds": 4.8,
+    "errors": [],
+    "console": [
+      "log:     \"memorysetup-job-temp-allocator-block-size-background=1048576\"\n",
+      "log:     \"memorysetup-job-temp-allocator-reduction-small-platforms=262144\"\n",
+      "log:     \"memorysetup-temp-allocator-size-background-worker=32768\"\n",
+      "log:     \"memorysetup-allocator-temp-initial-block-size-main=262144\"\n",
+      "log:     \"memorysetup-allocator-temp-initial-block-size-worker=262144\"\n",
+      "log:     \"memorysetup-temp-allocator-size-audio-worker=65536\"\n",
+      "log:     \"memorysetup-remapper-allocator-initial-capacity=32768\"\n",
+      "log: CodeReloadManager initialized\n",
+      "log: Loading player data from data.unity3d\n",
+      "log: Initialize engine version: 6000.6.8f1 (237b6593792b)\n",
+      "log: [EntityIdStore] init: page-table path, blockCount=262144, entitiesPerBlock=1024, top-level=2097152 bytes, sizeof(Block)=16512 (lazily allocated per committed block)\n",
+      "log: Creating WebGL 2.0 context.",
+      "log: Renderer: WebKit WebGL\n",
+      "log: Vendor:   WebKit\n",
+      "log: Version:  OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))\n",
+      "log: GLES:     3\n",
+      "log:  EXT_clip_control EXT_color_buffer_float EXT_color_buffer_half_float EXT_conservative_depth EXT_depth_clamp EXT_disjoint_timer_query_webgl2 EXT_float_blend EXT_polygon_offset_clamp EXT_texture_compression_bptc EXT_texture_compression_rgtc EXT_texture_filter_anisotropic NV_shader_noperspective_interp",
+      "log: mpressed_texture_astc GL_WEBGL_compressed_texture_etc GL_WEBGL_compressed_texture_etc1 GL_WEBGL_compressed_texture_s3tc GL_WEBGL_compressed_texture_s3tc_srgb GL_WEBGL_debug_renderer_info GL_WEBGL_debug_shaders GL_WEBGL_lose_context GL_WEBGL_multi_draw GL_WEBGL_polygon_mode\n",
+      "log: OPENGL LOG: Creating OpenGL ES 3.0 graphics device ; Context level  <OpenGL ES 3.0> ; Context handle 1\n",
+      "log: Input Manager initialize...\n",
+      "log: UnloadTime: 3.100000 ms\n",
+      "log: Audio context resumed after 0.113 seconds.",
+      "log: [measurement] part libraries\n",
+      "log: [measurement] part sprites\n",
+      "log: [measurement] part audio\n",
+      "log: Trying to get length of sound which is not loaded yet.",
+      "log: Trying to get metadata of sound which is not loaded.",
+      "log: [measurement] part hud\n",
+      "log: [measurement] part physics\n",
+      "log: [measurement] ready libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames; audio: 0.50 s clip, playing True; hud: 21 characters, 30 clicks; physics: 16 of 16 bodies fell\n"
+    ],
+    "requests": [
+      "/",
+      "/TemplateData/style.css",
+      "/Build/Build-WebGL.loader.js",
+      "/TemplateData/unity-logo-title-footer.png",
+      "/TemplateData/fullscreen-button.png",
+      "/Build/Build-WebGL.framework.js.br",
+      "/TemplateData/unity-logo-dark.png",
+      "/TemplateData/progress-bar-empty-dark.png",
+      "/TemplateData/progress-bar-full-dark.png",
+      "/Build/Build-WebGL.wasm.br",
+      "/TemplateData/favicon.ico",
+      "/Build/Build-WebGL.data.br"
+    ],
+    "screenshot": "/projects/framework/client/measurements/projects/6000.6.8f1-base/smoke.png"
+  }
+}

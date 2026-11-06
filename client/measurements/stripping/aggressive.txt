@@ -1,0 +1,47 @@
+# Added to base.txt by the aggressive variant: no canvas, no uGUI, no TextMeshPro, no text at all.
+# A line starting with "?" names a submodule that not every Unity version has: stripped where it exists.
+# Checked with tools/measure.py <version> aggressive --profile: no name here is called by the scene. The sprites call
+# Mesh Skinning and 2D Rendering Sprite Atlas (SpriteRenderer), so they stay.
+Unity UI
+Text Rendering
+IMGUI
+Freetype2 Raster
+Freetype2 SDF
+Freetype2 Smooth
+Tilemap Core
+Tilemap Script Bindings
+libtess2
+Clipper
+Texture Decompression Crunch
+? Audio Random Container
+? Graphics State Collection Serializer
+# The 2D physics (the scene of the variant has none; its modules are out of the manifest).
+Box2D v2
+Box2D v3
+Physics2D Core
+Physics2D Script Bindings
+PhysicsCore2D Core
+# Rendering features the sprites of the scene do not use: instancing, tiled sprites, the GPU Resident Drawer.
+GPU Instancing
+2D Rendering Sprite Tiling
+GPU Resident Drawer
+GPU Resident Drawer Core
+GPU Resident Drawer Rendering Debugger
+# Mesh APIs called by no script.
+Mesh Advanced Editing API
+Mesh Recalculate Bounds API
+Mesh Recalculate Normals API
+Expression Evaluator
+# The text engine of the advanced text generator. Not the group "Advanced Text Generator Support": it holds ICU too,
+# which the .NET 10 BCL of 7000.0.0a16 needs at the start (HarfBuzz is in base.txt, ICU kept by the override).
+TextCoreTextEngine
+# Parts of the BCL the games do not call.
+System.Linq Expressions
+System.TimeZoneInfo
+System.ComponentModel Core
+System.Numerics
+System.Xml
+System.Net
+System.Dynamic
+System.Data
+System.Security Core

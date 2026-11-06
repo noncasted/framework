@@ -25,6 +25,9 @@ client/
                         localization, settings, lobbies, telemetry, ...
   platforms/            platform implementations of modules/publish: web, website, itch, telegram, steam
   packages/             forks of third-party packages (Unity, UniTask, MemoryPack, unity-mcp), see FORK.md in each
+  measurements/         the size of the WebGL build per Unity version: a template project, stripping variants
+                        (base: the list of pixel-swarm; aggressive: no uGUI / TMP), tools/measure.py <version> generates
+                        projects/<version>-<variant> (git-ignored), builds, measures, runs it headless; RESULTS.md, ANALYSIS.md
   project/              Unity project for browsing and compiling the framework without a game: Assets/ links the
                         folders of the framework (core, flow, modules, platforms, shared; common as framework-common, next to the
                         content folder Assets/Common), the forks are packages;
@@ -86,6 +89,10 @@ and its `.claude/skills/<name>/...` paths stay as they are; its own skills sit n
 here, the tools do not write through a link. No values of a game in a skill: `.claude/project-skills.md` (targets, urls,
 look), `.claude/code-audit.json` (folders of the dependency check, namespaces of the game), `.claude/control.json` (cluster, editor), `.claude/deploy-client.json` (targets of the client deploy), `.claude/override-packages` (registry and
 patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
+
+oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/agents` (`audit-scout`, `audit-verifier` of the skill
+`audit-swarm`, pinned to a cheap model) and its project limits in `.omp/config.yml`. A game links each agent:
+`ln -s ../../tools/framework/.omp/agents/<name>.md .omp/agents/<name>.md`, and keeps its own `.omp/config.yml`.
 
 ## Extension points
 
@@ -270,7 +277,7 @@ patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
   `navigator.audioSession.type = 'playback'`, so the silent mode of iOS does not mute the sound; `BuiltPageScripts` of the core
   puts such scripts, the startup trace of `telemetry` too), `steam` (`AddSteam(SteamOptions, PlatformOptions)`, the `NoPlatform*` variants of `publish` off Steam: app id, Web API identity
   of the backend auth ticket, the connect key of invites; `#if UNITY_STANDALONE`, needs Steamworks.NET), `telegram`
-  (`AddTelegramAPI(PlatformOptions)`: the bridge to `window.telegramShell` of the Telegram WebGL template, a debug one in the editor; auth and back button are alternatives the game picks).
+  (`AddTelegramAPI(PlatformOptions, TelegramEditorOptions)`: the bridge to `window.telegramShell` of the Telegram WebGL template, a debug one in the editor that signs the init data with `TelegramBotToken` of the local backend settings file the game names in `TelegramEditorOptions`; auth and back button are alternatives the game picks).
 - **Sessions.** Shared types in `shared/Session` (auth, entities, objects, players, services, latency, entity ids:
   `SharedEntityIds`, range 0 issued by the backend). Backend `backend/Session`: `AddSessionServices(data, options)`
   builds the container of one session; the game adds its network services (`IService`), commands and logic and

@@ -1,0 +1,12 @@
+{
+    "name": "Measurement.Editor",
+    "rootNamespace": "Measurement",
+    "references": [
+        "Measurement.Runtime",
+        "Unity.Web.Stripping.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "autoReferenced": true
+}

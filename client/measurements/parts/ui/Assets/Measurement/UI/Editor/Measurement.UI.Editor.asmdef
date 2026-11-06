@@ -1,0 +1,15 @@
+{
+    "name": "Measurement.UI.Editor",
+    "rootNamespace": "Measurement",
+    "references": [
+        "Measurement.Runtime",
+        "Measurement.UI",
+        "Measurement.Editor",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "autoReferenced": true
+}

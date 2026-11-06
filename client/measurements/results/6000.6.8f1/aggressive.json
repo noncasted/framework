@@ -1,0 +1,175 @@
+{
+  "unity": "6000.6.8f1",
+  "variant": "aggressive",
+  "description": "base without uGUI, TextMeshPro and the 2D physics: the engine modules nothing uses taken out of the manifest, the text, physics, tilemap, mesh and unused BCL submodules stripped",
+  "measured": "2026-11-06 06:08 UTC",
+  "build": {
+    "unityVersion": "6000.6.8f1",
+    "result": "Succeeded",
+    "buildSeconds": 101.135114,
+    "reportedSize": 11280397,
+    "errors": 0,
+    "warnings": 1,
+    "strippedSubmodules": 128,
+    "missingSubmodules": "Ignore",
+    "profiled": false
+  },
+  "strippingSkipped": [
+    "Audio Random Container",
+    "Graphics State Collection Serializer"
+  ],
+  "overrides": [],
+  "files": [
+    {
+      "name": "Build-WebGL.data.br",
+      "kind": "data",
+      "compressed": 698197,
+      "raw": 3227575,
+      "contents": [
+        {
+          "name": "RuntimeInitializeOnLoads.json",
+          "raw": 162,
+          "compressed": 126
+        },
+        {
+          "name": "ScriptingAssemblies.json",
+          "raw": 3361,
+          "compressed": 660
+        },
+        {
+          "name": "data.unity3d",
+          "raw": 252815,
+          "compressed": 187949
+        },
+        {
+          "name": "sharedassets0.resource",
+          "raw": 10237,
+          "compressed": 9495
+        },
+        {
+          "name": "boot.config",
+          "raw": 114,
+          "compressed": 91
+        },
+        {
+          "name": "Il2CppData/Metadata/global-metadata.dat",
+          "raw": 1328932,
+          "compressed": 365230
+        },
+        {
+          "name": "Resources/unity default resources",
+          "raw": 1631680,
+          "compressed": 128874
+        }
+      ]
+    },
+    {
+      "name": "Build-WebGL.framework.js.br",
+      "kind": "framework",
+      "compressed": 60569,
+      "raw": 307714
+    },
+    {
+      "name": "Build-WebGL.loader.js",
+      "kind": "loader",
+      "compressed": 27914,
+      "raw": 27914
+    },
+    {
+      "name": "Build-WebGL.wasm.br",
+      "kind": "wasm",
+      "compressed": 2132296,
+      "raw": 8857058,
+      "sections": {
+        "type": 2493,
+        "import": 9703,
+        "function": 27058,
+        "table": 9,
+        "memory": 7,
+        "tag": 3,
+        "global": 9,
+        "export": 472,
+        "element": 70114,
+        "datacount": 2,
+        "code": 7764880,
+        "data": 982264
+      }
+    }
+  ],
+  "wasmBeforeStripping": {
+    "compressed": 3022286,
+    "raw": 14831322
+  },
+  "managed": {
+    "mscorlib.dll": 1216512,
+    "UnityEngine.CoreModule.dll": 272896,
+    "UniTask.dll": 64000,
+    "MemoryPack.Core.dll": 53760,
+    "UnityEngine.U2DRuntimeModule.dll": 49152,
+    "Unity.Scripting.dll": 40448,
+    "System.dll": 38400,
+    "System.Core.dll": 37376,
+    "UnityEngine.BurstModule.dll": 35328,
+    "UnityEngine.dll": 30720,
+    "UnityEngine.AudioModule.dll": 27136,
+    "Measurement.Runtime.dll": 23552,
+    "UnityEngine.ContentLoadModule.dll": 18944,
+    "UnityEngine.ScriptingModule.dll": 18432,
+    "Framework.Common.dll": 14336,
+    "UnityEngine.MathematicsModule.dll": 12288,
+    "System.Runtime.CompilerServices.Unsafe.dll": 5120
+  },
+  "smoke": {
+    "status": "ready",
+    "line": "[measurement] ready libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames; audio: 0.50 s clip, playing True",
+    "seconds": 2.6,
+    "errors": [],
+    "console": [
+      "log:     \"memorysetup-temp-allocator-size-main=4194304\"\n",
+      "log:     \"memorysetup-job-temp-allocator-block-size=2097152\"\n",
+      "log:     \"memorysetup-job-temp-allocator-block-size-background=1048576\"\n",
+      "log:     \"memorysetup-job-temp-allocator-reduction-small-platforms=262144\"\n",
+      "log:     \"memorysetup-temp-allocator-size-background-worker=32768\"\n",
+      "log:     \"memorysetup-allocator-temp-initial-block-size-main=262144\"\n",
+      "log:     \"memorysetup-allocator-temp-initial-block-size-worker=262144\"\n",
+      "log:     \"memorysetup-temp-allocator-size-audio-worker=65536\"\n",
+      "log:     \"memorysetup-remapper-allocator-initial-capacity=32768\"\n",
+      "log: CodeReloadManager initialized\n",
+      "log: Loading player data from data.unity3d\n",
+      "log: Initialize engine version: 6000.6.8f1 (237b6593792b)\n",
+      "log: [EntityIdStore] init: page-table path, blockCount=262144, entitiesPerBlock=1024, top-level=2097152 bytes, sizeof(Block)=16512 (lazily allocated per committed block)\n",
+      "log: Creating WebGL 2.0 context.",
+      "log: Renderer: WebKit WebGL\n",
+      "log: Vendor:   WebKit\n",
+      "log: Version:  OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))\n",
+      "log: GLES:     3\n",
+      "log:  EXT_clip_control EXT_color_buffer_float EXT_color_buffer_half_float EXT_conservative_depth EXT_depth_clamp EXT_disjoint_timer_query_webgl2 EXT_float_blend EXT_polygon_offset_clamp EXT_texture_compression_bptc EXT_texture_compression_rgtc EXT_texture_filter_anisotropic NV_shader_noperspective_interp",
+      "log: mpressed_texture_astc GL_WEBGL_compressed_texture_etc GL_WEBGL_compressed_texture_etc1 GL_WEBGL_compressed_texture_s3tc GL_WEBGL_compressed_texture_s3tc_srgb GL_WEBGL_debug_renderer_info GL_WEBGL_debug_shaders GL_WEBGL_lose_context GL_WEBGL_multi_draw GL_WEBGL_polygon_mode\n",
+      "log: OPENGL LOG: Creating OpenGL ES 3.0 graphics device ; Context level  <OpenGL ES 3.0> ; Context handle 1\n",
+      "log: Input Manager initialize...\n",
+      "log: UnloadTime: 0.500000 ms\n",
+      "log: Audio context resumed after 0.034 seconds.",
+      "log: [measurement] part libraries\n",
+      "log: [measurement] part sprites\n",
+      "log: [measurement] part audio\n",
+      "log: Trying to get length of sound which is not loaded yet.",
+      "log: Trying to get metadata of sound which is not loaded.",
+      "log: [measurement] ready libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames; audio: 0.50 s clip, playing True\n"
+    ],
+    "requests": [
+      "/",
+      "/TemplateData/style.css",
+      "/Build/Build-WebGL.loader.js",
+      "/TemplateData/unity-logo-title-footer.png",
+      "/TemplateData/fullscreen-button.png",
+      "/Build/Build-WebGL.framework.js.br",
+      "/TemplateData/unity-logo-dark.png",
+      "/TemplateData/progress-bar-empty-dark.png",
+      "/TemplateData/progress-bar-full-dark.png",
+      "/Build/Build-WebGL.wasm.br",
+      "/TemplateData/favicon.ico",
+      "/Build/Build-WebGL.data.br"
+    ],
+    "screenshot": "/projects/framework/client/measurements/projects/6000.6.8f1-aggressive/smoke.png"
+  }
+}

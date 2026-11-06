@@ -1,0 +1,13 @@
+{
+    "name": "Measurement.Physics.Editor",
+    "rootNamespace": "Measurement",
+    "references": [
+        "Measurement.Runtime",
+        "Measurement.Physics",
+        "Measurement.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "autoReferenced": true
+}
