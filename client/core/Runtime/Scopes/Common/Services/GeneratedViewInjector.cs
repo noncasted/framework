@@ -5,7 +5,6 @@ namespace Internal
     public interface IViewInjector
     {
         void Inject<T>(T target) where T : MonoBehaviour;
-        void Inject(GameObject target);
     }
 
     public sealed class GeneratedViewInjector : IViewInjector
@@ -20,11 +19,6 @@ namespace Internal
         public void Inject<T>(T target) where T : MonoBehaviour
         {
             _container.Inject(target);
-        }
-
-        public void Inject(GameObject target)
-        {
-            _container.InjectGameObject(target);
         }
     }
 }

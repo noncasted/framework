@@ -58,7 +58,6 @@ namespace ContainerGenerator {
                 ViewType = graph.ViewType ?? "",
                 OriginRootId = originRootId,
                 HasContainerInterface = compilation.GetTypeByMetadataName("Internal.IContainer") != null,
-                HasUnityGameObject = compilation.GetTypeByMetadataName("UnityEngine.GameObject") != null,
                 HasDiagnosticsType = hasDiagnosticsType,
                 HasRegistrationInfo = hasRegistrationInfo,
                 HasServiceLifetime = hasServiceLifetime,

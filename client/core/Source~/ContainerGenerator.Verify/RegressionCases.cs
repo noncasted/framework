@@ -12,6 +12,8 @@ namespace ContainerGenerator.Verify {
             Run("two instances of one type get two slots", TestInstancePerRegistration);
             Run("two instances of one type reach the list in their order", () => RunScenario(InstancesInOrderScenario));
             Run("if without else builds, only its dependent throws", () => RunScenario(OptionalAlternativeScenario));
+            Run("instances of one type in if and else take the same slot", () => RunScenario(IfElseInstanceScenario));
+            Run("the chosen arm of a switch is disposed", () => RunScenario(DisposableSwitchArmScenario));
             Run("Dispose runs every step and terminates the lifetime first", TestDisposeRunsEverything);
             Run("Resolve after Dispose throws", TestResolveAfterDispose);
             Run("[Inject] of a base class is called", TestBaseClassInject);
@@ -216,6 +218,62 @@ namespace Sample {
             Root.Flag = true;
             var with = TestHost.Build(Root.Construct);
             Check.True(with.Resolve<NeedsOptional>().Value != null, ""the if ran: the dependent gets it"");
+        }
+    }
+}";
+
+        private const string IfElseInstanceScenario = Usings + @"
+namespace Sample {
+    public interface IClock { string Name { get; } }
+    public class Clock : IClock { public Clock(string name) { Name = name; } public string Name { get; } }
+    public class User { public readonly IClock Clock; public User(IClock clock) { Clock = clock; } }
+    public static class Root {
+        public static bool Flag;
+        public static void Construct(IScopeBuilder builder) {
+            if (Flag)
+                builder.RegisterInstance<IClock>(new Clock(""a""));
+            else
+                builder.RegisterInstance<IClock>(new Clock(""b""));
+            builder.Register<User>();
+        }
+    }
+    public static class Scenario {
+        public static void Run() {
+            Root.Flag = true;
+            Check.Equal(""a"", TestHost.Build(Root.Construct).Resolve<User>().Clock.Name, ""if arm"");
+            Root.Flag = false;
+            Check.Equal(""b"", TestHost.Build(Root.Construct).Resolve<User>().Clock.Name, ""else arm"");
+        }
+    }
+}";
+
+        private const string DisposableSwitchArmScenario = Usings + @"
+namespace Sample {
+    public enum Kind { First, Second }
+    public interface IService {}
+    public static class Disposals { public static string Order = """"; }
+    public class A : IService, IDisposable { public void Dispose() { Disposals.Order += ""A""; } }
+    public class B : IService, IDisposable { public void Dispose() { Disposals.Order += ""B""; } }
+    public class User : IDisposable { public User(IService service) {} public void Dispose() { Disposals.Order += ""U""; } }
+    public static class Root {
+        public static void Construct(IScopeBuilder builder) {
+            var kind = Kind.Second;
+            builder.RegisterInstance(kind);
+            var registration = kind switch {
+                Kind.First => builder.Register<A>(),
+                Kind.Second => builder.Register<B>(),
+                _ => throw new InvalidOperationException(),
+            };
+            registration.As<IService>();
+            builder.Register<User>();
+        }
+    }
+    public static class Scenario {
+        public static void Run() {
+            var container = TestHost.Build(Root.Construct);
+            Check.True(container.Resolve<IService>() is B, ""the discriminant chose B"");
+            container.Dispose();
+            Check.Equal(""UB"", Disposals.Order, ""the chosen arm is disposed after its dependent"");
         }
     }
 }";

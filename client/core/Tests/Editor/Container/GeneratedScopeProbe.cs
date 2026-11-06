@@ -98,11 +98,6 @@ namespace Internal.Tests
             throw new NotSupportedException();
         }
 
-        public void InjectGameObject(UnityEngine.GameObject target)
-        {
-            throw new NotSupportedException();
-        }
-
         public void Dispose()
         {
             IsDisposed = true;

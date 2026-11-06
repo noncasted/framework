@@ -62,27 +62,6 @@ namespace ContainerGenerator {
             writer.AppendLine(body + "throw new global::System.InvalidOperationException(\"No generated inject for \" + target.GetType().FullName + \".\");");
             writer.AppendLine(indent + "}");
             writer.AppendLine();
-            if (plan.HasUnityGameObject) {
-                writer.AppendLine(indent + "public void InjectGameObject(global::UnityEngine.GameObject target) {");
-                writer.AppendLine(body + "if (target == null)");
-                writer.AppendLine(body + "    throw new global::System.ArgumentNullException(nameof(target));");
-                writer.AppendLine(body + "var behaviours = target.GetComponentsInChildren<global::UnityEngine.MonoBehaviour>(true);");
-                writer.AppendLine(body + "for (var i = 0; i < behaviours.Length; i++) {");
-                writer.AppendLine(body + "    var behaviour = behaviours[i];");
-                writer.AppendLine(body + "    if (behaviour == null)");
-                writer.AppendLine(body + "        continue;");
-                writer.AppendLine(body + "    Inject(behaviour);");
-                writer.AppendLine(body + "}");
-                writer.AppendLine(indent + "}");
-                writer.AppendLine();
-            }
-            else {
-                writer.AppendLine(indent + "public void InjectGameObject(object target) {");
-                writer.AppendLine(body + "Inject(target);");
-                writer.AppendLine(indent + "}");
-                writer.AppendLine();
-            }
-
             // The lifetime ends first: its listeners still see live services and may resolve them. Then the services
             // go in reverse construction order. A throwing step does not skip the rest; the errors are rethrown at the end.
             // Transients are not tracked: whoever resolves one owns it and disposes it.
@@ -97,7 +76,7 @@ namespace ContainerGenerator {
                 var slot = plan.Slots[plan.DisposeOrder[i]];
                 if (string.IsNullOrEmpty(slot.FieldName))
                     continue;
-                WriteDisposeStep(writer, body, slot.IsAlternative
+                WriteDisposeStep(writer, body, slot.IsAlternative || slot.IsSwitch
                     ? "(" + slot.FieldName + " as global::System.IDisposable)?.Dispose();"
                     : "((global::System.IDisposable)" + slot.FieldName + ").Dispose();");
             }

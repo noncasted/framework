@@ -14,12 +14,20 @@ namespace ContainerGenerator {
                 var slot = plan.Slots[index];
                 if (slot.HasField == false && string.IsNullOrEmpty(slot.FieldName))
                     continue;
-                if (slot.IsTransient || slot.IsSwitch || slot.SkipEmit)
+                if (slot.IsTransient || slot.SkipEmit)
                     continue;
                 if (slot.IsAlternative && slot.IsGroupPrimary == false)
                     continue;
 
-                if (slot.IsAlternative) {
+                if (slot.IsSwitch) {
+                    // The field holds the arm the discriminant chose: the emitter checks it at runtime.
+                    var anyDisposable = false;
+                    for (var a = 0; a < slot.Registration.Arms.Count; a++)
+                        anyDisposable |= IsDisposable(types.Find(slot.Registration.Arms[a].ImplementationType), disposable);
+                    if (anyDisposable == false)
+                        continue;
+                }
+                else if (slot.IsAlternative) {
                     // The field holds the member that ran: the emitter checks it at runtime.
                     var anyDisposable = false;
                     for (var m = 0; m < slot.GroupMembers.Count; m++)

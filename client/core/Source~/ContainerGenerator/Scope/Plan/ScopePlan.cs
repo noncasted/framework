@@ -18,7 +18,6 @@ namespace ContainerGenerator {
         public string ViewType { get; init; } = "";
         public bool NeedsRequest { get; private set; }
         public bool HasContainerInterface { get; init; }
-        public bool HasUnityGameObject { get; init; }
         public bool HasProvides { get; init; }
         public bool HasDiagnosticsType { get; init; }
         public bool HasRegistrationInfo { get; init; }

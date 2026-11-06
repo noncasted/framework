@@ -39,3 +39,13 @@
   (xunit.v3 4.0.2, Testcontainers 4.16.0, ...). Неиспользуемые `MudBlazor` и `Blazor.Bootstrap` удалены из списка.
 - AppHost игры: `Sdk="Aspire.AppHost.Sdk/13.5.3"` -> `Sdk="Aspire.AppHost.Sdk/13.6.4"` (той же версии, что пакеты `Aspire.*`).
 - Свои пакеты игры в её `backend/Directory.Packages.props` обновить до последних стабильных; собрать `backend.slnx` и прогнать тесты.
+
+### Контейнер: удалены `IContainer.InjectGameObject` и `IViewInjector.Inject(GameObject)` (BREAKING)
+
+Кому: клиент игр, которые вызывают внедрение в целый `GameObject` или реализуют `IContainer` / `IViewInjector` сами (на момент изменения
+таких нет: mines-leader и storytale-workshop зовут `Inject<T>`).
+Поиск: `git grep -nE 'InjectGameObject|: *(IContainer|IViewInjector)\b|IViewInjector.*Inject\((GameObject|[a-z]\w*\.gameObject)' -- 'client/Assets/*.cs'`
+- Перегрузка бросала на первом компоненте без сгенерированного inject (`Image`, `Transform`-скрипты): обход по
+  `GetComponentsInChildren<MonoBehaviour>` нельзя было использовать. Удалена из генератора, `IContainer` и `IViewInjector`.
+- Вызов `Inject(gameObject)` -> `Inject(component)` для каждого компонента с `builder.Injectable<T>()` (как у storytale в
+  `client/Assets/Game/Construct/Loop/ViewInjectorExtensions.cs`). Своя реализация `IContainer` / `IViewInjector`: удалить метод.

@@ -1330,7 +1330,6 @@ namespace Internal {
         bool TryResolve(System.Type type, out object instance);
         System.Collections.Generic.IReadOnlyList<T> ResolveAll<T>();
         void Inject(object target);
-        void InjectGameObject(UnityEngine.GameObject target);
     }
     public interface IBuilder {
         IContainerRegistry Registry { get; }

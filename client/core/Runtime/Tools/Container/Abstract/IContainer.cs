@@ -14,6 +14,5 @@ namespace Internal
         IReadOnlyList<T> ResolveAll<T>();
 
         void Inject(object target);
-        void InjectGameObject(UnityEngine.GameObject target);
     }
 }

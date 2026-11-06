@@ -207,7 +207,7 @@ await builder.LoadEnvAssetGroup(GlobalAssets.Group);  // loaded now: needed whil
 
 ## Runtime Access
 
-`IContainer` (`Resolve<T>`, `TryResolve`, `ResolveAll<T>`, `Inject`, `InjectGameObject`) is for factories and tools; services take dependencies through constructors. `IViewInjector` (`GeneratedViewInjector`) injects runtime-created MonoBehaviours declared with `builder.Injectable<T>()`; injecting an unknown type throws `No generated inject for <type>`. The container is main-thread only (`ContainerThread.Assert`), and registering after the container is built throws.
+`IContainer` (`Resolve<T>`, `TryResolve`, `ResolveAll<T>`, `Inject`) is for factories and tools; services take dependencies through constructors. `IViewInjector` (`GeneratedViewInjector`) injects runtime-created MonoBehaviours declared with `builder.Injectable<T>()`; injecting an unknown type throws `No generated inject for <type>`. The container is main-thread only (`ContainerThread.Assert`), and registering after the container is built throws.
 
 ## Diagnostics (CINGR) and Tools
 

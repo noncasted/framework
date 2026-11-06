@@ -6,13 +6,15 @@ namespace ContainerGenerator {
         }
 
         // The runtime counts the instances of a declared type in the order the installer wrote them:
-        // the slot takes the one at its place among the instance registrations of that type.
+        // the slot takes the one at its place among the instance registrations of that type that run with it.
         public static int InstanceOccurrence(ScopeGraph graph, int index) {
             var registration = graph.Registrations[index];
             var occurrence = 0;
             for (var i = 0; i < index; i++) {
                 var other = graph.Registrations[i];
-                if (IsInstanceKind(other.Kind) && other.ImplementationType == registration.ImplementationType)
+                // Another arm of the same statement does not get into the builder together with this one.
+                if (IsInstanceKind(other.Kind) && other.ImplementationType == registration.ImplementationType &&
+                    BranchGroups.Exclude(other, registration) == false)
                     occurrence++;
             }
 
