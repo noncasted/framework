@@ -146,7 +146,17 @@ namespace Global.UI
             switch (handle.State)
             {
                 case IUIStateEnterHandler handler:
-                    handler.OnEntered(handle);
+                    // The state with its constraints does not stay after an error; the caller gets the error.
+                    try
+                    {
+                        handler.OnEntered(handle);
+                    }
+                    catch
+                    {
+                        handle.Exit();
+                        throw;
+                    }
+
                     break;
                 case IUIStateAsyncEnterHandler handler:
                     RunEntered(handler, handle).NoAwait();

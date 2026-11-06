@@ -145,6 +145,20 @@ namespace Global.UI.Tests
             lifetime.Terminate();
         }
 
+        // A sync enter that throws does not leave the state with its constraints, and the error goes to the caller.
+        [Test]
+        public void TryEnter_SyncEnterThrows_RethrownAndStateExits()
+        {
+            var (machine, storage, lifetime) = Create();
+            var handle = machine.CreateChild(lifetime, machine.Base, new ThrowingSyncEnterState());
+
+            Assert.Throws<InvalidOperationException>(() => handle.TryEnter());
+
+            Assert.IsTrue(handle.InnerLifetime.IsTerminated, "the handle lives until the end of the lifetime");
+            Assert.IsTrue(storage[InputConstraints.Game]);
+            lifetime.Terminate();
+        }
+
         [Test]
         public void BaseState_EndsWithItsParent()
         {
@@ -189,6 +203,16 @@ namespace Global.UI.Tests
             {
                 await UniTask.CompletedTask;
                 throw new InvalidOperationException("async enter failed");
+            }
+        }
+
+        private class ThrowingSyncEnterState : IUIState, IUIStateEnterHandler
+        {
+            public IUIConstraints Constraints => UIConstraints.Game;
+
+            public void OnEntered(IUIStateHandle handle)
+            {
+                throw new InvalidOperationException("sync enter failed");
             }
         }
 
