@@ -64,9 +64,9 @@ Bad grouping (avoid):
 - Grouping by file type regardless of purpose (all .cs together, all .razor together)
 - Mixing unrelated features just because they touch the same directory
 
-Present the plan to the user as a numbered list:
+Print the plan as a numbered list and go straight to Phase 3 — do not wait for a confirmation:
 ```
-Proposed split:
+Split:
 1. [Client] Add shop consumables (5 files)
    - client/Assets/GamePlay/Level/Shop/ShopConsumables.cs
    - client/Assets/GamePlay/Level/Shop/ShopAssortment.cs
@@ -76,8 +76,6 @@ Proposed split:
 3. [Tests] Add task balancer tests (3 files)
    - ...
 ```
-
-Ask the user to confirm or adjust before committing.
 
 ### Phase 3: Execute Commits
 
@@ -100,14 +98,14 @@ Done! Created N commits:
 
 ## Edge Cases
 
-- **Partial file changes**: if one file contains changes for two different groups, mention this to the user and suggest which group to put it in (don't try to split hunks with `git add -p` — keep it simple)
+- **Partial file changes**: if one file contains changes for two different groups, put it into the group it fits best and mention it in the final summary (don't try to split hunks with `git add -p` — keep it simple)
 - **Dependencies between groups**: commit the dependency first (e.g., shared model before backend code that uses it)
-- **Very few changes**: if changes naturally form just 1 group, say so and suggest using `/commit` instead
+- **Very few changes**: if changes naturally form just 1 group, make that one commit
 - **Binary files** (images, assets): group with the feature they belong to
 
 ## Important Notes
 
-- ALWAYS ask the user to confirm the split plan before committing
+- NEVER ask the user to confirm the split plan: plan, then commit right away
 - Use `git add` with explicit file paths, never `-A` or `.`
 - Commits are created locally; push to remote is handled separately
-- If the user disagrees with the grouping, adjust and re-present
+- If the user disagrees with the grouping afterwards, they can ask to redo it (the commits are local)
