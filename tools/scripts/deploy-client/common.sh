@@ -56,6 +56,22 @@ record() {
     SUMMARY+=("$1|$2|$3|$4")
 }
 
+# A hook script of the game (preflight, beforeUpload): "<stage>" "<script>", run in the root of the game, its output
+# in <stage>.log and on the console; its last line is the detail of the summary. Uses stage_start of the caller.
+run_hook() {
+    local stage="$1" script="$2" log code=0 last
+    log="$LOG_DIR/${stage// /-}.log"
+    [[ -x "$ROOT/$script" ]] || fail_config "$CONFIG: $stage script $script is not an executable file"
+    echo "$stage: $script (log: $log)"
+    (cd "$ROOT" && exec "$ROOT/$script") 2>&1 | tee "$log" | sed "s/^/  [$stage] /" || code=$?
+    last="$(grep -v '^[[:space:]]*$' "$log" | tail -1 || true)"
+    if ((code != 0)); then
+        record "$stage" FAIL $((SECONDS - stage_start)) "exit $code: $last; $log"
+        return 1
+    fi
+    record "$stage" PASS $((SECONDS - stage_start)) "$last"
+}
+
 any_failed() {
     local row
     for row in "${SUMMARY[@]}"; do
