@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Tests and WebGL builds of a game at once, then the uploads: the parallel path of the deploy-client skill.
 #
-# Run from the root of the game: tools/framework/tools/scripts/deploy-client.sh [target...] [--notest] [--no-deploy]
+# Run from the root of the game: tools/framework/tools/scripts/deploy-client.sh [target...] [--platforms=<t>&<t>...]
+#   [--notest] [--no-deploy]
+# --platforms= names the targets as one list ("web&telegram", also "," or "+" between them; quote the "&" in a shell),
+# together with the positional ones; a target named twice builds once.
 #
 #   1. snapshot  a reflink copy (cp -a --reflink=always) of the working tree of the game, uncommitted edits included,
 #                with the working tree of tools/framework (or of FRAMEWORK_SOURCE) and client/Library (minus what a
@@ -89,6 +92,14 @@ while (($# > 0)); do
     case "$1" in
         --notest) NO_TEST=1 ;;
         --no-deploy) NO_DEPLOY=1 ;;
+        --platforms=*)
+            IFS='&,+ ' read -r -a platforms <<<"${1#--platforms=}"
+            ((${#platforms[@]} > 0)) || fail_config "--platforms= names no target (targets: ${CONFIG_TARGETS[*]})"
+            for platform in "${platforms[@]}"; do
+                config_has_target "$platform" || fail_config "Unknown target: $platform (targets: ${CONFIG_TARGETS[*]})"
+                TARGETS+=("$platform")
+            done
+            ;;
         -h | --help) usage ;;
         -*) echo "Unknown option: $1" >&2; usage ;;
         *)
@@ -98,6 +109,15 @@ while (($# > 0)); do
     esac
     shift
 done
+# A target named twice (positionally and in --platforms=) builds and uploads once, at its first place.
+declare -A seen_targets=()
+unique_targets=()
+for target in "${TARGETS[@]}"; do
+    [[ -n "${seen_targets[$target]:-}" ]] && continue
+    seen_targets[$target]=1
+    unique_targets+=("$target")
+done
+TARGETS=("${unique_targets[@]}")
 ((${#TARGETS[@]} > 0)) || TARGETS=("${CONFIG_TARGETS[@]}")
 
 GAME="$(basename "$ROOT")"

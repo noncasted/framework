@@ -43,6 +43,7 @@ DEPLOY below is the `deploy` script of the json, ARGS(t) the `deployArgs` of tar
 |----------|-----------|
 | none | `deploy-client.sh`: tests + every target of the json, in its order |
 | `<target>` ... | `deploy-client.sh <target> ...`: tests + those targets |
+| `--platforms=<t>&<t>...` (also `,` or `+` between them) | `deploy-client.sh '--platforms=<t>&<t>'`: the same as the targets one by one (quote it, `&` is a shell operator); mixes with positional targets, a target named twice runs once. Each name is a target of the json (`website&telegram&steam` only where the json has those) |
 | `--notest` / `skip-tests` (with any of the above) | `deploy-client.sh [targets] --notest`: no tests |
 | `--no-deploy` (with any of the above) | `deploy-client.sh [targets] --no-deploy`: tests, builds and checks, no upload (a dry run, or a measure of the times) |
 | `--list [t]` | only `DEPLOY ARGS(t) --list` (every target when none is given), then report |
@@ -65,7 +66,7 @@ From the root of the game, in the background (`run_in_background`), then wait fo
 sleep:
 
 ```bash
-tools/framework/tools/scripts/deploy-client.sh [targets] [--notest]
+tools/framework/tools/scripts/deploy-client.sh [targets] ['--platforms=<t>&<t>'] [--notest] [--no-deploy]
 ```
 
 A full run takes several minutes (the longest build plus the uploads). Environment, only when needed:
