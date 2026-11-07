@@ -6,6 +6,9 @@
 # --platforms= names the targets as one list ("web&telegram", also "," or "+" between them; quote the "&" in a shell),
 # together with the positional ones; a target named twice builds once.
 #
+#   0. preflight the optional "preflight" script of the game, run in the root of the game before the snapshot, with
+#                --notest too: checks that must hold for any upload (a protocol in step with the backend); it may
+#                change the tree (a derived file regenerated), the snapshot takes it
 #   1. snapshot  a reflink copy (cp -a --reflink=always) of the working tree of the game, uncommitted edits included,
 #                with the working tree of tools/framework (or of FRAMEWORK_SOURCE) and client/Library (minus what a
 #                build must not inherit, see deploy-client/snapshot.sh); the "same" files are compared there
@@ -14,7 +17,9 @@
 #                of the last passed build of that target from this tree when it is newer (deploy-client/snapshot.sh)
 #                (Internal.WebGlBuild.Build with -activeBuildProfile), at most UNITY_BUILD_SLOTS builds on the machine
 #   3. checks    of every build right after it (deploy-client/verify.sh)
-#   4. deploy    only when the tests passed and every target passed its checks: target after target, the "deploy"
+#   4. deploy    only when the tests passed and every target passed its checks, and the optional "beforeUpload"
+#                script of the game (run in the root, it may wait: the backend the build talks to is live) passed:
+#                target after target, the "deploy"
 #                script of the game from the root of the game with BUILD_DIR=<output in the copy>, then its --list
 #                must name the deployed tag as current. A failed upload stops the remaining ones.
 # Failed tests kill the builds of this run and nothing is uploaded. The copies are deleted on exit, the logs stay.
@@ -25,6 +30,10 @@
 #                                                  // the game: the key of its caches), exit 0 = passed
 #     "deploy": "tools/scripts/deploy-webgl.sh",   // run in the game root with BUILD_DIR=<abs>; prints "Deployed ... <tag>";
 #                                                  // with --list its last line names the current release
+#     "preflight": "tools/scripts/x.sh",           // optional, run in the game root before the snapshot; exit 0 = go on,
+#                                                  // its last line is the detail of the summary
+#     "beforeUpload": "tools/scripts/y.sh",        // optional, run in the game root before the first upload (not with
+#                                                  // --no-deploy); exit 0 = upload, else nothing is uploaded
 #     "exclude": ["builds", "client/Build"],       // paths (globs, from the root) left out of the snapshot
 #     "same": [["<file>", "<file>"]],              // files of the tree that must be byte-equal (cmp)
 #     "targets": [{                                // the order is the order of the uploads
@@ -164,6 +173,17 @@ echo "Logs: $LOG_DIR, copies: $WORK"
 
 start_memory_sampler
 
+# --- 0. Preflight ----------------------------------------------------------------------------------------------------
+
+preflight_script="$(config_value preflight)"
+if [[ "$preflight_script" != null ]]; then
+    stage_start=$SECONDS
+    if ! run_hook preflight "$preflight_script"; then
+        print_summary
+        exit 1
+    fi
+fi
+
 # --- 1. Snapshot -----------------------------------------------------------------------------------------------------
 
 stage_start=$SECONDS
@@ -257,6 +277,14 @@ fi
 if [[ "$NO_DEPLOY" == 1 ]]; then
     record deploy SKIP 0 "--no-deploy"
 else
+    before_upload_script="$(config_value beforeUpload)"
+    if [[ "$before_upload_script" != null ]]; then
+        stage_start=$SECONDS
+        if ! run_hook "before upload" "$before_upload_script"; then
+            print_summary
+            exit 1
+        fi
+    fi
     for target in "${TARGETS[@]}"; do
         if ! deploy_target "$target"; then
             print_summary

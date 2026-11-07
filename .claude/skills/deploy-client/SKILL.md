@@ -60,6 +60,11 @@ Read `.claude/deploy-client.json` and run, in parallel, `DEPLOY ARGS(t) --list` 
   credentials are in `.claude/project-skills.md`). `(no releases yet)` is fine: the target was never deployed.
 - Remember the live tag of each target: the report gives it as the rollback target.
 
+The checks of the game itself are hooks of the json, run by the script, not by you: `preflight` before the snapshot (with
+`--notest` too: what must hold for any upload, it may regenerate a derived file of the tree) and `beforeUpload` after the
+builds passed, before the first upload (it may wait, for a backend going out; not run with `--no-deploy`). A failed hook
+stops the run, nothing is uploaded. What the hooks of a game check is in `.claude/project-skills.md` § deploy-client.
+
 ## Step 2 - Run
 
 From the root of the game, in the background (`run_in_background`), then wait for the notification - do not poll, do not
@@ -84,13 +89,14 @@ the other way round, an `index.html` that references a missing `Build/*` payload
 
 ## Step 3 - Outcome
 
-The script ends with `==== deploy-client summary ====`: a table stage / result / seconds / details (snapshot, copies,
-tests, `build <t>`, `checks <t>`, `deploy <t>`), the total time and memory, `Logs: <folder>` and `DEPLOY-CLIENT PASSED`
-or `DEPLOY-CLIENT FAILED`. Logs (default `/tmp/<game>-deploy-client/<time>/`): `snapshot.log`, `tests.log` and `tests/`,
+The script ends with `==== deploy-client summary ====`: a table stage / result / seconds / details (`preflight`,
+snapshot, copies, tests, `build <t>`, `checks <t>`, `before upload`, `deploy <t>`; the hooks only when the json has them), the total time and memory, `Logs: <folder>` and `DEPLOY-CLIENT PASSED`
+or `DEPLOY-CLIENT FAILED`. Logs (default `/tmp/<game>-deploy-client/<time>/`): `preflight.log`, `before-upload.log`, `snapshot.log`, `tests.log` and `tests/`,
 `build-<t>.log` (Unity) and `build-<t>.out`, `deploy-<t>.log`, `deploy-<t>-list.log`.
 
 - Exit 0 - everything passed and every target was uploaded, `--list` names the new tag as current.
-- Exit 1 - a stage failed, the summary says which. Failed tests: the script prints the failed tests and the summary of the
+- Exit 1 - a stage failed, the summary says which. A failed `preflight`: nothing was built; a failed `before upload`:
+  the builds passed, nothing was uploaded - report its last line. Failed tests: the script prints the failed tests and the summary of the
   test run, nothing was built to the end or uploaded. A failed build or check: nothing was uploaded. A failed upload:
   the targets before it stay deployed, the rest were not uploaded - report which.
 - Exit 2 - bad arguments or `.claude/deploy-client.json` (an unknown target, a missing field): fix the call or report the
@@ -117,4 +123,7 @@ Tell the user, in Russian, from the summary:
   web service needs a restart in Coolify; until then a path served by it may still show the old config), the total time
   and the log folder
 
-The working tree is not changed by the run (the builds reserialize assets in their copies only): nothing to list or revert.
+- the `preflight` detail when it changed the tree (a regenerated file): name the file and offer to commit it
+
+The builds do not change the working tree (they reserialize assets in their copies only); only a `preflight` may, and its
+detail says so.
