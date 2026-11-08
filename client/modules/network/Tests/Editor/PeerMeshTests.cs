@@ -358,6 +358,50 @@ namespace Internal.Tests
             }
         });
 
+        // A late player starts its mesh after its entry (it waits for the other players first): the offers that came
+        // before are held, and the direct connection opens without the timeout of the offering side.
+        [UnityTest]
+        public IEnumerator OfferBeforeMeshRun_Direct() => UniTask.ToCoroutine(async () =>
+        {
+            var lifetime = new Lifetime();
+            var connectTimeout = TimeSpan.FromSeconds(60);
+
+            try
+            {
+                var (servers, server, session) = CreateServer(lifetime);
+                var offerer = await Join(lifetime, servers, server, session, Guid.NewGuid(), connectTimeout: connectTimeout);
+
+                var lateLifetime = lifetime.Child();
+                var control = await PeerHostTests.StartControl(lateLifetime, servers,
+                    server.GetTicket(session.Id, Guid.NewGuid(), 0));
+
+                var isOfferArrived = false;
+                control.Signaling.Incoming.Advise(lateLifetime, _ => isOfferArrived = true);
+                await UniTask.WaitUntil(() => isOfferArrived == true).Timeout(Timeout);
+
+                var mesh = new PeerMesh(control,
+                    new WebRtcPeerOptions(Array.Empty<string>(), connectTimeout, Specs),
+                    new PeerMeshOptions(true, TimeSpan.FromMilliseconds(200), TimeSpan.FromSeconds(2)));
+                mesh.Run(lateLifetime);
+
+                var late = new MeshPeer { Lifetime = lateLifetime, Control = control, Mesh = mesh };
+                var peers = new List<MeshPeer> { offerer, late };
+
+                Assert.Less(offerer.Index, late.Index, "the late player answers");
+
+                await WaitFullMesh(peers, TimeSpan.FromSeconds(10));
+
+                Assert.AreEqual(PeerRoute.Direct, offerer.Mesh.Links[late.Index].Route);
+                Assert.AreEqual(PeerRoute.Direct, late.Mesh.Links[offerer.Index].Route);
+
+                await AssertChannelsWork(peers, lifetime);
+            }
+            finally
+            {
+                lifetime.Terminate();
+            }
+        });
+
         private sealed class MeshPeer
         {
             public ILifetime Lifetime;

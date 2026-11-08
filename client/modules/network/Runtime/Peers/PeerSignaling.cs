@@ -10,7 +10,8 @@ namespace Internal
     public interface IPeerSignaling
     {
         // A signal of a user without an open channel: the first offer of a peer. A listener that wants the connection
-        // opens the channel inside the call, and the signal goes to it.
+        // opens the channel inside the call, and the signal goes to it. The offer is held until a channel to the user
+        // opens: a client that starts listening after its entry (a late player) still answers it.
         IViewableDelegate<int> Incoming { get; }
 
         IWebRtcSignaling Open(IReadOnlyLifetime lifetime, int remoteIndex);
@@ -25,6 +26,7 @@ namespace Internal
 
         private readonly INetworkConnection _connection;
         private readonly Dictionary<int, Channel> _channels = new();
+        private readonly Dictionary<int, List<WebRtcSignal>> _held = new();
         private readonly ViewableDelegate<int> _incoming = new();
 
         public IViewableDelegate<int> Incoming => _incoming;
@@ -34,7 +36,8 @@ namespace Internal
             if (_channels.ContainsKey(remoteIndex) == true)
                 throw new InvalidOperationException($"[Network] [Peers] A channel to {remoteIndex} is already open");
 
-            var channel = new Channel(_connection, remoteIndex);
+            _held.Remove(remoteIndex, out var held);
+            var channel = new Channel(_connection, remoteIndex, held);
             _channels.Add(remoteIndex, channel);
             lifetime.Listen(() => _channels.Remove(remoteIndex));
 
@@ -43,14 +46,43 @@ namespace Internal
 
         public void OnSignal(SharedSessionPeer.Signal context)
         {
-            if (_channels.ContainsKey(context.SenderIndex) == false)
-                _incoming.Invoke(context.SenderIndex);
+            var signal = ToSignal(context);
 
-            // Nobody wanted the connection: the attempt of the peer times out and it plays through the server.
-            if (_channels.TryGetValue(context.SenderIndex, out var channel) == false)
+            if (_channels.TryGetValue(context.SenderIndex, out var channel) == true)
+            {
+                channel.Receive(signal);
+                return;
+            }
+
+            var isHeld = Hold(context.SenderIndex, signal);
+            _incoming.Invoke(context.SenderIndex);
+
+            // A held signal went to the channel opened inside the call together with the rest of its negotiation.
+            if (isHeld == true)
                 return;
 
-            channel.Receive(ToSignal(context));
+            // Nobody wanted the connection: the attempt of the peer times out and it plays through the server.
+            if (_channels.TryGetValue(context.SenderIndex, out channel) == false)
+                return;
+
+            channel.Receive(signal);
+        }
+
+        // An offer starts a new negotiation of the user and replaces the held one; the signals after it join it. Others
+        // (an answer, a candidate of a negotiation that was not held) are not held: they belong to a channel that is gone.
+        private bool Hold(int senderIndex, WebRtcSignal signal)
+        {
+            if (signal.Kind == WebRtcSignalKind.Description && signal.Type == "offer")
+            {
+                _held[senderIndex] = new List<WebRtcSignal> { signal };
+                return true;
+            }
+
+            if (_held.TryGetValue(senderIndex, out var held) == false)
+                return false;
+
+            held.Add(signal);
+            return true;
         }
 
         private static WebRtcSignal ToSignal(SharedSessionPeer.Signal context)
@@ -63,19 +95,42 @@ namespace Internal
             };
         }
 
-        private class Channel : IWebRtcSignaling
+        // The held signals of the user go to the first subscriber: the link subscribes after the channel is open.
+        private class Channel : IWebRtcSignaling, IViewableDelegate<WebRtcSignal>
         {
-            public Channel(INetworkConnection connection, int remoteIndex)
+            public Channel(INetworkConnection connection, int remoteIndex, List<WebRtcSignal> held)
             {
                 _connection = connection;
                 _remoteIndex = remoteIndex;
+                _held = held;
             }
 
             private readonly INetworkConnection _connection;
             private readonly int _remoteIndex;
             private readonly ViewableDelegate<WebRtcSignal> _received = new();
 
-            public IViewableDelegate<WebRtcSignal> Received => _received;
+            private List<WebRtcSignal> _held;
+
+            public IViewableDelegate<WebRtcSignal> Received => this;
+
+            public void Advise(IReadOnlyLifetime lifetime, Action<WebRtcSignal> handler)
+            {
+                _received.Advise(lifetime, handler);
+
+                if (_held == null)
+                    return;
+
+                var held = _held;
+                _held = null;
+
+                foreach (var signal in held)
+                    _received.Invoke(signal);
+            }
+
+            public void Dispose()
+            {
+                _received.Dispose();
+            }
 
             public void Send(WebRtcSignal signal)
             {
