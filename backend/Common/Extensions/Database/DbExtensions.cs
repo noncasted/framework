@@ -11,15 +11,20 @@ public static class DbExtensions
         return builder.Configuration.GetConnection();
     }
 
+    // Attempts to open the connection and the pause between them: "PostgresConnect:Attempts" and
+    // "PostgresConnect:RetryDelayMs" of the configuration, 10 attempts a second apart by default.
     public static async Task<NpgsqlConnection> GetConnection(this IConfigurationManager configuration)
     {
         var dbConnection = configuration.GetSection("postgres").Get<string>();
-        var safeGuard = 0;
+        var connect = configuration.GetSection("PostgresConnect");
+        var attempts = connect.GetValue("Attempts", 10);
+        var retryDelay = TimeSpan.FromMilliseconds(connect.GetValue("RetryDelayMs", 1000));
 
-        while (safeGuard < 10)
+        if (attempts < 1)
+            throw new ArgumentOutOfRangeException(nameof(attempts), attempts, "PostgresConnect:Attempts must be at least 1");
+
+        for (var attempt = 1; attempt <= attempts; attempt++)
         {
-            safeGuard++;
-
             try
             {
                 var newConnection = new NpgsqlConnection(dbConnection);
@@ -31,10 +36,11 @@ public static class DbExtensions
                 Console.WriteLine("Failed to connect to database: {0}", e.Message);
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(1));
+            if (attempt < attempts)
+                await Task.Delay(retryDelay);
         }
 
-        throw new Exception();
+        throw new Exception($"Failed to connect to database after {attempts} attempts");
     }
 
     public static async Task CreateIfNotExists(this NpgsqlConnection connection, string tableName, string createSql)
