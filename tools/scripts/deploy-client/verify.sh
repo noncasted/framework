@@ -4,8 +4,8 @@
 # "<target>" "<copy>" "<output>" "<build log>" "<start epoch>". Prints one line per failed check (or a short PASS line)
 # and fails on any.
 verify_target() {
-    local target="$1" copy="$2" output="$3" log="$4" started="$5" failed=() guid kind files file text catalog backup
-    local duplicates stripped
+    local target="$1" copy="$2" output="$3" log="$4" started="$5" failed=() guid kind files file text backup content
+    local stripped
 
     guid="$(cat "$output/build-guid.txt" 2>/dev/null || true)"
     [[ -n "$guid" ]] || failed+=("no build-guid.txt")
@@ -20,16 +20,11 @@ verify_target() {
         fi
     done
 
-    # Addressables built for the active target: a catalog that points at Standalone bundles ships without them.
-    catalog="$output/StreamingAssets/aa/catalog.bin"
-    if [[ ! -f "$catalog" ]]; then
-        failed+=("no StreamingAssets/aa/catalog.bin")
-    elif grep -aq "StandaloneLinux64\|StandaloneWindows\|StandaloneOSX" "$catalog"; then
-        failed+=("catalog.bin references Standalone bundles")
-    fi
-    duplicates="$(find "$output/StreamingAssets/aa" -name '*.bundle' -printf '%f\n' 2>/dev/null \
-        | sed -E 's/_[0-9a-f]{32}\.bundle$//' | sort | uniq -d | head -5 | tr '\n' ' ')"
-    [[ -z "$duplicates" ]] || failed+=("bundles built twice: $duplicates")
+    # The content directory of this build (Content of ProjectSettings/Framework.json, built into Library/Content/<name>):
+    # its index is inside the player (Resources, in the .data file) and, unless it is preloaded into the .data file too,
+    # its files are next to the player in StreamingAssets/Content/<name>, the same names and sizes.
+    content_check "$copy/client" "$output" "$started" failed
+    content="$CONTENT_SUMMARY"
 
     # The stripping pass ran on this build: its backup folder (made for every build, stripped or not) holds the info and
     # the original wasm only after a strip.
@@ -57,5 +52,55 @@ verify_target() {
         printf '%s;\n' "${failed[@]}"
         return 1
     fi
-    echo "guid $guid, payloads fresh, catalog WebGL, stripped ($(basename "$backup"), $stripped), index.html and files ok"
+    echo "guid $guid, payloads fresh, $content, stripped ($(basename "$backup"), $stripped), index.html and files ok"
+}
+
+# "<client folder>" "<output>" "<start epoch>" "<name of the failures array>". Appends its failures to that array and
+# leaves a short summary in CONTENT_SUMMARY.
+content_check() {
+    local client="$1" output="$2" started="$3" name preloaded built hash shipped data
+    local -n failures="$4"
+    CONTENT_SUMMARY="content ?"
+
+    name="$(jq -r '.Content.Name // empty' "$client/ProjectSettings/Framework.json" 2>/dev/null)"
+    if [[ -z "$name" ]]; then
+        failures+=("no Content.Name in ProjectSettings/Framework.json")
+        return
+    fi
+    preloaded="$(jq -r '.Content.IsPreloaded // false' "$client/ProjectSettings/Framework.json")"
+    built="$client/Library/Content/$name"
+
+    hash="$(cat "$built/BuildManifestHash.txt" 2>/dev/null || true)"
+    if [[ -z "$hash" ]]; then
+        failures+=("no content directory $name in Library/Content")
+        return
+    elif (($(stat -c %Y "$built/BuildManifestHash.txt") < started)); then
+        failures+=("content directory $name older than the build")
+    fi
+
+    # The index carries the hash of the manifest it was written from.
+    data="$(find "$output/Build" -maxdepth 1 -name '*.data.br' 2>/dev/null | head -1)"
+    if [[ -z "$data" ]]; then
+        : # reported by the payload check
+    elif ! command -v brotli >/dev/null; then
+        failures+=("brotli is not installed: the index of the content directory is not checked")
+    elif ! brotli -dc "$data" | grep -aqF -- "$hash"; then
+        failures+=("the .data file has no index of the content directory $name ($hash)")
+    fi
+
+    if [[ "$preloaded" == true ]]; then
+        CONTENT_SUMMARY="content $name preloaded"
+        return
+    fi
+
+    shipped="$output/StreamingAssets/Content/$name"
+    if [[ ! -d "$shipped" ]]; then
+        failures+=("no StreamingAssets/Content/$name")
+        return
+    fi
+    if ! diff -q <(cd "$built" && find . -type f -printf '%P %s\n' | sort) \
+        <(cd "$shipped" && find . -type f -printf '%P %s\n' | sort) >/dev/null; then
+        failures+=("StreamingAssets/Content/$name differs from Library/Content/$name")
+    fi
+    CONTENT_SUMMARY="content $name ($(find "$shipped" -type f | wc -l) files)"
 }
