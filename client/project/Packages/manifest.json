@@ -6,7 +6,6 @@
     "com.rlabrecque.steamworks.net": "https://github.com/rlabrecque/Steamworks.NET.git?path=/com.rlabrecque.steamworks.net#c21a8f0e31c56ae8707130967faf491f7dd7c0d8",
     "com.unity.2d.aseprite": "7.0.1",
     "com.unity.2d.sprite": "1.0.0",
-    "com.unity.addressables": "file:../../packages/com.unity.addressables",
     "com.unity.ide.rider": "3.1.0",
     "com.unity.nuget.newtonsoft-json": "3.2.2",
     "com.unity.render-pipelines.core": "file:../../packages/com.unity.render-pipelines.core",
