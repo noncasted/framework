@@ -13,7 +13,14 @@ namespace Internal
     // IContentBuildSteps first, then BuildPipeline.BuildContentDirectory from the roots, and reads its manifest.
     public static class ContentDirectoryBuilder
     {
-        public static ContentManifest Build(ContentDirectorySettings directory, string output)
+        // The record of the types the content build serialized (scripts, serialized classes, native classes), in the
+        // build report directory of the build.
+        public const string TypeUsageFile = "ScriptsOnlyCache.yaml";
+
+        // reportDirectory: the build report directory of the content build (BuildHistory). A player build given it
+        // (BuildPlayerContext.AddPreviousBuildReportDirectory) keeps the types of the directory, which no scene of the
+        // player may use: without it the linker strips them and the engine drops their objects at load.
+        public static ContentManifest Build(ContentDirectorySettings directory, string output, out string reportDirectory)
         {
             foreach (var step in FindSteps())
                 step.BeforeContentBuild(directory);
@@ -39,6 +46,12 @@ namespace Internal
 
             if (report.summary.result != BuildResult.Succeeded)
                 throw new BuildFailedException($"[ContentBuild] The content directory {directory.Name} failed to build: {report.summary.result}");
+
+            if (BuildHistory.TryGetBuildReportDirectory(report.summary.buildSessionGuid, out reportDirectory) == false)
+                throw new BuildFailedException($"[ContentBuild] No build report directory of the content build {report.summary.buildSessionGuid} in the build history");
+
+            if (File.Exists(Path.Combine(reportDirectory, TypeUsageFile)) == false)
+                throw new BuildFailedException($"[ContentBuild] No {TypeUsageFile} in {reportDirectory}: the player would strip the types of the content directory");
 
             Debug.Log($"[ContentBuild] The content directory {directory.Name} built into {folder} in {report.summary.totalTime.TotalSeconds:0.0} s");
             return ContentManifest.Read(folder);

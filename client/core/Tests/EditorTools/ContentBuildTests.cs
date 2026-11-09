@@ -125,6 +125,20 @@ namespace Internal.EditorTests
         }
 
         [Test]
+        public void Prepare_RecordsTheTypesOfTheDirectoryForThePlayerBuild()
+        {
+            WriteSettings(RootPath, false);
+
+            var output = ContentBuild.Prepare(BuildTarget.WebGL);
+            var usage = File.ReadAllText(Path.Combine(output.ReportDirectory, ContentDirectoryBuilder.TypeUsageFile));
+
+            // The target of the lazy reference is in the directory only: no scene of a player names its script.
+            Assert.That(usage, Does.Contain(typeof(ContentTestTarget).FullName));
+            Assert.That(usage, Does.Contain(typeof(ContentTestRoot).FullName));
+            Assert.That(usage, Does.Contain("nativeClasses"));
+        }
+
+        [Test]
         public void Prepare_ListsAPreloadedDirectoryForTheDataOfWebGl()
         {
             WriteSettings(RootPath, true);

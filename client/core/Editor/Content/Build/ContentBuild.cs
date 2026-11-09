@@ -43,7 +43,7 @@ namespace Internal
             ContentBuildFiles.Delete();
 
             var directory = FrameworkSettings.ContentDirectory;
-            var manifest = ContentDirectoryBuilder.Build(directory, Output);
+            var manifest = ContentDirectoryBuilder.Build(directory, Output, out var reportDirectory);
 
             ContentReferenceCheck.Run(manifest);
 
@@ -64,7 +64,7 @@ namespace Internal
                       (preloaded ? $", preloaded ({ContentBuildFiles.PreloadManifest})" : string.Empty) +
                       $", index {ContentBuildFiles.IndexAsset(index.Name)}");
 
-            Current = new ContentBuildOutput(directory, manifest.Folder, shipped, index);
+            Current = new ContentBuildOutput(directory, manifest.Folder, shipped, index, reportDirectory);
             return Current;
         }
 
