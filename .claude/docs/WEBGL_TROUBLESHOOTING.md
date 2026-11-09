@@ -528,12 +528,16 @@ switcher does. A test after the game has hung the GPU measures the stuck browser
   keeps each fetched file in the Cache API (`caches.open('content')`, keyed by URL) and deletes at start the URLs the index of the
   build does not name. A second opening makes no request to `Content/` (checked on the smoke of `client/project`, step [4] of the
   task `content_directories`).
+- A brotli build ships `StreamingAssets/Content/<name>/<file>.br` (`ContentBrotli`): the server must send them with
+  `Content-Encoding: br` (the `\.br$` rule of B12); without it a load fails with `N bytes instead of M from the server: the server must
+  send the file with Content-Encoding: br ...`. Before 0.7.0-rc.2 the files went raw (pixel-swarm: 301 MB instead of 29 MB).
 - Without the Cache API (plain http, P3) every opening fetches again, with one log line. `IsPreloaded` puts the whole directory into
   the `.data` file instead: no request, synchronous loads, a bigger first download.
 - A load waits on the network only for the files it needs that are still zeros: warm the next step with `IContentLoader.Fetch`;
   `load.slow` / `load.*` marks of the telemetry carry `Content: <name>`.
-- `deploy-client` `verify.sh` checks the directory of each output (fresh, its index inside the `.data`, the shipped files equal to
-  `Library/Content/<name>`); it needs `brotli` on the machine, or the check fails with `brotli is not installed`.
+- `deploy-client` `verify.sh` checks the directory of each output (fresh, its index inside the `.data`, the shipped `.br` files
+  decompressing into `Library/Content/<name>`); it needs `brotli` on the machine, or the check fails with `brotli is not installed`.
+  Before rc.2 its `grep -q` behind `brotli -dc` failed every target under `pipefail` (SIGPIPE, 141) although the hash was there.
 - Status: **open** for the alpha API (remote delivery is not an official feature of a10; the scheme relies on the behaviour).
 
 ## Telegram WebView

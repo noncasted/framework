@@ -51,7 +51,7 @@ namespace Internal.EditorTests
 
             Assert.That(report.summary.result, Is.EqualTo(BuildResult.Succeeded), "The build of the content directory of the store tests");
 
-            var index = ContentIndexWriter.Write(ContentManifest.Read(ContentTestPaths.Folder), false);
+            var index = ContentIndexWriter.Write(ContentManifest.Read(ContentTestPaths.Folder), false, false);
             File.WriteAllText(ContentTestPaths.Index, index.ToJson());
             File.WriteAllText(ContentTestPaths.TargetGuid, AssetDatabase.AssetPathToGUID(ContentTestPaths.TargetAsset));
         }

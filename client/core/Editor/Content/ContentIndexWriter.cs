@@ -7,10 +7,10 @@ namespace Internal
 {
     // Computes the index of a built content directory from its manifest: every file of the folder with its size, the
     // root files, and the files of every object and scene a Loadable or a LoadableSceneId may load. isPreloaded: the
-    // files go into the .data file of a WebGL build.
+    // files go into the .data file of a WebGL build; isBrotli: they are shipped compressed as <name>.br.
     public static class ContentIndexWriter
     {
-        public static ContentIndex Write(ContentManifest manifest, bool isPreloaded)
+        public static ContentIndex Write(ContentManifest manifest, bool isPreloaded, bool isBrotli)
         {
             var files = Directory.GetFiles(manifest.Folder)
                 .Select(path => new FileInfo(path))
@@ -43,7 +43,8 @@ namespace Internal
                 Positions(closure.Of(manifest.Roots)),
                 objects,
                 scenes,
-                isPreloaded);
+                isPreloaded,
+                isBrotli);
 
             int[] Positions(IReadOnlyList<string> names)
             {

@@ -9,6 +9,9 @@ namespace Internal
         // The only file of a directory not named by its hash: the store writes it from ContentIndex.ManifestHash.
         public const string ManifestHashFile = "BuildManifestHash.txt";
 
+        // The extension of a file shipped compressed with brotli (ContentIndex.IsBrotli), as Build/*.br of Unity.
+        public const string BrotliExtension = ".br";
+
         // Under StreamingAssets.
         public static string Directory(string name)
         {

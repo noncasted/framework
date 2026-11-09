@@ -86,28 +86,44 @@ var icon = _content.LoadNow(lifetime, reference);                         // onl
 4. writes the index (`ContentIndex`: files with sizes, manifest hash, files of the roots, files of each object and scene) as
    `Assets/FrameworkContentIndex/Resources/Content/<name>.json`, read synchronously at the start; the folder is deleted after the build;
 5. adds the folder to `StreamingAssets/Content/<name>` of the player (`AddAdditionalPathToStreamingAssets`, nothing in `Assets`), or,
-   with `IsPreloaded` on WebGL, into the `.data` file (`Library/PlayerDataCache/WebGLPreloadedStreamingAssets/framework-content.manifest`).
+   with `IsPreloaded` on WebGL, into the `.data` file (`Library/PlayerDataCache/WebGLPreloadedStreamingAssets/framework-content.manifest`);
+6. a fetched directory of a WebGL build with brotli compression (`PlayerSettings.WebGL.compressionFormat`, the build profile) is shipped
+   compressed: `ContentBrotli` writes `<file>.br` of every file of the index (quality 11, in parallel, anew each build) into
+   `Library/ContentBrotli/<name>`, and that folder becomes `StreamingAssets/Content/<name>` (no `BuildManifestHash.txt`: the player writes
+   it from the index); the index says `IsBrotli`. Gzip, no compression, standalone and a preloaded directory ship the raw files. Brotli
+   with the decompression fallback fails the build (the loader would decode its own files, the fetches would get raw `.br` bytes).
 
-The build fails without the `Content` section. File names are hashes, so a changed asset is a new URL.
+The build fails without the `Content` section. File names are hashes, so a changed asset is a new URL. Two builds of one tree give the
+same manifest hash (checked on `ContentSmoke`: 4 builds in 2 editor processes, one hash).
+
+**The server of a brotli directory** sends `<file>.br` with `Content-Encoding: br`, as `Build/*.br` of Unity: the generic `\.br$` rule
+of nginx, `lan/serve.py` and `stand/serve_tls.py` of `device-lab` do it already. The browser decodes it, `WebContentFetch` checks the size
+against the index and keeps the real bytes in the Cache API (one decode per file, no decoder in JavaScript). A browser decodes `br` only in a
+secure context: a LAN build over http is uncompressed (WebGL troubleshooting P3), so its content is raw too. A file of another size (no
+`Content-Encoding`, an `index.html` for a missing file) fails the load with `N bytes instead of M from the server: the server must send
+the file with Content-Encoding: br ...` and stays out of the cache. The names are hashes: `Cache-Control: immutable` is safe; a missing
+file should be a 404.
 
 ## Stores
 
 | Player | Store | Behaviour |
 |---|---|---|
 | Standalone, WebGL with `IsPreloaded` | `LocalContentStore` | registers `StreamingAssets/Content/<name>` as is, fetch does nothing |
-| WebGL | `FetchedContentStore` over `WebContentFetch` | zeros + fetch into `temporaryCachePath/Content/<name>`; files from `<remoteUrl or StreamingAssets>/Content/<name>/`, stored in the Cache API (`caches.open('content')`, keyed by URL), so the next opening makes no request; at start every cached URL the index does not name is deleted; without Cache API (plain http) only `fetch` and one log line |
+| WebGL | `FetchedContentStore` over `WebContentFetch` | zeros + fetch into `temporaryCachePath/Content/<name>`; files from `<remoteUrl or StreamingAssets>/Content/<name>/` (`<file>.br` when `IsBrotli`), stored in the Cache API (`caches.open('content')`, keyed by URL), so the next opening makes no request; at start every cached URL the index does not name is deleted; without Cache API (plain http) only `fetch` and one log line |
 | Play Mode of the editor | `EditorContentDirectory` | nothing built or registered: `Loadable` and `LoadableSceneId` give the assets and scenes of the project (`AssetDatabase`), `Release` does not destroy them; the roots come from `Content.Roots` |
 
 ## Telemetry and problems
 
 - Every load is `AssetLoads.Begin("Content: <guid>")` -> `Finish("Content: <name>")` (scenes `Content: scene ...`) and a span
   `GameProfiler.Concurrent("Content: <type>")`: the marks `load.*` of the client telemetry and the startup trace.
-- The build log (`[ContentBuild]`): `<name>: N files, raw, brotli; root files, objects, scenes`, files no load needs, and a warning
+- The build log (`[ContentBuild]`): `<name>: N files, raw, shipped (brotli | uncompressed); root files, objects, scenes` (shipped: the
+  bytes of the files the player downloads), files no load needs, and a warning
   `built-in resources in the directory: unity_builtin_extra (...)` - a scene with `m_LightingDataAsset {20201, unity_builtin_extra}`
   copies ~0.5 MB of built-in resources into the directory (clear the field when nothing is baked; `m_SpotCookie` of `RenderSettings`
   costs nothing).
 - `deploy-client` checks each WebGL output (`verify.sh`, needs `brotli`): `Library/Content/<name>` fresh, its manifest hash inside the
-  `.data` (the index), without `IsPreloaded` the files of `StreamingAssets/Content/<name>` equal by names and sizes.
+  `.data` (the index), without `IsPreloaded` `StreamingAssets/Content/<name>` exactly the `<file>.br` of the built files, the manifest
+  among them, each decompressing into the built file.
 - `[Content] ... needs a fetch: load it with Load` - `LoadNow` of a remote object; `... is requested, read it after the build of the
   scope` - `ContentSlot.Value` too early; `... has no GUID: it was not assigned in the editor` - a reference written without the drawer.
 

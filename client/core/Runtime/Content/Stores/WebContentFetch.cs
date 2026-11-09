@@ -10,6 +10,8 @@ namespace Internal
     // in the Cache API of the page (the cache "content", keyed by the URL), so the next opening reads them from there:
     // safe because every file is named by the hash of its content. Without the Cache API (plain http) every opening
     // fetches, the page logs it once. A download is aborted (AbortController) when its lifetime ends. WebGL player only.
+    // A directory shipped with brotli (ContentIndex.IsBrotli) is fetched as <name>.br: the server sends Content-Encoding: br,
+    // the browser decodes it, the cache keeps the real bytes; a file that comes in at another size fails the fetch.
     internal sealed class WebContentFetch : IContentFileSource
     {
         private const int Running = 0;
@@ -17,17 +19,19 @@ namespace Internal
         private const int Failed = 2;
         private const int Cached = 3;
 
-        // The URL of the folder of the directory: StreamingAssets of the build or a CDN.
-        public WebContentFetch(string url)
+        // url: the folder of the directory, StreamingAssets of the build or a CDN; suffix: ContentIndex.ShippedSuffix.
+        public WebContentFetch(string url, string suffix)
         {
             _url = url;
+            _suffix = suffix;
         }
 
         private readonly string _url;
+        private readonly string _suffix;
 
         public string Url(ContentFile file)
         {
-            return $"{_url}/{file.Name}";
+            return $"{_url}/{file.Name}{_suffix}";
         }
 
         // Removes from the cache of the page every file the index does not name: the files of the builds before.
@@ -46,7 +50,7 @@ namespace Internal
             lifetime.Token.ThrowIfCancellationRequested();
 
             var url = Url(file);
-            var fetch = WebContentFetch_Start(url, path, file.Size);
+            var fetch = WebContentFetch_Start(url, path, file.Size, _suffix.Length > 0);
             var isOver = false;
 
             try
@@ -77,8 +81,9 @@ namespace Internal
             }
         }
 
+        // encoded: the URL is a compressed file the server must send with its Content-Encoding (for the message of a failure).
         [DllImport("__Internal")]
-        private static extern int WebContentFetch_Start(string url, string path, double size);
+        private static extern int WebContentFetch_Start(string url, string path, double size, bool encoded);
 
         // Running, Fetched, Cached or Failed; a finished fetch is forgotten once its status is read.
         [DllImport("__Internal")]

@@ -62,7 +62,7 @@ namespace Internal.EditorTests
             Assert.That(report.summary.result, Is.EqualTo(BuildResult.Succeeded), "The build of the content directory");
 
             _manifest = ContentManifest.Read($"{Output}/{Name}");
-            _index = ContentIndexWriter.Write(_manifest, false);
+            _index = ContentIndexWriter.Write(_manifest, false, false);
         }
 
         [OneTimeTearDown]
@@ -138,6 +138,23 @@ namespace Internal.EditorTests
             Assert.That(read.RootFiles, Is.EqualTo(_index.RootFiles));
             Assert.That(read.ObjectFiles(target, 0), Is.EqualTo(_index.ObjectFiles(target, 0)));
             Assert.That(read.SceneFiles(SceneGuid()), Is.EqualTo(_index.SceneFiles(SceneGuid())));
+        }
+
+        [Test]
+        public void Json_KeepsBrotli()
+        {
+            var brotli = ContentIndexWriter.Write(_manifest, false, true);
+            var read = ContentIndex.FromJson(brotli.ToJson());
+
+            Assert.That(read.IsBrotli, Is.True);
+            Assert.That(read.ShippedSuffix, Is.EqualTo(".br"));
+            Assert.That(ContentIndex.FromJson(_index.ToJson()).ShippedSuffix, Is.Empty);
+        }
+
+        [Test]
+        public void Write_ThrowsOnAPreloadedBrotliDirectory()
+        {
+            Assert.Throws<InvalidDataException>(() => ContentIndexWriter.Write(_manifest, true, true));
         }
 
         [Test]

@@ -33,6 +33,8 @@ namespace Internal.EditorTests
         private static string SettingsFile => Path.Combine(Path.GetDirectoryName(Application.dataPath), FrameworkSettings.SettingsPath);
 
         private string _settings;
+        private WebGLCompressionFormat _compression;
+        private bool _fallback;
 
         [OneTimeSetUp]
         public void OneTimeSetUp()
@@ -76,16 +78,20 @@ namespace Internal.EditorTests
         {
             EditorTestAssets.DeleteFolder(TempFolder);
 
-            var folder = $"{ContentBuild.Output}/{Name}";
-
-            if (Directory.Exists(folder))
-                Directory.Delete(folder, true);
+            foreach (var folder in new[] { $"{ContentBuild.Output}/{Name}", $"{ContentBrotli.Output}/{Name}" })
+            {
+                if (Directory.Exists(folder))
+                    Directory.Delete(folder, true);
+            }
         }
 
         [SetUp]
         public void SetUp()
         {
             _settings = File.ReadAllText(SettingsFile);
+            _compression = PlayerSettings.WebGL.compressionFormat;
+            _fallback = PlayerSettings.WebGL.decompressionFallback;
+            Compress(WebGLCompressionFormat.Disabled, false);
             ContentTestBuildStep.Reset();
         }
 
@@ -94,6 +100,8 @@ namespace Internal.EditorTests
         {
             ContentBuild.Cleanup();
             File.WriteAllText(SettingsFile, _settings);
+            PlayerSettings.WebGL.compressionFormat = _compression;
+            PlayerSettings.WebGL.decompressionFallback = _fallback;
         }
 
         [Test]
@@ -135,6 +143,78 @@ namespace Internal.EditorTests
             ContentBuild.Prepare(BuildTarget.WebGL);
 
             Assert.That(File.Exists(ContentBuildFiles.PreloadManifest), Is.False);
+        }
+
+        [Test]
+        public void Prepare_ShipsBrotliFilesOfAFetchedDirectoryOfWebGlWithBrotli()
+        {
+            WriteSettings(RootPath, false);
+            Compress(WebGLCompressionFormat.Brotli, false);
+
+            var output = ContentBuild.Prepare(BuildTarget.WebGL);
+            var index = ContentIndex.FromJson(Resources.Load<TextAsset>(ContentPaths.IndexResource(Name)).text);
+            var expected = index.Files.Select(file => file.Name + ".br");
+
+            Assert.That(index.IsBrotli, Is.True, "The baked index");
+            Assert.That(output.Shipped, Is.EqualTo($"{ContentBrotli.Output}/{Name}"));
+            Assert.That(Directory.GetFiles(output.Shipped).Select(Path.GetFileName), Is.EquivalentTo(expected), "Only the files of the index");
+
+            foreach (var file in index.Files)
+            {
+                using var brotli = BrotliStreams.Decompress(File.OpenRead($"{output.Shipped}/{file.Name}.br"));
+                using var bytes = new MemoryStream();
+                brotli.CopyTo(bytes);
+
+                Assert.That(bytes.ToArray(), Is.EqualTo(File.ReadAllBytes($"{output.Folder}/{file.Name}")), file.Name);
+            }
+        }
+
+        [Test]
+        public void Prepare_ShipsRawFilesWithoutBrotli()
+        {
+            WriteSettings(RootPath, false);
+            Compress(WebGLCompressionFormat.Gzip, false);
+
+            var output = ContentBuild.Prepare(BuildTarget.WebGL);
+
+            Assert.That(output.Index.IsBrotli, Is.False);
+            Assert.That(output.Shipped, Is.EqualTo(output.Folder));
+        }
+
+        [Test]
+        public void Prepare_ShipsRawFilesOfAPreloadedDirectory()
+        {
+            WriteSettings(RootPath, true);
+            Compress(WebGLCompressionFormat.Brotli, false);
+
+            var output = ContentBuild.Prepare(BuildTarget.WebGL);
+
+            Assert.That(output.Index.IsBrotli, Is.False, "The .data file is compressed whole");
+            Assert.That(output.Shipped, Is.EqualTo(output.Folder));
+        }
+
+        [Test]
+        public void Prepare_ShipsRawFilesOfAStandalonePlayer()
+        {
+            WriteSettings(RootPath, false);
+            Compress(WebGLCompressionFormat.Brotli, false);
+
+            var output = ContentBuild.Prepare(BuildTarget.StandaloneLinux64);
+
+            Assert.That(output.Index.IsBrotli, Is.False);
+            Assert.That(output.Shipped, Is.EqualTo(output.Folder));
+        }
+
+        [Test]
+        public void Prepare_FailsOnBrotliWithTheDecompressionFallback()
+        {
+            WriteSettings(RootPath, false);
+            Compress(WebGLCompressionFormat.Brotli, true);
+
+            var exception = Assert.Throws<BuildFailedException>(() => ContentBuild.Prepare(BuildTarget.WebGL));
+
+            Assert.That(exception.Message, Does.Contain("decompression fallback"));
+            Assert.That(ContentBuild.Current, Is.Null);
         }
 
         [Test]
@@ -211,6 +291,12 @@ namespace Internal.EditorTests
             File.WriteAllText(SettingsFile, json.ToString());
 
             Assert.Throws<InvalidOperationException>(() => ContentBuild.Prepare(BuildTarget.WebGL));
+        }
+
+        private static void Compress(WebGLCompressionFormat format, bool fallback)
+        {
+            PlayerSettings.WebGL.compressionFormat = format;
+            PlayerSettings.WebGL.decompressionFallback = fallback;
         }
 
         private static void CreateRoot(string path, LoadableObjectId target, LoadableSceneId scene)

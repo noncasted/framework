@@ -7,8 +7,9 @@ namespace Internal
     /// <summary>
     ///     Builds the content directory of the project (<see cref="FrameworkSettings.ContentDirectory" />) together with
     ///     every player build: the roots (<see cref="IContentBuildStep" />), the directory in Library/Content/&lt;name&gt;,
-    ///     the check of its lazy references, its index and the log of its sizes. The player gets the folder as
-    ///     StreamingAssets/Content/&lt;name&gt; (<see cref="ContentBuildPlayerProcessor" />) and the index as a json
+    ///     the check of its lazy references, its index and the log of its sizes. The player gets the folder (its brotli files
+    ///     for a WebGL build with brotli, <see cref="ContentBrotli" />) as StreamingAssets/Content/&lt;name&gt;
+    ///     (<see cref="ContentBuildPlayerProcessor" />) and the index as a json
     ///     TextAsset in Resources; a preloaded directory of a WebGL build goes into the .data file. The temporary files are
     ///     removed after the build, also a failed one.
     ///     <para>
@@ -49,18 +50,21 @@ namespace Internal
             // Only WebGL fetches StreamingAssets: elsewhere the files are on the disk of the player already.
             var preloaded = directory.IsPreloaded && target == BuildTarget.WebGL;
 
-            var index = ContentIndexWriter.Write(manifest, preloaded);
-            ContentBuildLog.Write(manifest, index);
+            var brotli = ContentBrotli.IsShipped(target, preloaded);
+
+            var index = ContentIndexWriter.Write(manifest, preloaded, brotli);
+            var shipped = brotli ? ContentBrotli.Write(index, manifest.Folder) : manifest.Folder;
+            ContentBuildLog.Write(manifest, index, shipped);
             ContentBuildFiles.WriteIndex(index);
 
             if (preloaded)
                 ContentBuildFiles.WritePreloadManifest(index);
 
-            Debug.Log($"[ContentBuild] {index.Name} for {target}: StreamingAssets/{ContentPaths.Directory(index.Name)}" +
+            Debug.Log($"[ContentBuild] {index.Name} for {target}: StreamingAssets/{ContentPaths.Directory(index.Name)} from {shipped}" +
                       (preloaded ? $", preloaded ({ContentBuildFiles.PreloadManifest})" : string.Empty) +
                       $", index {ContentBuildFiles.IndexAsset(index.Name)}");
 
-            Current = new ContentBuildOutput(directory, manifest.Folder, index);
+            Current = new ContentBuildOutput(directory, manifest.Folder, shipped, index);
             return Current;
         }
 

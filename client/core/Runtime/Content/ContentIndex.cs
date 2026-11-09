@@ -21,7 +21,8 @@ namespace Internal
             int[] rootFiles,
             ContentObjectFiles[] objects,
             ContentSceneFiles[] scenes,
-            bool isPreloaded)
+            bool isPreloaded,
+            bool isBrotli)
         {
             _name = name;
             _manifestHash = manifestHash;
@@ -31,6 +32,7 @@ namespace Internal
             _objects = objects;
             _scenes = scenes;
             _isPreloaded = isPreloaded;
+            _isBrotli = isBrotli;
             Validate();
         }
 
@@ -47,6 +49,7 @@ namespace Internal
         [SerializeField] private ContentObjectFiles[] _objects;
         [SerializeField] private ContentSceneFiles[] _scenes;
         [SerializeField] private bool _isPreloaded;
+        [SerializeField] private bool _isBrotli;
 
         [NonSerialized] private Dictionary<(string, long), ContentFile[]> _objectLookup;
         [NonSerialized] private Dictionary<string, ContentFile[]> _sceneLookup;
@@ -59,6 +62,13 @@ namespace Internal
 
         // The files are in the .data file of a WebGL build, read without a request.
         public bool IsPreloaded => _isPreloaded;
+
+        // The files are shipped compressed as <name>.br (a WebGL build with brotli): the server sends them with
+        // Content-Encoding: br and the browser hands over the bytes of the file. The sizes of Files are the real ones.
+        public bool IsBrotli => _isBrotli;
+
+        // What the name of a file gets in the URL it is fetched from.
+        public string ShippedSuffix => _isBrotli ? ContentPaths.BrotliExtension : string.Empty;
 
         public IReadOnlyList<ContentFile> Files => _files;
         public ContentFile Manifest => _files[_manifest];
@@ -151,6 +161,9 @@ namespace Internal
 
             if (_rootFiles == null || _objects == null || _scenes == null)
                 throw new InvalidDataException($"The content index {_name} misses its roots, objects or scenes");
+
+            if (_isPreloaded && _isBrotli)
+                throw new InvalidDataException($"The content index {_name} is preloaded and brotli at once: the .data file is compressed whole");
 
             CheckIndex(_manifest, "the manifest");
 

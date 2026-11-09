@@ -14,7 +14,7 @@ namespace Internal
             if (index.IsPreloaded)
                 return new LocalContentStore(StreamingFolder(index));
 
-            var source = new WebContentFetch($"{remoteUrl ?? Application.streamingAssetsPath}/{ContentPaths.Directory(index.Name)}");
+            var source = new WebContentFetch($"{remoteUrl ?? Application.streamingAssetsPath}/{ContentPaths.Directory(index.Name)}", index.ShippedSuffix);
             source.KeepOnly(index);
             return new FetchedContentStore(source, $"{Application.temporaryCachePath}/{ContentPaths.Directory(index.Name)}");
 #else

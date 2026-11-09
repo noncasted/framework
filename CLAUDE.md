@@ -158,7 +158,7 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   with every player build (an `IPlayerBuildStep` and a `BuildPlayerProcessor` for the build window; `IContentBuildStep` runs first,
   the `ContentRoot` generator among them) into `Library/Content/<name>`, checks its lazy references (empty or outside it fail the
   build), bakes its index into `Resources` and ships it as `StreamingAssets/Content/<name>` (`IsPreloaded` on WebGL: inside the
-  `.data`). The root scope calls `await builder.AddContent(ContentOptions)` once (`IContentLoader`; binds the catalogues to the
+  `.data`; a WebGL build with brotli ships `<file>.br`, which the server sends with `Content-Encoding: br` as `Build/*.br`). The root scope calls `await builder.AddContent(ContentOptions)` once (`IContentLoader`; binds the catalogues to the
   roots; its lifetime keeps the directory registered); scopes `LoadContent(reference)` / `RequestContent(reference, out slot)`
   (container primitives), scenes `FindOrLoadSceneWithServices(ContentScene)`, `WithAssetScene(ContentScene)`; during the game
   `IContentLoader.Load / LoadScene / Fetch / Progress` on the lifetime of the owner, which owns the result (counted per
@@ -334,7 +334,7 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1565, common 96, Verify 171, control 23, telemetry 84, EditMode 1204 (4 of them skipped, the
+Release build replaces it. The expected numbers: backend 1565, common 96, Verify 171, control 23, telemetry 84, EditMode 1213 (4 of them skipped, the
 benchmarks of `ContainerBenchmarkTests`), PlayMode 139 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 

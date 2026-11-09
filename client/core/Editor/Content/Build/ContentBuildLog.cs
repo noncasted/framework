@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,7 +5,8 @@ using UnityEngine;
 
 namespace Internal
 {
-    // The log of a built content directory: the number of files, the raw and the brotli size, the files no load needs
+    // The log of a built content directory: the number of files, the raw size and the size the player downloads (the
+    // brotli files, or the raw ones when it gets them uncompressed), the files no load needs
     // and the built-in resources the build copied into the directory (a warning with their names: they come with every
     // scene or material that references them and are better cut at the source, see m_LightingDataAsset).
     public static class ContentBuildLog
@@ -18,20 +18,13 @@ namespace Internal
             ["0000000000000000f000000000000000"] = "unity_builtin_extra"
         };
 
-        // The editor runs on .NET, where BrotliStream lives in System.IO.Compression.Brotli, while the scripts compile
-        // against netstandard, which puts it in System.IO.Compression: a direct use does not load. SmallestSize
-        // (quality 11, as the brotli of a WebGL build) is missing from netstandard too.
-        private static readonly Lazy<Type> BrotliStream = new(() =>
-            Type.GetType("System.IO.Compression.BrotliStream, System.IO.Compression.Brotli", true));
-
-        private const System.IO.Compression.CompressionLevel SmallestSize = (System.IO.Compression.CompressionLevel)3;
-
-        public static void Write(ContentManifest manifest, ContentIndex index)
+        public static void Write(ContentManifest manifest, ContentIndex index, string shipped)
         {
             var raw = index.Files.Sum(file => file.Size);
-            var brotli = index.Files.Sum(file => BrotliSize(Path.Combine(manifest.Folder, file.Name)));
+            var bytes = ContentBrotli.ShippedBytes(index, shipped);
 
-            Debug.Log($"[ContentBuild] {index.Name}: {index.Files.Count} files, {raw} bytes raw, {brotli} bytes brotli; " +
+            Debug.Log($"[ContentBuild] {index.Name}: {index.Files.Count} files, {raw} bytes raw, {bytes} bytes shipped " +
+                      $"({(index.IsBrotli ? "brotli" : "uncompressed")}); " +
                       $"root files {index.RootFiles.Count} ({index.RootFiles.Sum(file => file.Size)} bytes), " +
                       $"{index.Objects.Count} objects, {index.Scenes.Count} scenes");
 
@@ -61,17 +54,6 @@ namespace Internal
                 used.UnionWith(index.SceneFiles(entry.Guid));
 
             return index.Files.Where(file => used.Contains(file) == false).ToArray();
-        }
-
-        private static long BrotliSize(string path)
-        {
-            using var target = new MemoryStream();
-
-            using (var brotli = (Stream)Activator.CreateInstance(BrotliStream.Value, target, SmallestSize, true))
-            using (var source = File.OpenRead(path))
-                source.CopyTo(brotli);
-
-            return target.Length;
         }
     }
 }

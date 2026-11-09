@@ -27,7 +27,7 @@ namespace Internal
                 EditorApplication.delayCall += CleanupPrepared;
             }
 
-            context.AddAdditionalPathToStreamingAssets(Path.GetFullPath(output.Folder), ContentPaths.Directory(output.Index.Name));
+            context.AddAdditionalPathToStreamingAssets(Path.GetFullPath(output.Shipped), ContentPaths.Directory(output.Index.Name));
         }
 
         public void OnPostprocessBuild(BuildReport report)
