@@ -3,7 +3,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace Console;
 
-// A card of the project in the Infrastructure section (home and infrastructure dashboard): benchmarks, its own
+// A card of the project on the infrastructure dashboard: benchmarks, its own
 // infrastructure pages. Shown before the framework cards, in registration order.
 public class ConsoleInfrastructureCard
 {

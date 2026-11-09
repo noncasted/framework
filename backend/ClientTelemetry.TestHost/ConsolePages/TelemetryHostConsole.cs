@@ -1,4 +1,6 @@
 using BlazorBlueprint.Components;
+using Cluster.Deploy;
+using Cluster.Monitoring.Online;
 using Cluster.State;
 using Console;
 using Common.Extensions;
@@ -13,7 +15,8 @@ using NSubstitute;
 namespace Framework.ClientTelemetry.TestHost.ConsolePages;
 
 // The console of a game around the pages of the framework, for a look in a browser over the data of this host. The audit log is real;
-// its table comes from the deploy setup of a game, so it is created here. The features of the cluster are a stand-in: this silo has none.
+// its table comes from the deploy setup of a game, so it is created here. The features of the cluster and the online statistics are
+// stand-ins: this silo has neither.
 public static class TelemetryHostConsole
 {
     private const string _auditLogTable = """
@@ -43,6 +46,7 @@ public static class TelemetryHostConsole
 
         builder.Services.AddSingleton(source);
         builder.Services.AddSingleton(features);
+        builder.Services.AddSingleton<IDeploymentState<OnlineStatsLiveData>, TelemetryHostOnline>();
         builder.Services.AddSingleton<IAuditLogStorage, AuditLogStorage>();
         builder.AddCommonConsoleComponents();
         builder.Services.AddBlazorBlueprintComponents();

@@ -1,4 +1,5 @@
 using Cluster.Deploy;
+using Cluster.Monitoring.Online;
 using Microsoft.Extensions.Hosting;
 
 namespace Cluster.Monitoring;
@@ -9,6 +10,7 @@ public static class MonitoringExtensions
     {
         builder.AddServiceSlicedState<LiveSessionsData, List<LiveSessionEntry>>();
         builder.AddServiceSlicedState<ConnectedUsersLiveData, List<ConnectedUserEntry>>();
+        builder.AddDeploymentState<OnlineStatsLiveData>();
 
         return builder;
     }

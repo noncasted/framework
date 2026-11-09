@@ -15,6 +15,7 @@ public static class ConsoleConstants
         public const string Discovery = "/discovery";
         public const string Deploy = "/deploy";
         public const string Monitoring = "/monitoring";
+        public const string Online = "/online";
         public const string ClientTelemetry = "/client-telemetry";
         public const string ClientTelemetryErrors = "/client-telemetry/errors";
         public const string ClientTelemetryStartups = "/client-telemetry/startups";

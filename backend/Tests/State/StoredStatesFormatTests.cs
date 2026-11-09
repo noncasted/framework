@@ -2,6 +2,7 @@ using Cluster.Deploy;
 using Cluster.Discovery;
 using Cluster.Lobbies;
 using Cluster.Monitoring;
+using Cluster.Monitoring.Online;
 using Cluster.State;
 using Common.Extensions;
 using FluentAssertions;
@@ -320,6 +321,8 @@ public class StoredStatesFormatTests(OrleansTestClusterFixture fixture)
         CheckNew<LobbyRegistryState>();
         CheckNew<ConnectedUsersLiveData>();
         CheckNew<LiveSessionsData>();
+        CheckNew<OnlineDayState>();
+        CheckNew<OnlineStatsLiveData>();
         CheckNew<ClusterFeaturesState>();
         CheckNew<AddressableStateValue>();
         CheckNew<TaskBalancerOptions>();

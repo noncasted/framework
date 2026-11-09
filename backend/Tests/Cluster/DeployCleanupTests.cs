@@ -2,6 +2,7 @@ using Cluster.Deploy;
 using Cluster.Discovery;
 using Cluster.Lobbies;
 using Cluster.Monitoring;
+using Cluster.Monitoring.Online;
 using Cluster.State;
 using Internal;
 using FluentAssertions;
@@ -28,6 +29,7 @@ public class DeployCleanupTests(OrleansTestClusterFixture fixture) : Integration
         typeof(ClusterFeaturesState),
         typeof(LiveSessionsData),
         typeof(ConnectedUsersLiveData),
+        typeof(OnlineStatsLiveData),
     ];
 
     // DeploymentState writes these rows (an AddressableStateValue under the default identity): the registered state
@@ -42,6 +44,8 @@ public class DeployCleanupTests(OrleansTestClusterFixture fixture) : Integration
             DeploymentState<LiveSessionsData>.CreateDefaultStateIdentity(deployId));
         Identity<ConnectedUsersLiveData>(storage, deployId).Should().BeEquivalentTo(
             DeploymentState<ConnectedUsersLiveData>.CreateDefaultStateIdentity(deployId));
+        Identity<OnlineStatsLiveData>(storage, deployId).Should().BeEquivalentTo(
+            DeploymentState<OnlineStatsLiveData>.CreateDefaultStateIdentity(deployId));
     }
 
     [Fact]
@@ -95,6 +99,7 @@ public class DeployCleanupTests(OrleansTestClusterFixture fixture) : Integration
         (await Keys<LobbyRegistryState>(storage)).Should().Equal(current);
         (await Keys<LiveSessionsData>(storage)).Should().Equal(current);
         (await Keys<ConnectedUsersLiveData>(storage)).Should().Equal(current);
+        (await Keys<OnlineStatsLiveData>(storage)).Should().Equal(current);
     }
 
     [Fact]
@@ -213,6 +218,11 @@ public class DeployCleanupTests(OrleansTestClusterFixture fixture) : Integration
         await WriteAddressable(storage, deployId, new ConnectedUsersLiveData
         {
             Slices = { [Guid.NewGuid()] = [new ConnectedUserEntry { UserId = Guid.NewGuid() }] }
+        });
+        await WriteAddressable(storage, deployId, new OnlineStatsLiveData
+        {
+            Current = 1,
+            Hours = [new OnlinePeriod { Start = DateTime.UtcNow, Peak = 1, UniqueUsers = 1 }]
         });
     }
 
