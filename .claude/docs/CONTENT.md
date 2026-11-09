@@ -33,7 +33,9 @@ player build. Addressables are gone from the framework. Code: `client/core/Runti
   length, fetches its header (the table of contents) with the manifest and the roots, and registers it; the engine reads the header on the
   mount and the blocks of a file only when it opens the file, so a load first fetches the spans of its files over the zeros
   (`ContentIndex`: every file with its offset and size in the archive). Files at most `ContentOptions.RangeGap` (16 KiB) apart go into one
-  Range request with the bytes between them (`ContentRanges`): a level of thousands of files takes tens of requests.
+  Range request with the bytes between them (`ContentRanges`): a level of thousands of files takes tens of requests. A range goes past
+  the HTTP cache of the browser (`cache: 'no-store'`; the Cache API keeps the bytes): Chromium lets one request at a time use the cache
+  entry of a URL, and the ranges of the one archive went to the server one after another.
 - **The times of the archive are pinned.** The engine refuses an archive changed after the mount (`Archive file was modified while it was
   opened`); MEMFS sets `mtime` on every write, so `WebContentFetch_Pin` records the times of its node before the registration and every
   write puts them back. That leans on the inside of the emscripten of Unity (`node.mtime / ctime / atime`): a node without them throws.

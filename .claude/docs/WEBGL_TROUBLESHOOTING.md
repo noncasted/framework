@@ -535,6 +535,10 @@ switcher does. A test after the game has hung the GPU measures the stuck browser
 - `Archive file was modified while it was opened, and can no longer be accessed` on every load: the times of the archive in MEMFS changed
   after the mount (every `FS.write` sets them); `WebContentFetch_Pin` puts them back after each write. A new Unity whose MEMFS keeps the
   times elsewhere throws `The node of ... has no mtime / ctime / atime` at the registration: adapt the jslib.
+- Range requests of the archive go out together only past the HTTP cache: Chromium lets one request at a time use the cache entry of
+  a URL, so ranges of one URL through the HTTP cache reach the server one after another (on the stand, 150 ms of latency: 64 ranges in
+  9.6 s, the menu 24 s against 10 s). `WebContentFetch_StartRange` fetches with `cache: 'no-store'` (rc.5); a custom fetch of ranges must
+  do the same. Seen in the server log as requests of one URL arriving one latency apart.
 - Before 0.7.0-rc.4 every file was its own request (pixel-swarm: ~9000 files, thousands of requests per level) and the files carried
   type trees (2/3 of the bytes).
 - Without the Cache API (plain http, P3) every opening fetches again, with one log line. `IsPreloaded` puts the whole directory into

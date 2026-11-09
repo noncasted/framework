@@ -7,6 +7,7 @@
 // Content-Encoding: the blocks are LZ4); they are written at their offset into the archive, which exists at its full
 // length, and every file wholly inside the range is cached apart under <url>?offset=<offset> (the Cache API ignores the
 // fragment of a URL, and it refuses a 206). A range is read from the cache only when the cache holds all its files.
+// A range bypasses the HTTP cache of the browser (no-store), which would serialize the requests of one URL.
 // The engine refuses an archive whose times changed after it was mounted ("Archive file was modified while it was
 // opened"): WebContentFetch_Pin records the times of the node of MEMFS, and every write after it puts them back. This
 // leans on the inside of MEMFS (node.mtime / ctime / atime in ms), so a node without them throws.
@@ -115,7 +116,9 @@ mergeInto(LibraryManager.library, {
 
         return WebContentFetchRun(url + ' [' + offset + ', ' + end + ') into ' + path, function (controller) {
             function download(cache) {
-                var init = { signal: controller.signal, headers: { Range: 'bytes=' + offset + '-' + (end - 1) } };
+                // no-store: the HTTP cache of Chromium lets one request at a time use the entry of a URL, so concurrent
+                // ranges of the one archive would go to the server one after another. The Cache API keeps the bytes.
+                var init = { signal: controller.signal, cache: 'no-store', headers: { Range: 'bytes=' + offset + '-' + (end - 1) } };
 
                 return WebContentFetchQueued(url, init, function (response) {
                     if (response.status !== 206)
