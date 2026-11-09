@@ -9,6 +9,9 @@ namespace Internal.EditorTests.Content
         [SerializeField] private Loadable<ContentTestTarget> _target;
         [SerializeField] private LoadableSceneId _scene;
 
+        public Loadable<ContentTestTarget> Target => _target;
+        public LoadableSceneId Scene => _scene;
+
         public void Init(LoadableObjectId target, LoadableSceneId scene)
         {
             _target = new Loadable<ContentTestTarget>(target);

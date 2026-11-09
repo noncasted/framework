@@ -148,8 +148,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4d129e27e698937c285a459a0e5d04c9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: ContentSmoke::ContentSmoke.ContentSmokeProbe
-  _target:
-    m_LoadableObjectId: {fileID: 11400000, loadable: 1, guid: 6d2f1eeede49524c69ae481d6b2a8ae2, type: 2}
 --- !u!4 &1994505379
 Transform:
   m_ObjectHideFlags: 0

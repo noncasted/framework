@@ -46,12 +46,12 @@ namespace Internal
 
             ContentReferenceCheck.Run(manifest);
 
-            var index = ContentIndexWriter.Write(manifest);
-            ContentBuildLog.Write(manifest, index);
-            ContentBuildFiles.WriteIndex(index);
-
             // Only WebGL fetches StreamingAssets: elsewhere the files are on the disk of the player already.
             var preloaded = directory.IsPreloaded && target == BuildTarget.WebGL;
+
+            var index = ContentIndexWriter.Write(manifest, preloaded);
+            ContentBuildLog.Write(manifest, index);
+            ContentBuildFiles.WriteIndex(index);
 
             if (preloaded)
                 ContentBuildFiles.WritePreloadManifest(index);

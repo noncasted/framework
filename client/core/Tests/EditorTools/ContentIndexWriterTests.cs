@@ -62,7 +62,7 @@ namespace Internal.EditorTests
             Assert.That(report.summary.result, Is.EqualTo(BuildResult.Succeeded), "The build of the content directory");
 
             _manifest = ContentManifest.Read($"{Output}/{Name}");
-            _index = ContentIndexWriter.Write(_manifest);
+            _index = ContentIndexWriter.Write(_manifest, false);
         }
 
         [OneTimeTearDown]

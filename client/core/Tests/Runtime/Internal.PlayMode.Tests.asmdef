@@ -5,6 +5,7 @@
         "Internal",
         "GUID:3ea5c3f1172040daa713d5ad71728b78",
         "UniTask",
+        "Internal.Editor.Tests.Fixtures",
         "UnityEngine.UI",
         "UnityEngine.TestRunner"
     ],

@@ -6,6 +6,9 @@ namespace Internal
     {
         public const string Folder = "Content";
 
+        // The only file of a directory not named by its hash: the store writes it from ContentIndex.ManifestHash.
+        public const string ManifestHashFile = "BuildManifestHash.txt";
+
         // Under StreamingAssets.
         public static string Directory(string name)
         {

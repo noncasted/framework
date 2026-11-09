@@ -6,10 +6,11 @@ using System.Linq;
 namespace Internal
 {
     // Computes the index of a built content directory from its manifest: every file of the folder with its size, the
-    // root files, and the files of every object and scene a Loadable or a LoadableSceneId may load.
+    // root files, and the files of every object and scene a Loadable or a LoadableSceneId may load. isPreloaded: the
+    // files go into the .data file of a WebGL build.
     public static class ContentIndexWriter
     {
-        public static ContentIndex Write(ContentManifest manifest)
+        public static ContentIndex Write(ContentManifest manifest, bool isPreloaded)
         {
             var files = Directory.GetFiles(manifest.Folder)
                 .Select(path => new FileInfo(path))
@@ -41,7 +42,8 @@ namespace Internal
                 Position(manifest.FileName),
                 Positions(closure.Of(manifest.Roots)),
                 objects,
-                scenes);
+                scenes,
+                isPreloaded);
 
             int[] Positions(IReadOnlyList<string> names)
             {

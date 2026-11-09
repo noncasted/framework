@@ -1,35 +1,64 @@
+using System;
 using System.Linq;
+using System.Text.RegularExpressions;
+using Cysharp.Threading.Tasks;
 using Internal;
-using Unity.Loading;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace ContentSmoke
 {
-    // The only scene of a player build of client/project: logs what the player got from the content build (the index
-    // from Resources, the directory in StreamingAssets) and how its lazy references look at runtime, then quits.
+    // The only scene of a player build of client/project: registers the content directory of the build over the store
+    // of the platform (fetched on demand on WebGL, StreamingAssets elsewhere), fetches and loads the target of its root
+    // and its scene, logs each step. A standalone player quits after it; a page stays (the smoke reopens it).
     public sealed class ContentSmokeProbe : MonoBehaviour
     {
         private const string Directory = "Smoke";
 
-        // The same target as the root, baked into the scene of the player.
-        [SerializeField] private Loadable<ContentSmokeTarget> _target;
+        private readonly Lifetime _lifetime = new();
 
         private void Start()
         {
-            var json = Resources.Load<TextAsset>(ContentPaths.IndexResource(Directory));
-            var index = ContentIndex.FromJson(json.text);
-            Debug.Log($"[ContentSmoke] index {index.Name}: {index.Files.Count} files, root files {index.RootFiles.Count}, " +
-                      $"objects {string.Join(", ", index.Objects.Select(entry => $"{entry.Guid}:{entry.LocalId}"))}, " +
-                      $"scenes {string.Join(", ", index.Scenes.Select(entry => $"{entry.Guid} {entry.Path}"))}");
-            Debug.Log($"[ContentSmoke] scene field: {_target.LoadableObjectId}");
+            Run().Forget();
+        }
 
-            var handle = ContentLoadManager.RegisterContentDirectory($"{Application.streamingAssetsPath}/{ContentPaths.Directory(Directory)}");
-            var root = ContentLoadManager.GetRootAssets<ContentSmokeRoot>(handle).Single();
-            var target = root.Target.Load();
+        private void OnDestroy()
+        {
+            _lifetime.Terminate();
+        }
 
-            Debug.Log($"[ContentSmoke] root field: {root.Target.LoadableObjectId}, scene id {root.Scene}");
-            Debug.Log($"[ContentSmoke] loaded '{target.Text}', status {root.Target.Status}");
+        private async UniTaskVoid Run()
+        {
+            try
+            {
+                var json = Resources.Load<TextAsset>(ContentPaths.IndexResource(Directory));
+                var index = ContentIndex.FromJson(json.text);
+                Debug.Log($"[ContentSmoke] index {index.Name}: {index.Files.Count} files, root files {index.RootFiles.Count}, preloaded {index.IsPreloaded}");
+
+                var store = ContentStores.Create(index, null);
+                var directory = await ContentDirectory.Register(_lifetime, index, store);
+                var root = directory.RootAssets<ContentSmokeRoot>().Single();
+                Debug.Log($"[ContentSmoke] registered {store.GetType().Name} at {store.LocalPath}: root {root.name}");
+
+                // A smoke only: the engine does not promise the format of the id.
+                var guid = Regex.Match(root.Target.LoadableObjectId.ToString(), "guid: ([0-9a-f]{32})").Groups[1].Value;
+                await directory.FetchObject(_lifetime, guid, 0, null);
+                var target = root.Target.Load();
+                Debug.Log($"[ContentSmoke] loaded '{target.Text}', status {root.Target.Status}");
+
+                await directory.FetchScene(_lifetime, root.Scene.ToString(), null);
+                await SceneManager.LoadSceneAsync(root.Scene, new LoadSceneParameters(LoadSceneMode.Additive));
+                Debug.Log($"[ContentSmoke] scene loaded: {SceneManager.GetSceneByLoadableSceneId(root.Scene).name}");
+                Debug.Log("[ContentSmoke] done");
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+                Debug.Log("[ContentSmoke] failed");
+            }
+#if !UNITY_WEBGL
             Application.Quit(0);
+#endif
         }
     }
 }

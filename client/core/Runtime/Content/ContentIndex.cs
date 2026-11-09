@@ -20,7 +20,8 @@ namespace Internal
             int manifest,
             int[] rootFiles,
             ContentObjectFiles[] objects,
-            ContentSceneFiles[] scenes)
+            ContentSceneFiles[] scenes,
+            bool isPreloaded)
         {
             _name = name;
             _manifestHash = manifestHash;
@@ -29,6 +30,7 @@ namespace Internal
             _rootFiles = rootFiles;
             _objects = objects;
             _scenes = scenes;
+            _isPreloaded = isPreloaded;
             Validate();
         }
 
@@ -44,6 +46,7 @@ namespace Internal
         [SerializeField] private int[] _rootFiles;
         [SerializeField] private ContentObjectFiles[] _objects;
         [SerializeField] private ContentSceneFiles[] _scenes;
+        [SerializeField] private bool _isPreloaded;
 
         [NonSerialized] private Dictionary<(string, long), ContentFile[]> _objectLookup;
         [NonSerialized] private Dictionary<string, ContentFile[]> _sceneLookup;
@@ -53,6 +56,9 @@ namespace Internal
 
         // The content of BuildManifestHash.txt, which the store writes itself: the only file not named by its hash.
         public string ManifestHash => _manifestHash;
+
+        // The files are in the .data file of a WebGL build, read without a request.
+        public bool IsPreloaded => _isPreloaded;
 
         public IReadOnlyList<ContentFile> Files => _files;
         public ContentFile Manifest => _files[_manifest];
