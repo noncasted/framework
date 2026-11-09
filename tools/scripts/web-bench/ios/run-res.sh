@@ -42,7 +42,9 @@ mkdir -p "$out"
 "$here/safari-restart.sh" --device "$device" "$url" >/dev/null
 { echo "url $url"; echo "opened $(date -u +%T)Z"; } | tee "$out/run.txt"
 sleep "$seconds"
-canvas=$("$DL_PY" "$here/iosctl.py" --device "$device" eval \
-    'JSON.stringify({w: Module.canvas.width, h: Module.canvas.height, dpr: devicePixelRatio})')
+# The screenshot first: it is the evidence of the run even when the page does not answer the eval. A Unity 6+ loader
+# has no global Module: the canvas is the element of the template (#unity-canvas), else the first one.
 "$here/screenshot.sh" --device "$device" --resize 40 "$out/shot.png" >/dev/null
+canvas=$("$DL_PY" "$here/iosctl.py" --device "$device" eval \
+    'JSON.stringify((c => ({w: c.width, h: c.height, dpr: devicePixelRatio}))(document.querySelector("#unity-canvas") || document.querySelector("canvas")))')
 { echo "canvas $canvas"; echo "end $(date -u +%T)Z"; } | tee -a "$out/run.txt"

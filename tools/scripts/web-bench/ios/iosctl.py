@@ -23,7 +23,7 @@ through Target.sendMessageToTarget and the answers come in Target.dispatchMessag
 Example:
   iosctl.py --device ipad7 proxy start
   iosctl.py --device ipad7 open 'https://example.com/?autorun=1'
-  iosctl.py --device ipad7 eval 'JSON.stringify({w: Module.canvas.width, dpr: devicePixelRatio})'
+  iosctl.py --device ipad7 eval 'JSON.stringify({w: document.querySelector("canvas").width, dpr: devicePixelRatio})'
 """
 import argparse
 import json

@@ -7,10 +7,16 @@ Usage: adbctl.py [--device <name> | --serial <serial>] [--port <n>] <command> ..
   forward             adb forward tcp:<port> localabstract:chrome_devtools_remote (list and eval do it themselves)
   list                the pages of Chrome (localhost:<port>/json): index, id, url, title
   open <url>          opens the url in Chrome (am start -a android.intent.action.VIEW -d <url> <package>)
-  eval '<js>' [--page <text>]
+  eval '<js>' [--page <text>] [--timeout <s>]
                       Runtime.evaluate in a page over its websocket (stdlib only, no node or pip packages), the promise
                       awaited, the value printed as JSON; an exception of the page exits 1. --page: a part of the
-                      url, title or id of the page (the first page by default); several matches are an error
+                      url, title or id of the page (the first page by default); several matches are an error. No
+                      answer in --timeout seconds (30) exits 1: a navigation started by the js itself (leave a page
+                      with navigate or close), a promise that never settles, a page busy in a slow mode (?glcheck)
+  navigate <url> [--page <text>] [--timeout <s>]
+                      Page.navigate of that page to the url (about:blank stops a game without closing the tab)
+  close [--page <text>]
+                      closes the page (localhost:<port>/json/close/<id>): the game in it ends at once
   screenshot <out.png>
                       the screen of the phone (adb exec-out screencap -p), whatever app is on top
 
@@ -140,11 +146,11 @@ def pages(port):
 class WebSocket:
     """The minimum of RFC 6455 a CDP client needs: one text message out, text messages in."""
 
-    def __init__(self, url):
+    def __init__(self, url, timeout=30):
         rest = url.split('://', 1)[1]
         hostport, path = rest.split('/', 1)
         host, port = hostport.rsplit(':', 1)
-        self.sock = socket.create_connection((host, int(port)), timeout=30)
+        self.sock = socket.create_connection((host, int(port)), timeout=timeout)
         key = base64.b64encode(os.urandom(16)).decode()
         self.sock.sendall((f'GET /{path} HTTP/1.1\r\nHost: {hostport}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n'
                            f'Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n').encode())
@@ -199,7 +205,7 @@ class WebSocket:
                 return message.decode('utf-8', 'replace')
 
 
-def evaluate(port, expression, page_filter):
+def find_page(port, page_filter):
     found = pages(port)
     if page_filter:
         found = [p for p in found if page_filter in p.get('url', '') or page_filter in p.get('title', '')
@@ -210,16 +216,29 @@ def evaluate(port, expression, page_filter):
         fail(f'{len(found)} pages match {page_filter!r}: {[p["url"] for p in found]}')
     if 'webSocketDebuggerUrl' not in found[0]:
         fail(f'page {found[0]["url"]} has no webSocketDebuggerUrl: another DevTools client (chrome://inspect) holds it')
-    ws = WebSocket(found[0]['webSocketDebuggerUrl'].replace('localhost', '127.0.0.1'))
-    ws.send(json.dumps({'id': 1, 'method': 'Runtime.evaluate',
-                        'params': {'expression': expression, 'returnByValue': True, 'awaitPromise': True}}))
-    while True:
-        reply = json.loads(ws.receive())
-        if reply.get('id') == 1:
-            break
+    return found[0]
+
+
+def call(page, method, params, timeout=30):
+    """One CDP command over the websocket of the page, its result."""
+    ws = WebSocket(page['webSocketDebuggerUrl'].replace('localhost', '127.0.0.1'), timeout)
+    ws.send(json.dumps({'id': 1, 'method': method, 'params': params}))
+    try:
+        while True:
+            reply = json.loads(ws.receive())
+            if reply.get('id') == 1:
+                break
+    except socket.timeout:
+        fail(f'{method}: no answer of {page["url"]} in {timeout:.0f} s (the js navigated away itself, its promise never '
+             f'settles or the page is busy - --timeout; leave a page with navigate or close)')
     if 'error' in reply:
         fail(f'CDP error: {reply["error"]}')
-    result = reply['result']
+    return reply['result']
+
+
+def evaluate(port, expression, page_filter, timeout):
+    result = call(find_page(port, page_filter), 'Runtime.evaluate',
+                  {'expression': expression, 'returnByValue': True, 'awaitPromise': True}, timeout)
     if 'exceptionDetails' in result:
         details = result['exceptionDetails']
         fail(f'exception in the page: {details.get("exception", {}).get("description") or details.get("text")}')
@@ -257,6 +276,13 @@ def main():
     p = sub.add_parser('eval')
     p.add_argument('js')
     p.add_argument('--page')
+    p.add_argument('--timeout', type=float, default=30)
+    p = sub.add_parser('navigate')
+    p.add_argument('url')
+    p.add_argument('--page')
+    p.add_argument('--timeout', type=float, default=30)
+    p = sub.add_parser('close')
+    p.add_argument('--page')
     p = sub.add_parser('screenshot')
     p.add_argument('out')
     args = parser.parse_args()
@@ -279,7 +305,20 @@ def main():
         print(out.strip())
     elif args.command == 'eval':
         forward(serial, port)
-        evaluate(port, args.js, args.page)
+        evaluate(port, args.js, args.page, args.timeout)
+    elif args.command == 'navigate':
+        forward(serial, port)
+        page = find_page(port, args.page)
+        result = call(page, 'Page.navigate', {'url': args.url}, args.timeout)
+        if result.get('errorText'):
+            fail(f'navigate {args.url}: {result["errorText"]}')
+        print(f'{page["id"]}  {page["url"]} -> {args.url}')
+    elif args.command == 'close':
+        forward(serial, port)
+        page = find_page(port, args.page)
+        with urllib.request.urlopen(f'http://localhost:{port}/json/close/{page["id"]}', timeout=5) as r:
+            r.read()
+        print(f'closed {page["id"]}  {page["url"]}')
     elif args.command == 'screenshot':
         png = adb(serial, 'exec-out', 'screencap', '-p', binary=True)
         if not png.startswith(b'\x89PNG'):
