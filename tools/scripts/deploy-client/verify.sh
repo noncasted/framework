@@ -22,7 +22,8 @@ verify_target() {
 
     # The content directory of this build (Content of ProjectSettings/Framework.json, built into Library/Content/<name>):
     # its index is inside the player (Resources, in the .data file) and, unless it is preloaded into the .data file too,
-    # its files are next to the player in StreamingAssets/Content/<name>, the same names and sizes.
+    # its files are next to the player in StreamingAssets/Content/<name> as <file>.br (the build is brotli), each one the
+    # file of Library/Content/<name> once decompressed.
     content_check "$copy/client" "$output" "$started" failed
     content="$CONTENT_SUMMARY"
 
@@ -58,7 +59,7 @@ verify_target() {
 # "<client folder>" "<output>" "<start epoch>" "<name of the failures array>". Appends its failures to that array and
 # leaves a short summary in CONTENT_SUMMARY.
 content_check() {
-    local client="$1" output="$2" started="$3" name preloaded built hash shipped data
+    local client="$1" output="$2" started="$3" name preloaded built hash shipped data expected actual broken raw bytes
     local -n failures="$4"
     CONTENT_SUMMARY="content ?"
 
@@ -78,13 +79,17 @@ content_check() {
         failures+=("content directory $name older than the build")
     fi
 
-    # The index carries the hash of the manifest it was written from.
+    if ! command -v brotli >/dev/null; then
+        failures+=("brotli is not installed: the content directory is not checked")
+        return
+    fi
+
+    # The index carries the hash of the manifest it was written from. grep reads the whole stream (-c, not -q): an early
+    # exit would kill brotli with SIGPIPE, and pipefail of the caller fails the pipeline although the hash is there.
     data="$(find "$output/Build" -maxdepth 1 -name '*.data.br' 2>/dev/null | head -1)"
     if [[ -z "$data" ]]; then
         : # reported by the payload check
-    elif ! command -v brotli >/dev/null; then
-        failures+=("brotli is not installed: the index of the content directory is not checked")
-    elif ! brotli -dc "$data" | grep -aqF -- "$hash"; then
+    elif ! brotli -dc "$data" | grep -acF -- "$hash" >/dev/null; then
         failures+=("the .data file has no index of the content directory $name ($hash)")
     fi
 
@@ -98,9 +103,20 @@ content_check() {
         failures+=("no StreamingAssets/Content/$name")
         return
     fi
-    if ! diff -q <(cd "$built" && find . -type f -printf '%P %s\n' | sort) \
-        <(cd "$shipped" && find . -type f -printf '%P %s\n' | sort) >/dev/null; then
-        failures+=("StreamingAssets/Content/$name differs from Library/Content/$name")
+    # Exactly the files of the directory, BuildManifestHash.txt aside (the player writes it from its index), the manifest
+    # among them; then every one decompressed against the built file, in parallel.
+    expected="$(cd "$built" && find . -type f ! -name BuildManifestHash.txt -printf '%P.br\n' | sort)"
+    actual="$(cd "$shipped" && find . -type f -printf '%P\n' | sort)"
+    if [[ "$expected" != "$actual" ]]; then
+        failures+=("StreamingAssets/Content/$name is not the brotli files of Library/Content/$name (an uncompressed or a stale directory)")
+        return
     fi
-    CONTENT_SUMMARY="content $name ($(find "$shipped" -type f | wc -l) files)"
+    [[ -f "$shipped/$hash.json.br" ]] || failures+=("StreamingAssets/Content/$name has no manifest $hash.json.br")
+    broken="$(cd "$built" && find . -type f ! -name BuildManifestHash.txt -printf '%P\0' |
+        xargs -0 -r -n 64 -P "$(nproc)" sh -c 'for f; do brotli -dc "$0/$f.br" 2>/dev/null | cmp -s - "$f" || echo "$f"; done' "$(realpath "$shipped")" |
+        wc -l)"
+    ((broken == 0)) || failures+=("StreamingAssets/Content/$name: $broken files do not decompress into the files of Library/Content/$name")
+    raw="$(find "$built" -type f ! -name BuildManifestHash.txt -printf '%s\n' | awk '{ s += $1 } END { print s + 0 }')"
+    bytes="$(find "$shipped" -type f -printf '%s\n' | awk '{ s += $1 } END { print s + 0 }')"
+    CONTENT_SUMMARY="content $name ($(wc -l <<<"$actual") files, $bytes bytes brotli of $raw raw)"
 }
