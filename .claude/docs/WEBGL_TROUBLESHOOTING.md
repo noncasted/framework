@@ -41,10 +41,11 @@ iPad 7 (A10, 3 GB) is iPadOS 18.2.1; the Android phone is a Mali-G52 MC2 with Ch
 | `undefined symbol: $jspiPromising` at link | [B3](#b3-webwasm2023-cannot-be-turned-off) |
 | Random link failure / heap corruption in wasm-ld | [B4](#b4-wasm-ld-crashes-at-random) |
 | The output of another target vanished after a build | [B5](#b5-bee-cleans-the-previous-output) |
-| "Failed to decompress data for the AssetBundle" | [B6](#b6-addressables-built-for-the-editor-target) |
+| "Failed to decompress data for the AssetBundle" (before 0.7) | [B6](#b6-addressables-built-for-the-editor-target) |
 | Page hangs at start right after a build | [B7](#b7-the-wasm-is-written-after-build-finished) |
 | A `memorysetup-*` boot setting has no effect | [B8](#b8-bootconfig-of-a-web-build) |
-| "CRC Mismatch" of a bundle after a Unity upgrade | [B9](#b9-bundle-caches-keep-old-bytes) |
+| "CRC Mismatch" of a bundle after a Unity upgrade (before 0.7) | [B9](#b9-bundle-caches-keep-old-bytes) |
+| Content files requested on every opening, a load waits on the network, an old build in the cache | [B15](#b15-the-content-directory-on-the-web) |
 | Every player sees "version outdated" after a client deploy | [B10](#b10-client-before-backend) |
 | WebGL build larger than expected | [B11](#b11-what-keeps-code-in-the-build) |
 | `is not supported on this GPU`, `Active draw buffers with missing fragment shader outputs`, an effect not drawn | [G8](#g8-no-blending-per-render-target) |
@@ -215,8 +216,8 @@ iPad 7 (A10, 3 GB) is iPadOS 18.2.1; the Android phone is a Mali-G52 MC2 with Ch
 - A prefab whose script failed to compile for a while keeps an import artifact without fields; it is not reimported when the script
   compiles again, and the built player gets empty fields ("AudioPlayer needs 2 music sources, has 0"). Reimport with `ForceUpdate`,
   then clean the player content and the build cache (peace-data-reborn).
-- Stripping kept away from types created by reflection breaks Addressables (`MissingMethodException: Default constructor not found
-  ... GroupOperation`, `catalog.bin` does not load): a type-level `link.xml` (mines-leader 067bc4ee, f315b978); never
+- Stripping kept away from types created by reflection breaks them (before 0.7, Addressables: `MissingMethodException: Default
+  constructor not found ... GroupOperation`, `catalog.bin` does not load): a type-level `link.xml` (mines-leader 067bc4ee, f315b978); never
   `preserve="all"` on own assemblies, it turns stripping off. A stripped engine submodule with `MissingSubmoduleErrorHandling:
   Ignore` fails without a clear error: use `LogError` while testing a stripping list.
 
@@ -361,7 +362,8 @@ switcher does. A test after the game has hung the GPU measures the stuck browser
   load) and an endless loading screen: `PlayerSettings.insecureHttpOption = AlwaysAllowed`. A check on `localhost` passes because
   `localhost` is a secure context; test on the LAN address (with a build profile active the setter
   writes into the profile's override).
-- Over http `navigator.clipboard` does not work, and the Cache API is absent (`[UnityCache] Cache API is not supported`, only a log).
+- Over http `navigator.clipboard` does not work, and the Cache API is absent (`[UnityCache] Cache API is not supported`, only a log;
+  the content directory then fetches its files on every opening, B15).
 - The phone reaches the machine only with its VPN off. Load a probe with a cache buster
   (`document.write('<script src="/probe.js?t=' + Date.now() + '">')`), or Safari serves an old one.
 
@@ -454,6 +456,7 @@ switcher does. A test after the game has hung the GPU measures the stuck browser
   `deploy-client`, 6f49c1df).
 
 ### B6. Addressables built for the editor target
+- **Before 0.7** (Addressables are gone since; a content directory is built with the player for its target, B15).
 - A build profile started while the editor was on another target switched the player to WebGL but built the Addressables for the
   old one: the catalog pointed at `aa/StandaloneLinux64/` and the page failed with "Failed to decompress data for the AssetBundle".
   Switch the editor to WebGL first; check the catalog of the output.
@@ -471,6 +474,7 @@ switcher does. A test after the game has hung the GPU measures the stuck browser
   given back; run heap 174-209 -> 138 MiB (not checked on phones).
 
 ### B9. Bundle caches keep old bytes
+- **Before 0.7** (`BundleUrlVersioning` is gone; the files of a content directory are named by their hash, B15).
 - A bundle name with Append Hash is computed from its input assets, not from its bytes: a Unity upgrade changes the bytes under the
   same name (`unitybuiltinassets`), and two caches served the old file -> "CRC Mismatch": the Addressables cache
   (`UseAssetBundleCache: 0`, `UniqueBundleIds: 1`) and the UnityCache of the WebGL loader in IndexedDB keyed by URL, with bundles
@@ -486,7 +490,7 @@ switcher does. A test after the game has hung the GPU measures the stuck browser
 - One managed reference keeps a whole engine module in the player: `versionDefines` of UGUI / URP / RP Core / UniTask
   (`PACKAGE_PHYSICS`, `ENABLE_UIELEMENTS_MODULE`, ...) are removed in the forks; IMGUI `OnGUI` kept the IMGUI and TextCore modules
   (95fcb47d); NuGet MemoryPack kept ~200 KB br of formatters (trimmed fork, 73237c8a); Addressables wrote `preserve="all"` for
-  bundle types (fork). Find the reason a module stays in `Library/Bee/artifacts/WebGL/ManagedStripped/wasm/UnityLinkerToEditorData.json`.
+  bundle types (fork, before 0.7). Find the reason a module stays in `Library/Bee/artifacts/WebGL/ManagedStripped/wasm/UnityLinkerToEditorData.json`.
 - `webGLDebugSymbols: 2` embeds the names into the wasm (+11 MB raw, peace-data-reborn dev profile).
 - An editor left on the WebGL target breaks the Multiplayer Play Mode clone (black, only core shaders): switch back to the desktop
   target after a WebGL build (peace-data-reborn).
@@ -517,6 +521,20 @@ switcher does. A test after the game has hung the GPU measures the stuck browser
   `Advanced Text Generator Support` of the stripping tool contains ICU (with HarfBuzz and TextCoreTextEngine), so stripping the
   group strips ICU too; strip `TextCoreTextEngine` alone. The `System.*` definitions of the tool target the old mscorlib and
   match nothing on .NET 10. Sizes per Unity version and the profiling of unused submodules: `client/measurements` (ANALYSIS.md).
+
+### B15. The content directory on the web
+- Since 0.7 the content loaded after the start is a content directory (`CONTENT.md`): `StreamingAssets/Content/<name>/`, files named
+  by their hash (`<hash>.cf`, the manifest `<hash>.json`), so a new build is a new URL and `immutable` is safe. `WebContentFetch`
+  keeps each fetched file in the Cache API (`caches.open('content')`, keyed by URL) and deletes at start the URLs the index of the
+  build does not name. A second opening makes no request to `Content/` (checked on the smoke of `client/project`, step [4] of the
+  task `content_directories`).
+- Without the Cache API (plain http, P3) every opening fetches again, with one log line. `IsPreloaded` puts the whole directory into
+  the `.data` file instead: no request, synchronous loads, a bigger first download.
+- A load waits on the network only for the files it needs that are still zeros: warm the next step with `IContentLoader.Fetch`;
+  `load.slow` / `load.*` marks of the telemetry carry `Content: <name>`.
+- `deploy-client` `verify.sh` checks the directory of each output (fresh, its index inside the `.data`, the shipped files equal to
+  `Library/Content/<name>`); it needs `brotli` on the machine, or the check fails with `brotli is not installed`.
+- Status: **open** for the alpha API (remote delivery is not an official feature of a10; the scheme relies on the behaviour).
 
 ## Telegram WebView
 

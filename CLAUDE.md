@@ -18,13 +18,14 @@ shared/                 protocol and types used by both the Unity client and the
                         union tags), Session/ (the real-time session), Lobbies/ and Matchmaking/ (lobby rooms and the
                         session requests of the meta), ClientTelemetry/ (the telemetry of a client over its meta socket)
 client/
-  core/                 DI container (+ ContainerGenerator), scopes, catalogues, the Unity side of the reactive
+  core/                 DI container (+ ContainerGenerator), scopes, content directory, catalogues, the Unity side of the reactive
                         primitives (GameObjectLifetime, UniTask waits, Lifetime Graph), editor tools
   flow/                 base of game loop, loaders and mocks (concrete mocks and the startup scene stay in the project)
   modules/              optional modules: publish, network, browser, audio, animations, cameras, inputs, backend, ui,
                         localization, settings, lobbies, telemetry, ...
   platforms/            platform implementations of modules/publish: web, website, itch, telegram, steam
-  packages/             forks of third-party packages (Unity, UniTask, MemoryPack, unity-mcp), see FORK.md in each
+  packages/             forks of third-party packages (render pipelines, uGUI, web stripping tool, UniTask, MemoryPack,
+                        unity-mcp), see FORK.md in each; no Addressables since 0.7
   measurements/         the size of the WebGL build per Unity version: a template project, stripping variants
                         (base: the list of pixel-swarm; aggressive: no uGUI / TMP), tools/measure.py <version> generates
                         projects/<version>-<variant> (git-ignored), builds, measures, runs it headless; RESULTS.md, ANALYSIS.md
@@ -136,22 +137,35 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   the projects kept; `Internal` is `GUID:f039cb8c565843dba6da5b3c1ccde7d6`, `Framework.Common`
   `GUID:3ea5c3f1172040daa713d5ad71728b78`, `Framework.Shared` `GUID:73681998e594465db2ed389d82d877b6`). The project owns the content assembly (`FrameworkSettings.ContentAssembly`, by default
   `Internal.Content` in `Assets/Common/Internal`): generated catalogues (`InternalAssets`, `Sprites`, audio, colors,
-  `Scenes`), catalogue groups and their json lists (one folder per kind, `Runtime/Catalogues/<Kind>`: the json list,
-  the group assets and the generated classes together), the `OptionsContainer` asset, the container asset map
+  `Scenes` of `ContentScene`s), catalogue groups and their json lists (one folder per kind, `Runtime/Catalogues/<Kind>`: the json
+  list, the group assets and the generated classes together), the generated `ContentRoot` (`Runtime/Catalogues/ContentRoot.asset`),
+  the `OptionsContainer` asset, the container asset map
   (`ContainerGraph.AssetMap.cs`), the startup preload and the root scope (`InternalScopeExtensions.Construct`, loaded
   with `RootScopeExtensions.LoadRoot`). Every project asmdef that references `Internal` references the content
   assembly too. Keys of the game's local storage live in the game (`LocalStorageKeys.Get(name)`).
 - **Project layout for the editor tools.** `ProjectSettings/Framework.json` (`FrameworkSettings`, required: no game
   defaults, `ContentAssembly` and `ContentFolder` must be set): content folder and
-  assembly, module roots, scene folders, art and audio folders, favorite scenes, phases of the shared addressable
-  groups, player assemblies to strip. `WithoutAddressables` only in `client/project`: nothing to sync there; a game without the
-  settings gets the error. The live graphs write into `<ContentFolder>/Editor/Transient`: the project ignores `Transient*`
+  assembly, module roots, scene folders, art and audio folders, favorite scenes, player assemblies to strip, the content
+  directory (`Content`: `Name`, `Roots`, `IsPreloaded`; required by a player build only). A game without the settings gets
+  the error. The live graphs write into `<ContentFolder>/Editor/Transient`: the project ignores `Transient*`
   there in git. Editor assets of the framework are loaded from `FrameworkSettings.Package(...)`.
 - **Screen canvases.** The canvases the framework builds from code (the latency overlay of `network`, the outdated
   client notice of `ui`) go where the game says in its root scope (`IScreenCanvasCamera` of the core): `AddScreenCanvasCamera(camera,
   layer, planeDistance)` (Screen Space - Camera: the whole canvas on the layer, the camera asked on every show) or, explicitly,
   `AddScreenCanvasOverlay()`. Without one the scope that builds them does not resolve. The Overlay mode lost its projection on
   iPadOS 18.2 Safari; the camera and its drawing stay in the game.
+- **Content.** One content directory per game (`CONTENT.md`) instead of Addressables (removed in 0.7): `ContentBuild` builds it
+  with every player build (an `IPlayerBuildStep` and a `BuildPlayerProcessor` for the build window; `IContentBuildStep` runs first,
+  the `ContentRoot` generator among them) into `Library/Content/<name>`, checks its lazy references (empty or outside it fail the
+  build), bakes its index into `Resources` and ships it as `StreamingAssets/Content/<name>` (`IsPreloaded` on WebGL: inside the
+  `.data`). The root scope calls `await builder.AddContent(ContentOptions)` once (`IContentLoader`; binds the catalogues to the
+  roots; its lifetime keeps the directory registered); scopes `LoadContent(reference)` / `RequestContent(reference, out slot)`
+  (container primitives), scenes `FindOrLoadSceneWithServices(ContentScene)`, `WithAssetScene(ContentScene)`; during the game
+  `IContentLoader.Load / LoadScene / Fetch / Progress` on the lifetime of the owner, which owns the result (counted per
+  reference instance, one fetch per file). References: `ContentReference<T>` (`Loadable<T>`), `ContentScene`
+  (`LoadableSceneId`), only inside assets of the directory (a player scene erases them). Stores: local (`StreamingAssets`),
+  web (zeros + fetch, Cache API `content`, `remoteUrl` for a CDN), Play Mode without a directory (assets of the project).
+  `IsPreloaded` groups (`preloaded` in the json lists) are read synchronously. Unity 7000 alpha API.
 - **Player build steps.** A project step around the build entry points of the platforms implements `IPlayerBuildStep`
   (`core/Editor/Tools/Build`: `BeforeBuild` / `AfterBuild(target, succeeded)`, a parameterless class, found by
   `TypeCache`, ordered by full type name); `PlayerBuildSteps.Run(target, build)` calls `AfterBuild` of every started
@@ -164,8 +178,8 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   trace; `LoadRoot` opens `Startup`. A record made with an empty stack (after an await) goes to the last stage, `Detached` to
   the last stage off the stack, and a parent covers its late children. A branch that outlives its stage opens `Detached` in its
   synchronous part, hangs the later steps on that span and creates what they measure inside `Ambient(span)`. The loads of content
-  after the start go through `AssetLoads` (`Started`, `Ended`, `Running`): every `AssetGroup` and every scene of `ServiceScopeSceneLoader`;
-  a game that loads Addressables in another way wraps the load in `AssetLoads.Begin(key)` ... `Finish()` / `Fail(exception)`.
+  after the start go through `AssetLoads` (`Started`, `Ended`, `Running`): every load of `IContentLoader` (`Content: <name>`), so every `AssetGroup`
+  and every scene of `ServiceScopeSceneLoader`; a game that loads content in another way wraps the load in `AssetLoads.Begin(key)` ... `Finish()` / `Fail(exception)`.
 - **ContainerGenerator.** Sources in `client/core/Source~`, the dll in `client/core/Analyzers` (`RoslynAnalyzer`
   label, every platform off). After a change: build it (it copies itself into `Analyzers`) and run
   `ContainerGenerator.Verify`.
@@ -320,8 +334,8 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1550, common 92, Verify 166, control 23, telemetry 84, EditMode 1076 (4 of them skipped, the
-benchmarks of `ContainerBenchmarkTests`), PlayMode 118 (24 of them skipped, the end to end tests of the telemetry without their host);
+Release build replaces it. The expected numbers: backend 1565, common 96, Verify 171, control 23, telemetry 84, EditMode 1204 (4 of them skipped, the
+benchmarks of `ContainerBenchmarkTests`), PlayMode 139 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 
 `tools/scripts/test-telemetry-transport.sh` runs those 24 against a real backend: it starts `ClientTelemetry.TestHost` (needs Docker) and takes

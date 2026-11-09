@@ -50,8 +50,8 @@
   `CLAUDE_MISTAKES.md` § F37.
 - **C-DI-7** `WithParameter` принадлежит своей регистрации и важнее регистрации того же типа, родительского scope и `IContainer` / `ILifetime` / `IReadOnlyLifetime` scope: параметр берёт значение точного типа, иначе значение, которое может принять (несколько таких: CINGR014). `COMMON_CONTAINER.md` § WithParameter belongs to its registration and wins.
 - **C-DI-8** Если сервису нужны ассеты каталога -> `Request*Group` в installer (или `Load*Group`, только если
-  `Construct` читает ассеты сам); никаких `Addressables.LoadAssetAsync` / `Retain` в геймплее.
-  `COMMON_CONTAINER.md` § Asset Groups.
+  `Construct` читает ассеты сам); никаких `Retain` в геймплее; одна ссылка `ContentReference<T>` -> `RequestContent` /
+  `LoadContent` в installer или `IContentLoader.Load` на lifetime владельца. `COMMON_CONTAINER.md` § Asset Groups, `CONTENT.md`.
 - **C-DI-9** Если код берёт `IContainer` / `Resolve` -> только фабрики и инструменты; сервисы - через конструктор;
   контейнер только в main thread. `COMMON_CONTAINER.md` § Runtime Access.
 - **C-DI-10** Если возможен цикл зависимостей -> план разрывает его (событие, `Lazy<>`, разделение сервиса); в backend

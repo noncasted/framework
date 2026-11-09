@@ -90,7 +90,7 @@ that line, as data, and sends it only in the `Authorization` header.
 **The token:** never read, print, source or pass the env file or its value yourself; the script has no argument for it. Plain http
 is refused except on this machine, a redirect is refused.
 
-**Startups** ("why is the start slow", "what loads for so long", a slow scope, addressables):
+**Startups** ("why is the start slow", "what loads for so long", a slow scope, content loads):
 
 ```
 $T startups [--limit N]

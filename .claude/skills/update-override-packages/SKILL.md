@@ -12,7 +12,7 @@ BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute 
 Some packages live in `client/Packages/<name>/` as embedded copies with our own fixes. Unity never updates an
 embedded package, so they go stale silently. This skill keeps them on the upstream version without losing the fixes.
 
-The forks shared by all our games (addressables, render pipelines, ugui, web stripping tool, unity-mcp, MemoryPack,
+The forks shared by all our games (render pipelines, ugui, web stripping tool, unity-mcp, MemoryPack,
 UniTask) are not here: they live in `tools/framework/client/packages`, each with its `FORK.md` (update them there,
 see `tools/framework/CLAUDE.md`). This skill covers the packages of the game only.
 

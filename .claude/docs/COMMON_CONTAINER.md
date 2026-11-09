@@ -48,7 +48,7 @@ public static async UniTask Construct(IScopeBuilder builder)
 ```
 
 - Root with an argument: `ScopeLoadOptions.Create(parent, Construct, sessionData)` and `Construct(IScopeBuilder builder, SessionData sessionData)`.
-- Scene for the scope objects: `WithRuntimeScene(name)` (empty scene created at runtime), `WithAssetScene(assetReference)` (addressable scene), or nothing (`NoScene`: `builder.Instantiate` / `Binder.MoveToModules` throw).
+- Scene for the scope objects: `WithRuntimeScene(name)` (empty scene created at runtime), `WithAssetScene(contentScene)` (a `ContentScene` of the content directory, `CONTENT.md`), or nothing (`NoScene`: `builder.Instantiate` / `Binder.MoveToModules` throw).
 - `AsMock()` marks a scope as part of a mock; installers read `builder.IsMock`.
 - `ILoadedScope.Dispose()` runs the dispose phase, terminates the lifetime, unloads the scope scenes, disposes the container and only then releases asset groups (`AddAfterDispose`): lifetime listeners run in an order not tied to assets (session entities die before remote users) and may still read the catalogues.
 
@@ -203,7 +203,7 @@ builder.RequestAudioGroup(SfxAudio.Group);
 await builder.LoadEnvAssetGroup(GlobalAssets.Group);  // loaded now: needed while registering
 ```
 
-`Request*` defers loading to the before-build step; `Load*` awaits immediately and is used only when `Construct` itself reads the assets. Generated getters throw if the group is not loaded. Do not call `Addressables.LoadAssetAsync` or `group.Retain()` from gameplay code. Code: `client/Assets/Common/Internal/Runtime/Catalogues/*/*Extensions.cs`, `.../Catalogues/Shared/AssetGroupBuilderExtensions.cs`.
+`Request*` defers loading to the before-build step; `Load*` awaits immediately and is used only when `Construct` itself reads the assets. Generated getters throw if the group is not loaded. Do not call `group.Retain()` from gameplay code; one asset of the content directory is `builder.RequestContent(reference, out var slot)` / `await builder.LoadContent(reference)` in a scope, or `IContentLoader.Load(lifetime, reference)` during the game (`CONTENT.md`). Code: `client/Assets/Common/Internal/Runtime/Catalogues/*/*Extensions.cs`, `.../Catalogues/Shared/AssetGroupBuilderExtensions.cs`.
 
 ## Runtime Access
 
