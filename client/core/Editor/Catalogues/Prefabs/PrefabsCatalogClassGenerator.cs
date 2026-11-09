@@ -67,10 +67,7 @@ namespace Internal
             builder.AppendLine("    [NoAutoStaticsCleanup]");
             builder.AppendLine($"    public static class {group.ClassName} {{");
 
-            if (group.IsAddressable)
-                builder.AppendLine($"        private const string Address = \"{group.Address}\";");
-            else
-                builder.AppendLine($"        private const string ResourcePath = \"{group.ResourcePath}\";");
+            builder.AppendLine($"        private const string AssetGuid = \"{group.Guid}\";");
 
             builder.AppendLine();
 
@@ -95,17 +92,17 @@ namespace Internal
             builder.AppendLine($"            public override string Name => nameof({group.ClassName});");
             builder.AppendLine();
 
-            if (group.IsAddressable)
+            if (group.IsPreloaded == false)
             {
                 builder.AppendLine("            protected override async UniTask LoadGroup() {");
-                builder.AppendLine("                await LoadAsset(Address);");
+                builder.AppendLine("                await LoadAsset(AssetGuid);");
                 AppendFields(builder, group);
                 builder.AppendLine("            }");
             }
             else
             {
-                // A Resources group loads synchronously: both on Retain and on first access.
-                builder.AppendLine("            public override bool IsAddressable => false;");
+                // A preloaded group loads synchronously: both on Retain and on first access.
+                builder.AppendLine("            public override bool IsPreloaded => true;");
                 builder.AppendLine();
                 builder.AppendLine("            protected override UniTask LoadGroup() {");
                 builder.AppendLine("                LoadImmediately();");
@@ -113,7 +110,7 @@ namespace Internal
                 builder.AppendLine("            }");
                 builder.AppendLine();
                 builder.AppendLine("            protected override void LoadImmediately() {");
-                builder.AppendLine("                LoadResource(ResourcePath);");
+                builder.AppendLine("                LoadPreloadedAsset(AssetGuid);");
                 AppendFields(builder, group);
                 builder.AppendLine("            }");
             }
@@ -136,7 +133,7 @@ namespace Internal
         private static void DeclareMembers(PrefabGroupDefinition group)
         {
             var members = new IdentifierScope(group.ClassName,
-                new[] { "Address", "ResourcePath", "Group", "IsLoaded", "Loader" });
+                new[] { "AssetGuid", "Group", "IsLoaded", "Loader" });
             var loader = new IdentifierScope("Loader", CodeIdentifiers.InheritedMembers(typeof(PrefabGroup)));
 
             foreach (var property in group.Properties)

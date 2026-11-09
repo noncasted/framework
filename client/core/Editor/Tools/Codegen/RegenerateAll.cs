@@ -11,9 +11,9 @@ namespace Internal
     //   2. hierarchy bindings (code of prefab assets and loaded scenes);
     //   3. catalogs that spell type names: env assets, prefabs;
     //   4. steps of the project ([RegenerateAllStep] in its editor assemblies, by name): generators of the game that
-    //      write scripts or addressable entries the next steps read;
+    //      write scripts or assets the next steps read;
     //   5. container asset map (views and bindings of prefabs and scenes, read by the container generator);
-    //   6. shared addressables (after every catalog group exists);
+    //   6. content root (after every catalog group exists);
     // then one refresh: changed scripts recompile and the Roslyn container generator runs inside that compile.
     // Bindings whose code changed are bound after the reload. Colors run only in a project with a ColorCatalog asset:
     // the catalogue is optional, and its generator throws without one.
@@ -63,7 +63,7 @@ namespace Internal
                     Step(step.Name, step.Run);
 
                 Step("Container asset map", ContainerGraphPostprocessor.GenerateNow);
-                Step("Shared addressables", SharedAddressablesSync.GenerateNow);
+                Step("Content root", ContentRootGenerator.GenerateNow);
             }
             finally
             {

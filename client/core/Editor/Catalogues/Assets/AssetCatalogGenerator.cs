@@ -9,7 +9,6 @@ namespace Internal
     {
         public static string GroupsFolder => FrameworkSettings.Content("Runtime/Catalogues/Assets");
 
-        private const string GroupPrefix = "Assets_";
         private const string LogTag = "AssetCatalogGenerator";
 
         private static readonly CatalogGenerationRunner Runner = new(LogTag, GenerateInternal);
@@ -40,10 +39,6 @@ namespace Internal
         {
             var groups = AssetGroupBuilder.BuildGroups(AssetSourceCollector.CollectSources());
 
-            // Moving between Addressables and Resources happens before batch editing: inside it
-            // a moved asset cannot be read by its new path yet, and the group would be created again.
-            AssetGroupAssetWriter.MoveGroupAssets(groups, GroupsFolder);
-
             AssetDatabase.StartAssetEditing();
 
             try
@@ -55,8 +50,8 @@ namespace Internal
                 AssetDatabase.StopAssetEditing();
             }
 
-            // Resources groups do not go into Addressables: sync would delete their addressable groups as extra.
-            CatalogAddressablesSync.Sync(LogTag, GroupPrefix, GroupsFolder, groups.FindAll(group => group.IsAddressable));
+            // The ContentRoot lists the group assets: one written, renamed or deleted changes it.
+            ContentRootGenerator.ScheduleGenerate();
             AssetsCatalogClassGenerator.Generate(groups);
             AssetGroupsRegistry.Instance.Invalidate();
             AssetDatabase.SaveAssets();

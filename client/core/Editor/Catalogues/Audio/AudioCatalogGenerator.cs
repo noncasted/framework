@@ -10,7 +10,6 @@ namespace Internal
     {
         public static string GroupsFolder => FrameworkSettings.Content("Runtime/Catalogues/Audio");
 
-        private const string GroupPrefix = "Audio_";
         private const string LogTag = "AudioCatalogGenerator";
 
         private static readonly CatalogGenerationRunner Runner = new(LogTag, GenerateInternal);
@@ -82,7 +81,8 @@ namespace Internal
                 AssetDatabase.StopAssetEditing();
             }
 
-            CatalogAddressablesSync.Sync(LogTag, GroupPrefix, GroupsFolder, groups);
+            // The ContentRoot lists the group assets: one written, renamed or deleted changes it.
+            ContentRootGenerator.ScheduleGenerate();
             AudioCatalogClassGenerator.Generate(groups);
             AudioGroupsRegistry.Instance.Invalidate();
             AssetDatabase.SaveAssets();

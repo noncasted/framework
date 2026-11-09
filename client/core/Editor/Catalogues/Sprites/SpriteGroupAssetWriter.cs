@@ -35,13 +35,13 @@ namespace Internal
 
             if (EntriesMatch(asset, group.Properties))
             {
-                group.SetAddress(AssetDatabase.AssetPathToGUID(path));
+                group.SetGuid(AssetDatabase.AssetPathToGUID(path));
                 return;
             }
 
             ApplyEntries(asset, group.Properties);
             EditorUtility.SetDirty(asset);
-            group.SetAddress(AssetDatabase.AssetPathToGUID(path));
+            group.SetGuid(AssetDatabase.AssetPathToGUID(path));
         }
 
         private static bool EntriesMatch(SpriteGroupAsset asset, IReadOnlyList<SpritePropertyDefinition> properties)

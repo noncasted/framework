@@ -23,7 +23,7 @@ namespace Internal
             if (AssetDatabase.IsAssetImportWorkerProcess())
                 return;
 
-            // Build Settings scenes do not go into Addressables, so their list is also a generation input.
+            // Build Settings scenes stay in the player, outside the content directory, so their list is also a generation input.
             EditorBuildSettings.sceneListChanged += Runner.Schedule;
             Runner.RunDelayed();
         }
@@ -55,7 +55,7 @@ namespace Internal
             Generate(SearchFolders, scenes =>
             {
                 ScenesClassGenerator.Generate(scenes);
-                ScenesAddressablesSync.Sync(scenes);
+                ContentRootGenerator.ScheduleGenerate();
                 Debug.Log($"[SceneGenerator] Found {scenes.Count} scene(s).");
             });
         }
@@ -79,9 +79,14 @@ namespace Internal
                 : Array.Empty<string>();
 
             var scenes = new List<(string sceneName, string sceneGuid)>();
+            var playerScenes = PlayerScenes();
 
             foreach (var guid in guids)
             {
+                // A scene of the player (Startup) is loaded by the engine, not through the content directory.
+                if (playerScenes.Contains(guid))
+                    continue;
+
                 var path = AssetDatabase.GUIDToAssetPath(guid);
                 var fileName = Path.GetFileNameWithoutExtension(path);
                 var sceneName = SanitizeSceneName(fileName);
@@ -89,6 +94,20 @@ namespace Internal
             }
 
             write(scenes);
+        }
+
+        // The GUIDs of the scenes of the Build Settings.
+        private static HashSet<string> PlayerScenes()
+        {
+            var result = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var scene in EditorBuildSettings.scenes)
+            {
+                if (scene.enabled)
+                    result.Add(scene.guid.ToString());
+            }
+
+            return result;
         }
 
         private static string SanitizeSceneName(string fileName)

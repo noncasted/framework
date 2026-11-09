@@ -10,16 +10,6 @@ namespace Internal
         UniTask Unload();
     }
 
-        private readonly SceneInstance _instance;
-
-        public Scene Scene => _instance.Scene;
-
-        public UniTask Unload()
-        {
-            return Addressables.UnloadSceneAsync(_instance).ToUniTask();
-        }
-    }
-
     /// <summary>
     /// A scene created at runtime instead of loading an empty asset: the services container
     /// needs only the <see cref="Scene"/> itself, while a bundle with zero content costs

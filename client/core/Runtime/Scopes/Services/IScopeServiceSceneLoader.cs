@@ -36,17 +36,6 @@ namespace Internal
         }
     }
 
-        private readonly AssetReference _asset;
-
-        public string Name => _asset.AssetGUID;
-
-        public async UniTask<IServiceScopeBinder> Load(ServiceScopeSceneLoader loader)
-        {
-            var scene = await loader.Load(_asset);
-            return new ServiceScopeBinder(scene.Scene);
-        }
-    }
-
     /// <summary>
     /// The scope has no scene of its own: there is nowhere to move objects, the binder throws when used.
     /// </summary>

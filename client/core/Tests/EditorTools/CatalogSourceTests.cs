@@ -89,7 +89,7 @@ namespace Internal.EditorTests
         [Test]
         public void AssetOfAssemblyCSharp_Throws()
         {
-            var group = new AssetGroupDefinition(Group, Group + "Assets", true, null);
+            var group = new AssetGroupDefinition(Group, Group + "Assets", false);
             group.AddProperty(new AssetPropertyDefinition("Config", "_config", null, "Config", "Assembly-CSharp"));
 
             Assert.Throws<InvalidOperationException>(() =>

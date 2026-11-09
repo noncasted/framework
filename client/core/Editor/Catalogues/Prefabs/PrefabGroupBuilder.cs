@@ -28,8 +28,7 @@ namespace Internal
                     group = new PrefabGroupDefinition(
                         source.Group,
                         source.Group + "Prefabs",
-                        PrefabGroupsRegistry.Instance.IsAddressable(source.Group),
-                        $"{PrefabGroupDefinition.ResourcesSubfolder}/{source.Group}");
+                        PrefabGroupsRegistry.Instance.IsPreloaded(source.Group));
                     groups.Add(source.Group, group);
                     usedNames.Add(source.Group, new HashSet<string>(StringComparer.Ordinal));
                 }

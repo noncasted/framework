@@ -11,5 +11,5 @@
   "SharedCommonPaths": [ "Packages/", "Assets/Plugins/" ],
   "GroupPhases": {},
   "StrippedPlayerAssemblies": [],
-  "Content": { "Name": "Smoke", "Roots": [ "Assets/ContentSmoke/Root.asset" ], "IsPreloaded": false }
+  "Content": { "Name": "Smoke", "Roots": [ "Assets/Common/Internal/Runtime/Catalogues/ContentRoot.asset", "Assets/ContentSmoke/Root.asset" ], "IsPreloaded": false }
 }

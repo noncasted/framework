@@ -41,7 +41,7 @@ namespace Internal
                 EditorUtility.SetDirty(asset);
             }
 
-            group.SetAddress(AssetDatabase.AssetPathToGUID(path));
+            group.SetGuid(AssetDatabase.AssetPathToGUID(path));
         }
 
         private static bool EntriesMatch(AudioGroupAsset asset, IReadOnlyList<AudioPropertyDefinition> properties)

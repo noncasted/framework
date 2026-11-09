@@ -37,7 +37,7 @@ namespace Internal
                 var address = MarkGroupAsset(settings, logTag, groupPrefix, assetPath, group.Name);
 
                 if (string.IsNullOrEmpty(address) == false)
-                    group.SetAddress(address);
+                    group.SetGuid(address);
 
                 usedGroups.Add(groupPrefix + group.Name);
             }

@@ -44,8 +44,8 @@ namespace Internal.EditorTests
                 File.Delete(registry);
         }
 
-        // A merge conflict in the registry is not an empty registry: the generator would move every Resources
-        // group back to Addressables and the next write would drop the file.
+        // A merge conflict in the registry is not an empty registry: the generator would take every preloaded group
+        // for a lazy one and the next write would drop the file.
         [Test]
         public void UnreadableRegistry_Throws()
         {
@@ -56,6 +56,20 @@ namespace Internal.EditorTests
             var registry = new TestRegistry(RegistryPath);
 
             Assert.Catch<Exception>(() => registry.GetGroups());
+        }
+
+        // The key of the old registries: silently ignored, it would turn every preloaded group into a lazy one.
+        [Test]
+        public void RegistryWithNonAddressable_Throws()
+        {
+            var fullPath = CatalogPaths.ToFullPath(RegistryPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(fullPath));
+            File.WriteAllText(fullPath, "{ \"groups\": [ \"A\" ], \"nonAddressable\": [ \"A\" ] }");
+
+            var registry = new TestRegistry(RegistryPath);
+
+            var exception = Assert.Catch<Exception>(() => registry.IsPreloaded("A"));
+            Assert.That(exception.Message, Does.Contain("preloaded"));
         }
 
         [Test]

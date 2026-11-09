@@ -22,8 +22,7 @@ namespace Internal
                     group = new AssetGroupDefinition(
                         source.Group,
                         source.Group + "Assets",
-                        AssetGroupsRegistry.Instance.IsAddressable(source.Group),
-                        $"{AssetGroupDefinition.ResourcesSubfolder}/{source.Group}");
+                        AssetGroupsRegistry.Instance.IsPreloaded(source.Group));
                     groups.Add(source.Group, group);
                     usedNames.Add(source.Group, new HashSet<string>(StringComparer.Ordinal));
                 }

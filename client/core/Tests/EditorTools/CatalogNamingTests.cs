@@ -37,9 +37,9 @@ namespace Internal.EditorTests
         [TestCase("UIAssets")]
         public void AssetNamedAsMember_CompilesOrIsRefused(string name)
         {
-            var group = new AssetGroupDefinition("UI", "UIAssets", true, null);
+            var group = new AssetGroupDefinition("UI", "UIAssets", false);
             group.SetGeneratedTarget("Internal", null);
-            group.SetAddress("address");
+            group.SetGuid("guid");
             group.AddProperty(new AssetPropertyDefinition(name, ToFieldName(name), null, "Internal.EnvAsset", null));
 
             AssertCompilesOrRefused(() => new[] { AssetsCatalogClassGenerator.BuildGroupClass(group) }, name);
@@ -52,7 +52,7 @@ namespace Internal.EditorTests
         public void SoundNamedAsMember_CompilesOrIsRefused(string name)
         {
             var group = new AudioGroupDefinition("UI", "UIAudio");
-            group.SetAddress("address");
+            group.SetGuid("guid");
             group.AddProperty(new AudioPropertyDefinition(name, ToFieldName(name), null, null, null, 0f));
 
             AssertCompilesOrRefused(() => new[] { AudioCatalogClassGenerator.BuildGroupClass(group) }, name);
@@ -106,8 +106,8 @@ namespace Internal.EditorTests
 
         private static PrefabGroupDefinition PrefabGroup(params string[] names)
         {
-            var group = new PrefabGroupDefinition("UI", "UIPrefabs", true, null);
-            group.SetAddress("address");
+            var group = new PrefabGroupDefinition("UI", "UIPrefabs", false);
+            group.SetGuid("guid");
 
             foreach (var name in names)
             {
@@ -122,7 +122,7 @@ namespace Internal.EditorTests
         private static SpriteGroupDefinition SpriteGroup(string path, string spriteName)
         {
             var group = new SpriteGroupDefinition(path, path, path + "Sprites");
-            group.SetAddress("address");
+            group.SetGuid("guid");
             group.AddProperty(new SpritePropertyDefinition(
                 spriteName,
                 ToFieldName(spriteName),

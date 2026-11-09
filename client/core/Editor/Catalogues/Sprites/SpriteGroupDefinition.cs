@@ -15,14 +15,14 @@ namespace Internal
         }
 
         public string Name { get; }
-        public string Address { get; private set; }
+        public string Guid { get; private set; }
         public string Path { get; }
         public string ClassName { get; }
         public IReadOnlyList<SpritePropertyDefinition> Properties => _properties;
 
-        public void SetAddress(string address)
+        public void SetGuid(string guid)
         {
-            Address = address;
+            Guid = guid;
         }
 
         public void AddProperty(SpritePropertyDefinition property)

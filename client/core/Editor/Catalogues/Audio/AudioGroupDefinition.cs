@@ -15,14 +15,14 @@ namespace Internal
         }
 
         public string Name { get; }
-        public string Address { get; private set; }
+        public string Guid { get; private set; }
         public string ClassName { get; }
         public IReadOnlyList<AudioPropertyDefinition> Properties => _properties;
         public IReadOnlyList<AudioVariationDefinition> Variations => _variations;
 
-        public void SetAddress(string address)
+        public void SetGuid(string guid)
         {
-            Address = address;
+            Guid = guid;
         }
 
         public void AddProperty(AudioPropertyDefinition property)

@@ -20,8 +20,10 @@ namespace Internal
             NullValueHandling = NullValueHandling.Ignore
         };
 
+        private static readonly JsonSerializerSettings ReadSettings = new() { MissingMemberHandling = MissingMemberHandling.Error };
+
         private string[] _cachedGroups;
-        private HashSet<string> _cachedNonAddressable;
+        private HashSet<string> _cachedPreloaded;
 
         protected CatalogGroupsRegistry(string logTag, string assetPath)
         {
@@ -79,33 +81,32 @@ namespace Internal
             return true;
         }
 
-        // A group is addressable by default: the json lists only those that live in Resources.
-        public bool IsAddressable(string group)
+        // A group loads on Retain by default: the json lists only the preloaded ones (ContentRoot.PreloadedGroups).
+        public bool IsPreloaded(string group)
         {
-            _cachedNonAddressable ??= new HashSet<string>(ReadFile().nonAddressable ?? new List<string>(),
-                StringComparer.Ordinal);
+            _cachedPreloaded ??= new HashSet<string>(ReadFile().preloaded ?? new List<string>(), StringComparer.Ordinal);
 
-            return _cachedNonAddressable.Contains(CatalogNaming.ToGroupName(group)) == false;
+            return _cachedPreloaded.Contains(CatalogNaming.ToGroupName(group));
         }
 
         // Returns true if the setting changed and the catalog must be regenerated.
-        public bool SetAddressable(string group, bool isAddressable)
+        public bool SetPreloaded(string group, bool isPreloaded)
         {
             var groupName = CatalogNaming.ToGroupName(group);
 
-            if (string.IsNullOrEmpty(groupName) || IsAddressable(groupName) == isAddressable)
+            if (string.IsNullOrEmpty(groupName) || IsPreloaded(groupName) == isPreloaded)
                 return false;
 
             var file = ReadFile();
-            var nonAddressable = file.nonAddressable ?? new List<string>();
+            var preloaded = file.preloaded ?? new List<string>();
 
-            if (isAddressable)
-                nonAddressable.RemoveAll(name => string.Equals(name, groupName, StringComparison.Ordinal));
+            if (isPreloaded)
+                preloaded.Add(groupName);
             else
-                nonAddressable.Add(groupName);
+                preloaded.RemoveAll(name => string.Equals(name, groupName, StringComparison.Ordinal));
 
-            nonAddressable.Sort(StringComparer.Ordinal);
-            file.nonAddressable = nonAddressable.Count > 0 ? nonAddressable : null;
+            preloaded.Sort(StringComparer.Ordinal);
+            file.preloaded = preloaded.Count > 0 ? preloaded : null;
             WriteFile(file);
             Invalidate();
             return true;
@@ -114,7 +115,7 @@ namespace Internal
         public void Invalidate()
         {
             _cachedGroups = null;
-            _cachedNonAddressable = null;
+            _cachedPreloaded = null;
         }
 
         // How a name typed by hand turns into a group name.
@@ -126,8 +127,8 @@ namespace Internal
         // Groups derived from the markup of the assets themselves.
         protected abstract IEnumerable<string> DiscoverGroups();
 
-        // An unreadable file (merge conflict markers) is not an empty registry: the generators would move every
-        // Resources group to Addressables, and the next write would replace the file.
+        // An unreadable file (merge conflict markers, an unknown key) is not an empty registry: the generators would take
+        // every preloaded group for a lazy one, and the next write would replace the file.
         private RegistryFile ReadFile()
         {
             var fullPath = CatalogPaths.ToFullPath(AssetPath);
@@ -139,11 +140,11 @@ namespace Internal
 
             try
             {
-                file = JsonConvert.DeserializeObject<RegistryFile>(File.ReadAllText(fullPath));
+                file = JsonConvert.DeserializeObject<RegistryFile>(File.ReadAllText(fullPath), ReadSettings);
             }
             catch (JsonException exception)
             {
-                throw new InvalidOperationException($"[{LogTag}] {AssetPath} is not valid json. Fix the file.",
+                throw new InvalidOperationException($"[{LogTag}] {AssetPath} is not valid json or has an unknown key (nonAddressable is replaced by preloaded). Fix the file.",
                     exception);
             }
 
@@ -172,7 +173,7 @@ namespace Internal
         private sealed class RegistryFile
         {
             public List<string> groups = new();
-            public List<string> nonAddressable;
+            public List<string> preloaded;
         }
     }
 }

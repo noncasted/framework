@@ -45,7 +45,7 @@ namespace Internal
             builder.AppendLine();
             builder.AppendLine("namespace Internal {");
             builder.AppendLine($"    public sealed class {group.ClassName} : SpriteGroup {{");
-            builder.AppendLine($"        private const string Address = \"{group.Address}\";");
+            builder.AppendLine($"        private const string AssetGuid = \"{group.Guid}\";");
             builder.AppendLine();
 
             foreach (var child in node.Children.Values)
@@ -85,7 +85,7 @@ namespace Internal
             }
 
             builder.AppendLine("        protected override async UniTask LoadGroup() {");
-            builder.AppendLine("            await LoadAsset(Address);");
+            builder.AppendLine("            await LoadAsset(AssetGuid);");
 
             foreach (var property in flat)
                 builder.AppendLine($"            {property.FieldName} = Asset.{Getter(property.Kind)}(\"{property.PropertyName}\");");
@@ -134,7 +134,7 @@ namespace Internal
         {
             var group = node.Group;
             var source = $"Sprite group '{group.Path}'";
-            var reserved = new List<string>(CodeIdentifiers.InheritedMembers(typeof(SpriteGroup))) { "Address" };
+            var reserved = new List<string>(CodeIdentifiers.InheritedMembers(typeof(SpriteGroup))) { "AssetGuid" };
             var members = new IdentifierScope(group.ClassName, reserved);
 
             foreach (var child in node.Children.Values)

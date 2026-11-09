@@ -50,7 +50,7 @@ namespace Internal
             builder.AppendLine("namespace Internal {");
             builder.AppendLine("    [NoAutoStaticsCleanup]");
             builder.AppendLine($"    public static class {group.ClassName} {{");
-            builder.AppendLine($"        private const string Address = \"{group.Address}\";");
+            builder.AppendLine($"        private const string AssetGuid = \"{group.Guid}\";");
             builder.AppendLine();
 
             foreach (var property in singles)
@@ -85,7 +85,7 @@ namespace Internal
             builder.AppendLine($"            public override string Name => nameof({group.ClassName});");
             builder.AppendLine();
             builder.AppendLine("            protected override async UniTask LoadGroup() {");
-            builder.AppendLine("                await LoadAsset(Address);");
+            builder.AppendLine("                await LoadAsset(AssetGuid);");
             builder.AppendLine("                await Asset.Decode();");
 
             foreach (var property in singles)
@@ -124,7 +124,7 @@ namespace Internal
         // fields are also assigned inside Loader, where a member of AudioGroup with the same name would win.
         private static void DeclareMembers(AudioGroupDefinition group, List<AudioPropertyDefinition> singles)
         {
-            var members = new IdentifierScope(group.ClassName, new[] { "Address", "Group", "IsLoaded", "Loader" });
+            var members = new IdentifierScope(group.ClassName, new[] { "AssetGuid", "Group", "IsLoaded", "Loader" });
             var loader = new IdentifierScope("Loader", CodeIdentifiers.InheritedMembers(typeof(AudioGroup)));
 
             var names = singles.Select(property => (property.PropertyName, property.FieldName))

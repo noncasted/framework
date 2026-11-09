@@ -3,7 +3,7 @@ using UnityEditor;
 namespace Internal
 {
     // A scene added, deleted, renamed or moved in or out of a scene folder changes the Scenes catalogue and the
-    // Addressables entries of the scenes.
+    // ContentRoot.
     public sealed class SceneCatalogPostprocessor : AssetPostprocessor
     {
         private static void OnPostprocessAllAssets(

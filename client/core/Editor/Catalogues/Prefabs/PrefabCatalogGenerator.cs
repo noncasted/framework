@@ -9,7 +9,6 @@ namespace Internal
     {
         public static string GroupsFolder => FrameworkSettings.Content("Runtime/Catalogues/Prefabs");
 
-        private const string GroupPrefix = "Prefabs_";
 
         private static readonly CatalogGenerationRunner Runner = new("PrefabCatalogGenerator", GenerateInternal);
 
@@ -41,10 +40,6 @@ namespace Internal
 
             var groups = PrefabGroupBuilder.BuildGroups(PrefabSourceCollector.CollectSources());
 
-            // Moving between Addressables and Resources happens before batch editing: inside it
-            // a moved asset cannot be read by its new path yet, and the group would be created again.
-            PrefabGroupAssetWriter.MoveGroupAssets(groups, GroupsFolder);
-
             AssetDatabase.StartAssetEditing();
 
             try
@@ -58,9 +53,8 @@ namespace Internal
 
             PrefabRootResolver.ApplyMetadataFixes();
 
-            // Resources groups do not go into Addressables: sync would delete their addressable groups as extra.
-            CatalogAddressablesSync.Sync("PrefabCatalogGenerator", GroupPrefix, GroupsFolder,
-                groups.FindAll(group => group.IsAddressable));
+            // The ContentRoot lists the group assets: one written, renamed or deleted changes it.
+            ContentRootGenerator.ScheduleGenerate();
             PrefabsCatalogClassGenerator.Generate(groups);
             PrefabGroupsRegistry.Instance.Invalidate();
             AssetDatabase.SaveAssets();

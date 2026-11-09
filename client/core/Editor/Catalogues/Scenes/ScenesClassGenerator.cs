@@ -7,6 +7,8 @@ using UnityEditor;
 
 namespace Internal
 {
+    // Scenes.X: the ContentScene of every scene of the scene folders outside the Build Settings, read from the ContentRoot
+    // (CatalogContent) under the GUID of the scene.
     public static class ScenesClassGenerator
     {
         private const string LogTag = "ScenesClassGenerator";
@@ -47,7 +49,7 @@ namespace Internal
             {
                 var propertyName = CatalogNaming.ToIdentifier(sceneName, DigitPrefix);
                 members.Declare(propertyName, $"Scene {AssetDatabase.GUIDToAssetPath(sceneGuid)}");
-                sb.AppendLine($"        public static readonly StaticScene {propertyName} = new(\"{sceneGuid}\");");
+                sb.AppendLine($"        public static ContentScene {propertyName} => CatalogContent.Scene(\"{sceneGuid}\");");
             }
 
             sb.AppendLine("    }");

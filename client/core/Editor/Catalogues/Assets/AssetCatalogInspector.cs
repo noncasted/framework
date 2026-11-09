@@ -33,7 +33,7 @@ namespace Internal
                     group => Apply(importers, metadata => metadata.SetGroup(group)));
 
                 if (states.GroupMixed == false && string.IsNullOrEmpty(states.Group) == false)
-                    DrawAddressable(states.Group);
+                    DrawPreloaded(states.Group);
             }
         }
 
@@ -76,18 +76,18 @@ namespace Internal
                 Apply(importers, metadata => metadata.SetIncluded(included));
         }
 
-        // The setting is shared by the whole group: clearing the checkbox moves the group asset from Addressables
-        // to Resources for all of its assets at once.
-        private static void DrawAddressable(string group)
+        // The setting is shared by the whole group: a preloaded group is fetched with the content directory and
+        // read synchronously, for all of its assets at once.
+        private static void DrawPreloaded(string group)
         {
             var registry = AssetGroupsRegistry.Instance;
-            var isAddressable = registry.IsAddressable(group);
+            var isPreloaded = registry.IsPreloaded(group);
 
-            if (CatalogInspectorGUI.TryDraw(false, () => EditorGUILayout.ToggleLeft("Addressable Group", isAddressable),
+            if (CatalogInspectorGUI.TryDraw(false, () => EditorGUILayout.ToggleLeft("Preloaded Group", isPreloaded),
                     out var next) == false)
                 return;
 
-            if (registry.SetAddressable(group, next))
+            if (registry.SetPreloaded(group, next))
                 AssetCatalogGenerator.ScheduleGenerate();
         }
 

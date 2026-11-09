@@ -9,40 +9,14 @@ namespace Internal
     {
         private const string LogTag = "PrefabCatalogGenerator";
 
-        // Assets of non-Addressables groups: Resources.Load finds them by their path inside Resources.
-        private static string ResourcesFolder(string groupsFolder)
-        {
-            return groupsFolder + "/Resources/" + PrefabGroupDefinition.ResourcesSubfolder;
-        }
-
         internal static void WriteGroupAssets(IReadOnlyList<PrefabGroupDefinition> groups, string groupsFolder)
         {
             var writtenPaths = new HashSet<string>(StringComparer.Ordinal);
 
-            CatalogGroupAssets.WriteAll(groups, groupsFolder, group => GetGroupAssetPath(group, group.IsAddressable, groupsFolder), WriteGroupAsset, writtenPaths);
+            CatalogGroupAssets.WriteAll(groups, groupsFolder, group => $"{groupsFolder}/{group.Name}.asset", WriteGroupAsset, writtenPaths);
 
-            // Resources lives inside groupsFolder, so the search for stale assets covers it too.
+            // The search covers the subfolders: the assets a previous version kept in Resources are stale too.
             CatalogGroupAssets.DeleteStale<PrefabGroupAsset>(groupsFolder, writtenPaths, LogTag);
-        }
-
-        private static string GetGroupAssetPath(PrefabGroupDefinition group, bool isAddressable, string groupsFolder)
-        {
-            return isAddressable
-                ? $"{groupsFolder}/{group.Name}.asset"
-                : $"{ResourcesFolder(groupsFolder)}/{group.Name}.asset";
-        }
-
-        internal static void MoveGroupAssets(IReadOnlyList<PrefabGroupDefinition> groups, string groupsFolder)
-        {
-            foreach (var group in groups)
-            {
-                CatalogGroupAssets.Move<PrefabGroupAsset>(
-                    GetGroupAssetPath(group, group.IsAddressable == false, groupsFolder),
-                    GetGroupAssetPath(group, group.IsAddressable, groupsFolder),
-                    group.IsAddressable ? groupsFolder : ResourcesFolder(groupsFolder),
-                    group.IsAddressable,
-                    LogTag);
-            }
         }
 
         private static void WriteGroupAsset(string path, PrefabGroupDefinition group)
@@ -61,7 +35,7 @@ namespace Internal
                 EditorUtility.SetDirty(asset);
             }
 
-            group.SetAddress(AssetDatabase.AssetPathToGUID(path));
+            group.SetGuid(AssetDatabase.AssetPathToGUID(path));
         }
 
         private static bool EntriesMatch(PrefabGroupAsset asset, IReadOnlyList<PrefabPropertyDefinition> properties)

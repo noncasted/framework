@@ -11,7 +11,6 @@ namespace Internal
     {
         public static string GroupsFolder => FrameworkSettings.Content("Runtime/Catalogues/Sprites");
 
-        private const string GroupPrefix = "Sprites_";
 
         private static readonly CatalogGenerationRunner Runner = new("SpriteGenerator", GenerateInternal);
 
@@ -61,7 +60,8 @@ namespace Internal
                 AssetDatabase.StopAssetEditing();
             }
 
-            CatalogAddressablesSync.Sync("SpriteGenerator", GroupPrefix, GroupsFolder, groups);
+            // The ContentRoot lists the group assets: one written, renamed or deleted changes it.
+            ContentRootGenerator.ScheduleGenerate();
             SpritesClassGenerator.Generate(groups);
             SpriteGroupsRegistry.Instance.Invalidate();
             AssetDatabase.SaveAssets();
