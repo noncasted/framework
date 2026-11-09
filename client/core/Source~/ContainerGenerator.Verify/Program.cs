@@ -57,6 +57,7 @@ namespace ContainerGenerator.Verify {
             Run("builder.Inject calls [Inject] on every instance", TestInjectEveryInstance);
             RunRegressionCases();
             RunAuditCases();
+            RunContentCases();
             if (_failed == 0)
                 Console.WriteLine("ALL PASSED");
             else
@@ -1408,7 +1409,7 @@ namespace Internal {
 
     public enum ContainerPrimitive {
         Register = 1, RegisterInstance = 2, RegisterComponent = 3, As = 4, AsSelf = 5, AsSelfResolvable = 6,
-        WithParameter = 7, WithScopeLifetime = 8, Inject = 9, Injectable = 10, Instantiate = 11, SceneServices = 12
+        WithParameter = 7, WithScopeLifetime = 8, Inject = 9, Injectable = 10, Instantiate = 11, SceneServices = 12, Content = 13
     }
     [System.AttributeUsage(System.AttributeTargets.Method)]
     public sealed class ContainerPrimitiveAttribute : System.Attribute {

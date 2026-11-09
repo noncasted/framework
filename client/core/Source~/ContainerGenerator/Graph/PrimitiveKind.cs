@@ -15,5 +15,6 @@ namespace ContainerGenerator {
         Injectable = 10,
         Instantiate = 11,
         SceneServices = 12,
+        Content = 13,
     }
 }

@@ -92,7 +92,8 @@ namespace ContainerGenerator {
                 return;
             }
 
-            if (IsBenign(name)) {
+            // A load of content for the scope registers nothing: the walk only goes through its arguments.
+            if (primitive == PrimitiveKind.Content || IsBenign(name)) {
                 _walk.WalkReceiver(state, invocation);
                 foreach (var argument in invocation.ArgumentList.Arguments)
                     _walk.WalkExpression(state, argument.Expression, allowUnknown: true);

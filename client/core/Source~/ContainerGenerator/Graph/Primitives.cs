@@ -47,6 +47,8 @@ namespace ContainerGenerator {
                 case "Injectable": return PrimitiveKind.Injectable;
                 case "Instantiate": return PrimitiveKind.Instantiate;
                 case "FindOrLoadSceneWithServices": return PrimitiveKind.SceneServices;
+                case "LoadContent": return PrimitiveKind.Content;
+                case "RequestContent": return PrimitiveKind.Content;
                 default: return PrimitiveKind.None;
             }
         }

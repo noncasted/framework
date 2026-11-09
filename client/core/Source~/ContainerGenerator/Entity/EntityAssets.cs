@@ -40,7 +40,7 @@ namespace ContainerGenerator {
             }
         }
 
-        // Scene anchor: FindOrLoadSceneWithServices(Scenes.X.Value) merges in ISceneService.Create of every
+        // Scene anchor: FindOrLoadSceneWithServices(Scenes.X) (a ContentScene, or the AssetReference Scenes.X.Value) merges in ISceneService.Create of every
         // service of the SceneServicesFactory of that scene, at the call site and in the order of the factory.
         private static void BindScenes(GraphDocument document, EntityAssetIndex index) {
             var creates = MembersOf(document, ".Create");
@@ -93,7 +93,7 @@ namespace ContainerGenerator {
             return null;
         }
 
-        // Scenes.GameField.Value -> GameField
+        // Scenes.GameField -> GameField, Scenes.GameField.Value -> GameField
         private static string SceneField(string hole) {
             const string marker = "Scenes.";
             if (string.IsNullOrEmpty(hole))
