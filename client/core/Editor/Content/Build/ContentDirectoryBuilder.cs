@@ -17,6 +17,15 @@ namespace Internal
         // build report directory of the build.
         public const string TypeUsageFile = "ScriptsOnlyCache.yaml";
 
+        // Without type trees: the directory is built with every player build, from the same code, so the player reads its
+        // objects with its own layouts of the types; the trees were two thirds of the bytes of a directory of thousands of
+        // small files. The engine refuses DisableWriteTypeTree without SerializeUnityVersion. A player never sees the
+        // directory of another build: the index it carries names the manifest hash of its own. The editor refuses to
+        // register such a directory ("built without type trees"): Play Mode reads the assets (EditorContentDirectory), and
+        // the Play Mode tests build their directories with the trees.
+        public const BuildContentOptions Options =
+            BuildContentOptions.FailBuildWhenErrorsLogged | BuildContentOptions.DisableWriteTypeTree | BuildContentOptions.SerializeUnityVersion;
+
         // reportDirectory: the build report directory of the content build (BuildHistory). A player build given it
         // (BuildPlayerContext.AddPreviousBuildReportDirectory) keeps the types of the directory, which no scene of the
         // player may use: without it the linker strips them and the engine drops their objects at load.
@@ -41,7 +50,7 @@ namespace Internal
                 name = directory.Name,
                 outputPath = folder,
                 rootAssetPaths = directory.Roots.ToArray(),
-                options = BuildContentOptions.FailBuildWhenErrorsLogged
+                options = Options
             });
 
             if (report.summary.result != BuildResult.Succeeded)
