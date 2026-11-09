@@ -5,42 +5,54 @@ using Cysharp.Threading.Tasks;
 
 namespace Internal
 {
-    // A content directory fetched on demand into a local folder (the file system of the page): the registration needs the
-    // manifest and the closure of the roots, every other file is written as zeros of its real size and fetched over them
-    // before a load needs it. The engine lists the folder once and does not open the files of a lazy reference until it
-    // is loaded, so the zeros are never read.
+    // A content directory fetched on demand into a local folder (the file system of the page): the archive is written as
+    // zeros of its length, the registration needs its header, the manifest and the closure of the roots, and the spans of
+    // the files of a load are fetched over the zeros before the load. The engine reads the header on the mount and the
+    // blocks of a file only when it opens the file, so the zeros are never read.
     internal sealed class FetchedContentStore : IContentStore
     {
-        public FetchedContentStore(IContentFileSource source, string localPath)
+        // gap: ContentOptions.RangeGap.
+        public FetchedContentStore(IContentRangeSource source, string localPath, long gap)
         {
             LocalPath = localPath;
-            _fetches = new ContentFileFetches(source, localPath);
+            _source = source;
+            _gap = gap;
         }
 
-        private readonly ContentFileFetches _fetches;
+        private readonly IContentRangeSource _source;
+        private readonly long _gap;
+        private ContentFileFetches _fetches;
 
         public string LocalPath { get; }
 
+        private string Archive => Path.Combine(LocalPath, ContentPaths.ArchiveFile);
+
         public async UniTask Prepare(IReadOnlyLifetime lifetime, ContentIndex index)
         {
-            // A folder of an earlier run would hold real files the fetches do not know.
+            if (_fetches != null)
+                throw new InvalidOperationException($"[Content] The store of {index.Name} at {LocalPath} is prepared already");
+
+            // A folder of an earlier run would hold real bytes the fetches do not know.
             if (Directory.Exists(LocalPath))
                 Directory.Delete(LocalPath, true);
 
             Directory.CreateDirectory(LocalPath);
 
-            var registration = new List<ContentFile>(index.RootFiles.Count + 1) { index.Manifest };
-            registration.AddRange(index.RootFiles);
+            var files = new List<ContentFile>(index.Files.Count + 1) { index.Header };
+            files.AddRange(index.Files);
+            _fetches = new ContentFileFetches(_source, Archive, new ContentRanges(files, _gap));
 
-            await _fetches.Fetch(lifetime, registration, null);
+            // SetLength fills with zeros without a buffer of the size in the managed heap.
+            using (var stream = new FileStream(Archive, FileMode.Create, FileAccess.Write))
+                stream.SetLength(index.ArchiveLength);
 
             File.WriteAllText(Path.Combine(LocalPath, ContentPaths.ManifestHashFile), index.ManifestHash);
 
-            foreach (var file in index.Files)
-            {
-                if (_fetches.IsReal(file) == false)
-                    WriteZeros(file);
-            }
+            var registration = new List<ContentFile>(index.RootFiles.Count + 2) { index.Header, index.Manifest };
+            registration.AddRange(index.RootFiles);
+
+            await _fetches.Fetch(lifetime, registration, null);
+            _source.Pin(Archive);
         }
 
         public UniTask Fetch(IReadOnlyLifetime lifetime, IReadOnlyList<ContentFile> files, IProgress<long> progress)
@@ -57,13 +69,6 @@ namespace Internal
             }
 
             return true;
-        }
-
-        private void WriteZeros(ContentFile file)
-        {
-            // SetLength fills with zeros without a buffer of the size in the managed heap.
-            using var stream = new FileStream(Path.Combine(LocalPath, file.Name), FileMode.Create, FileAccess.Write);
-            stream.SetLength(file.Size);
         }
     }
 }

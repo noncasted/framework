@@ -6,9 +6,14 @@ namespace Internal.EditorTests.Content
     {
         public const string Output = "Temp/ContentDirectoryTests";
         public const string Name = "Tests";
-        public const string Folder = Output + "/" + Name;
+        // The folder BuildContentDirectory writes.
+        public const string Built = Output + "/Built/" + Name;
 
-        // The json of its ContentIndex, next to the folder: an extra file inside would be listed by the registration.
+        // The folder as a player reads it in place (ContentShipment): the archive, BuildManifestHash.txt and the index.
+        public const string Folder = Output + "/" + Name;
+        public const string Archive = Folder + "/" + ContentPaths.ArchiveFile;
+
+        // A copy of the json of its ContentIndex, next to the folder: the tests read it without the hash.
         public const string Index = Output + "/" + Name + ".json";
 
         // The GUID of the asset behind the lazy reference of the root.

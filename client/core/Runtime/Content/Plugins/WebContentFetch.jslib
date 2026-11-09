@@ -1,171 +1,196 @@
-// Fetches a file of a content directory into the emscripten file system (FS), polled by WebContentFetch.cs:
-// 0 running, 1 fetched, 2 failed, 3 taken from the cache of the page. The responses are kept in the Cache API (the
-// cache "content", keyed by the URL): only for URLs whose content never changes (the files are named by their hash).
-// An aborted fetch writes nothing and logs nothing. An encoded URL (<name>.br of a directory shipped with brotli) is sent
-// by the server with Content-Encoding: br and decoded by the browser; the cache keeps the real bytes of a file whose size
-// is the one of the index. A file of another size (the encoding missing, plain http, an HTML page for a missing file)
-// fails the fetch with its reason and stays out of the cache.
-// At most `limit` fetches go to the server at once (WebContentFetch_Limit): a level asks for thousands of files, and so
-// many requests at once exhaust the browser (net::ERR_INSUFFICIENT_RESOURCES). The others wait in the order they
-// started; a slot is held until the body is read and is freed by an error or an abort too. A read from the cache takes
-// no slot.
+// The fetches of a content directory into the emscripten file system (FS), polled by WebContentFetch.cs: 0 running,
+// 1 fetched, 2 failed, 3 taken from the cache of the page. The responses are kept in the Cache API (the cache "content"):
+// only for URLs whose content never changes (the index and the archive are named by the hash of the build).
+// An aborted fetch writes nothing and logs nothing.
+// A whole file (WebContentFetch_Start, the index) is written with FS.writeFile and cached by its URL. A range of the archive
+// (WebContentFetch_StartRange) is a Range request the server must answer with 206 and exactly the bytes asked for (no
+// Content-Encoding: the blocks are LZ4); they are written at their offset into the archive, which exists at its full
+// length, and every file wholly inside the range is cached apart under <url>?offset=<offset> (the Cache API ignores the
+// fragment of a URL, and it refuses a 206). A range is read from the cache only when the cache holds all its files.
+// The engine refuses an archive whose times changed after it was mounted ("Archive file was modified while it was
+// opened"): WebContentFetch_Pin records the times of the node of MEMFS, and every write after it puts them back. This
+// leans on the inside of MEMFS (node.mtime / ctime / atime in ms), so a node without them throws.
+// At most `limit` requests go to the server at once (WebContentFetch_Limit): the others wait in the order they started;
+// a slot is held until the body is read and is freed by an error or an abort too. A read from the cache takes no slot.
 mergeInto(LibraryManager.library, {
-    $WebContentFetches: { next: 1, entries: {}, cache: null, limit: 0, active: 0, waiting: [] },
+    $WebContentFetches: { next: 1, entries: {}, cache: null, limit: 0, active: 0, waiting: [], pins: {} },
 
-    // Resolves when a fetch may go to the server; rejects with an AbortError when the signal aborts it first.
-    $WebContentFetchSlot__deps: ['$WebContentFetches'],
-    $WebContentFetchSlot: function (signal) {
-        var fetches = WebContentFetches;
+    // Writes the bytes at an offset of a file that exists, and puts back the times recorded by WebContentFetch_Pin.
+    $WebContentFetchWrite__deps: ['$WebContentFetches', '$FS'],
+    $WebContentFetchWrite: function (path, bytes, at) {
+        var stream = FS.open(path, 'r+');
 
-        if (fetches.limit < 1)
-            throw new Error('[Content] WebContentFetch_Limit was not called');
+        try {
+            FS.write(stream, bytes, 0, bytes.length, at);
+        } finally {
+            FS.close(stream);
+        }
 
-        return new Promise(function (resolve, reject) {
-            if (fetches.active < fetches.limit) {
-                fetches.active++;
-                resolve();
-                return;
-            }
+        var pinned = WebContentFetches.pins[path];
 
-            var waiter = { resolve: resolve };
-            fetches.waiting.push(waiter);
-
-            signal.addEventListener('abort', function () {
-                var at = fetches.waiting.indexOf(waiter);
-
-                if (at >= 0) {
-                    fetches.waiting.splice(at, 1);
-                    reject(new DOMException('The fetch was aborted in the queue', 'AbortError'));
-                }
-            }, { once: true });
-        });
-    },
-
-    // The slot goes to the first waiter, or back to the pool.
-    $WebContentFetchFree__deps: ['$WebContentFetches'],
-    $WebContentFetchFree: function () {
-        var fetches = WebContentFetches;
-        var next = fetches.waiting.shift();
-
-        if (next === undefined)
-            fetches.active--;
-        else
-            next.resolve();
-    },
-
-    WebContentFetch_Limit__deps: ['$WebContentFetches'],
-    WebContentFetch_Limit: function (limit) {
-        if (limit < 1)
-            throw new Error('[Content] The limit of the fetches is ' + limit);
-
-        var fetches = WebContentFetches;
-        fetches.limit = limit;
-
-        // A higher limit lets the waiting fetches go now; a lower one takes effect as the running ones end.
-        while (fetches.waiting.length > 0 && fetches.active < limit) {
-            fetches.active++;
-            fetches.waiting.shift().resolve();
+        if (pinned !== undefined) {
+            var node = FS.lookupPath(path).node;
+            node.mtime = pinned.mtime;
+            node.ctime = pinned.ctime;
+            node.atime = pinned.atime;
         }
     },
 
-    // The cache of the page, or null without the Cache API (plain http, old browsers): then every opening fetches.
-    $WebContentFetchCache__deps: ['$WebContentFetches'],
-    $WebContentFetchCache: function () {
-        if (WebContentFetches.cache !== null)
-            return WebContentFetches.cache;
-
-        if (typeof caches === 'undefined') {
-            console.log('[Content] No Cache API on ' + location.protocol + ' : the content is fetched on every opening');
-            WebContentFetches.cache = Promise.resolve(null);
-        } else {
-            WebContentFetches.cache = caches.open('content').catch(function (error) {
-                console.log('[Content] The Cache API refused to open the cache (' + error + '): the content is fetched on every opening');
-                return null;
-            });
-        }
-
-        return WebContentFetches.cache;
-    },
-
-    WebContentFetch_Start__deps: ['$WebContentFetches', '$WebContentFetchCache', '$WebContentFetchSlot', '$WebContentFetchFree', '$FS'],
-    WebContentFetch_Start: function (urlPointer, pathPointer, size, encoded) {
-        var url = UTF8ToString(urlPointer);
-        var path = UTF8ToString(pathPointer);
+    // Runs a fetch: work(controller) resolves to a status (1 or 3) once the bytes are written.
+    $WebContentFetchRun__deps: ['$WebContentFetches'],
+    $WebContentFetchRun: function (what, work) {
         var id = WebContentFetches.next++;
         var controller = new AbortController();
         var entry = { status: 0, controller: controller };
         WebContentFetches.entries[id] = entry;
 
-        function check(buffer, origin) {
-            if (buffer.byteLength !== size) {
-                throw new Error(buffer.byteLength + ' bytes instead of ' + size + ' ' + origin +
-                    (encoded ? ': the server must send the file with Content-Encoding: br, and the browser decodes it only on https' : ''));
-            }
-        }
-
-        // Only a file of the right size goes into the cache, as its real bytes.
-        function download(cache) {
-            return WebContentFetchSlot(controller.signal).then(function () {
-                return fetch(url, { signal: controller.signal }).then(function (response) {
-                    if (!response.ok)
-                        throw new Error('HTTP ' + response.status);
-
-                    return response.arrayBuffer();
-                }).finally(WebContentFetchFree);
-            }).then(function (buffer) {
-                check(buffer, 'from the server');
-
-                var stored = cache === null
-                    ? Promise.resolve()
-                    : cache.put(url, new Response(buffer)).catch(function (error) {
-                        if (!controller.signal.aborted)
-                            console.error('[Content] Keeping ' + url + ' in the cache failed: ' + error);
-                    });
-
-                return stored.then(function () {
-                    return { buffer: buffer, status: 1 };
-                });
-            });
-        }
-
-        // A cached file of another size is removed: the next opening fetches it again.
-        function read(cache, cached) {
-            return cached.arrayBuffer().then(function (buffer) {
-                if (buffer.byteLength !== size) {
-                    return cache.delete(url).then(function () {
-                        check(buffer, 'from the cache (removed from it)');
-                    });
-                }
-
-                return { buffer: buffer, status: 3 };
-            });
-        }
-
-        WebContentFetchCache()
-            .then(function (cache) {
-                if (cache === null)
-                    return download(null);
-
-                return cache.match(url).then(function (cached) {
-                    return cached ? read(cache, cached) : download(cache);
-                });
-            })
-            .then(function (result) {
-                if (controller.signal.aborted)
-                    return;
-
-                FS.writeFile(path, new Uint8Array(result.buffer));
-                entry.status = result.status;
+        work(controller)
+            .then(function (status) {
+                if (!controller.signal.aborted)
+                    entry.status = status;
             })
             .catch(function (error) {
                 if (controller.signal.aborted)
                     return;
 
-                console.error('[Content] Fetching ' + url + ' into ' + path + ' failed: ' + error);
+                console.error('[Content] Fetching ' + what + ' failed: ' + error);
                 entry.status = 2;
             });
 
         return id;
+    },
+
+    WebContentFetch_Start__deps: ['$WebContentFetchCache', '$WebContentFetchRun', '$WebContentFetchQueued', '$FS'],
+    WebContentFetch_Start: function (urlPointer, pathPointer) {
+        var url = UTF8ToString(urlPointer);
+        var path = UTF8ToString(pathPointer);
+
+        return WebContentFetchRun(url + ' into ' + path, function (controller) {
+            function write(buffer, status) {
+                if (!controller.signal.aborted)
+                    FS.writeFile(path, new Uint8Array(buffer));
+
+                return status;
+            }
+
+            function download(cache) {
+                return WebContentFetchQueued(url, { signal: controller.signal }, function (response) {
+                    if (!response.ok)
+                        throw new Error('HTTP ' + response.status);
+                }).then(function (buffer) {
+                    var stored = cache === null ? Promise.resolve() : cache.put(url, new Response(buffer)).catch(function (error) {
+                        if (!controller.signal.aborted)
+                            console.error('[Content] Keeping ' + url + ' in the cache failed: ' + error);
+                    });
+
+                    return stored.then(function () { return write(buffer, 1); });
+                });
+            }
+
+            return WebContentFetchCache().then(function (cache) {
+                if (cache === null)
+                    return download(null);
+
+                return cache.match(url).then(function (cached) {
+                    return cached ? cached.arrayBuffer().then(function (buffer) { return write(buffer, 3); }) : download(cache);
+                });
+            });
+        });
+    },
+
+    WebContentFetch_StartRange__deps: ['$WebContentFetchCache', '$WebContentFetchRun', '$WebContentFetchQueued', '$WebContentFetchWrite'],
+    WebContentFetch_StartRange: function (urlPointer, pathPointer, offset, length, filesPointer) {
+        var url = UTF8ToString(urlPointer);
+        var path = UTF8ToString(pathPointer);
+        var end = offset + length;
+        var files = UTF8ToString(filesPointer).split('\n').filter(function (line) { return line.length > 0; }).map(function (line) {
+            var parts = line.split(':');
+            return { offset: Number(parts[0]), length: Number(parts[1]) };
+        });
+        var separator = url.indexOf('?') < 0 ? '?' : '&';
+
+        function key(file) {
+            return url + separator + 'offset=' + file.offset;
+        }
+
+        return WebContentFetchRun(url + ' [' + offset + ', ' + end + ') into ' + path, function (controller) {
+            function download(cache) {
+                var init = { signal: controller.signal, headers: { Range: 'bytes=' + offset + '-' + (end - 1) } };
+
+                return WebContentFetchQueued(url, init, function (response) {
+                    if (response.status !== 206)
+                        throw new Error('HTTP ' + response.status + ' instead of 206: the server must answer Range requests of the archive');
+
+                    var encoding = response.headers.get('Content-Encoding');
+
+                    if (encoding !== null && encoding !== 'identity')
+                        throw new Error('Content-Encoding ' + encoding + ': the server must send the archive as it is');
+                }).then(function (buffer) {
+                    if (buffer.byteLength !== length)
+                        throw new Error(buffer.byteLength + ' bytes instead of ' + length);
+
+                    if (controller.signal.aborted)
+                        return 1;
+
+                    WebContentFetchWrite(path, new Uint8Array(buffer), offset);
+
+                    if (cache === null)
+                        return 1;
+
+                    return Promise.all(files.map(function (file) {
+                        var start = file.offset - offset;
+                        return cache.put(key(file), new Response(buffer.slice(start, start + file.length)));
+                    })).catch(function (error) {
+                        if (!controller.signal.aborted)
+                            console.error('[Content] Keeping ' + url + ' [' + offset + ', ' + end + ') in the cache failed: ' + error);
+                    }).then(function () { return 1; });
+                });
+            }
+
+            // Every file of the range from the cache, or null when one is missing or of another size.
+            function cached(cache) {
+                return Promise.all(files.map(function (file) {
+                    return cache.match(key(file)).then(function (response) {
+                        return response ? response.arrayBuffer() : null;
+                    });
+                })).then(function (buffers) {
+                    for (var i = 0; i < buffers.length; i++) {
+                        if (buffers[i] === null || buffers[i].byteLength !== files[i].length)
+                            return null;
+                    }
+
+                    return buffers;
+                });
+            }
+
+            return WebContentFetchCache().then(function (cache) {
+                if (cache === null)
+                    return download(null);
+
+                return cached(cache).then(function (buffers) {
+                    if (buffers === null)
+                        return download(cache);
+
+                    if (!controller.signal.aborted) {
+                        for (var i = 0; i < buffers.length; i++)
+                            WebContentFetchWrite(path, new Uint8Array(buffers[i]), files[i].offset);
+                    }
+
+                    return 3;
+                });
+            });
+        });
+    },
+
+    WebContentFetch_Pin__deps: ['$WebContentFetches', '$FS'],
+    WebContentFetch_Pin: function (pathPointer) {
+        var path = UTF8ToString(pathPointer);
+        var node = FS.lookupPath(path).node;
+
+        if (typeof node.mtime !== 'number' || typeof node.ctime !== 'number' || typeof node.atime !== 'number')
+            throw new Error('[Content] The node of ' + path + ' has no mtime / ctime / atime: the emscripten of this Unity keeps the times elsewhere, see WebContentFetch.jslib');
+
+        WebContentFetches.pins[path] = { mtime: node.mtime, ctime: node.ctime, atime: node.atime };
     },
 
     WebContentFetch_Status__deps: ['$WebContentFetches'],
@@ -196,17 +221,22 @@ mergeInto(LibraryManager.library, {
     WebContentFetch_KeepOnly: function (urlsPointer) {
         var keep = new Set(UTF8ToString(urlsPointer).split('\n'));
 
+        function url(request) {
+            var at = request.url.indexOf('?');
+            return at < 0 ? request.url : request.url.substring(0, at);
+        }
+
         WebContentFetchCache()
             .then(function (cache) {
                 if (cache === null)
                     return;
 
                 return cache.keys().then(function (requests) {
-                    var stale = requests.filter(function (request) { return !keep.has(request.url); });
+                    var stale = requests.filter(function (request) { return !keep.has(url(request)); });
 
                     return Promise.all(stale.map(function (request) { return cache.delete(request); })).then(function () {
                         if (stale.length > 0)
-                            console.log('[Content] Removed ' + stale.length + ' files of the builds before from the cache');
+                            console.log('[Content] Removed ' + stale.length + ' entries of the builds before from the cache');
                     });
                 });
             })

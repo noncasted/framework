@@ -523,20 +523,26 @@ switcher does. A test after the game has hung the GPU measures the stuck browser
   match nothing on .NET 10. Sizes per Unity version and the profiling of unused submodules: `client/measurements` (ANALYSIS.md).
 
 ### B15. The content directory on the web
-- Since 0.7 the content loaded after the start is a content directory (`CONTENT.md`): `StreamingAssets/Content/<name>/`, files named
-  by their hash (`<hash>.cf`, the manifest `<hash>.json`), so a new build is a new URL and `immutable` is safe. `WebContentFetch`
-  keeps each fetched file in the Cache API (`caches.open('content')`, keyed by URL) and deletes at start the URLs the index of the
-  build does not name. A second opening makes no request to `Content/` (checked on the smoke of `client/project`, step [4] of the
-  task `content_directories`).
-- A brotli build ships `StreamingAssets/Content/<name>/<file>.br` (`ContentBrotli`): the server must send them with
-  `Content-Encoding: br` (the `\.br$` rule of B12); without it a load fails with `N bytes instead of M from the server: the server must
-  send the file with Content-Encoding: br ...`. Before 0.7.0-rc.2 the files went raw (pixel-swarm: 301 MB instead of 29 MB).
+- Since 0.7 the content loaded after the start is a content directory (`CONTENT.md`): `StreamingAssets/Content/<name>/` holds
+  `<hash>.archive` (one UnityFS archive, LZ4 blocks, in the order of first use) and `<hash>.index.json.br`, named by the hash of the build,
+  so a new build is a new URL and `immutable` is safe. The player fetches the index once, then Range requests of the archive (files at
+  most 16 KiB apart in one request); the Cache API keeps the index by URL and each file of a range by `<url>?offset=<n>`, and deletes at
+  start the entries of other builds. A second opening makes no request to `Content/`.
+- The server must answer a Range request of `.archive` with `206` and the bytes as they are (`Accept-Ranges: bytes`, no
+  `Content-Encoding`: never `gzip` it) and send the index `.br` with `Content-Encoding: br` (the `\.br$` rule of B12). A `200` fails a
+  load with `HTTP 200 instead of 206: the server must answer Range requests of the archive`; an encoding with `Content-Encoding ...: the
+  server must send the archive as it is`; an index still compressed with `... is no json`.
+- `Archive file was modified while it was opened, and can no longer be accessed` on every load: the times of the archive in MEMFS changed
+  after the mount (every `FS.write` sets them); `WebContentFetch_Pin` puts them back after each write. A new Unity whose MEMFS keeps the
+  times elsewhere throws `The node of ... has no mtime / ctime / atime` at the registration: adapt the jslib.
+- Before 0.7.0-rc.4 every file was its own request (pixel-swarm: ~9000 files, thousands of requests per level) and the files carried
+  type trees (2/3 of the bytes).
 - Without the Cache API (plain http, P3) every opening fetches again, with one log line. `IsPreloaded` puts the whole directory into
   the `.data` file instead: no request, synchronous loads, a bigger first download.
 - A load waits on the network only for the files it needs that are still zeros: warm the next step with `IContentLoader.Fetch`;
   `load.slow` / `load.*` marks of the telemetry carry `Content: <name>`.
-- `deploy-client` `verify.sh` checks the directory of each output (fresh, its index inside the `.data`, the shipped `.br` files
-  decompressing into `Library/Content/<name>`); it needs `brotli` on the machine, or the check fails with `brotli is not installed`.
+- `deploy-client` `verify.sh` checks the directory of each output (fresh, its stamp inside the `.data`, the shipped archive equal to
+  `Library/ContentArchive/<name>`, the index of its hash and length); it needs `brotli` and `jq` on the machine, or the check fails with `brotli is not installed`.
   Before rc.2 its `grep -q` behind `brotli -dc` failed every target under `pipefail` (SIGPIPE, 141) although the hash was there.
 - Status: **open** for the alpha API (remote delivery is not an official feature of a10; the scheme relies on the behaviour).
 

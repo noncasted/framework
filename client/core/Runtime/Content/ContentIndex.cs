@@ -5,34 +5,39 @@ using UnityEngine;
 
 namespace Internal
 {
-    // The files of a built content directory and the files each of its loads needs, computed by the build from the
-    // manifest and baked into the player next to it. The store fetches the manifest and the root files before the
-    // registration, writes the rest as zeros of their size, and fetches the files of a load before the load.
+    // The archive of a built content directory and the files each of its loads needs, computed by the build from the
+    // manifest and shipped next to the archive as <hash>.index.json (ContentPaths.IndexFile), read once at the start.
+    // A fetching store writes the archive as zeros of its length, fetches the header, the manifest and the root files
+    // before the registration and the spans of the files of a load before the load. The files are in the order of the
+    // archive, their spans inside [HeaderLength, ArchiveLength) and apart.
     // Objects are keyed by the GUID of their asset and their local id, not by LoadableObjectId: its fields are internal
     // at runtime, and a LoadableObjectId baked into an asset of the player is rewritten by the build.
     [Serializable]
     public sealed class ContentIndex
     {
+        // The name of the header among the files a store fetches; no file of a directory is named so.
+        public const string HeaderName = "header";
+
         public ContentIndex(
             string name,
             string manifestHash,
+            long archiveLength,
+            long headerLength,
             ContentFile[] files,
             int manifest,
             int[] rootFiles,
             ContentObjectFiles[] objects,
-            ContentSceneFiles[] scenes,
-            bool isPreloaded,
-            bool isBrotli)
+            ContentSceneFiles[] scenes)
         {
             _name = name;
             _manifestHash = manifestHash;
+            _archiveLength = archiveLength;
+            _headerLength = headerLength;
             _files = files;
             _manifest = manifest;
             _rootFiles = rootFiles;
             _objects = objects;
             _scenes = scenes;
-            _isPreloaded = isPreloaded;
-            _isBrotli = isBrotli;
             Validate();
         }
 
@@ -43,13 +48,13 @@ namespace Internal
 
         [SerializeField] private string _name;
         [SerializeField] private string _manifestHash;
+        [SerializeField] private long _archiveLength;
+        [SerializeField] private long _headerLength;
         [SerializeField] private ContentFile[] _files;
         [SerializeField] private int _manifest;
         [SerializeField] private int[] _rootFiles;
         [SerializeField] private ContentObjectFiles[] _objects;
         [SerializeField] private ContentSceneFiles[] _scenes;
-        [SerializeField] private bool _isPreloaded;
-        [SerializeField] private bool _isBrotli;
 
         [NonSerialized] private Dictionary<(string, long), ContentFile[]> _objectLookup;
         [NonSerialized] private Dictionary<string, ContentFile[]> _sceneLookup;
@@ -60,15 +65,11 @@ namespace Internal
         // The content of BuildManifestHash.txt, which the store writes itself: the only file not named by its hash.
         public string ManifestHash => _manifestHash;
 
-        // The files are in the .data file of a WebGL build, read without a request.
-        public bool IsPreloaded => _isPreloaded;
+        // The bytes of the archive (ContentPaths.ArchiveFile).
+        public long ArchiveLength => _archiveLength;
 
-        // The files are shipped compressed as <name>.br (a WebGL build with brotli): the server sends them with
-        // Content-Encoding: br and the browser hands over the bytes of the file. The sizes of Files are the real ones.
-        public bool IsBrotli => _isBrotli;
-
-        // What the name of a file gets in the URL it is fetched from.
-        public string ShippedSuffix => _isBrotli ? ContentPaths.BrotliExtension : string.Empty;
+        // The header and the table of contents of the archive, what the registration reads on the mount.
+        public ContentFile Header => new(HeaderName, 0, _headerLength);
 
         public IReadOnlyList<ContentFile> Files => _files;
         public ContentFile Manifest => _files[_manifest];
@@ -162,8 +163,8 @@ namespace Internal
             if (_rootFiles == null || _objects == null || _scenes == null)
                 throw new InvalidDataException($"The content index {_name} misses its roots, objects or scenes");
 
-            if (_isPreloaded && _isBrotli)
-                throw new InvalidDataException($"The content index {_name} is preloaded and brotli at once: the .data file is compressed whole");
+            if (_headerLength <= 0 || _archiveLength <= _headerLength)
+                throw new InvalidDataException($"The content index {_name} has an archive of {_archiveLength} bytes with a header of {_headerLength}");
 
             CheckIndex(_manifest, "the manifest");
 
@@ -171,14 +172,20 @@ namespace Internal
                 throw new InvalidDataException($"The manifest of the content index {_name} is {_files[_manifest].Name}, not {_manifestHash}.json");
 
             var names = new HashSet<string>();
+            var end = _headerLength;
 
             foreach (var file in _files)
             {
-                if (string.IsNullOrEmpty(file.Name) || file.Size < 0)
+                if (string.IsNullOrEmpty(file.Name) || file.Name == HeaderName || file.Size <= 0)
                     throw new InvalidDataException($"The content index {_name} has a broken file {file}");
 
                 if (names.Add(file.Name) == false)
                     throw new InvalidDataException($"The content index {_name} lists the file {file.Name} twice");
+
+                if (file.Offset < end || file.End > _archiveLength)
+                    throw new InvalidDataException($"The content index {_name} puts {file} before the end {end} of the file before it or past the archive of {_archiveLength} bytes");
+
+                end = file.End;
             }
 
             foreach (var file in _rootFiles)

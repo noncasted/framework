@@ -1,43 +1,25 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Text;
 using Cysharp.Threading.Tasks;
 
 namespace Internal
 {
-    // Fetches the files of a content directory into the emscripten file system of the page (WebContentFetch.jslib),
-    // where the native reads of the engine find them; the bytes never pass through managed code. The responses are kept
-    // in the Cache API of the page (the cache "content", keyed by the URL), so the next opening reads them from there:
-    // safe because every file is named by the hash of its content. Without the Cache API (plain http) every opening
-    // fetches, the page logs it once. A download is aborted (AbortController) when its lifetime ends. WebGL player only.
-    // A directory shipped with brotli (ContentIndex.IsBrotli) is fetched as <name>.br: the server sends Content-Encoding: br,
-    // the browser decodes it, the cache keeps the real bytes; a file that comes in at another size fails the fetch.
-    // At most Limit fetches go to the server at once (the page queues the others in the order they started and holds a
-    // slot until the body is read); reads from the cache of the page take no slot.
-    internal sealed class WebContentFetch : IContentFileSource
+    // The fetches of a WebGL player into the emscripten file system of the page (WebContentFetch.jslib), where the native
+    // reads of the engine find the bytes; they never pass through managed code. The responses are kept in the Cache API of
+    // the page (the cache "content"), so the next opening reads them from there: safe because the index and the archive
+    // are named by the hash of the build. Without the Cache API (plain http) every opening fetches, the page logs it once.
+    // A fetch is aborted (AbortController) when its lifetime ends. At most Limit requests go to the server at once (the
+    // page queues the others in the order they started and holds a slot until the body is read); reads from the cache of
+    // the page take no slot. WebGL player only.
+    internal static class WebContentFetch
     {
         private const int Running = 0;
         private const int Fetched = 1;
         private const int Failed = 2;
         private const int Cached = 3;
 
-        // url: the folder of the directory, StreamingAssets of the build or a CDN; suffix: ContentIndex.ShippedSuffix.
-        public WebContentFetch(string url, string suffix)
-        {
-            _url = url;
-            _suffix = suffix;
-        }
-
-        private readonly string _url;
-        private readonly string _suffix;
-
-        public string Url(ContentFile file)
-        {
-            return $"{_url}/{file.Name}{_suffix}";
-        }
-
-        // The fetches of the page that go to the server at once (ContentOptions.MaxFetches), for every directory.
+        // The requests of the page that go to the server at once (ContentOptions.MaxFetches), for every directory.
         public static void Limit(int fetches)
         {
             if (fetches < 1)
@@ -46,23 +28,35 @@ namespace Internal
             WebContentFetch_Limit(fetches);
         }
 
-        // Removes from the cache of the page every file the index does not name: the files of the builds before.
-        public void KeepOnly(ContentIndex index)
-        {
-            var urls = new StringBuilder();
-
-            foreach (var file in index.Files)
-                urls.Append(Url(file)).Append('\n');
-
-            WebContentFetch_KeepOnly(urls.ToString());
-        }
-
-        public async UniTask Fetch(IReadOnlyLifetime lifetime, ContentFile file, string path)
+        // A whole file of unknown size into path (the index), kept in the cache by its URL.
+        public static UniTask File(IReadOnlyLifetime lifetime, string url, string path)
         {
             lifetime.Token.ThrowIfCancellationRequested();
+            return Await(lifetime, WebContentFetch_Start(url, path), $"{url} into {path}");
+        }
 
-            var url = Url(file);
-            var fetch = WebContentFetch_Start(url, path, file.Size, _suffix.Length > 0);
+        // The bytes [offset, offset + length) of url written at the same offset of the file at path (it exists at its
+        // full length). files: "<offset>:<length>" of each file wholly inside, a line each: the cache keeps every one apart.
+        public static UniTask Range(IReadOnlyLifetime lifetime, string url, string path, long offset, long length, string files)
+        {
+            lifetime.Token.ThrowIfCancellationRequested();
+            return Await(lifetime, WebContentFetch_StartRange(url, path, offset, length, files), $"{url} [{offset}, {offset + length}) into {path}");
+        }
+
+        // The writes of the fetches after this keep the times the file at path has now.
+        public static void Pin(string path)
+        {
+            WebContentFetch_Pin(path);
+        }
+
+        // Removes from the cache of the page every entry of another URL than these: the files of the builds before.
+        public static void KeepOnly(params string[] urls)
+        {
+            WebContentFetch_KeepOnly(string.Join("\n", urls));
+        }
+
+        private static async UniTask Await(IReadOnlyLifetime lifetime, int fetch, string what)
+        {
             var isOver = false;
 
             try
@@ -80,7 +74,7 @@ namespace Internal
                     if (status != Running)
                     {
                         isOver = true;
-                        throw new IOException($"[Content] Fetching {url} into {path} failed with the status {status} (the reason is in the console of the page)");
+                        throw new IOException($"[Content] Fetching {what} failed with the status {status} (the reason is in the console of the page)");
                     }
 
                     await UniTask.Yield(lifetime.Token);
@@ -93,9 +87,11 @@ namespace Internal
             }
         }
 
-        // encoded: the URL is a compressed file the server must send with its Content-Encoding (for the message of a failure).
         [DllImport("__Internal")]
-        private static extern int WebContentFetch_Start(string url, string path, double size, bool encoded);
+        private static extern int WebContentFetch_Start(string url, string path);
+
+        [DllImport("__Internal")]
+        private static extern int WebContentFetch_StartRange(string url, string path, double offset, double length, string files);
 
         // Running, Fetched, Cached or Failed; a finished fetch is forgotten once its status is read.
         [DllImport("__Internal")]
@@ -107,7 +103,10 @@ namespace Internal
         [DllImport("__Internal")]
         private static extern void WebContentFetch_Limit(int fetches);
 
-        // The URLs to keep, one per line.
+        [DllImport("__Internal")]
+        private static extern void WebContentFetch_Pin(string path);
+
+        // The URLs to keep, one per line; an entry is kept when its URL without the query is one of them.
         [DllImport("__Internal")]
         private static extern void WebContentFetch_KeepOnly(string urls);
     }

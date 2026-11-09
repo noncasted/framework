@@ -8,11 +8,12 @@ using UnityEngine;
 namespace Internal
 {
     // Packs a built content directory into one archive of the engine (UnityFS, the blocks LZ4HC) in the order of first
-    // use (ContentArchiveOrder): <output>/content0.archive, the name the registration mounts, next to
-    // BuildManifestHash.txt. A WebGL player fetches the spans of the files it loads with Range requests.
+    // use (ContentArchiveOrder): <output>/content0.archive (ContentPaths.ArchiveFile), the name the registration mounts,
+    // next to BuildManifestHash.txt. A WebGL player fetches the spans of the files it loads with Range requests.
     public static class ContentArchiveWriter
     {
-        public const string FileName = "content0.archive";
+        // The archive of the content directory of the player build: Library/ContentArchive/<name>.
+        public const string Output = "Library/ContentArchive";
 
         public static ContentArchiveLayout Write(ContentManifest manifest, string output)
         {
@@ -30,7 +31,7 @@ namespace Internal
                 })
                 .ToArray();
 
-            var path = Path.Combine(output, FileName);
+            var path = Path.Combine(output, ContentPaths.ArchiveFile);
             ContentBuildInterface.ArchiveAndCompress(files, path, BuildCompression.LZ4);
 
             if (File.Exists(path) == false)

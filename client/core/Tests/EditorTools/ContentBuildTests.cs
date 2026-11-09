@@ -13,7 +13,7 @@ using UnityEngine;
 namespace Internal.EditorTests
 {
     // The content build of a player build without the player: the directory of Framework.json is built into
-    // Library/Content, its index goes into Resources and its preload manifest into Library for the time of the build;
+    // Library/Content and archived, its stamp goes into Resources and its preload manifest into Library for the time of the build;
     // a broken lazy reference fails it. Framework.json is put back after every test.
     public class ContentBuildTests
     {
@@ -78,7 +78,7 @@ namespace Internal.EditorTests
         {
             EditorTestAssets.DeleteFolder(TempFolder);
 
-            foreach (var folder in new[] { $"{ContentBuild.Output}/{Name}", $"{ContentBrotli.Output}/{Name}" })
+            foreach (var folder in new[] { $"{ContentBuild.Output}/{Name}", $"{ContentArchiveWriter.Output}/{Name}", $"{ContentShipment.Output}/{Name}" })
             {
                 if (Directory.Exists(folder))
                     Directory.Delete(folder, true);
@@ -105,22 +105,24 @@ namespace Internal.EditorTests
         }
 
         [Test]
-        public void Prepare_BuildsTheDirectoryAndBakesItsIndex()
+        public void Prepare_BuildsTheDirectoryItsArchiveAndBakesItsStamp()
         {
             WriteSettings(RootPath, true);
 
             var output = ContentBuild.Prepare(BuildTarget.WebGL);
-            var asset = Resources.Load<TextAsset>(ContentPaths.IndexResource(Name));
-            var index = ContentIndex.FromJson(asset.text);
+            var stamp = Stamp();
+            var index = ContentIndex.FromJson(File.ReadAllText($"{output.Shipped}/{ContentPaths.IndexFile(stamp.ManifestHash)}"));
             var root = ObjectFiles(index, AssetDatabase.LoadAssetAtPath<ContentTestRoot>(RootPath));
 
             Assert.That(ContentBuild.Current, Is.SameAs(output));
             Assert.That(output.Folder, Is.EqualTo($"{ContentBuild.Output}/{Name}"));
             Assert.That(File.Exists($"{output.Folder}/{ContentManifest.HashFile}"), Is.True, "The manifest hash");
+            Assert.That(stamp.ManifestHash, Is.EqualTo(output.Index.ManifestHash));
             Assert.That(index.Name, Is.EqualTo(Name));
             Assert.That(index.Files, Is.EqualTo(output.Index.Files));
             Assert.That(index.RootFiles, Is.EqualTo(root), "The root files are the files of the root");
             Assert.That(index.Files.Select(file => File.Exists($"{output.Folder}/{file.Name}")), Has.All.True);
+            Assert.That(new FileInfo($"{output.Shipped}/{ContentPaths.ArchiveFile}").Length, Is.EqualTo(index.ArchiveLength));
             Assert.That(ContentTestBuildStep.Calls, Is.EqualTo(1), "The step before the content build");
         }
 
@@ -139,14 +141,15 @@ namespace Internal.EditorTests
         }
 
         [Test]
-        public void Prepare_ListsAPreloadedDirectoryForTheDataOfWebGl()
+        public void Prepare_ListsThePreloadedArchiveForTheDataOfWebGl()
         {
             WriteSettings(RootPath, true);
 
-            var output = ContentBuild.Prepare(BuildTarget.WebGL);
-            var expected = output.Index.Files.Select(file => $"Content/{Name}/{file.Name}").Append($"Content/{Name}/{ContentManifest.HashFile}");
+            ContentBuild.Prepare(BuildTarget.WebGL);
+            var expected = new[] { $"Content/{Name}/{ContentPaths.ArchiveFile}", $"Content/{Name}/{ContentManifest.HashFile}" };
 
-            Assert.That(File.ReadAllLines(ContentBuildFiles.PreloadManifest), Is.EquivalentTo(expected));
+            Assert.That(File.ReadAllLines(ContentBuildFiles.PreloadManifest), Is.EquivalentTo(expected), "The index stays a file to fetch");
+            Assert.That(Stamp().IsPreloaded, Is.True);
         }
 
         [Test]
@@ -157,66 +160,79 @@ namespace Internal.EditorTests
             ContentBuild.Prepare(BuildTarget.WebGL);
 
             Assert.That(File.Exists(ContentBuildFiles.PreloadManifest), Is.False);
+            Assert.That(Stamp().IsPreloaded, Is.False);
         }
 
         [Test]
-        public void Prepare_ShipsBrotliFilesOfAFetchedDirectoryOfWebGlWithBrotli()
+        public void Prepare_ShipsTheArchiveOfTheBuildAndABrotliIndexForWebGlWithBrotli()
         {
             WriteSettings(RootPath, false);
             Compress(WebGLCompressionFormat.Brotli, false);
 
             var output = ContentBuild.Prepare(BuildTarget.WebGL);
-            var index = ContentIndex.FromJson(Resources.Load<TextAsset>(ContentPaths.IndexResource(Name)).text);
-            var expected = index.Files.Select(file => file.Name + ".br");
+            var hash = output.Index.ManifestHash;
+            var expected = new[] { $"{hash}.archive", $"{hash}.index.json.br" };
 
-            Assert.That(index.IsBrotli, Is.True, "The baked index");
-            Assert.That(output.Shipped, Is.EqualTo($"{ContentBrotli.Output}/{Name}"));
-            Assert.That(Directory.GetFiles(output.Shipped).Select(Path.GetFileName), Is.EquivalentTo(expected), "Only the files of the index");
+            Assert.That(Stamp().IsIndexBrotli, Is.True, "The baked stamp");
+            Assert.That(output.Shipped, Is.EqualTo($"{ContentShipment.Output}/{Name}"));
+            Assert.That(Directory.GetFiles(output.Shipped).Select(Path.GetFileName), Is.EquivalentTo(expected), "The archive and the index only");
+            Assert.That(File.ReadAllBytes($"{output.Shipped}/{hash}.archive"),
+                Is.EqualTo(File.ReadAllBytes($"{ContentArchiveWriter.Output}/{Name}/{ContentPaths.ArchiveFile}")), "The archive as it is");
 
-            foreach (var file in index.Files)
-            {
-                using var brotli = BrotliStreams.Decompress(File.OpenRead($"{output.Shipped}/{file.Name}.br"));
-                using var bytes = new MemoryStream();
-                brotli.CopyTo(bytes);
-
-                Assert.That(bytes.ToArray(), Is.EqualTo(File.ReadAllBytes($"{output.Folder}/{file.Name}")), file.Name);
-            }
+            using var brotli = BrotliStreams.Decompress(File.OpenRead($"{output.Shipped}/{hash}.index.json.br"));
+            using var reader = new StreamReader(brotli);
+            Assert.That(ContentIndex.FromJson(reader.ReadToEnd()).Files, Is.EqualTo(output.Index.Files));
         }
 
         [Test]
-        public void Prepare_ShipsRawFilesWithoutBrotli()
+        public void Prepare_ShipsARawIndexWithoutBrotli()
         {
             WriteSettings(RootPath, false);
             Compress(WebGLCompressionFormat.Gzip, false);
 
             var output = ContentBuild.Prepare(BuildTarget.WebGL);
+            var hash = output.Index.ManifestHash;
 
-            Assert.That(output.Index.IsBrotli, Is.False);
-            Assert.That(output.Shipped, Is.EqualTo(output.Folder));
+            Assert.That(Stamp().IsIndexBrotli, Is.False);
+            Assert.That(Directory.GetFiles(output.Shipped).Select(Path.GetFileName), Is.EquivalentTo(new[] { $"{hash}.archive", $"{hash}.index.json" }));
         }
 
         [Test]
-        public void Prepare_ShipsRawFilesOfAPreloadedDirectory()
+        public void Prepare_ShipsTheArchiveAsMountedForAPreloadedDirectory()
         {
             WriteSettings(RootPath, true);
             Compress(WebGLCompressionFormat.Brotli, false);
 
             var output = ContentBuild.Prepare(BuildTarget.WebGL);
 
-            Assert.That(output.Index.IsBrotli, Is.False, "The .data file is compressed whole");
-            Assert.That(output.Shipped, Is.EqualTo(output.Folder));
+            Assert.That(Stamp().IsIndexBrotli, Is.False, "The .data file is compressed whole");
+            AssertReadInPlace(output);
         }
 
         [Test]
-        public void Prepare_ShipsRawFilesOfAStandalonePlayer()
+        public void Prepare_ShipsTheArchiveAsMountedForAStandalonePlayer()
         {
             WriteSettings(RootPath, false);
             Compress(WebGLCompressionFormat.Brotli, false);
 
             var output = ContentBuild.Prepare(BuildTarget.StandaloneLinux64);
 
-            Assert.That(output.Index.IsBrotli, Is.False);
-            Assert.That(output.Shipped, Is.EqualTo(output.Folder));
+            Assert.That(Stamp().IsIndexBrotli, Is.False);
+            Assert.That(Stamp().IsPreloaded, Is.False);
+            AssertReadInPlace(output);
+        }
+
+        private static void AssertReadInPlace(ContentBuildOutput output)
+        {
+            var expected = new[] { ContentPaths.ArchiveFile, ContentManifest.HashFile, ContentPaths.IndexFile(output.Index.ManifestHash) };
+
+            Assert.That(output.Shipped, Is.EqualTo($"{ContentArchiveWriter.Output}/{Name}"));
+            Assert.That(Directory.GetFiles(output.Shipped).Select(Path.GetFileName), Is.EquivalentTo(expected));
+        }
+
+        private static ContentStamp Stamp()
+        {
+            return ContentStamp.FromJson(Resources.Load<TextAsset>(ContentPaths.StampResource(Name)).text);
         }
 
         [Test]
@@ -232,7 +248,7 @@ namespace Internal.EditorTests
         }
 
         [Test]
-        public void Cleanup_RemovesTheIndexAndThePreloadManifest()
+        public void Cleanup_RemovesTheStampAndThePreloadManifest()
         {
             WriteSettings(RootPath, true);
             ContentBuild.Prepare(BuildTarget.WebGL);
@@ -240,9 +256,9 @@ namespace Internal.EditorTests
             ContentBuild.Cleanup();
 
             Assert.That(ContentBuild.Current, Is.Null);
-            Assert.That(AssetDatabase.IsValidFolder(ContentBuildFiles.IndexFolder), Is.False);
-            Assert.That(Directory.Exists(ContentBuildFiles.IndexFolder), Is.False);
-            Assert.That(File.Exists($"{ContentBuildFiles.IndexFolder}.meta"), Is.False);
+            Assert.That(AssetDatabase.IsValidFolder(ContentBuildFiles.StampFolder), Is.False);
+            Assert.That(Directory.Exists(ContentBuildFiles.StampFolder), Is.False);
+            Assert.That(File.Exists($"{ContentBuildFiles.StampFolder}.meta"), Is.False);
             Assert.That(File.Exists(ContentBuildFiles.PreloadManifest), Is.False);
         }
 

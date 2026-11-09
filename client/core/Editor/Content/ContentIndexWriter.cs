@@ -1,22 +1,27 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
 namespace Internal
 {
-    // Computes the index of a built content directory from its manifest: every file of the folder with its size, the
-    // root files, and the files of every object and scene a Loadable or a LoadableSceneId may load. isPreloaded: the
-    // files go into the .data file of a WebGL build; isBrotli: they are shipped compressed as <name>.br.
+    // Computes the index of a built content directory from its manifest and its archive (ContentArchiveWriter): every
+    // file of the folder with its span in the archive, in the order of the archive, the root files, and the files of
+    // every object and scene a Loadable or a LoadableSceneId may load.
     public static class ContentIndexWriter
     {
-        public static ContentIndex Write(ContentManifest manifest, bool isPreloaded, bool isBrotli)
+        public static ContentIndex Write(ContentManifest manifest, ContentArchiveLayout layout)
         {
-            var files = Directory.GetFiles(manifest.Folder)
-                .Select(path => new FileInfo(path))
-                .Where(file => file.Name != ContentManifest.HashFile)
-                .OrderBy(file => file.Name, StringComparer.Ordinal)
-                .Select(file => new ContentFile(file.Name, file.Length))
+            var names = Directory.GetFiles(manifest.Folder)
+                .Select(Path.GetFileName)
+                .Where(name => name != ContentManifest.HashFile)
+                .ToHashSet();
+
+            if (names.SetEquals(layout.Files.Keys) == false)
+                throw new InvalidDataException($"The archive of the content directory {manifest.Name} holds other files than its folder {manifest.Folder}");
+
+            var files = layout.Files
+                .Select(pair => new ContentFile(pair.Key, pair.Value.Offset, pair.Value.Length))
+                .OrderBy(file => file.Offset)
                 .ToArray();
 
             var positions = new Dictionary<string, int>();
@@ -38,13 +43,13 @@ namespace Internal
             return new ContentIndex(
                 manifest.Name,
                 manifest.Hash,
+                layout.Length,
+                layout.HeaderLength,
                 files,
                 Position(manifest.FileName),
                 Positions(closure.Of(manifest.Roots)),
                 objects,
-                scenes,
-                isPreloaded,
-                isBrotli);
+                scenes);
 
             int[] Positions(IReadOnlyList<string> names)
             {

@@ -7,11 +7,11 @@ namespace Internal
     /// <summary>
     ///     Builds the content directory of the project (<see cref="FrameworkSettings.ContentDirectory" />) together with
     ///     every player build: the roots (<see cref="IContentBuildStep" />), the directory in Library/Content/&lt;name&gt;,
-    ///     the check of its lazy references, its index and the log of its sizes. The player gets the folder (its brotli files
-    ///     for a WebGL build with brotli, <see cref="ContentBrotli" />) as StreamingAssets/Content/&lt;name&gt;
-    ///     (<see cref="ContentBuildPlayerProcessor" />) and the index as a json
-    ///     TextAsset in Resources; a preloaded directory of a WebGL build goes into the .data file. The temporary files are
-    ///     removed after the build, also a failed one.
+    ///     the check of its lazy references, its archive in the order of first use (<see cref="ContentArchiveWriter" />),
+    ///     its index and the log of its sizes. The player gets the archive and the index (<see cref="ContentShipment" />)
+    ///     as StreamingAssets/Content/&lt;name&gt; (<see cref="ContentBuildPlayerProcessor" />) and the stamp
+    ///     (<see cref="ContentStamp" />) as a json TextAsset in Resources; a preloaded archive of a WebGL build goes into
+    ///     the .data file. The temporary files are removed after the build, also a failed one.
     ///     <para>
     ///         A build through <see cref="PlayerBuildSteps" /> prepares the directory in <see cref="BeforeBuild" />; any
     ///         other build (the build window, a script of a game) in <see cref="ContentBuildPlayerProcessor" />.
@@ -49,22 +49,24 @@ namespace Internal
 
             // Only WebGL fetches StreamingAssets: elsewhere the files are on the disk of the player already.
             var preloaded = directory.IsPreloaded && target == BuildTarget.WebGL;
-
+            var fetched = target == BuildTarget.WebGL && preloaded == false;
             var brotli = ContentBrotli.IsShipped(target, preloaded);
 
-            var index = ContentIndexWriter.Write(manifest, preloaded, brotli);
-            var shipped = brotli ? ContentBrotli.Write(index, manifest.Folder) : manifest.Folder;
+            var archive = $"{ContentArchiveWriter.Output}/{manifest.Name}";
+            var index = ContentIndexWriter.Write(manifest, ContentArchiveWriter.Write(manifest, archive));
+            var shipped = ContentShipment.Write(index, archive, fetched, brotli);
+            var stamp = new ContentStamp(index.ManifestHash, preloaded, brotli);
             ContentBuildLog.Write(manifest, index, shipped);
-            ContentBuildFiles.WriteIndex(index);
+            ContentBuildFiles.WriteStamp(index.Name, stamp);
 
             if (preloaded)
                 ContentBuildFiles.WritePreloadManifest(index);
 
             Debug.Log($"[ContentBuild] {index.Name} for {target}: StreamingAssets/{ContentPaths.Directory(index.Name)} from {shipped}" +
                       (preloaded ? $", preloaded ({ContentBuildFiles.PreloadManifest})" : string.Empty) +
-                      $", index {ContentBuildFiles.IndexAsset(index.Name)}");
+                      $", stamp {ContentBuildFiles.StampAsset(index.Name)}");
 
-            Current = new ContentBuildOutput(directory, manifest.Folder, shipped, index, reportDirectory);
+            Current = new ContentBuildOutput(directory, manifest.Folder, shipped, index, stamp, reportDirectory);
             return Current;
         }
 

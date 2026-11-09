@@ -5,8 +5,8 @@ using UnityEngine;
 
 namespace Internal
 {
-    // The log of a built content directory: the number of files, the raw size and the size the player downloads (the
-    // brotli files, or the raw ones when it gets them uncompressed), the files no load needs
+    // The log of a built content directory: the number of files, the raw size, the bytes of the archive (LZ4) and of
+    // everything the player gets (the archive and the index), the files no load needs
     // and the built-in resources the build copied into the directory (a warning with their names: they come with every
     // scene or material that references them and are better cut at the source, see m_LightingDataAsset).
     public static class ContentBuildLog
@@ -20,11 +20,11 @@ namespace Internal
 
         public static void Write(ContentManifest manifest, ContentIndex index, string shipped)
         {
-            var raw = index.Files.Sum(file => file.Size);
-            var bytes = ContentBrotli.ShippedBytes(index, shipped);
+            var raw = index.Files.Sum(file => new FileInfo(Path.Combine(manifest.Folder, file.Name)).Length);
+            var bytes = Directory.GetFiles(shipped).Sum(path => new FileInfo(path).Length);
 
-            Debug.Log($"[ContentBuild] {index.Name}: {index.Files.Count} files, {raw} bytes raw, {bytes} bytes shipped " +
-                      $"({(index.IsBrotli ? "brotli" : "uncompressed")}); " +
+            Debug.Log($"[ContentBuild] {index.Name}: {index.Files.Count} files, {raw} bytes raw, archive {index.ArchiveLength} bytes " +
+                      $"(header {index.Header.Size}), {bytes} bytes shipped in {shipped}; " +
                       $"root files {index.RootFiles.Count} ({index.RootFiles.Sum(file => file.Size)} bytes), " +
                       $"{index.Objects.Count} objects, {index.Scenes.Count} scenes");
 

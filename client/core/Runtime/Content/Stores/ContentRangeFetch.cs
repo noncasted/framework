@@ -3,14 +3,14 @@ using Cysharp.Threading.Tasks;
 
 namespace Internal
 {
-    // One download of a file of a content directory and the lifetimes waiting for it. The download has a lifetime of
-    // its own, ended when the last waiter is gone: the source aborts it and writes nothing.
-    internal sealed class ContentFileFetch
+    // One request for a range of the archive of a content directory and the lifetimes waiting for it. The request has a
+    // lifetime of its own, ended when the last waiter is gone: the source aborts it and writes nothing.
+    internal sealed class ContentRangeFetch
     {
-        public ContentFileFetch(ContentFileFetches owner, ContentFile file)
+        public ContentRangeFetch(ContentFileFetches owner, ContentRange range)
         {
             _owner = owner;
-            File = file;
+            Range = range;
         }
 
         private readonly ContentFileFetches _owner;
@@ -18,9 +18,9 @@ namespace Internal
         private readonly UniTaskCompletionSource _completion = new();
         private int _waiters;
 
-        public ContentFile File { get; }
+        public ContentRange Range { get; }
 
-        public void Start(IContentFileSource source, string path)
+        public void Start(IContentRangeSource source, string path)
         {
             Run(source, path).Forget();
         }
@@ -49,11 +49,11 @@ namespace Internal
         }
 
         // The top of a task nobody awaits: the outcome goes to the waiters through the completion.
-        private async UniTaskVoid Run(IContentFileSource source, string path)
+        private async UniTaskVoid Run(IContentRangeSource source, string path)
         {
             try
             {
-                await source.Fetch(_download, File, path);
+                await source.Fetch(_download, Range, path);
             }
             catch (OperationCanceledException) when (_download.IsTerminated)
             {

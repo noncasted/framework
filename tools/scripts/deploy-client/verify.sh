@@ -21,9 +21,9 @@ verify_target() {
     done
 
     # The content directory of this build (Content of ProjectSettings/Framework.json, built into Library/Content/<name>):
-    # its index is inside the player (Resources, in the .data file) and, unless it is preloaded into the .data file too,
-    # its files are next to the player in StreamingAssets/Content/<name> as <file>.br (the build is brotli), each one the
-    # file of Library/Content/<name> once decompressed.
+    # its stamp is inside the player (Resources, in the .data file) and, unless it is preloaded into the .data file too,
+    # the archive of Library/ContentArchive/<name> and its index are next to the player in StreamingAssets/Content/<name>
+    # as <hash>.archive (as it is) and <hash>.index.json.br (the build is brotli).
     content_check "$copy/client" "$output" "$started" failed
     content="$CONTENT_SUMMARY"
 
@@ -59,7 +59,7 @@ verify_target() {
 # "<client folder>" "<output>" "<start epoch>" "<name of the failures array>". Appends its failures to that array and
 # leaves a short summary in CONTENT_SUMMARY.
 content_check() {
-    local client="$1" output="$2" started="$3" name preloaded built hash shipped data expected actual broken raw bytes
+    local client="$1" output="$2" started="$3" name preloaded built hash shipped data expected actual archive files index raw bytes
     local -n failures="$4"
     CONTENT_SUMMARY="content ?"
 
@@ -84,13 +84,13 @@ content_check() {
         return
     fi
 
-    # The index carries the hash of the manifest it was written from. grep reads the whole stream (-c, not -q): an early
+    # The stamp carries the hash of the manifest the directory was built with. grep reads the whole stream (-c, not -q): an early
     # exit would kill brotli with SIGPIPE, and pipefail of the caller fails the pipeline although the hash is there.
     data="$(find "$output/Build" -maxdepth 1 -name '*.data.br' 2>/dev/null | head -1)"
     if [[ -z "$data" ]]; then
         : # reported by the payload check
     elif ! brotli -dc "$data" | grep -acF -- "$hash" >/dev/null; then
-        failures+=("the .data file has no index of the content directory $name ($hash)")
+        failures+=("the .data file has no stamp of the content directory $name ($hash)")
     fi
 
     if [[ "$preloaded" == true ]]; then
@@ -103,20 +103,24 @@ content_check() {
         failures+=("no StreamingAssets/Content/$name")
         return
     fi
-    # Exactly the files of the directory, BuildManifestHash.txt aside (the player writes it from its index), the manifest
-    # among them; then every one decompressed against the built file, in parallel.
-    expected="$(cd "$built" && find . -type f ! -name BuildManifestHash.txt -printf '%P.br\n' | sort)"
+    # Exactly the archive and the index of this build; the archive the one of Library/ContentArchive/<name>, the index of
+    # its hash, its length and every file of the directory, BuildManifestHash.txt aside (the player writes it).
+    expected="$(printf '%s\n' "$hash.archive" "$hash.index.json.br" | sort)"
     actual="$(cd "$shipped" && find . -type f -printf '%P\n' | sort)"
     if [[ "$expected" != "$actual" ]]; then
-        failures+=("StreamingAssets/Content/$name is not the brotli files of Library/Content/$name (an uncompressed or a stale directory)")
+        failures+=("StreamingAssets/Content/$name is not $hash.archive and $hash.index.json.br (a stale or an uncompressed directory)")
         return
     fi
-    [[ -f "$shipped/$hash.json.br" ]] || failures+=("StreamingAssets/Content/$name has no manifest $hash.json.br")
-    broken="$(cd "$built" && find . -type f ! -name BuildManifestHash.txt -printf '%P\0' |
-        xargs -0 -r -n 64 -P "$(nproc)" sh -c 'for f; do brotli -dc "$0/$f.br" 2>/dev/null | cmp -s - "$f" || echo "$f"; done' "$(realpath "$shipped")" |
-        wc -l)"
-    ((broken == 0)) || failures+=("StreamingAssets/Content/$name: $broken files do not decompress into the files of Library/Content/$name")
-    raw="$(find "$built" -type f ! -name BuildManifestHash.txt -printf '%s\n' | awk '{ s += $1 } END { print s + 0 }')"
+    archive="$client/Library/ContentArchive/$name/content0.archive"
+    cmp -s "$archive" "$shipped/$hash.archive" || failures+=("StreamingAssets/Content/$name/$hash.archive is not $archive")
+    [[ "$(head -c 7 "$shipped/$hash.archive")" == UnityFS ]] || failures+=("$hash.archive is no UnityFS archive (compressed again?)")
+    files="$(find "$built" -type f ! -name BuildManifestHash.txt | wc -l)"
+    index="$(brotli -dc "$shipped/$hash.index.json.br" 2>/dev/null |
+        jq -r '"\(._manifestHash) \(._archiveLength) \(._files | length)"' 2>/dev/null || true)"
+    raw="$(stat -c %s "$shipped/$hash.archive")"
+    [[ "$index" == "$hash $raw $files" ]] ||
+        failures+=("the index of $name is '$index', not '$hash $raw $files' (hash, archive bytes, files)")
     bytes="$(find "$shipped" -type f -printf '%s\n' | awk '{ s += $1 } END { print s + 0 }')"
-    CONTENT_SUMMARY="content $name ($(wc -l <<<"$actual") files, $bytes bytes brotli of $raw raw)"
+    CONTENT_SUMMARY="content $name ($files files, archive $raw bytes, $bytes bytes shipped)"
+
 }

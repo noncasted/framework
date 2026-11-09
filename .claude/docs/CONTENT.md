@@ -28,14 +28,18 @@ player build. Addressables are gone from the framework. Code: `client/core/Runti
 - **Counted per reference instance.** Two loads of the same `ContentReference` share one engine load, released when the last lifetime
   ends; two references to one target are two `Loadable`s the engine counts itself and gives one object. One download per file: two
   loads that need one file wait for one fetch.
-- **Zeros + fetch.** A fetched store writes the manifest and the files of the roots, and zeros of the real size for every other file;
-  the engine lists the folder once at the registration and never reads a lazy target before its load, so a load first fetches its
-  real files over the zeros.
-- **A queue of fetches.** A level asks for thousands of files at once; started together they exhaust the browser
-  (`net::ERR_INSUFFICIENT_RESOURCES`, the load fails with `IOException`). `WebContentFetch.jslib` lets at most
-  `ContentOptions.MaxFetches` (64 by default: a 10 Mbit link with 150 ms of latency stays busy with files of a few KB over HTTP/2)
-  go to the server at once; the others wait in the order they were asked for, a slot is held until the body is read, a read from
-  the Cache API takes none, an abort in the queue starts nothing.
+- **One archive, zeros + Range.** The directory ships as one archive of the engine (UnityFS, LZ4 blocks) in the order of first use: the
+  manifest, the closure of the roots, the closure of every scene, of every object. A fetched store writes the archive as zeros of its full
+  length, fetches its header (the table of contents) with the manifest and the roots, and registers it; the engine reads the header on the
+  mount and the blocks of a file only when it opens the file, so a load first fetches the spans of its files over the zeros
+  (`ContentIndex`: every file with its offset and size in the archive). Files at most `ContentOptions.RangeGap` (16 KiB) apart go into one
+  Range request with the bytes between them (`ContentRanges`): a level of thousands of files takes tens of requests.
+- **The times of the archive are pinned.** The engine refuses an archive changed after the mount (`Archive file was modified while it was
+  opened`); MEMFS sets `mtime` on every write, so `WebContentFetch_Pin` records the times of its node before the registration and every
+  write puts them back. That leans on the inside of the emscripten of Unity (`node.mtime / ctime / atime`): a node without them throws.
+- **A queue of requests.** `WebContentFetch.jslib` / `WebContentQueue.jslib` let at most `ContentOptions.MaxFetches` (64) requests go to
+  the server at once (too many exhaust the browser, `net::ERR_INSUFFICIENT_RESOURCES`); the others wait in the order they were asked for,
+  a slot is held until the body is read, a read from the Cache API takes none, an abort in the queue starts nothing.
 - **The directory is never unregistered while the game runs.** `UnregisterContentDirectory` destroys every object loaded from it,
   and a second registration of the same folder gives new instances: the directory lives as long as the root scope.
 
@@ -85,61 +89,63 @@ var icon = _content.LoadNow(lifetime, reference);                         // onl
 `deploy-client`) and a `BuildPlayerProcessor` for the build window and `-build*Player`. It:
 
 1. calls every `IContentBuildStep` (the `ContentRoot` generator);
-2. builds the directory into `Library/Content/<name>` (`FailBuildWhenErrorsLogged`);
+2. builds the directory into `Library/Content/<name>` (`FailBuildWhenErrorsLogged | DisableWriteTypeTree | SerializeUnityVersion`: no type
+   trees, about 2/3 of the bytes; safe because the directory is built with every player, so both serialize the same types. The editor
+   registers no directory without type trees: the test builds keep them);
 3. checks the lazy references of the assets and scenes of the directory: empty, pointing outside it, a GUID / local id that differs
    from the id (`... (assign it in the inspector)`) - errors with the list, the build fails;
-4. writes the index (`ContentIndex`: files with sizes, manifest hash, files of the roots, files of each object and scene) as
-   `Assets/FrameworkContentIndex/Resources/Content/<name>.json`, read synchronously at the start; the folder is deleted after the build;
+4. packs it into `Library/ContentArchive/<name>` (`ContentArchiveWriter`: `ArchiveAndCompress` LZ4 in the order of `ContentArchiveOrder`,
+   `content0.archive` + `BuildManifestHash.txt`; `ContentArchiveReader` reads the table of contents back for the spans) and writes the index
+   (`ContentIndex`: archive length, header, files with their spans, manifest hash, files of the roots, of each object and scene) as
+   `<hash>.index.json`; the player gets only the stamp (`ContentStamp`: hash, preloaded, brotli index) as
+   `Assets/FrameworkContentStamp/Resources/Content/<name>.json`, read synchronously at the start; the folder is deleted after the build;
 5. gives the player build the build report directory of the content build (`BuildHistory`, its `ScriptsOnlyCache.yaml`:
    scripts, serialized classes, native classes of the directory) through `AddPreviousBuildReportDirectory`, so the linker keeps the
    types only the directory uses; without it a level loses its `CircleCollider2D` (`contained objects with undefined types ...
    stripped`). A content build without that file fails;
-6. adds the folder to `StreamingAssets/Content/<name>` of the player (`AddAdditionalPathToStreamingAssets`, nothing in `Assets`), or,
-   with `IsPreloaded` on WebGL, into the `.data` file (`Library/PlayerDataCache/WebGLPreloadedStreamingAssets/framework-content.manifest`);
-7. a fetched directory of a WebGL build with brotli compression (`PlayerSettings.WebGL.compressionFormat`, the build profile) is shipped
-   compressed: `ContentBrotli` writes `<file>.br` of every file of the index (quality 11, in parallel, anew each build) into
-   `Library/ContentBrotli/<name>`, and that folder becomes `StreamingAssets/Content/<name>` (no `BuildManifestHash.txt`: the player writes
-   it from the index); the index says `IsBrotli`. Gzip, no compression, standalone and a preloaded directory ship the raw files. Brotli
-   with the decompression fallback fails the build (the loader would decode its own files, the fetches would get raw `.br` bytes).
+6. adds the shipped folder (`ContentShipment`) to `StreamingAssets/Content/<name>` of the player (`AddAdditionalPathToStreamingAssets`,
+   nothing in `Assets`): read in place (standalone, `IsPreloaded` on WebGL) - the archive folder with `<hash>.index.json` in it, the
+   preloaded archive into the `.data` file (`Library/PlayerDataCache/WebGLPreloadedStreamingAssets/framework-content.manifest`; the index
+   stays a file fetched at the start, not verified on a game: none preloads); fetched by WebGL - `Library/ContentShipped/<name>` with
+   `<hash>.archive` (the archive as it is) and `<hash>.index.json`, `.br` with brotli compression (`ContentBrotli`). Brotli with the
+   decompression fallback fails the build (the loader would decode its own files, the fetch of the index would get raw `.br` bytes).
 
 The build fails without the `Content` section. File names are hashes, so a changed asset is a new URL. Two builds of one tree give the
 same manifest hash (checked on `ContentSmoke`: 4 builds in 2 editor processes, one hash).
 
-**The server of a brotli directory** sends `<file>.br` with `Content-Encoding: br`, as `Build/*.br` of Unity: the generic `\.br$` rule
-of nginx, `lan/serve.py` and `stand/serve_tls.py` of `device-lab` do it already. The browser decodes it, `WebContentFetch` checks the size
-against the index and keeps the real bytes in the Cache API (one decode per file, no decoder in JavaScript). A browser decodes `br` only in a
-secure context: a LAN build over http is uncompressed (WebGL troubleshooting P3), so its content is raw too. A file of another size (no
-`Content-Encoding`, an `index.html` for a missing file) fails the load with `N bytes instead of M from the server: the server must send
-the file with Content-Encoding: br ...` and stays out of the cache. The names are hashes: `Cache-Control: immutable` is safe; a missing
-file should be a 404.
+**The server** sends `<hash>.index.json.br` with `Content-Encoding: br`, as `Build/*.br` of Unity (the generic `\.br$` rule of nginx,
+`lan/serve.py`, `stand/serve_tls.py`); an index that comes in still compressed is no json and fails with `... is no json: the server must send
+a .br file with Content-Encoding: br`. It answers Range requests of `<hash>.archive` with `206` and the bytes as they are: `Accept-Ranges:
+bytes`, **no `Content-Encoding`** (no `gzip on` for it). Anything else (`200` with the whole file, another length, an encoding) fails the
+load with its reason in the console. Both names are of one build: `Cache-Control: immutable` is safe; a missing file should be a 404.
 
 ## Stores
 
 | Player | Store | Behaviour |
 |---|---|---|
 | Standalone, WebGL with `IsPreloaded` | `LocalContentStore` | registers `StreamingAssets/Content/<name>` as is, fetch does nothing |
-| WebGL | `FetchedContentStore` over `WebContentFetch` | zeros + fetch into `temporaryCachePath/Content/<name>`; files from `<remoteUrl or StreamingAssets>/Content/<name>/` (`<file>.br` when `IsBrotli`), stored in the Cache API (`caches.open('content')`, keyed by URL), so the next opening makes no request; at start every cached URL the index does not name is deleted; without Cache API (plain http) only `fetch` and one log line |
+| WebGL | `FetchedContentStore` over `WebContentArchive` | the index from `<remoteUrl or StreamingAssets>/Content/<name>/<hash>.index.json[.br]` (`WebContentIndex`, its hash checked against the stamp); `content0.archive` of zeros + `BuildManifestHash.txt` in `temporaryCachePath/Content/<name>`, ranges of `<hash>.archive` written at their offsets; the Cache API (`caches.open('content')`) keeps the index by URL and every file of a range by `<url>?offset=<n>` (the Cache API ignores a fragment), a range comes from it when it holds all its files; at start every cached entry of another URL is deleted; without Cache API (plain http) only `fetch` and one log line |
 | Play Mode of the editor | `EditorContentDirectory` | nothing built or registered: `Loadable` and `LoadableSceneId` give the assets and scenes of the project (`AssetDatabase`), `Release` does not destroy them; the roots come from `Content.Roots` |
 
 ## Telemetry and problems
 
 - Every load is `AssetLoads.Begin("Content: <guid>")` -> `Finish("Content: <name>")` (scenes `Content: scene ...`) and a span
   `GameProfiler.Concurrent("Content: <type>")`: the marks `load.*` of the client telemetry and the startup trace.
-- The build log (`[ContentBuild]`): `<name>: N files, raw, shipped (brotli | uncompressed); root files, objects, scenes` (shipped: the
-  bytes of the files the player downloads), files no load needs, and a warning
+- The build log (`[ContentBuild]`): `<name>: N files, raw, archive (header), shipped in <folder>; root files, objects, scenes` (shipped:
+  the archive and the index), files no load needs, and a warning
   `built-in resources in the directory: unity_builtin_extra (...)` - a scene with `m_LightingDataAsset {20201, unity_builtin_extra}`
   copies ~0.5 MB of built-in resources into the directory (clear the field when nothing is baked; `m_SpotCookie` of `RenderSettings`
   costs nothing).
-- `deploy-client` checks each WebGL output (`verify.sh`, needs `brotli`): `Library/Content/<name>` fresh, its manifest hash inside the
-  `.data` (the index), without `IsPreloaded` `StreamingAssets/Content/<name>` exactly the `<file>.br` of the built files, the manifest
-  among them, each decompressing into the built file.
+- `deploy-client` checks each WebGL output (`verify.sh`, needs `brotli`, `jq`): `Library/Content/<name>` fresh, its manifest hash inside
+  the `.data` (the stamp), without `IsPreloaded` `StreamingAssets/Content/<name>` exactly `<hash>.archive` (the one of
+  `Library/ContentArchive/<name>`, `UnityFS`) and `<hash>.index.json.br` (its hash, the archive length, every built file).
 - `[Content] ... needs a fetch: load it with Load` - `LoadNow` of a remote object; `... is requested, read it after the build of the
   scope` - `ContentSlot.Value` too early; `... has no GUID: it was not assigned in the editor` - a reference written without the drawer.
 
 ## Limits (Unity 7000.0.0a10)
 
-- Content directories are an alpha API; remote delivery is not supported officially: zeros + fetch rely on the behaviour, not on a
-  contract. A new alpha may break it: run the content tests (`Content*`, `AssetGroupTests`) and the variant
+- Content directories are an alpha API; remote delivery is not supported officially: zeros + Range rely on the behaviour (a lazy archive,
+  the times of MEMFS), not on a contract. A new alpha may break it: run the content tests (`Content*`, `AssetGroupTests`) and the variant
   `content-directory-single` of `client/measurements` (branch `content-loading-size`) after every Unity upgrade.
 - The manifest format (`BuildManifestHash.txt` -> `<hash>.json`, version 3) is read by `ContentManifest` only; another version throws.
 - A `Loadable` / `LoadableSceneId` in a scene of the player is erased by the build: start lazy loads from the root.

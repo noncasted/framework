@@ -1,28 +1,31 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using Cysharp.Threading.Tasks;
 
 namespace Internal
 {
-    // The files of one fetched content directory: which are real already and which are on their way. A file is fetched
-    // once for all callers: two loads that need it wait for one download, and the download is aborted only when every
-    // lifetime waiting for it has ended. Main thread only.
+    // The files of the archive of one fetched content directory: which are real already and which are on their way.
+    // The files a fetch needs that are neither go out as ranges (ContentRanges); a file is fetched once for all callers:
+    // two loads that need it wait for one request, and a request is aborted only when every lifetime waiting for it has
+    // ended. Main thread only.
     internal sealed class ContentFileFetches
     {
-        public ContentFileFetches(IContentFileSource source, string folder)
+        public ContentFileFetches(IContentRangeSource source, string archive, ContentRanges ranges)
         {
             _source = source;
-            _folder = folder;
+            _archive = archive;
+            _ranges = ranges;
         }
 
-        private readonly IContentFileSource _source;
-        private readonly string _folder;
+        private readonly IContentRangeSource _source;
+        private readonly string _archive;
+        private readonly ContentRanges _ranges;
         private readonly HashSet<string> _real = new();
-        private readonly Dictionary<string, ContentFileFetch> _running = new();
+        private readonly Dictionary<string, ContentRangeFetch> _running = new();
+        private readonly HashSet<ContentRangeFetch> _requests = new();
 
-        // The downloads going on now.
-        public int Running => _running.Count;
+        // The requests going on now.
+        public int Running => _requests.Count;
 
         public bool IsReal(ContentFile file)
         {
@@ -34,48 +37,83 @@ namespace Internal
             lifetime.Token.ThrowIfCancellationRequested();
 
             var bytes = 0L;
-            var waits = new List<UniTask>(files.Count);
+            var waits = new Dictionary<ContentRangeFetch, long>();
+            var needed = new List<ContentFile>();
+            var seen = new HashSet<string>();
 
             foreach (var file in files)
             {
-                if (_real.Contains(file.Name))
-                {
-                    bytes += file.Size;
+                if (seen.Add(file.Name) == false)
                     continue;
-                }
 
-                if (_running.TryGetValue(file.Name, out var fetch) == false)
-                {
-                    fetch = new ContentFileFetch(this, file);
-                    _running.Add(file.Name, fetch);
-                    fetch.Start(_source, Path.Combine(_folder, file.Name));
-                }
-
-                waits.Add(Wait(fetch));
+                if (_real.Contains(file.Name))
+                    bytes += file.Size;
+                else if (_running.TryGetValue(file.Name, out var running))
+                    Add(running, file);
+                else
+                    needed.Add(file);
             }
 
-            progress?.Report(bytes);
-            await UniTask.WhenAll(waits);
+            needed.Sort((a, b) => a.Offset.CompareTo(b.Offset));
 
-            async UniTask Wait(ContentFileFetch fetch)
+            foreach (var range in _ranges.Merge(needed))
+            {
+                var fetch = new ContentRangeFetch(this, range);
+                _requests.Add(fetch);
+
+                foreach (var file in range.Files)
+                {
+                    if (_real.Contains(file.Name) == false && _running.ContainsKey(file.Name) == false)
+                        _running.Add(file.Name, fetch);
+                }
+
+                fetch.Start(_source, _archive);
+            }
+
+            foreach (var file in needed)
+                Add(_running[file.Name], file);
+
+            progress?.Report(bytes);
+
+            var tasks = new List<UniTask>(waits.Count);
+
+            foreach (var pair in waits)
+                tasks.Add(Wait(pair.Key, pair.Value));
+
+            await UniTask.WhenAll(tasks);
+
+            void Add(ContentRangeFetch fetch, ContentFile file)
+            {
+                waits.TryGetValue(fetch, out var sum);
+                waits[fetch] = sum + file.Size;
+            }
+
+            async UniTask Wait(ContentRangeFetch fetch, long size)
             {
                 await fetch.Wait(lifetime);
-                bytes += fetch.File.Size;
+                bytes += size;
                 progress?.Report(bytes);
             }
         }
 
-        internal void OnFetched(ContentFileFetch fetch)
+        internal void OnFetched(ContentRangeFetch fetch)
         {
-            _real.Add(fetch.File.Name);
+            foreach (var file in fetch.Range.Files)
+                _real.Add(file.Name);
+
             Forget(fetch);
         }
 
-        // Failed or abandoned: the file is zeros, the next load fetches it again.
-        internal void Forget(ContentFileFetch fetch)
+        // Failed or abandoned: its files are zeros, the next load fetches them again.
+        internal void Forget(ContentRangeFetch fetch)
         {
-            if (_running.TryGetValue(fetch.File.Name, out var running) && running == fetch)
-                _running.Remove(fetch.File.Name);
+            _requests.Remove(fetch);
+
+            foreach (var file in fetch.Range.Files)
+            {
+                if (_running.TryGetValue(file.Name, out var running) && running == fetch)
+                    _running.Remove(file.Name);
+            }
         }
     }
 }

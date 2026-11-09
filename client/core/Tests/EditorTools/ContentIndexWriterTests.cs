@@ -24,7 +24,10 @@ namespace Internal.EditorTests
         private const string Output = "Temp/ContentIndexTests";
         private const string Name = "Tests";
 
+        private const string ArchiveFolder = Output + "/Archive";
+
         private ContentManifest _manifest;
+        private ContentArchiveLayout _layout;
         private ContentIndex _index;
 
         [OneTimeSetUp]
@@ -62,7 +65,8 @@ namespace Internal.EditorTests
             Assert.That(report.summary.result, Is.EqualTo(BuildResult.Succeeded), "The build of the content directory");
 
             _manifest = ContentManifest.Read($"{Output}/{Name}");
-            _index = ContentIndexWriter.Write(_manifest, false, false);
+            _layout = ContentArchiveWriter.Write(_manifest, ArchiveFolder);
+            _index = ContentIndexWriter.Write(_manifest, _layout);
         }
 
         [OneTimeTearDown]
@@ -98,10 +102,10 @@ namespace Internal.EditorTests
         [Test]
         public void Archive_GivesEveryFileItsOwnSpanInTheOrderOfFirstUse()
         {
-            var output = $"{Output}/Archive";
-            var layout = ContentArchiveWriter.Write(_manifest, output);
+            var output = ArchiveFolder;
+            var layout = _layout;
             var order = ContentArchiveOrder.Of(_manifest);
-            var path = $"{output}/{ContentArchiveWriter.FileName}";
+            var path = $"{output}/{ContentPaths.ArchiveFile}";
 
             Assert.That(layout.Length, Is.EqualTo(new FileInfo(path).Length));
             Assert.That(File.ReadAllText($"{output}/{ContentManifest.HashFile}"), Is.EqualTo(File.ReadAllText($"{Output}/{Name}/{ContentManifest.HashFile}")));
@@ -142,18 +146,22 @@ namespace Internal.EditorTests
         }
 
         [Test]
-        public void Index_ListsEveryFileOfTheFolderWithItsSize()
+        public void Index_ListsEveryFileOfTheFolderWithItsSpanInTheOrderOfTheArchive()
         {
             var folder = $"{Output}/{Name}";
-            var expected = Directory.GetFiles(folder)
-                .Select(path => new ContentFile(Path.GetFileName(path), new FileInfo(path).Length))
-                .Where(file => file.Name != ContentManifest.HashFile)
-                .OrderBy(file => file.Name, StringComparer.Ordinal);
+            var expected = _layout.Files
+                .Select(pair => new ContentFile(pair.Key, pair.Value.Offset, pair.Value.Length))
+                .OrderBy(file => file.Offset);
 
             Assert.That(_index.Name, Is.EqualTo(Name));
             Assert.That(_index.ManifestHash, Is.EqualTo(File.ReadAllText($"{folder}/{ContentManifest.HashFile}").Trim()));
             Assert.That(_index.Manifest.Name, Is.EqualTo($"{_index.ManifestHash}.json"));
             Assert.That(_index.Files, Is.EqualTo(expected));
+            Assert.That(_index.Files.Select(file => file.Name), Is.EquivalentTo(Directory.GetFiles(folder).Select(Path.GetFileName)
+                .Where(name => name != ContentManifest.HashFile)));
+            Assert.That(_index.ArchiveLength, Is.EqualTo(_layout.Length));
+            Assert.That(_index.Header, Is.EqualTo(new ContentFile(ContentIndex.HeaderName, 0, _layout.HeaderLength)));
+            Assert.That(_index.Files[0], Is.EqualTo(_index.Manifest), "The manifest first, right after the header");
         }
 
         [Test]
@@ -208,20 +216,30 @@ namespace Internal.EditorTests
         }
 
         [Test]
-        public void Json_KeepsBrotli()
+        public void Json_KeepsTheArchive()
         {
-            var brotli = ContentIndexWriter.Write(_manifest, false, true);
-            var read = ContentIndex.FromJson(brotli.ToJson());
+            var read = ContentIndex.FromJson(_index.ToJson());
 
-            Assert.That(read.IsBrotli, Is.True);
-            Assert.That(read.ShippedSuffix, Is.EqualTo(".br"));
-            Assert.That(ContentIndex.FromJson(_index.ToJson()).ShippedSuffix, Is.Empty);
+            Assert.That(read.ArchiveLength, Is.EqualTo(_index.ArchiveLength));
+            Assert.That(read.Header, Is.EqualTo(_index.Header));
         }
 
         [Test]
-        public void Write_ThrowsOnAPreloadedBrotliDirectory()
+        public void Index_ThrowsOnSpansThatOverlapOrLeaveTheArchive()
         {
-            Assert.Throws<InvalidDataException>(() => ContentIndexWriter.Write(_manifest, true, true));
+            var manifest = _index.Manifest;
+            var overlapping = new ContentFile("other.cf", manifest.End - 1, 8);
+            var outside = new ContentFile("other.cf", manifest.End, _index.ArchiveLength);
+
+            Assert.Throws<InvalidDataException>(() => IndexOf(manifest, overlapping));
+            Assert.Throws<InvalidDataException>(() => IndexOf(manifest, outside));
+            Assert.Throws<InvalidDataException>(() => IndexOf(new ContentFile(manifest.Name, 0, manifest.Size)), "Over the header");
+        }
+
+        private ContentIndex IndexOf(params ContentFile[] files)
+        {
+            return new ContentIndex(Name, _index.ManifestHash, _index.ArchiveLength, _index.Header.Size, files, 0, Array.Empty<int>(),
+                Array.Empty<ContentObjectFiles>(), Array.Empty<ContentSceneFiles>());
         }
 
         [Test]

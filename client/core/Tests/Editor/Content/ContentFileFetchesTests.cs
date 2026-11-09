@@ -9,16 +9,21 @@ using UnityEngine.TestTools;
 
 namespace Internal.Tests
 {
-    // One download per file of a fetched content directory: callers that need one file wait for one download, which is
-    // aborted only when every waiting lifetime has ended; the caller of an ended lifetime gets OperationCanceledException,
-    // the file stays zeros and nothing is logged.
+    // One request per range of the archive of a fetched content directory: callers that need one file wait for one
+    // request, which is aborted only when every waiting lifetime has ended; the caller of an ended lifetime gets
+    // OperationCanceledException, the bytes stay zeros and nothing is logged. Files at most the gap apart come in one
+    // request, the files between them with it.
     public class ContentFileFetchesTests
     {
-        private static readonly ContentFile Shared = new("shared.cf", 16);
-        private static readonly ContentFile Other = new("other.cf", 8);
+        private const long Gap = 16;
+        private static readonly ContentFile Shared = new("shared.cf", 100, 16);
+        private static readonly ContentFile Between = new("between.cf", 118, 8);
+        private static readonly ContentFile Next = new("next.cf", 130, 8);
+        private static readonly ContentFile Other = new("other.cf", 200, 8);
 
         private string _folder;
-        private GatedContentFileSource _source;
+        private string _archive;
+        private GatedContentRangeSource _source;
         private ContentFileFetches _fetches;
 
         [SetUp]
@@ -30,11 +35,11 @@ namespace Internal.Tests
                 Directory.Delete(_folder, true);
 
             Directory.CreateDirectory(_folder);
-            File.WriteAllBytes(PathOf(Shared), new byte[Shared.Size]);
-            File.WriteAllBytes(PathOf(Other), new byte[Other.Size]);
+            _archive = Path.Combine(_folder, ContentPaths.ArchiveFile);
+            File.WriteAllBytes(_archive, new byte[Other.End]);
 
-            _source = new GatedContentFileSource();
-            _fetches = new ContentFileFetches(_source, _folder);
+            _source = new GatedContentRangeSource();
+            _fetches = new ContentFileFetches(_source, _archive, new ContentRanges(new[] { Shared, Between, Next, Other }, Gap));
         }
 
         [TearDown]
@@ -52,7 +57,7 @@ namespace Internal.Tests
             var a = _fetches.Fetch(first, new[] { Shared, Other }, null).Preserve();
             var b = _fetches.Fetch(second, new[] { Shared }, null).Preserve();
 
-            CollectionAssert.AreEqual(new[] { Shared.Name, Other.Name }, _source.Started);
+            Assert.AreEqual(2, _source.Started.Count, "Too far apart for one request");
             Assert.AreEqual(2, _fetches.Running);
 
             _source.Open(Shared);
@@ -62,10 +67,10 @@ namespace Internal.Tests
             _source.Open(Other);
             await a;
 
-            CollectionAssert.AreEqual(new[] { Shared.Name, Other.Name }, _source.Started, "One download per file");
+            Assert.AreEqual(2, _source.Started.Count, "One request per file");
             Assert.IsTrue(_fetches.IsReal(Shared) && _fetches.IsReal(Other));
             Assert.AreEqual(0, _fetches.Running);
-            Assert.IsTrue(File.ReadAllBytes(PathOf(Shared)).All(value => value == GatedContentFileSource.Value));
+            Assert.IsTrue(BytesOf(Shared).All(value => value == GatedContentRangeSource.Value));
 
             // Real files are not fetched again.
             await _fetches.Fetch(new Lifetime(), new[] { Shared }, null);
@@ -82,10 +87,10 @@ namespace Internal.Tests
             lifetime.Terminate();
 
             await AssertCanceled(fetch);
-            CollectionAssert.AreEqual(new[] { Shared.Name }, _source.Aborted, "Nobody else needs the file: aborted");
+            Assert.AreEqual(1, _source.Aborted.Count, "Nobody else needs the file: aborted");
             Assert.IsFalse(_fetches.IsReal(Shared));
             Assert.AreEqual(0, _fetches.Running);
-            Assert.IsTrue(File.ReadAllBytes(PathOf(Shared)).All(value => value == 0), "The file stays zeros");
+            Assert.IsTrue(BytesOf(Shared).All(value => value == 0), "The file stays zeros");
 
             // The next load fetches it anew.
             var again = _fetches.Fetch(new Lifetime(), new[] { Shared }, null).Preserve();
@@ -118,6 +123,43 @@ namespace Internal.Tests
         });
 
         [UnityTest]
+        public IEnumerator NeighboursWithinTheGap_OneRequest_FileBetweenRealProgressOfTheAsked() => UniTask.ToCoroutine(async () =>
+        {
+            var reported = 0L;
+            var fetch = _fetches.Fetch(new Lifetime(), new[] { Next, Shared, Shared }, new Reported(bytes => reported = bytes)).Preserve();
+
+            Assert.AreEqual(1, _source.Started.Count);
+            var range = _source.Started[0];
+            Assert.AreEqual(Shared.Offset, range.Offset);
+            Assert.AreEqual(Next.End, range.End);
+            CollectionAssert.AreEqual(new[] { Shared, Between, Next }, range.Files);
+
+            _source.Open(Shared);
+            await fetch;
+
+            Assert.IsTrue(_fetches.IsReal(Between), "Brought by the request of its neighbours");
+            Assert.AreEqual(Shared.Size + Next.Size, reported, "The bytes of the files asked for, each once");
+
+            // A file the request brought is not fetched again.
+            await _fetches.Fetch(new Lifetime(), new[] { Between }, null);
+            Assert.AreEqual(1, _source.Started.Count);
+            LogAssert.NoUnexpectedReceived();
+        });
+
+        [UnityTest]
+        public IEnumerator FileOfARunningRequest_WaitsForIt() => UniTask.ToCoroutine(async () =>
+        {
+            var first = _fetches.Fetch(new Lifetime(), new[] { Shared, Next }, null).Preserve();
+            var second = _fetches.Fetch(new Lifetime(), new[] { Between }, null).Preserve();
+
+            Assert.AreEqual(1, _source.Started.Count, "The file between is on its way already");
+            _source.Open(Between);
+            await second;
+            await first;
+            LogAssert.NoUnexpectedReceived();
+        });
+
+        [UnityTest]
         public IEnumerator EndedLifetime_Throws_StartsNothing() => UniTask.ToCoroutine(async () =>
         {
             var lifetime = new Lifetime();
@@ -141,9 +183,21 @@ namespace Internal.Tests
             Assert.Fail("Expected OperationCanceledException");
         }
 
-        private string PathOf(ContentFile file)
+        private byte[] BytesOf(ContentFile file)
         {
-            return Path.Combine(_folder, file.Name);
+            return File.ReadAllBytes(_archive).Skip((int)file.Offset).Take((int)file.Size).ToArray();
+        }
+    
+        private sealed class Reported : IProgress<long>
+        {
+            public Reported(Action<long> report)
+            {
+                _report = report;
+            }
+
+            private readonly Action<long> _report;
+
+            public void Report(long value) => _report(value);
         }
     }
 }
