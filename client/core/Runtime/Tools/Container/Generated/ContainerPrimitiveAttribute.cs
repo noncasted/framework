@@ -18,7 +18,10 @@ namespace Internal
         Inject = 9,
         Injectable = 10,
         Instantiate = 11,
-        SceneServices = 12
+        SceneServices = 12,
+
+        // Loads content for the scope and registers nothing: LoadContent, RequestContent.
+        Content = 13
     }
 
     [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = false)]

@@ -10,6 +10,14 @@ namespace Internal
     // Scope scenes: everything loaded or created here is unloaded together with the scope.
     public class ServiceScopeSceneLoader
     {
+        public ServiceScopeSceneLoader(IReadOnlyLifetime lifetime, ScopeContent content)
+        {
+            _lifetime = lifetime;
+            _content = content;
+        }
+
+        private readonly IReadOnlyLifetime _lifetime;
+        private readonly ScopeContent _content;
         private readonly List<ILoadedScene> _results = new();
 
         public IReadOnlyList<ILoadedScene> Results => _results;
@@ -38,6 +46,14 @@ namespace Internal
             var result = new LoadedScene(handle);
             _results.Add(result);
 
+            return result;
+        }
+
+        // A scene of the content directory, loaded on the lifetime of the scope; the dispose of the scope waits for its unload.
+        public async UniTask<ILoadedScene> Load(ContentScene scene, bool isMain = false)
+        {
+            var result = await _content.Loader.LoadScene(_lifetime, scene, isMain);
+            _results.Add(result);
             return result;
         }
 

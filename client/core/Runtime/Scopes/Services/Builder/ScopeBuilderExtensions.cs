@@ -18,7 +18,24 @@ namespace Internal
             using var scope = GameProfiler.Concurrent("Scene");
 
             var services = await builder.FindOrLoadScene<SceneServicesFactory>(scene, isMain);
+            CreateServices(builder, scope, services);
+        }
 
+        // A scene of the content directory; the generator merges in the services of its SceneServicesFactory (Scenes.X).
+        [ContainerPrimitive(ContainerPrimitive.SceneServices)]
+        public static async UniTask FindOrLoadSceneWithServices(
+            this IScopeBuilder builder,
+            ContentScene scene,
+            bool isMain = false)
+        {
+            using var scope = GameProfiler.Concurrent("Scene");
+
+            var services = await builder.FindOrLoadScene<SceneServicesFactory>(scene, isMain);
+            CreateServices(builder, scope, services);
+        }
+
+        private static void CreateServices(IScopeBuilder builder, IProfilerScope scope, SceneServicesFactory services)
+        {
             scope.SetName($"Scene: {services.gameObject.scene.name}");
             scope.Measure("Services", () => services.Create(builder));
         }

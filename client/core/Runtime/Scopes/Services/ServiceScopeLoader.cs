@@ -28,7 +28,10 @@ namespace Internal
             // extension: in the trace they go under the stage that the scope itself opened.
             using var stage = GameProfiler.Scope($"Scope: {sceneName}");
 
-            var sceneLoader = new ServiceScopeSceneLoader();
+            // The lifetime comes first: the scenes of the content directory are loaded on it.
+            var lifetime = options.Parent == null ? new Lifetime() : options.Parent.Lifetime.Child();
+            var content = new ScopeContent(options.Parent);
+            var sceneLoader = new ServiceScopeSceneLoader(lifetime, content);
             ScopeBuilder builder = null;
             IContainer container = null;
 
@@ -62,7 +65,7 @@ namespace Internal
             {
                 // A scope that failed to load is torn down as far as it got: otherwise its scenes stay loaded (a retry
                 // fails on a duplicate scene), its asset groups are never released and its lifetime outlives it.
-                await TearDownFailed(exception, builder, container, sceneLoader);
+                await TearDownFailed(exception, lifetime, builder, container, sceneLoader);
                 throw;
             }
 
@@ -93,24 +96,23 @@ namespace Internal
             {
                 if (options.Parent == null)
                 {
-                    var rootLifetime = new Lifetime();
-
                     return new ScopeBuilder(
-                        new ContainerBuilder(sceneName, rootLifetime),
+                        new ContainerBuilder(sceneName, lifetime),
                         sceneLoader,
+                        content,
                         binder,
-                        rootLifetime,
+                        lifetime,
                         null,
                         new EventLoop(),
                         options.IsMock);
                 }
 
-                var lifetime = options.Parent.Lifetime.Child();
                 var containerBuilder = new ContainerBuilder(sceneName, options.Parent.Container, lifetime);
 
                 return new ScopeBuilder(
                     containerBuilder,
                     sceneLoader,
+                    content,
                     binder,
                     lifetime,
                     options.Parent,
@@ -123,14 +125,14 @@ namespace Internal
         // released. An error of the teardown itself is not lost: it goes out together with the load error.
         private static async UniTask TearDownFailed(
             Exception failure,
+            ILifetime lifetime,
             ScopeBuilder builder,
             IContainer container,
             ServiceScopeSceneLoader sceneLoader)
         {
             var teardown = new ScopeTeardown();
 
-            if (builder != null)
-                teardown.Step(builder.ScopeLifetime.Terminate);
+            teardown.Step(lifetime.Terminate);
 
             if (container != null)
                 teardown.Step(container.Dispose);

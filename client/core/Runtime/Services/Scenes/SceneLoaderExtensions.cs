@@ -15,6 +15,12 @@ namespace Internal
             return result.Scene.GetRoot<T>();
         }
 
+        public static async UniTask<T> LoadTyped<T>(this ServiceScopeSceneLoader loader, ContentScene scene, bool isMain = false)
+        {
+            var result = await loader.Load(scene, isMain);
+            return result.Scene.GetRoot<T>();
+        }
+
         // The component of the type on a root object of the scene.
         public static T GetRoot<T>(this Scene scene)
         {
@@ -41,6 +47,24 @@ namespace Internal
                 return await utils.SceneLoader.LoadTyped<T>(scene, isMain);
 
             return FindInOpenScene<T>(scene.editorAsset.name);
+#else
+            return await utils.SceneLoader.LoadTyped<T>(scene, isMain);
+#endif
+        }
+
+        public static async UniTask<T> FindOrLoadScene<T>(
+            this IScopeBuilder utils,
+            ContentScene scene,
+            bool isMain = false)
+            where T : MonoBehaviour
+        {
+#if UNITY_EDITOR
+            var open = SceneManager.GetSceneByPath(scene.EditorPath);
+
+            if (utils.IsMock != true || open.IsValid() != true)
+                return await utils.SceneLoader.LoadTyped<T>(scene, isMain);
+
+            return FindInOpenScene<T>(open.name);
 #else
             return await utils.SceneLoader.LoadTyped<T>(scene, isMain);
 #endif

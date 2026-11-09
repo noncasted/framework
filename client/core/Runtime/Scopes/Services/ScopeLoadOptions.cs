@@ -60,5 +60,11 @@ namespace Internal
             SceneLoader = new AssetScene(asset);
             return this;
         }
+
+        public ScopeLoadOptions WithAssetScene(ContentScene scene)
+        {
+            SceneLoader = new ContentAssetScene(scene);
+            return this;
+        }
     }
 }

@@ -153,6 +153,7 @@ namespace Internal.Tests
             public IEventLoop Events { get; } = new EventLoop();
             public IReadOnlyLifetime Lifetime => _lifetime;
             public ServiceScopeSceneLoader SceneLoader => throw new NotSupportedException();
+            public ScopeContent Content => throw new NotSupportedException();
             public IServiceScopeBinder Binder => throw new NotSupportedException();
             public ILifetime ScopeLifetime => _lifetime;
             public bool IsMock => false;
