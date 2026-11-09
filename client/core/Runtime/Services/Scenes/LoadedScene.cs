@@ -1,6 +1,4 @@
 ﻿using Cysharp.Threading.Tasks;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 
 namespace Internal
@@ -11,13 +9,6 @@ namespace Internal
 
         UniTask Unload();
     }
-
-    public class LoadedScene : ILoadedScene
-    {
-        public LoadedScene(SceneInstance instance)
-        {
-            _instance = instance;
-        }
 
         private readonly SceneInstance _instance;
 

@@ -1,5 +1,4 @@
 using Cysharp.Threading.Tasks;
-using UnityEngine.AddressableAssets;
 
 namespace Internal
 {
@@ -36,16 +35,6 @@ namespace Internal
             return UniTask.FromResult<IServiceScopeBinder>(new ServiceScopeBinder(scene.Scene));
         }
     }
-
-    /// <summary>
-    /// The services scene is an asset with content the scope needs.
-    /// </summary>
-    public class AssetScene : IScopeServiceSceneLoader
-    {
-        public AssetScene(AssetReference asset)
-        {
-            _asset = asset;
-        }
 
         private readonly AssetReference _asset;
 

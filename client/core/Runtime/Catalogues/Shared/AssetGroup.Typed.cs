@@ -1,36 +1,36 @@
+using System;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace Internal
 {
-    // A group whose content lives in a single addressable ScriptableObject: the handle is held here,
-    // the generated classes only have to unpack the fields.
-    public abstract class AssetGroup<TAsset> : AssetGroup where TAsset : Object
+    // A group whose content lives in a single ScriptableObject of the content directory, referenced by the ContentRoot
+    // under the GUID of the asset: the load lifetime is held here, the generated classes only have to unpack the fields.
+    public abstract class AssetGroup<TAsset> : AssetGroup where TAsset : ScriptableObject
     {
-        private AsyncOperationHandle<TAsset> _handle;
-        private int _handleSession;
+        private ILifetime _lifetime;
+        private int _lifetimeSession;
 
         protected TAsset Asset { get; private set; }
 
-        protected async UniTask LoadAsset(string address)
+        // Fetches the files of the group asset when they are not real yet, then loads it.
+        protected async UniTask LoadAsset(string guid)
         {
-            _handle = Addressables.LoadAssetAsync<TAsset>(address);
-            _handleSession = Session;
-            Asset = await _handle.ToUniTask();
+            var reference = CatalogContent.Group(guid);
+            var lifetime = BeginLoad();
+            Asset = Cast(guid, await CatalogContent.Loader.Load(lifetime, reference));
         }
 
-        protected void LoadResource(string path)
+        // A preloaded group: its files are real since AddContent, so the load is synchronous.
+        protected void LoadPreloadedAsset(string guid)
         {
-            Asset = Resources.Load<TAsset>(path);
-
-            if (Asset == null)
-                throw new System.InvalidOperationException($"{Name} is missing at Resources/{path}");
+            var reference = CatalogContent.Group(guid);
+            var lifetime = BeginLoad();
+            Asset = Cast(guid, CatalogContent.Loader.LoadNow(lifetime, reference));
         }
 
-        // Without the asset the load of the handle has failed: the generated UnloadGroup unpacks the asset (an audio
-        // group releases its decoded clips), here only the failed handle is released.
+        // Without the asset the load has failed: the generated UnloadGroup unpacks the asset (an audio group releases
+        // its decoded clips), here only the load lifetime ends.
         protected override void UnloadFailedGroup()
         {
             if (Asset == null)
@@ -42,14 +42,32 @@ namespace Internal
             UnloadGroup();
         }
 
+        // Ends the load lifetime: the content loader releases the asset. A lifetime of a previous run belongs to a
+        // loader that is gone and is dropped.
         protected void UnloadAsset()
         {
             Asset = null;
 
-            if (_handleSession == Session && _handle.IsValid())
-                Addressables.Release(_handle);
+            if (_lifetime != null && _lifetimeSession == Session)
+                _lifetime.Terminate();
 
-            _handle = default;
+            _lifetime = null;
+        }
+
+        private ILifetime BeginLoad()
+        {
+            _lifetime = CatalogContent.Lifetime.Child();
+            _lifetimeSession = Session;
+            return _lifetime;
+        }
+
+        private TAsset Cast(string guid, ScriptableObject asset)
+        {
+            if (asset is TAsset typed)
+                return typed;
+
+            throw new InvalidOperationException(
+                $"{Name}: the group {guid} of the ContentRoot is a {asset.GetType().Name}, not a {typeof(TAsset).Name}");
         }
     }
 }

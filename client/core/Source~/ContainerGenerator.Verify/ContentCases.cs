@@ -2,7 +2,7 @@ using System;
 
 namespace ContainerGenerator.Verify {
     // The content of a scope: LoadContent / RequestContent load and register nothing, the scene anchor takes a
-    // ContentScene (Scenes.X) as well as an AssetReference (Scenes.X.Value).
+    // ContentScene (Scenes.X).
     internal static partial class Program {
         private static void RunContentCases() {
             Run("LoadContent and RequestContent are content primitives by the attribute", TestContentPrimitives);

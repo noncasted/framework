@@ -1,7 +1,6 @@
 using System;
 using System.Reflection;
 using Cysharp.Threading.Tasks;
-using UnityEngine.AddressableAssets;
 
 namespace Internal
 {
@@ -52,12 +51,6 @@ namespace Internal
         public ScopeLoadOptions WithRuntimeScene(string name)
         {
             SceneLoader = new RuntimeScene(name);
-            return this;
-        }
-
-        public ScopeLoadOptions WithAssetScene(AssetReference asset)
-        {
-            SceneLoader = new AssetScene(asset);
             return this;
         }
 

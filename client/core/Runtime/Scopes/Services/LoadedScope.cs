@@ -79,7 +79,7 @@ namespace Internal
             await teardown.StepAwaited(EventLoop.RunDispose);
             teardown.Step(_scopeLifetime.Terminate);
 
-            // On quit Unity unloads the scenes itself, and Addressables no longer knows their handles.
+            // On quit Unity unloads the scenes itself.
             if (ApplicationQuit.IsQuitting == false)
                 await teardown.StepAwaited(() => _scenes.InvokeAwaited(scene => scene.Unload()));
 

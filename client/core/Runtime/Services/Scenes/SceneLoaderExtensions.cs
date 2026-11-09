@@ -1,7 +1,6 @@
 ﻿using System;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
@@ -9,12 +8,6 @@ namespace Internal
 {
     public static class SceneLoaderExtensions
     {
-        public static async UniTask<T> LoadTyped<T>(this ServiceScopeSceneLoader loader, AssetReference scene, bool isMain = false)
-        {
-            var result = await loader.Load(scene, isMain);
-            return result.Scene.GetRoot<T>();
-        }
-
         public static async UniTask<T> LoadTyped<T>(this ServiceScopeSceneLoader loader, ContentScene scene, bool isMain = false)
         {
             var result = await loader.Load(scene, isMain);
@@ -34,22 +27,6 @@ namespace Internal
 
             // The scene stays in the results of the loader: the failed scope unloads it with its other scenes.
             throw new InvalidOperationException($"{typeof(T)} is not on a root object of the scene {scene.name}");
-        }
-
-        public static async UniTask<T> FindOrLoadScene<T>(
-            this IScopeBuilder utils,
-            AssetReference scene,
-            bool isMain = false)
-            where T : MonoBehaviour
-        {
-#if UNITY_EDITOR
-            if (utils.IsMock != true || SceneManager.GetSceneByName(scene.editorAsset.name).IsValid() != true)
-                return await utils.SceneLoader.LoadTyped<T>(scene, isMain);
-
-            return FindInOpenScene<T>(scene.editorAsset.name);
-#else
-            return await utils.SceneLoader.LoadTyped<T>(scene, isMain);
-#endif
         }
 
         public static async UniTask<T> FindOrLoadScene<T>(

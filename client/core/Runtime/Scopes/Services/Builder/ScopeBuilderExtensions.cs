@@ -1,27 +1,13 @@
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 using Object = UnityEngine.Object;
 
 namespace Internal
 {
     public static class ScopeBuilderExtensions
     {
-        [ContainerPrimitive(ContainerPrimitive.SceneServices)]
-        public static async UniTask FindOrLoadSceneWithServices(
-            this IScopeBuilder builder,
-            AssetReference scene,
-            bool isMain = false)
-        {
-            // The scenes of a scope load as a batch through WhenAll, so the span is concurrent.
-            // The scene name is unknown from the reference: it appears only after loading.
-            using var scope = GameProfiler.Concurrent("Scene");
-
-            var services = await builder.FindOrLoadScene<SceneServicesFactory>(scene, isMain);
-            CreateServices(builder, scope, services);
-        }
-
-        // A scene of the content directory; the generator merges in the services of its SceneServicesFactory (Scenes.X).
+        // A scene of the content directory, loaded as a batch through WhenAll (a concurrent span), its name known after
+        // the load. The generator merges in the services of its SceneServicesFactory (Scenes.X).
         [ContainerPrimitive(ContainerPrimitive.SceneServices)]
         public static async UniTask FindOrLoadSceneWithServices(
             this IScopeBuilder builder,

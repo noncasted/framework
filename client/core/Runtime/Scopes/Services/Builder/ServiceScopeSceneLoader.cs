@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 
 namespace Internal
@@ -21,33 +19,6 @@ namespace Internal
         private readonly List<ILoadedScene> _results = new();
 
         public IReadOnlyList<ILoadedScene> Results => _results;
-
-        public async UniTask<ILoadedScene> Load(AssetReference scene, bool isMain = false)
-        {
-            // The name of the scene is known only when it is loaded.
-            var load = AssetLoads.Begin("Scene");
-            SceneInstance handle;
-
-            try
-            {
-                handle = await Addressables.LoadSceneAsync(scene, LoadSceneMode.Additive).ToUniTask();
-            }
-            catch (Exception exception)
-            {
-                load.Fail(exception);
-                throw;
-            }
-
-            load.Finish($"Scene: {handle.Scene.name}");
-
-            if (isMain == true)
-                SceneManager.SetActiveScene(handle.Scene);
-
-            var result = new LoadedScene(handle);
-            _results.Add(result);
-
-            return result;
-        }
 
         // A scene of the content directory, loaded on the lifetime of the scope; the dispose of the scope waits for its unload.
         public async UniTask<ILoadedScene> Load(ContentScene scene, bool isMain = false)

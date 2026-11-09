@@ -23,7 +23,7 @@ namespace Internal
             Instances.Add(this);
         }
 
-        // Run number: handles of a previous run belong to an already recreated Addressables.
+        // Run number: the load lifetimes of a previous run belong to a content loader that is gone.
         protected static int Session { get; private set; }
 
         public bool IsLoaded { get; private set; }
@@ -32,9 +32,10 @@ namespace Internal
         // is taken from here rather than from GetType().
         public virtual string Name => GetType().Name;
 
-        // A group outside Addressables lives in Resources and ships in the player data: it needs no bundle,
-        // the first access loads it synchronously, so Retain is optional. There is no reason to unload it.
-        public virtual bool IsAddressable => true;
+        // A preloaded group has its files real from the start (fetched while AddContent binds the catalogues, or in
+        // the data of the player): the first access loads it synchronously, so Retain is optional. There is no reason
+        // to unload it.
+        public virtual bool IsPreloaded => false;
 
         // A retain counts from the call, not from the end of the load: its owner releases it also when the load
         // failed or has not finished yet (a scope disposed while its groups are loading).
@@ -64,7 +65,7 @@ namespace Internal
 
             _retainCount--;
 
-            if (_retainCount > 0 || IsAddressable == false)
+            if (_retainCount > 0 || IsPreloaded)
                 return;
 
             // A load in progress is not interrupted: it completes and, with nobody retaining the group, unloads what
@@ -83,7 +84,7 @@ namespace Internal
             if (IsLoaded)
                 return;
 
-            if (IsAddressable)
+            if (IsPreloaded == false)
                 throw new InvalidOperationException($"{Name} is not loaded");
 
             LoadImmediately();
@@ -100,10 +101,24 @@ namespace Internal
             UnloadGroup();
         }
 
-        // Only groups from Resources support synchronous loading.
+        // Only preloaded groups support synchronous loading.
         protected virtual void LoadImmediately()
         {
-            throw new NotSupportedException($"{Name} is addressable and loads only through Retain");
+            throw new NotSupportedException($"{Name} is not preloaded and loads only through Retain");
+        }
+
+        // The content the groups load from has ended (the root scope is gone, CatalogContent): what they loaded is
+        // destroyed with it. The retains stay counted, their owners release them after the lifetime of the root.
+        internal static void UnloadAll()
+        {
+            foreach (var group in Instances)
+            {
+                if (group.IsLoaded)
+                    group.UnloadGroup();
+
+                group.IsLoaded = false;
+                group._loading = null;
+            }
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -158,7 +173,7 @@ namespace Internal
             }
 
             // Released to zero while it was loading: what it loaded is unloaded at once.
-            if (_retainCount == 0 && IsAddressable == true)
+            if (_retainCount == 0 && IsPreloaded == false)
             {
                 _loading = null;
                 UnloadGroup();

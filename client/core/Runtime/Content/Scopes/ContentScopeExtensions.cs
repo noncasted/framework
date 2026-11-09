@@ -7,7 +7,7 @@ namespace Internal
     {
         // The root scope of the game, once: the content directory of the build in the store of the platform (a player),
         // the assets of the project (Play Mode of the editor), and IContentLoader over it. The directory lives as long as
-        // the root: its end destroys every object loaded from it.
+        // the root: its end destroys every object loaded from it. The generated catalogues load from it too (CatalogContent).
         public static async UniTask AddContent(this IScopeBuilder builder, ContentOptions options)
         {
             options.Validate();
@@ -15,6 +15,7 @@ namespace Internal
             var loader = await CreateLoader(builder.Lifetime, options);
 
             builder.Content.Use(loader);
+            await CatalogContent.Bind(builder.Lifetime, loader, loader.RootAssets<ContentRoot>());
             builder.RegisterInstance(loader).As<IContentLoader>();
         }
 
