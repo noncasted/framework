@@ -30,7 +30,7 @@ namespace ContentSmoke
         {
             try
             {
-                var loader = await ContentLoader.Register(_lifetime, Directory, null);
+                var loader = await ContentLoader.Register(_lifetime, new ContentOptions(Directory));
                 var root = loader.RootAssets<ContentSmokeRoot>().Single();
                 Debug.Log($"[ContentSmoke] registered {loader.Name}: root {root.name}, target {root.Target.Id}");
 

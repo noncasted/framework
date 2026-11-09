@@ -26,16 +26,16 @@ namespace Internal
 
         // Registers the content directory a player build carries (its index in Resources, its files in the store of the
         // platform) for the lifetime: when it ends the directory is unregistered and every object loaded from it is
-        // destroyed. remoteUrl: the folder of the content folders on a CDN (a WebGL player only), null for StreamingAssets.
-        public static async UniTask<ContentLoader> Register(IReadOnlyLifetime lifetime, string name, string remoteUrl)
+        // destroyed. The options name the directory and, for a WebGL player, where and how its files are fetched.
+        public static async UniTask<ContentLoader> Register(IReadOnlyLifetime lifetime, ContentOptions options)
         {
-            var json = Resources.Load<TextAsset>(ContentPaths.IndexResource(name));
+            var json = Resources.Load<TextAsset>(ContentPaths.IndexResource(options.Name));
 
             if (json == null)
-                throw new InvalidOperationException($"[Content] No index of the content directory {name} in Resources/{ContentPaths.IndexResource(name)}");
+                throw new InvalidOperationException($"[Content] No index of the content directory {options.Name} in Resources/{ContentPaths.IndexResource(options.Name)}");
 
             var index = ContentIndex.FromJson(json.text);
-            var directory = await ContentDirectory.Register(lifetime, index, ContentStores.Create(index, remoteUrl));
+            var directory = await ContentDirectory.Register(lifetime, index, ContentStores.Create(index, options));
             return new ContentLoader(directory);
         }
 

@@ -46,7 +46,7 @@ namespace Internal
             await UniTask.CompletedTask;
             return new ContentLoader(EditorContentDirectories.Create(options.Name));
 #else
-            return await ContentLoader.Register(lifetime, options.Name, options.RemoteUrl);
+            return await ContentLoader.Register(lifetime, options);
 #endif
         }
     }

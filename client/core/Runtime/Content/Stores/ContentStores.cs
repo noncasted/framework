@@ -7,14 +7,16 @@ namespace Internal
     // directory at all (EditorContentDirectory).
     internal static class ContentStores
     {
-        // remoteUrl: the folder of the content folders on a CDN (a WebGL player only), null for StreamingAssets of the build.
-        public static IContentStore Create(ContentIndex index, string remoteUrl)
+        // RemoteUrl of the options: the folder of the content folders on a CDN (a WebGL player only), null for StreamingAssets
+        // of the build; MaxFetches: the files on their way from the server at once.
+        public static IContentStore Create(ContentIndex index, ContentOptions options)
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
             if (index.IsPreloaded)
                 return new LocalContentStore(StreamingFolder(index));
 
-            var source = new WebContentFetch($"{remoteUrl ?? Application.streamingAssetsPath}/{ContentPaths.Directory(index.Name)}", index.ShippedSuffix);
+            var source = new WebContentFetch($"{options.RemoteUrl ?? Application.streamingAssetsPath}/{ContentPaths.Directory(index.Name)}", index.ShippedSuffix);
+            WebContentFetch.Limit(options.MaxFetches);
             source.KeepOnly(index);
             return new FetchedContentStore(source, $"{Application.temporaryCachePath}/{ContentPaths.Directory(index.Name)}");
 #else

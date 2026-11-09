@@ -5,8 +5,68 @@
 // by the server with Content-Encoding: br and decoded by the browser; the cache keeps the real bytes of a file whose size
 // is the one of the index. A file of another size (the encoding missing, plain http, an HTML page for a missing file)
 // fails the fetch with its reason and stays out of the cache.
+// At most `limit` fetches go to the server at once (WebContentFetch_Limit): a level asks for thousands of files, and so
+// many requests at once exhaust the browser (net::ERR_INSUFFICIENT_RESOURCES). The others wait in the order they
+// started; a slot is held until the body is read and is freed by an error or an abort too. A read from the cache takes
+// no slot.
 mergeInto(LibraryManager.library, {
-    $WebContentFetches: { next: 1, entries: {}, cache: null },
+    $WebContentFetches: { next: 1, entries: {}, cache: null, limit: 0, active: 0, waiting: [] },
+
+    // Resolves when a fetch may go to the server; rejects with an AbortError when the signal aborts it first.
+    $WebContentFetchSlot__deps: ['$WebContentFetches'],
+    $WebContentFetchSlot: function (signal) {
+        var fetches = WebContentFetches;
+
+        if (fetches.limit < 1)
+            throw new Error('[Content] WebContentFetch_Limit was not called');
+
+        return new Promise(function (resolve, reject) {
+            if (fetches.active < fetches.limit) {
+                fetches.active++;
+                resolve();
+                return;
+            }
+
+            var waiter = { resolve: resolve };
+            fetches.waiting.push(waiter);
+
+            signal.addEventListener('abort', function () {
+                var at = fetches.waiting.indexOf(waiter);
+
+                if (at >= 0) {
+                    fetches.waiting.splice(at, 1);
+                    reject(new DOMException('The fetch was aborted in the queue', 'AbortError'));
+                }
+            }, { once: true });
+        });
+    },
+
+    // The slot goes to the first waiter, or back to the pool.
+    $WebContentFetchFree__deps: ['$WebContentFetches'],
+    $WebContentFetchFree: function () {
+        var fetches = WebContentFetches;
+        var next = fetches.waiting.shift();
+
+        if (next === undefined)
+            fetches.active--;
+        else
+            next.resolve();
+    },
+
+    WebContentFetch_Limit__deps: ['$WebContentFetches'],
+    WebContentFetch_Limit: function (limit) {
+        if (limit < 1)
+            throw new Error('[Content] The limit of the fetches is ' + limit);
+
+        var fetches = WebContentFetches;
+        fetches.limit = limit;
+
+        // A higher limit lets the waiting fetches go now; a lower one takes effect as the running ones end.
+        while (fetches.waiting.length > 0 && fetches.active < limit) {
+            fetches.active++;
+            fetches.waiting.shift().resolve();
+        }
+    },
 
     // The cache of the page, or null without the Cache API (plain http, old browsers): then every opening fetches.
     $WebContentFetchCache__deps: ['$WebContentFetches'],
@@ -27,7 +87,7 @@ mergeInto(LibraryManager.library, {
         return WebContentFetches.cache;
     },
 
-    WebContentFetch_Start__deps: ['$WebContentFetches', '$WebContentFetchCache', '$FS'],
+    WebContentFetch_Start__deps: ['$WebContentFetches', '$WebContentFetchCache', '$WebContentFetchSlot', '$WebContentFetchFree', '$FS'],
     WebContentFetch_Start: function (urlPointer, pathPointer, size, encoded) {
         var url = UTF8ToString(urlPointer);
         var path = UTF8ToString(pathPointer);
@@ -45,11 +105,13 @@ mergeInto(LibraryManager.library, {
 
         // Only a file of the right size goes into the cache, as its real bytes.
         function download(cache) {
-            return fetch(url, { signal: controller.signal }).then(function (response) {
-                if (!response.ok)
-                    throw new Error('HTTP ' + response.status);
+            return WebContentFetchSlot(controller.signal).then(function () {
+                return fetch(url, { signal: controller.signal }).then(function (response) {
+                    if (!response.ok)
+                        throw new Error('HTTP ' + response.status);
 
-                return response.arrayBuffer();
+                    return response.arrayBuffer();
+                }).finally(WebContentFetchFree);
             }).then(function (buffer) {
                 check(buffer, 'from the server');
 

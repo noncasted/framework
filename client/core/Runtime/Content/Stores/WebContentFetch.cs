@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -12,6 +13,8 @@ namespace Internal
     // fetches, the page logs it once. A download is aborted (AbortController) when its lifetime ends. WebGL player only.
     // A directory shipped with brotli (ContentIndex.IsBrotli) is fetched as <name>.br: the server sends Content-Encoding: br,
     // the browser decodes it, the cache keeps the real bytes; a file that comes in at another size fails the fetch.
+    // At most Limit fetches go to the server at once (the page queues the others in the order they started and holds a
+    // slot until the body is read); reads from the cache of the page take no slot.
     internal sealed class WebContentFetch : IContentFileSource
     {
         private const int Running = 0;
@@ -32,6 +35,15 @@ namespace Internal
         public string Url(ContentFile file)
         {
             return $"{_url}/{file.Name}{_suffix}";
+        }
+
+        // The fetches of the page that go to the server at once (ContentOptions.MaxFetches), for every directory.
+        public static void Limit(int fetches)
+        {
+            if (fetches < 1)
+                throw new ArgumentOutOfRangeException(nameof(fetches), fetches, "[Content] At least one fetch must run");
+
+            WebContentFetch_Limit(fetches);
         }
 
         // Removes from the cache of the page every file the index does not name: the files of the builds before.
@@ -91,6 +103,9 @@ namespace Internal
 
         [DllImport("__Internal")]
         private static extern void WebContentFetch_Abort(int fetch);
+
+        [DllImport("__Internal")]
+        private static extern void WebContentFetch_Limit(int fetches);
 
         // The URLs to keep, one per line.
         [DllImport("__Internal")]
