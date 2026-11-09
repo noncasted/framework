@@ -75,6 +75,73 @@ namespace Internal.EditorTests
         }
 
         [Test]
+        public void ArchiveOrder_StartsWithTheManifestAndTheRootsAndHoldsEveryFileOnce()
+        {
+            var order = ContentArchiveOrder.Of(_manifest);
+            var roots = _index.RootFiles.Select(file => file.Name);
+
+            Assert.That(order[0], Is.EqualTo(_manifest.FileName));
+            Assert.That(order.Skip(1).Take(_index.RootFiles.Count), Is.EqualTo(roots));
+            Assert.That(order, Is.Unique);
+            Assert.That(order, Is.EquivalentTo(_index.Files.Select(file => file.Name)));
+        }
+
+        [Test]
+        public void ArchiveOrder_PutsTheFilesOfTheSceneTogether()
+        {
+            var order = ContentArchiveOrder.Of(_manifest).ToList();
+            var positions = SceneFiles().Where(file => _index.RootFiles.Contains(file) == false).Select(file => order.IndexOf(file.Name)).OrderBy(at => at).ToArray();
+
+            Assert.That(positions.Last() - positions.First(), Is.EqualTo(positions.Length - 1), "The files of the scene follow each other");
+        }
+
+        [Test]
+        public void Archive_GivesEveryFileItsOwnSpanInTheOrderOfFirstUse()
+        {
+            var output = $"{Output}/Archive";
+            var layout = ContentArchiveWriter.Write(_manifest, output);
+            var order = ContentArchiveOrder.Of(_manifest);
+            var path = $"{output}/{ContentArchiveWriter.FileName}";
+
+            Assert.That(layout.Length, Is.EqualTo(new FileInfo(path).Length));
+            Assert.That(File.ReadAllText($"{output}/{ContentManifest.HashFile}"), Is.EqualTo(File.ReadAllText($"{Output}/{Name}/{ContentManifest.HashFile}")));
+            Assert.That(layout.Files.Keys, Is.EquivalentTo(order));
+
+            var end = layout.HeaderLength;
+
+            foreach (var name in order)
+            {
+                var span = layout.Files[name];
+
+                Assert.That(span.Length, Is.GreaterThan(0), name);
+                Assert.That(span.Offset, Is.GreaterThanOrEqualTo(end), $"{name} starts after the file before it");
+                Assert.That(span.Offset - end, Is.LessThan(16), $"{name}: only the padding of a block between two files");
+                end = span.End;
+            }
+
+            Assert.That(layout.Length - end, Is.LessThan(16), "The last file ends the archive");
+        }
+
+        [Test]
+        public void ArchiveReader_ThrowsOnAFileThatIsNoArchive()
+        {
+            var path = $"{Output}/NoArchive.bin";
+            File.WriteAllBytes(path, Encoding.ASCII.GetBytes("UnityWeb\0 5.x.x\0").Concat(new byte[64]).ToArray());
+
+            Assert.Throws<InvalidDataException>(() => ContentArchiveReader.Read(path));
+        }
+
+        [Test]
+        public void Lz4Block_DecodesLiteralsAndOverlappingMatches()
+        {
+            // "abc", then a match of 9 at the distance 3 (overlapping), then the literal "z".
+            var block = new byte[] { 0x35, (byte)'a', (byte)'b', (byte)'c', 3, 0, 0x10, (byte)'z' };
+
+            Assert.That(Encoding.ASCII.GetString(Lz4Block.Decode(block, 13)), Is.EqualTo("abcabcabcabcz"));
+            Assert.Throws<InvalidDataException>(() => Lz4Block.Decode(block, 12));
+        }
+
+        [Test]
         public void Index_ListsEveryFileOfTheFolderWithItsSize()
         {
             var folder = $"{Output}/{Name}";
