@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace Internal
 {
-    // One load of addressable content: a catalogue group or a scene of a scope. Key is a name of the code ("Group: MusicRunAudio",
+    // One load of content: a catalogue group or a scene of a scope. Key is a name of the code ("Group: MusicRunAudio",
     // "Scene: Run"), never an address or a path; a scene learns its name only when it is loaded.
     public class AssetLoad
     {

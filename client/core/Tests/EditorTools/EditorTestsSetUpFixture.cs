@@ -8,7 +8,7 @@ namespace Internal.EditorTests
     // The assets of these tests schedule the catalogue generators (debounced 0.5 s): a scheduled run is paused for the
     // assembly (a generation of the catalogues of the project between two tests cost 5-6 s of every run). What is
     // scheduled ends with the assembly too: the assemblies after this one have tests that wait over frames, and a
-    // generator logs an error in a project without addressables, which fails such a test.
+    // generation left over from this one would run inside them.
     [SetUpFixture]
     public class EditorTestsSetUpFixture
     {

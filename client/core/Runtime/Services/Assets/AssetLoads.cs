@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Internal
 {
-    // The loads of addressable content after the start as a tool sees them (the client telemetry): every catalogue group
+    // The loads of content after the start as a tool sees them (the client telemetry): every catalogue group
     // (AssetGroup) and every scene of a scope (ServiceScopeSceneLoader) goes through here. A listener that throws does not
     // break a load: the exception goes to ReactiveExceptions.
     public static class AssetLoads

@@ -20,7 +20,7 @@ namespace Internal.EditorTests
         private string _settings;
 
         // One asset for the class: the tests read and write the userData of its importer in memory, nothing imports it.
-        // A text asset: importing a prefab schedules the shared addressables sync, which fires in a later test.
+        // A text asset: importing it schedules no generator that would fire in a later test.
         [OneTimeSetUp]
         public void OneTimeSetUp()
         {

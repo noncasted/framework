@@ -54,3 +54,23 @@ directory из секции `Content` файла `ProjectSettings/Framework.json
   (`Startup`) в `Scenes` больше нет.
 - Свои ссылки `AssetReference` на сцены (`level.Scene`) — `ContentScene`, на ассеты — `ContentReference<T>`.
 
+
+### Addressables удалены из фреймворка (BREAKING)
+
+Кому: клиент всех игр. Форк `com.unity.addressables` удалён, `com.noncasted.framework.core` от него больше не зависит, сборки `Internal`,
+`Internal.Editor` на `Unity.Addressables` / `Unity.ResourceManager` / `Unity.Addressables.Editor` не ссылаются. Удалены синхронизации групп
+(`CatalogAddressablesSync`, `ScenesAddressablesSync`, `SharedAddressablesSync`, `SharedAddressablesTargets`,
+`SharedAddressablesPostprocessor`), `BundleUrlVersioning` и настройки `WithoutAddressables`, `SharedCommonPaths`, `GroupPhases` в
+`FrameworkSettings`. `deploy-client` вместо `StreamingAssets/aa/catalog.bin` проверяет content directory: в `Library/Content/<Content.Name>`
+копии он свежий, индекс с хэшем его манифеста есть в `.data` (нужен `brotli`), без `IsPreloaded` его файлы лежат в
+`StreamingAssets/Content/<Content.Name>` с теми же именами и размерами.
+
+Поиск: `grep -rn "addressables\|Addressab\|AssetReference\|ResourceManagement\|BundleUrlVersioning" client/Packages client/Assets client/ProjectSettings/Framework.json --include='*.json' --include='*.asmdef' --include='*.cs'`
+
+- Убрать `com.unity.addressables` из `client/Packages/manifest.json` (и из `packages-lock.json` — его перепишет Unity); свои asmdef — ссылки
+  на `Unity.Addressables`, `Unity.ResourceManager`, `Unity.Addressables.Editor` (GUID `9e24947de15b9834991c9d8411ea37cf`,
+  `84651a3751eca9349aac36a66bba901b`, `69448af7b92c7f342b298e06a37122aa`).
+- Удалить `Assets/AddressableAssetsData` и вызов `BundleUrlVersioning.Setup()`; код игры на `Addressables.*` / `AssetReference` перевести
+  на `IContentLoader` / `ContentReference<T>` / `ContentScene`.
+- Из `ProjectSettings/Framework.json` убрать `WithoutAddressables`, `SharedCommonPaths`, `GroupPhases` (лишние ключи игнорируются).
+- `link.xml` игры: записи сборок `Unity.Addressables` / `Unity.ResourceManager` убрать.

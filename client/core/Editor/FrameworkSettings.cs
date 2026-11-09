@@ -27,10 +27,6 @@ namespace Internal
         // group lists).
         public static string ContentFolder => Get().ContentFolder;
 
-        // The project has no Addressable settings on purpose (client/project of the framework): the catalogues and the
-        // shared groups have nothing to sync. Off by default: a game without the settings gets the error.
-        public static bool WithoutAddressables => Get().WithoutAddressables;
-
         // Game modules that keep their runtime assets in an Assets/ subfolder (Scenes, Prefabs, Generated, Options).
         public static IReadOnlyList<string> ModuleRoots => Get().ModuleRoots;
 
@@ -50,12 +46,6 @@ namespace Internal
 
         // Folders of the scenes that Project Tools lists apart from the working ones, at the bottom.
         public static IReadOnlyList<string> TestSceneFolders => Get().TestSceneFolders;
-
-        // Shared_* addressable groups: assets under these prefixes go to Shared_Common.
-        public static IReadOnlyList<string> SharedCommonPaths => Get().SharedCommonPaths;
-
-        // Addressable group -> the only phase that loads it (its shared dependencies go to Shared_<phase>).
-        public static IReadOnlyDictionary<string, string> GroupPhases => Get().GroupPhases;
 
         // Runtime assemblies dropped from player builds (PlayerAssemblyFilter).
         public static IReadOnlyList<string> StrippedPlayerAssemblies => Get().StrippedPlayerAssemblies;
@@ -118,7 +108,6 @@ namespace Internal
         {
             public string ContentAssembly;
             public string ContentFolder;
-            public bool WithoutAddressables;
             public List<string> ModuleRoots = new();
             public List<string> SceneFolders = new();
             public string ArtFolder = string.Empty;
@@ -126,8 +115,6 @@ namespace Internal
             public string MusicFolder = string.Empty;
             public List<string> FavoriteScenes = new();
             public List<string> TestSceneFolders = new();
-            public List<string> SharedCommonPaths = new() { "Packages/", "Assets/Plugins/" };
-            public Dictionary<string, string> GroupPhases = new(StringComparer.Ordinal);
             public List<string> StrippedPlayerAssemblies = new();
             public ContentDirectorySettings Content;
         }

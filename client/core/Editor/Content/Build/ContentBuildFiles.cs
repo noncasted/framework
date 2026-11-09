@@ -12,8 +12,7 @@ namespace Internal
         // An asset folder owned by the build alone: removed whole after it, and before it when a killed editor left it.
         public const string IndexFolder = "Assets/FrameworkContentIndex";
 
-        // Read by the WebGL build program: one path under StreamingAssets a line (the folder of the manifest of
-        // Addressables too).
+        // Read by the WebGL build program: one path under StreamingAssets a line.
         public const string PreloadManifest = "Library/PlayerDataCache/WebGLPreloadedStreamingAssets/framework-content.manifest";
 
         public static string IndexAsset(string name)

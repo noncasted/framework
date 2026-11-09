@@ -58,7 +58,7 @@ namespace Internal
             return "_" + char.ToLowerInvariant(propertyName[0]) + propertyName.Substring(1);
         }
 
-        // Group path "Game.Players" -> "Game_Players": the name of the addressable group, the assets and the class.
+        // Group path "Game.Players" -> "Game_Players": the name of the group, the assets and the class.
         internal static string ToGroupKey(string groupPath)
         {
             return groupPath.Replace('.', '_');

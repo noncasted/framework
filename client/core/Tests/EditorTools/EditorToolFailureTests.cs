@@ -40,7 +40,7 @@ namespace Internal.EditorTests
         }
 
         // Run All of the window and Regenerate All of the menu are the same run: colors, bindings, env assets, the asset
-        // map and shared addressables are not skipped.
+        // map and the content root are not skipped.
         [Test]
         public void AssetsTab_RunAll_IsRegenerateAll()
         {
