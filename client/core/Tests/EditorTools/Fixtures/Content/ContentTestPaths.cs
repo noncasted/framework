@@ -21,5 +21,10 @@ namespace Internal.EditorTests.Content
         public const string SceneAsset = Assets + "/Level.unity";
         public const string RootAsset = Assets + "/Root.asset";
         public const string ReferencesAsset = Assets + "/References.asset";
+
+        // The ContentRoot of the group tests: one group loaded on Retain, one preloaded.
+        public const string ContentRootAsset = Assets + "/ContentRoot.asset";
+        public const string GroupAsset = Assets + "/Group.asset";
+        public const string PreloadedGroupAsset = Assets + "/Preloaded.asset";
     }
 }
