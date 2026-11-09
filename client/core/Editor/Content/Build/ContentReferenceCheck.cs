@@ -12,7 +12,8 @@ namespace Internal
     // Checks the lazy references of a built content directory: every Loadable / LoadableObjectId and LoadableSceneId in
     // a script object of an asset of the directory is set and points at an object or a scene the directory holds. An
     // empty reference or one that leads outside (a deleted asset, an asset the build left out) fails the build with
-    // the list of them all. Script objects only: nothing else can hold such a field.
+    // the list of them all; so does a ContentReference / ContentScene whose GUID and local id differ from its id. Script
+    // objects only: nothing else can hold such a field. In the text of a scene only the ids are checked.
     public static class ContentReferenceCheck
     {
         // A LoadableObjectId in the text of a scene: {fileID: N, loadable: 1, guid: G, type: T}; a LoadableSceneId: m_SceneGUID: G.
@@ -74,11 +75,13 @@ namespace Internal
                 {
                     enter = false;
                     CheckObject((LoadableObjectId)property.boxedValue, Where(), objects, errors);
+                    CheckObjectKeys(serialized, property, Where(), errors);
                 }
                 else if (property.type == SceneIdType)
                 {
                     enter = false;
                     CheckScene((LoadableSceneId)property.boxedValue, Where(), scenes, errors);
+                    CheckSceneKeys(serialized, property, Where(), errors);
                 }
             }
 
@@ -86,6 +89,47 @@ namespace Internal
             {
                 return $"{path} ({asset.GetType().Name} {asset.name}) {property.propertyPath}";
             }
+        }
+
+        // The GUID and the local id a ContentReference keeps for the loader follow its id: a reference assigned around the
+        // editor (a script, a merge) would load fine and fetch the files of another object.
+        private static void CheckObjectKeys(SerializedObject serialized, SerializedProperty id, string where, List<string> errors)
+        {
+            var suffix = $".{ContentReferenceFields.Loadable}.{ContentReferenceFields.ObjectId}";
+
+            if (id.propertyPath.EndsWith(suffix) == false)
+                return;
+
+            var reference = serialized.FindProperty(id.propertyPath.Substring(0, id.propertyPath.Length - suffix.Length));
+
+            if (reference.type.StartsWith(nameof(ContentReference)) == false)
+                return;
+
+            var (guid, localId) = ContentReferenceFields.Deconstruct((LoadableObjectId)id.boxedValue);
+            var keptGuid = reference.FindPropertyRelative(ContentReferenceFields.Guid).stringValue;
+            var keptLocalId = reference.FindPropertyRelative(ContentReferenceFields.LocalId).longValue;
+
+            if (keptGuid != guid || keptLocalId != localId)
+                errors.Add($"{where}: the reference keeps {keptGuid}:{keptLocalId}, its id is {guid}:{localId} (assign it in the inspector)");
+        }
+
+        private static void CheckSceneKeys(SerializedObject serialized, SerializedProperty id, string where, List<string> errors)
+        {
+            var suffix = $".{ContentReferenceFields.SceneId}";
+
+            if (id.propertyPath.EndsWith(suffix) == false)
+                return;
+
+            var scene = serialized.FindProperty(id.propertyPath.Substring(0, id.propertyPath.Length - suffix.Length));
+
+            if (scene.type != nameof(ContentScene))
+                return;
+
+            var guid = ContentReferenceFields.SceneGuid((LoadableSceneId)id.boxedValue);
+            var keptGuid = scene.FindPropertyRelative(ContentReferenceFields.Guid).stringValue;
+
+            if (keptGuid != guid)
+                errors.Add($"{where}: the scene keeps {keptGuid}, its id is {guid} (assign it in the inspector)");
         }
 
         private static void CheckObject(LoadableObjectId id, string where, HashSet<string> objects, List<string> errors)

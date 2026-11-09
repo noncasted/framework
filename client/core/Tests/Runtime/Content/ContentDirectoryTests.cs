@@ -12,6 +12,7 @@ namespace Internal.Tests
     // into a folder of zeros (FetchedContentStore over a copying source). The directory is built by the editor before
     // Play Mode (ContentDirectoryTestBuild); each test registers it on its own lifetime, unregistered after the test.
     [PrebuildSetup("Internal.EditorTests.ContentDirectoryTestBuild")]
+    [PostBuildCleanup("Internal.EditorTests.ContentDirectoryTestBuild")]
     public class ContentDirectoryTests
     {
         private const string FetchedFolder = ContentTestPaths.Output + "/Fetched";

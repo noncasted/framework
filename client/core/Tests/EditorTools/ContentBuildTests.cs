@@ -28,6 +28,7 @@ namespace Internal.EditorTests
         private const string MissingRootPath = TempFolder + "/MissingRoot.asset";
         private const string BrokenScenePath = TempFolder + "/BrokenLevel.unity";
         private const string BrokenSceneRootPath = TempFolder + "/BrokenSceneRoot.asset";
+        private const string StaleKeysRootPath = TempFolder + "/StaleKeysRoot.asset";
 
         private static string SettingsFile => Path.Combine(Path.GetDirectoryName(Application.dataPath), FrameworkSettings.SettingsPath);
 
@@ -58,6 +59,12 @@ namespace Internal.EditorTests
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             CreateRoot(BrokenSceneRootPath, LoadableObjectIdEditorUtility.CreateLoadableObjectId(target),
                 LoadableSceneIdEditorUtility.CreateLoadableSceneId(BrokenScenePath));
+
+            // A content reference and a content scene whose keys were not written by the editor.
+            var stale = ScriptableObject.CreateInstance<ContentTestReferences>();
+            stale.Init(new ContentReference<ContentTestTarget>(LoadableObjectIdEditorUtility.CreateLoadableObjectId(target), "ffffffffffffffffffffffffffffffff", 1),
+                new ContentScene(scene, "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
+            AssetDatabase.CreateAsset(stale, StaleKeysRootPath);
             AssetDatabase.SaveAssets();
 
             // The reference of MissingRoot now leads to a deleted asset.
@@ -183,6 +190,17 @@ namespace Internal.EditorTests
             var exception = Assert.Throws<BuildFailedException>(() => ContentBuild.Prepare(BuildTarget.WebGL));
 
             Assert.That(exception.Message, Does.Match($"{BrokenScenePath} line \\d+: empty"));
+        }
+
+        [Test]
+        public void ReferenceWithStaleKeys_FailsTheBuild()
+        {
+            WriteSettings(StaleKeysRootPath, false);
+
+            var exception = Assert.Throws<BuildFailedException>(() => ContentBuild.Prepare(BuildTarget.WebGL));
+
+            Assert.That(exception.Message, Does.Contain("_target._loadable.m_LoadableObjectId: the reference keeps ffffffffffffffffffffffffffffffff:1"));
+            Assert.That(exception.Message, Does.Contain("_scene._id: the scene keeps eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"));
         }
 
         [Test]

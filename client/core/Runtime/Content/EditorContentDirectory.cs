@@ -40,5 +40,20 @@ namespace Internal
             lifetime.Token.ThrowIfCancellationRequested();
             return UniTask.CompletedTask;
         }
+
+        public long ObjectBytes(string guid, long localId)
+        {
+            return 0;
+        }
+
+        public long SceneBytes(string guid)
+        {
+            return 0;
+        }
+
+        public bool IsObjectReal(string guid, long localId)
+        {
+            return true;
+        }
     }
 }

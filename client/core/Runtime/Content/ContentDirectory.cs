@@ -54,5 +54,30 @@ namespace Internal
         {
             return _store.Fetch(lifetime, _index.SceneFiles(guid), progress);
         }
+
+        public long ObjectBytes(string guid, long localId)
+        {
+            return Bytes(_index.ObjectFiles(guid, localId));
+        }
+
+        public long SceneBytes(string guid)
+        {
+            return Bytes(_index.SceneFiles(guid));
+        }
+
+        public bool IsObjectReal(string guid, long localId)
+        {
+            return _store.IsReal(_index.ObjectFiles(guid, localId));
+        }
+
+        private static long Bytes(IReadOnlyList<ContentFile> files)
+        {
+            var bytes = 0L;
+
+            foreach (var file in files)
+                bytes += file.Size;
+
+            return bytes;
+        }
     }
 }

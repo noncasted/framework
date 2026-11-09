@@ -19,5 +19,8 @@ namespace Internal
         // Makes the files real, each fetched once for all callers. Progress: the bytes of the files real so far.
         // Throws OperationCanceledException when the lifetime ends first; a file nobody else waits for stays zeros.
         UniTask Fetch(IReadOnlyLifetime lifetime, IReadOnlyList<ContentFile> files, IProgress<long> progress);
+
+        // Every one of the files is real, none is zeros.
+        bool IsReal(IReadOnlyList<ContentFile> files);
     }
 }

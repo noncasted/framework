@@ -18,5 +18,12 @@ namespace Internal
         UniTask FetchObject(IReadOnlyLifetime lifetime, string guid, long localId, IProgress<long> progress);
 
         UniTask FetchScene(IReadOnlyLifetime lifetime, string guid, IProgress<long> progress);
+
+        // The bytes of the files of an object or a scene: 0 when nothing is ever fetched.
+        long ObjectBytes(string guid, long localId);
+        long SceneBytes(string guid);
+
+        // Every file of the object is real: it loads synchronously.
+        bool IsObjectReal(string guid, long localId);
     }
 }

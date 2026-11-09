@@ -39,5 +39,10 @@ namespace Internal
 
             return UniTask.CompletedTask;
         }
+
+        public bool IsReal(IReadOnlyList<ContentFile> files)
+        {
+            return true;
+        }
     }
 }

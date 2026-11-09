@@ -48,6 +48,17 @@ namespace Internal
             return _fetches.Fetch(lifetime, files, progress);
         }
 
+        public bool IsReal(IReadOnlyList<ContentFile> files)
+        {
+            foreach (var file in files)
+            {
+                if (_fetches.IsReal(file) == false)
+                    return false;
+            }
+
+            return true;
+        }
+
         private void WriteZeros(ContentFile file)
         {
             // SetLength fills with zeros without a buffer of the size in the managed heap.
