@@ -31,6 +31,11 @@ player build. Addressables are gone from the framework. Code: `client/core/Runti
 - **Zeros + fetch.** A fetched store writes the manifest and the files of the roots, and zeros of the real size for every other file;
   the engine lists the folder once at the registration and never reads a lazy target before its load, so a load first fetches its
   real files over the zeros.
+- **A queue of fetches.** A level asks for thousands of files at once; started together they exhaust the browser
+  (`net::ERR_INSUFFICIENT_RESOURCES`, the load fails with `IOException`). `WebContentFetch.jslib` lets at most
+  `ContentOptions.MaxFetches` (64 by default: a 10 Mbit link with 150 ms of latency stays busy with files of a few KB over HTTP/2)
+  go to the server at once; the others wait in the order they were asked for, a slot is held until the body is read, a read from
+  the Cache API takes none, an abort in the queue starts nothing.
 - **The directory is never unregistered while the game runs.** `UnregisterContentDirectory` destroys every object loaded from it,
   and a second registration of the same folder gives new instances: the directory lives as long as the root scope.
 
@@ -85,9 +90,13 @@ var icon = _content.LoadNow(lifetime, reference);                         // onl
    from the id (`... (assign it in the inspector)`) - errors with the list, the build fails;
 4. writes the index (`ContentIndex`: files with sizes, manifest hash, files of the roots, files of each object and scene) as
    `Assets/FrameworkContentIndex/Resources/Content/<name>.json`, read synchronously at the start; the folder is deleted after the build;
-5. adds the folder to `StreamingAssets/Content/<name>` of the player (`AddAdditionalPathToStreamingAssets`, nothing in `Assets`), or,
+5. gives the player build the build report directory of the content build (`BuildHistory`, its `ScriptsOnlyCache.yaml`:
+   scripts, serialized classes, native classes of the directory) through `AddPreviousBuildReportDirectory`, so the linker keeps the
+   types only the directory uses; without it a level loses its `CircleCollider2D` (`contained objects with undefined types ...
+   stripped`). A content build without that file fails;
+6. adds the folder to `StreamingAssets/Content/<name>` of the player (`AddAdditionalPathToStreamingAssets`, nothing in `Assets`), or,
    with `IsPreloaded` on WebGL, into the `.data` file (`Library/PlayerDataCache/WebGLPreloadedStreamingAssets/framework-content.manifest`);
-6. a fetched directory of a WebGL build with brotli compression (`PlayerSettings.WebGL.compressionFormat`, the build profile) is shipped
+7. a fetched directory of a WebGL build with brotli compression (`PlayerSettings.WebGL.compressionFormat`, the build profile) is shipped
    compressed: `ContentBrotli` writes `<file>.br` of every file of the index (quality 11, in parallel, anew each build) into
    `Library/ContentBrotli/<name>`, and that folder becomes `StreamingAssets/Content/<name>` (no `BuildManifestHash.txt`: the player writes
    it from the index); the index says `IsBrotli`. Gzip, no compression, standalone and a preloaded directory ship the raw files. Brotli
