@@ -13,6 +13,7 @@
 | [0.4.0](0.4.0.md) | 2026-11-04 | Телеметрия: кадр, WebGL, страница, прошлая сессия; сеть без аллокаций; экранные канвасы; стрип WebGL; `deploy-client` параллельно, `device-lab` | Да: `IScreenCanvasCamera`, шрифт `NetworkOptions`, API сети, стрип, `deploy-client.json`, `ILobbyMatches.Create` |
 | [0.5.0](0.5.0.md) | 2026-11-06 | Модули `resolution` и `framerate`, `Internal.TestTools`, пакеты бэкенда, WebRTC с каналами и `PeerMesh`, спрайты из модулей, `audit-swarm` | Да: модули из pixel-swarm, `Aspire.AppHost.Sdk`, `InjectGameObject` |
 | [0.5.1](0.5.1.md) | 2026-11-07 | `deploy-client`: аргумент `--platforms=` | Нет |
+| [0.6.0](0.6.0.md) | 2026-11-09 | Консоль: онлайн по уникальным пользователям, Home без инфраструктурных карточек; попытки подключения к Postgres; offer пира в `PeerMesh`; хуки `deploy-client` | Да: `HomeInfrastructureSection` -> `HomeClusterSection`, `AddOnlineTracker`, `OnlineWidget`, тесты состояний |
 
 ## Версии
 
