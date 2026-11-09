@@ -10,7 +10,8 @@ namespace Internal
     ///     Batchmode entry point for CI/deploy scripts:
     ///     Unity -quit -batchmode -projectPath client -executeMethod Internal.WebGlBuild.Build
     ///     Output goes to client/build (or -buildOutput), with the settings of the active build profile.
-    ///     The project <see cref="IPlayerBuildStep" />s run around the build (<see cref="PlayerBuildSteps" />).
+    ///     The project <see cref="IPlayerBuildStep" />s run around the build (<see cref="PlayerBuildSteps" />), the
+    ///     content directory among them (<see cref="ContentBuild" />).
     ///     The submodule stripping of the build is required (<see cref="WebGlStripping" />).
     /// </summary>
     public static class WebGlBuild
@@ -60,10 +61,6 @@ namespace Internal
 
         private static BuildReport BuildPlayer(string output)
         {
-            // In batchmode the deferred recalculation of shared assets does not finish before the build.
-            // Runs after the project steps: the assets they add are synced too.
-            SharedAddressablesSync.Sync();
-
             var scenes = EditorBuildSettings.scenes
                                             .Where(scene => scene.enabled)
                                             .Select(scene => scene.path)

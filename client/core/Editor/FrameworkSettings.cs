@@ -60,6 +60,13 @@ namespace Internal
         // Runtime assemblies dropped from player builds (PlayerAssemblyFilter).
         public static IReadOnlyList<string> StrippedPlayerAssemblies => Get().StrippedPlayerAssemblies;
 
+        // The content directory every player build builds. Required by a build, so a project without it fails there,
+        // not in the tools that do not build.
+        public static ContentDirectorySettings ContentDirectory => Get().Content ??
+            throw new InvalidOperationException(
+                $"[FrameworkSettings] {SettingsPath} has no Content: a player build needs its content directory " +
+                "(\"Content\": { \"Name\": ..., \"Roots\": [ ... ], \"IsPreloaded\": false }).");
+
         public static string Content(string relativePath)
         {
             return $"{ContentFolder}/{relativePath}";
@@ -122,6 +129,7 @@ namespace Internal
             public List<string> SharedCommonPaths = new() { "Packages/", "Assets/Plugins/" };
             public Dictionary<string, string> GroupPhases = new(StringComparer.Ordinal);
             public List<string> StrippedPlayerAssemblies = new();
+            public ContentDirectorySettings Content;
         }
     }
 }

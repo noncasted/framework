@@ -10,5 +10,6 @@
   "FavoriteScenes": [],
   "SharedCommonPaths": [ "Packages/", "Assets/Plugins/" ],
   "GroupPhases": {},
-  "StrippedPlayerAssemblies": []
+  "StrippedPlayerAssemblies": [],
+  "Content": { "Name": "Smoke", "Roots": [ "Assets/ContentSmoke/Root.asset" ], "IsPreloaded": true }
 }

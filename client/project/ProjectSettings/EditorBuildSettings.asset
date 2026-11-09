@@ -4,5 +4,8 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/ContentSmoke/Smoke.unity
+    guid: a55348d1df8f86ed898d2ad7d84cff94
   m_configObjects: {}
