@@ -26,6 +26,8 @@ namespace Internal.EditorTests
 
         private const string ArchiveFolder = Output + "/Archive";
 
+        private static readonly ContentLoadKey[] NoLoads = new ContentLoadKey[0];
+
         private ContentManifest _manifest;
         private ContentArchiveLayout _layout;
         private ContentIndex _index;
@@ -65,7 +67,7 @@ namespace Internal.EditorTests
             Assert.That(report.summary.result, Is.EqualTo(BuildResult.Succeeded), "The build of the content directory");
 
             _manifest = ContentManifest.Read($"{Output}/{Name}");
-            _layout = ContentArchiveWriter.Write(_manifest, ArchiveFolder);
+            _layout = ContentArchiveWriter.Write(_manifest, NoLoads, ArchiveFolder);
             _index = ContentIndexWriter.Write(_manifest, _layout);
         }
 
@@ -81,7 +83,7 @@ namespace Internal.EditorTests
         [Test]
         public void ArchiveOrder_StartsWithTheManifestAndTheRootsAndHoldsEveryFileOnce()
         {
-            var order = ContentArchiveOrder.Of(_manifest);
+            var order = ContentArchiveOrder.Of(_manifest, NoLoads);
             var roots = _index.RootFiles.Select(file => file.Name);
 
             Assert.That(order[0], Is.EqualTo(_manifest.FileName));
@@ -93,10 +95,37 @@ namespace Internal.EditorTests
         [Test]
         public void ArchiveOrder_PutsTheFilesOfTheSceneTogether()
         {
-            var order = ContentArchiveOrder.Of(_manifest).ToList();
+            var order = ContentArchiveOrder.Of(_manifest, NoLoads).ToList();
             var positions = SceneFiles().Where(file => _index.RootFiles.Contains(file) == false).Select(file => order.IndexOf(file.Name)).OrderBy(at => at).ToArray();
 
             Assert.That(positions.Last() - positions.First(), Is.EqualTo(positions.Length - 1), "The files of the scene follow each other");
+        }
+
+        [Test]
+        public void ArchiveOrder_PutsTheRecordedLoadsFirstInTheirOrder()
+        {
+            var id = LoadableObjectIdEditorUtility.CreateLoadableObjectId(AssetDatabase.LoadAssetAtPath<ContentTestTarget>(TargetPath));
+            Assert.That(LoadableObjectIdEditorUtility.TryDeconstructLoadableObjectId(id, out var guid, out var localId, out _), Is.True);
+            var loads = new[] { ContentLoadKey.Object("00000000000000000000000000000000", 1), ContentLoadKey.Object(guid.ToString(), localId) };
+
+            var order = ContentArchiveOrder.Of(_manifest, loads).ToList();
+            var target = ObjectFiles(AssetDatabase.LoadAssetAtPath<ContentTestTarget>(TargetPath)).Where(file => _index.RootFiles.Contains(file) == false);
+            var first = 1 + _index.RootFiles.Count;
+
+            Assert.That(order.Skip(first).Take(target.Count()), Is.EqualTo(target.Select(file => file.Name)), "The target right after the roots, before the scene");
+            Assert.That(order, Is.EquivalentTo(ContentArchiveOrder.Of(_manifest, NoLoads)));
+            Assert.That(ContentArchiveOrder.Known(_manifest, loads), Is.EqualTo(1), "The key the directory does not have is skipped");
+        }
+
+        [Test]
+        public void ArchiveOrder_PutsARecordedSceneBeforeTheObjects()
+        {
+            var loads = new[] { ContentLoadKey.Scene(SceneGuid()) };
+
+            var order = ContentArchiveOrder.Of(_manifest, loads).ToList();
+            var scene = SceneFiles().Where(file => _index.RootFiles.Contains(file) == false).Select(file => file.Name);
+
+            Assert.That(order.Skip(1 + _index.RootFiles.Count).Take(scene.Count()), Is.EqualTo(scene));
         }
 
         [Test]
@@ -104,7 +133,7 @@ namespace Internal.EditorTests
         {
             var output = ArchiveFolder;
             var layout = _layout;
-            var order = ContentArchiveOrder.Of(_manifest);
+            var order = ContentArchiveOrder.Of(_manifest, NoLoads);
             var path = $"{output}/{ContentPaths.ArchiveFile}";
 
             Assert.That(layout.Length, Is.EqualTo(new FileInfo(path).Length));

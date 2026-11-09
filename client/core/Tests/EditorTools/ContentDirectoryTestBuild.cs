@@ -53,7 +53,7 @@ namespace Internal.EditorTests
 
             // With the type trees, unlike a player build: the editor registers no directory without them.
             var manifest = ContentManifest.Read(ContentTestPaths.Built);
-            var index = ContentIndexWriter.Write(manifest, ContentArchiveWriter.Write(manifest, ContentTestPaths.Folder));
+            var index = ContentIndexWriter.Write(manifest, ContentArchiveWriter.Write(manifest, new ContentLoadKey[0], ContentTestPaths.Folder));
             ContentShipment.Write(index, ContentTestPaths.Folder, false, false);
             File.WriteAllText(ContentTestPaths.Index, index.ToJson());
             File.WriteAllText(ContentTestPaths.TargetGuid, AssetDatabase.AssetPathToGUID(ContentTestPaths.TargetAsset));

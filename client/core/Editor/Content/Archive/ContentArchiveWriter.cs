@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
@@ -15,14 +16,15 @@ namespace Internal
         // The archive of the content directory of the player build: Library/ContentArchive/<name>.
         public const string Output = "Library/ContentArchive";
 
-        public static ContentArchiveLayout Write(ContentManifest manifest, string output)
+        // loads: the recorded load order of the game (ContentLoadOrder.Read), empty without one.
+        public static ContentArchiveLayout Write(ContentManifest manifest, IReadOnlyList<ContentLoadKey> loads, string output)
         {
             if (Directory.Exists(output))
                 Directory.Delete(output, true);
 
             Directory.CreateDirectory(output);
 
-            var files = ContentArchiveOrder.Of(manifest)
+            var files = ContentArchiveOrder.Of(manifest, loads)
                 .Select(name => new ResourceFile
                 {
                     fileName = Path.GetFullPath(Path.Combine(manifest.Folder, name)),

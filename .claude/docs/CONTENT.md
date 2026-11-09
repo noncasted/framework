@@ -36,6 +36,20 @@ player build. Addressables are gone from the framework. Code: `client/core/Runti
   Range request with the bytes between them (`ContentRanges`): a level of thousands of files takes tens of requests. A range goes past
   the HTTP cache of the browser (`cache: 'no-store'`; the Cache API keeps the bytes): Chromium lets one request at a time use the cache
   entry of a URL, and the ranges of the one archive went to the server one after another.
+- **The recorded load order.** `ProjectSettings/ContentLoadOrder/<name>.txt` of the game (committed; `object <guid> <local id>` /
+  `scene <guid>` per line) is the order in which runs of the game first fetched objects and scenes: the archive puts their closures
+  right after the roots, in this order, then the rest as above (`ContentArchiveOrder`). Without it the loads of the menu and of a level
+  are scattered over the archive (a group or a lazy target lands where an earlier scene or the manifest put it): pixel-swarm, by the log
+  of rc.5, menu 98 -> ~14 requests, run 156 -> ~76, same bytes. Record it in Play Mode with `Tools/Content/Record Load Order` on
+  (`RecordingContentDirectory` over the editor directory appends every key fetched the first time; earlier keys stay, so the menu and
+  every level add up), `Tools/Content/Clear Load Order` starts anew; the build skips the keys the directory no longer has and logs
+  `N of M keys`. A bigger `RangeGap` is no substitute: with the scattered order 64 KiB took the menu from 2.1 to 3.3 MB for 66 requests
+  instead of 98, with the recorded order 16 and 256 KiB give the same.
+- **Why per-file LZ4.** Every file starts a block of its own (the engine writes it so), so the archive is ~25% bigger than the LZ4HC
+  bundles of Addressables (pixel-swarm 15.2 against 12.1 MB, same codec, ~same raw bytes): 9218 streams that each start from nothing.
+  A solid stream (blocks across files) would be 12.4 MB but brings the neighbours of a file with every block (+0.2-0.7 MB a load) and
+  needs an own UnityFS writer; LZMA per file (11.6 MB, HighFields 3.6 -> 2.1 MB) is untested in a mounted archive. Brotli over Range
+  is impossible: `Content-Encoding` covers the whole representation, a range of it cannot be decoded.
 - **The times of the archive are pinned.** The engine refuses an archive changed after the mount (`Archive file was modified while it was
   opened`); MEMFS sets `mtime` on every write, so `WebContentFetch_Pin` records the times of its node before the registration and every
   write puts them back. That leans on the inside of the emscripten of Unity (`node.mtime / ctime / atime`): a node without them throws.

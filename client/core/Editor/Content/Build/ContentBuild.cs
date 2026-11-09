@@ -53,7 +53,10 @@ namespace Internal
             var brotli = ContentBrotli.IsShipped(target, preloaded);
 
             var archive = $"{ContentArchiveWriter.Output}/{manifest.Name}";
-            var index = ContentIndexWriter.Write(manifest, ContentArchiveWriter.Write(manifest, archive));
+            var loads = ContentLoadOrder.Read(manifest.Name);
+            var index = ContentIndexWriter.Write(manifest, ContentArchiveWriter.Write(manifest, loads, archive));
+            Debug.Log($"[ContentBuild] {manifest.Name}: load order {ContentLoadOrder.PathOf(manifest.Name)}, " +
+                      $"{ContentArchiveOrder.Known(manifest, loads)} of {loads.Count} keys in the directory");
             var shipped = ContentShipment.Write(index, archive, fetched, brotli);
             var stamp = new ContentStamp(index.ManifestHash, preloaded, brotli);
             ContentBuildLog.Write(manifest, index, shipped);
