@@ -610,6 +610,98 @@ namespace Internal.EditorTests
             }
         }
 
+        // An element of an array of references and of an array inside a nested class left empty: each is named.
+        [Test]
+        public void Validator_EmptyElementOfAnArray_IsAnError()
+        {
+            var rack = MakePrefab(TempRoot + "/Rack.prefab", root =>
+            {
+                var slots = new[] { Child(root, "Slot"), Child(root, "Slot (1)"), Child(root, "Slot (2)") };
+                var serialized = new SerializedObject(root.AddComponent<RackBindings>());
+
+                foreach (var name in new[] { "_slots", "_shelf._items" })
+                {
+                    var array = serialized.FindProperty(name);
+                    array.arraySize = 3;
+                    array.GetArrayElementAtIndex(0).objectReferenceValue = slots[0].transform;
+                    array.GetArrayElementAtIndex(2).objectReferenceValue = slots[2].transform;
+                }
+
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            });
+
+            var errors = CollectErrors(() => HierarchyBindingsValidator.ValidatePrefab(rack));
+
+            Assert.That(errors, Has.Some.Contains("'_slots.Array.data[1]' is null"));
+            Assert.That(errors, Has.Some.Contains("'_shelf._items.Array.data[1]' is null"));
+            Assert.That(errors, Has.None.Contains("data[0]"));
+            Assert.That(errors, Has.None.Contains("data[2]"));
+        }
+
+        // The game case: a child was replaced, the code and the structure hash stayed, the reference became empty.
+        // Regenerate All binds such an object again instead of passing it as unchanged.
+        [Test]
+        public void PrepareProject_EmptyReference_IsBoundAgain()
+        {
+            var shop = MakePrefab(TempRoot + "/Menu/Shop.prefab", root => root.AddComponent<ShopBindings>());
+
+            HierarchyBindingsBatch.RegeneratePrefabs(new[] { shop });
+            Assert.That(HierarchyBindingsGenerator.PumpPending(), Is.EqualTo("Idle."));
+            Assert.That(HierarchyBindingsBatch.PrepareProject(out _), Is.EqualTo(1));
+            Assert.That(HierarchyBindingsQueue.IsEmpty(), Is.True, "A bound prefab is not bound again.");
+
+            var contents = PrefabUtility.LoadPrefabContents(shop);
+
+            try
+            {
+                var serialized = new SerializedObject(contents.GetComponent<ShopBindings>());
+                serialized.FindProperty("_transform").objectReferenceValue = null;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                PrefabUtility.SaveAsPrefabAsset(contents, shop);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(contents);
+            }
+
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(shop).GetComponent<ShopBindings>().Transform, Is.Null);
+
+            Assert.That(HierarchyBindingsBatch.PrepareProject(out var changed), Is.EqualTo(1));
+            Assert.That(changed, Is.False);
+            Assert.That(HierarchyBindingsQueue.Load().Single().AssetPath, Is.EqualTo(shop));
+
+            HierarchyBindingsGenerator.PumpPending();
+
+            var bindings = AssetDatabase.LoadAssetAtPath<GameObject>(shop).GetComponent<ShopBindings>();
+            Assert.That(bindings.Transform, Is.EqualTo(bindings.transform));
+        }
+
+        private static List<string> CollectErrors(Action action)
+        {
+            var errors = new List<string>();
+
+            void OnLog(string condition, string stackTrace, LogType type)
+            {
+                if (type == LogType.Error)
+                    errors.Add(condition);
+            }
+
+            LogAssert.ignoreFailingMessages = true;
+            Application.logMessageReceived += OnLog;
+
+            try
+            {
+                action();
+            }
+            finally
+            {
+                Application.logMessageReceived -= OnLog;
+                LogAssert.ignoreFailingMessages = false;
+            }
+
+            return errors;
+        }
+
         // Base: root with the Holder/Inherited and Untouched branches and ShopBindings; variant: Holder/Added.
         private static (string basePath, string variantPath) MakeVariant(Action<GameObject> onAdded)
         {
