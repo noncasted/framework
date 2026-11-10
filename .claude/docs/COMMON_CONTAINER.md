@@ -232,6 +232,7 @@ The generator reports errors at compile time; the Unity console shows them as co
 | CINGR014 | Several `WithParameter` values of one registration fit one parameter and none has exactly its type | Pass one, or one of exactly the type of the parameter |
 | CINGR015 | Warning: no parameter of the registered type can take a `WithParameter` value, it is not used | Remove the value or fix its type |
 | CINGR016 | Scope root is generic: the method, a method around it or a type around it has type parameters | A non-generic root that calls a generic installer |
+| CINGR017 | A lambda or an anonymous method is given as a scope root (`Func<IScopeBuilder, UniTask>`, `Func<IEntityBuilder, UniTask>`, the `construct` of the entity loader): the runtime finds the class by the name of the root method, every load would throw | A method group or a local function (it closes over the same values); one argument: `ScopeLoadOptions.Create(parent, Construct, arg)` |
 
 - `Tools/Container Debugger` (Play mode): live containers, registrations, resolve history, allocations per phase and per listener.
 - `Tools/Container Graph` (Play mode): Graph Toolkit view of live scopes and their parent links.
@@ -242,7 +243,7 @@ The generator reports errors at compile time; the Unity console shows them as co
 
 | Mistake | Result | Fix |
 |---------|--------|-----|
-| Lambda as scope root (`new ScopeLoadOptions(parent, b => ...)`) | `Scope root must be a method group or a local function` | Pass the `Construct` method group |
+| Lambda as scope root (`new ScopeLoadOptions(parent, b => ...)`, `LoadRoot(b => ...)`, the entity loader) | CINGR017 at compile time (a delegate built at runtime: `Scope root must be a method group or a local function`) | Pass the `Construct` method group or a local function; one argument: `ScopeLoadOptions.Create(parent, Construct, arg)` |
 | Missing `[ContainerScopeParent]` on a child root | CINGR003 for every parent service | Declare the parent root |
 | `if` choosing implementations inside one root | Both branches are built; alternative not registered at runtime breaks the scope | `switch` between roots; platforms: `#if`, or the branches inside one installer |
 | Service not registered under `IScopeSetup` | `OnSetup` never called | `.As<IScopeSetup>()` |

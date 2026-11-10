@@ -124,6 +124,14 @@ namespace ContainerGenerator {
             defaultSeverity: DiagnosticSeverity.Error,
             isEnabledByDefault: true);
 
+        public static readonly DiagnosticDescriptor LambdaRoot = new DiagnosticDescriptor(
+            id: "CINGR017",
+            title: "Scope root is a lambda",
+            messageFormat: "Scope root given to '{0}' is a lambda: the runtime finds the class of a scope by the name of its root method and a lambda has none, so every load of this scope would throw. Give a method group or a local function (it closes over the same values); a root with one argument goes through ScopeLoadOptions.Create(parent, Construct, argument). File {1} line {2}.",
+            category: Category,
+            defaultSeverity: DiagnosticSeverity.Error,
+            isEnabledByDefault: true);
+
         public static readonly DiagnosticDescriptor InjectableWithoutInject = new DiagnosticDescriptor(
             id: "CINGR008",
             title: "Injectable type has no [Inject] method",

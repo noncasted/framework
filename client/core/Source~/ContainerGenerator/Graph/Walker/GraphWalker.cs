@@ -57,6 +57,9 @@ namespace ContainerGenerator {
                 var model = _compilation.GetSemanticModel(tree);
                 var root = tree.GetRoot();
                 foreach (var node in root.DescendantNodes()) {
+                    if (node is AnonymousFunctionExpressionSyntax anonymous)
+                        LambdaRoots.Check(model, anonymous, _walkDiagnostics);
+
                     IMethodSymbol? method = null;
                     if (node is MethodDeclarationSyntax methodSyntax)
                         method = model.GetDeclaredSymbol(methodSyntax) as IMethodSymbol;

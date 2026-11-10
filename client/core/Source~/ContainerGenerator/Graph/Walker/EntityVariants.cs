@@ -42,6 +42,13 @@ namespace ContainerGenerator {
                     if (construct == null)
                         continue;
 
+                    // No class can be found by a lambda: the scope of this entity is not built at all.
+                    if (construct.MethodKind == MethodKind.AnonymousFunction) {
+                        _walkDiagnostics.ReportLambdaRoot(
+                            WalkSyntax.Unwrap(invocation.ArgumentList.Arguments[constructIndex].Expression), symbol.Name);
+                        continue;
+                    }
+
                     var viewExpression = invocation.ArgumentList.Arguments[viewIndex].Expression;
                     var viewType = model.GetTypeInfo(viewExpression).Type;
                     var site = new EntityLoadSite {

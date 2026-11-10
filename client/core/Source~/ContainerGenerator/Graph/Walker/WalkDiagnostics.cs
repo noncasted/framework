@@ -6,6 +6,7 @@ namespace ContainerGenerator {
     internal sealed class WalkDiagnostics {
         private readonly GraphDocument _document;
         private readonly HashSet<string> _genericRoots = new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<Location> _lambdaRoots = new HashSet<Location>();
 
         public WalkDiagnostics(GraphDocument document) {
             _document = document;
@@ -34,6 +35,20 @@ namespace ContainerGenerator {
             var id = MethodIds.Of(definition);
             if (_genericRoots.Add(id))
                 ReportRoot(GraphDescriptors.GenericRoot, id, method);
+        }
+
+        // One error per lambda: the walk sees it by its type and the entity loader by its call.
+        public void ReportLambdaRoot(SyntaxNode lambda, string target) {
+            var location = lambda.GetLocation();
+            if (_lambdaRoots.Add(location) == false)
+                return;
+
+            _document.Diagnostics.Add(new DiagnosticInfo(
+                GraphDescriptors.LambdaRoot,
+                LocationInfo.CreateFrom(location),
+                target,
+                lambda.SyntaxTree.FilePath ?? "",
+                (location.GetLineSpan().StartLinePosition.Line + 1).ToString()));
         }
 
         private void ReportRoot(DiagnosticDescriptor descriptor, string id, IMethodSymbol method) {

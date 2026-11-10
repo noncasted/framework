@@ -58,6 +58,7 @@ namespace ContainerGenerator.Verify {
             RunRegressionCases();
             RunAuditCases();
             RunContentCases();
+            RunLambdaRootCases();
             if (_failed == 0)
                 Console.WriteLine("ALL PASSED");
             else
