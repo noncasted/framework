@@ -39,8 +39,8 @@ player build. Addressables are gone from the framework. Code: `client/core/Runti
 - **The recorded load order.** `ProjectSettings/ContentLoadOrder/<name>.txt` of the game (committed; `object <guid> <local id>` /
   `scene <guid>` per line) is the order in which runs of the game first fetched objects and scenes: the archive puts their closures
   right after the roots, in this order, then the rest as above (`ContentArchiveOrder`). Without it the loads of the menu and of a level
-  are scattered over the archive (a group or a lazy target lands where an earlier scene or the manifest put it): pixel-swarm, by the log
-  of rc.5, menu 98 -> ~14 requests, run 156 -> ~76, same bytes. Record it in Play Mode with `Tools/Content/Record Load Order` on
+  are scattered over the archive (a group or a lazy target lands where an earlier scene or the manifest put it): pixel-swarm on the
+  stand, menu 105 -> 10 requests (the index among them), run 152 -> 10, the next level 12 -> 2, same bytes. Record it in Play Mode with `Tools/Content/Record Load Order` on
   (`RecordingContentDirectory` over the editor directory appends every key fetched the first time; earlier keys stay, so the menu and
   every level add up), `Tools/Content/Clear Load Order` starts anew; the build skips the keys the directory no longer has and logs
   `N of M keys`. A bigger `RangeGap` is no substitute: with the scattered order 64 KiB took the menu from 2.1 to 3.3 MB for 66 requests
