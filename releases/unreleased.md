@@ -18,3 +18,17 @@
 
 Заодно Regenerate All заново привязывает bindings с пустой ссылкой (`{fileID: 0}`), у которых код не менялся: в логе
 предупреждение `holds N empty references: binding again`, префаб пересохраняется. Действий не требует, изменённые префабы закоммитить.
+
+### Bindings: Regenerate All заканчивается валидатором
+
+Кого касается: клиент, все игры с bindings.
+
+После прохода привязки Regenerate All прогоняет `HierarchyBindingsValidator` по всем префабам с bindings и загруженным сценам.
+Раньше валидатор вызывался только из `RegeneratePrefabs` и из меню, поэтому старые находки (вариант убрал компонент базы, пустая
+ссылка, устаревшая структура, bindings не в списке view) теперь появятся ошибками в консоли; последняя строка
+`Regenerate All: N prefabs and M scenes validated in T ms, E validation errors` - ошибка при `E > 0`.
+
+Проверка: Regenerate All, в batchmode или без фокуса редактора затем `HierarchyBindingsGenerator.PumpPending()` до `Idle.`;
+`grep -n "HierarchyBindingsValidator\|validation errors" <лог редактора>`. Каждую находку исправить, как сказано в её тексте
+(Regenerate в ассете, Scan на view, вернуть компонент в варианте). Скрипты игры, которые ждут конца Regenerate All по
+`HierarchyBindingsGenerator.HasPending()`, учитывают, что он остаётся `true` до этой проверки.

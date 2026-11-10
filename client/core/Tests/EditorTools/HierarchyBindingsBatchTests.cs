@@ -680,6 +680,43 @@ namespace Internal.EditorTests
             Assert.That(bindings.Transform, Is.EqualTo(bindings.transform));
         }
 
+        // A finding only the validator sees: a variant emptied a reference of the bindings of its base. The base is
+        // regenerated without a change, the variant declares nothing, so Regenerate All has to validate to show it.
+        [Test]
+        public void PrepareProject_ValidatesAfterTheBinding()
+        {
+            var shop = MakePrefab(TempRoot + "/Menu/Shop.prefab", root => root.AddComponent<ShopBindings>());
+
+            HierarchyBindingsBatch.RegeneratePrefabs(new[] { shop });
+            Assert.That(HierarchyBindingsGenerator.PumpPending(), Is.EqualTo("Idle."));
+
+            var variant = TempRoot + "/Menu/ShopVariant.prefab";
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(shop));
+
+            try
+            {
+                var serialized = new SerializedObject(instance.GetComponent<ShopBindings>());
+                serialized.FindProperty("_transform").objectReferenceValue = null;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                PrefabUtility.SaveAsPrefabAsset(instance, variant, out var success);
+                Assert.That(success, Is.True, variant);
+            }
+            finally
+            {
+                Object.DestroyImmediate(instance);
+            }
+
+            Assert.That(HierarchyBindingsBatch.PrepareProject(out _), Is.EqualTo(1));
+            Assert.That(HierarchyBindingsQueue.IsEmpty(), Is.True);
+            Assert.That(HierarchyBindingsGenerator.HasPending(), Is.True, "The validation waits for the binding pass.");
+
+            LogAssert.Expect(LogType.Error, new Regex(Regex.Escape(variant) + ".*reference '_transform' is null"));
+            LogAssert.Expect(LogType.Error, new Regex("Regenerate All: .* 1 validation errors"));
+
+            Assert.That(HierarchyBindingsGenerator.PumpPending(), Is.EqualTo("Idle."));
+            Assert.That(HierarchyBindingsGenerator.HasPending(), Is.False);
+        }
+
         // The prefab left the assembly its bindings were generated into (a move of the prefab or of the file by
         // hand): its folder is another one now, and a second file of the same class must not appear there.
         [Test]
@@ -820,6 +857,7 @@ namespace Internal.EditorTests
             SessionState.EraseString("Internal.HierarchyBindings.PrefabBatch");
             SessionState.EraseString("Internal.HierarchyBindings.PendingRequests");
             SessionState.EraseBool("Internal.HierarchyBindings.AwaitingReload");
+            SessionState.EraseBool("Internal.HierarchyBindings.ProjectValidation");
         }
     }
 }

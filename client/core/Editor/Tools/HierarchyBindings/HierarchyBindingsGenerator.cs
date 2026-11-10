@@ -102,11 +102,12 @@ namespace Internal
             return HierarchyBindingsBatch.Status();
         }
 
-        // Requests or the awaiting mark are left (for example, the generated code failed to compile and the reload
-        // never came): only a reset (Cancel) moves on.
+        // Requests, the awaiting mark or the validation of Regenerate All are left (for example, the generated code
+        // failed to compile and the reload never came): only a reset (Cancel) moves on.
         internal static bool HasPending()
         {
-            return HierarchyBindingsQueue.HasData() || SessionState.GetBool(AwaitingReloadKey, false);
+            return HierarchyBindingsQueue.HasData() || SessionState.GetBool(AwaitingReloadKey, false) ||
+                   HierarchyBindingsProjectValidation.IsRequested;
         }
 
         // Resets a stuck state (for example, the generated code failed to compile): the queue and the awaiting mark.
@@ -114,6 +115,7 @@ namespace Internal
         {
             HierarchyBindingsQueue.Clear();
             SessionState.EraseBool(AwaitingReloadKey);
+            HierarchyBindingsProjectValidation.Clear();
         }
 
         [InitializeOnLoadMethod]
@@ -127,7 +129,7 @@ namespace Internal
         {
             SessionState.EraseBool(AwaitingReloadKey);
 
-            if (HierarchyBindingsQueue.IsEmpty())
+            if (HierarchyBindingsQueue.IsEmpty() && HierarchyBindingsProjectValidation.IsRequested == false)
                 return;
 
             EditorApplication.delayCall += ProcessPending;
@@ -142,8 +144,12 @@ namespace Internal
 
             var requests = HierarchyBindingsQueue.Load();
 
+            // Nothing to bind: only the validation of Regenerate All may wait for this pass.
             if (requests.Count == 0)
+            {
+                HierarchyBindingsProjectValidation.RunIfRequested();
                 return;
+            }
 
             var bound = 0;
 

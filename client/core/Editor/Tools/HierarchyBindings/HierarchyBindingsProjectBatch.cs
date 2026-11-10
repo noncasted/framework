@@ -10,15 +10,10 @@ namespace Internal
     // Regenerate All: the bindings of every prefab asset and of the loaded scenes.
     internal static class HierarchyBindingsProjectBatch
     {
-        // Every binding declared in prefab assets and in loaded scenes, in one pass without phases (Regenerate
-        // All). The bindings are already on the objects, so the "children before parents" order is not needed,
-        // and all the code is written before one Refresh - otherwise after a failed compile a phase would wait
-        // for a reload that never comes. Only bindings whose code changed (or whose object is stale) are bound
-        // again. Scenes that are not loaded are not opened (opening scenes from tools crashes the shared
-        // editor): they are listed in the log. The caller flushes once (changed = a file was written).
-        public static int Prepare(out bool changed)
+        // The prefab assets of the project that carry bindings, their own or inherited.
+        public static List<string> PrefabsWithBindings()
         {
-            var items = new List<HierarchyBindingsPrefabItem>();
+            var paths = new List<string>();
 
             foreach (var guid in AssetDatabase.FindAssets("t:Prefab", new[] { "Assets" }))
             {
@@ -29,8 +24,24 @@ namespace Internal
                     throw new InvalidOperationException($"{path} is not a prefab.");
 
                 if (asset.GetComponentsInChildren<ObjectBindings>(true).Length > 0)
-                    HierarchyBindingsPrefabItems.CollectPrefab(path, items);
+                    paths.Add(path);
             }
+
+            return paths;
+        }
+
+        // Every binding declared in prefab assets and in loaded scenes, in one pass without phases (Regenerate
+        // All). The bindings are already on the objects, so the "children before parents" order is not needed,
+        // and all the code is written before one Refresh - otherwise after a failed compile a phase would wait
+        // for a reload that never comes. Only bindings whose code changed (or whose object is stale) are bound
+        // again. Scenes that are not loaded are not opened (opening scenes from tools crashes the shared
+        // editor): they are listed in the log. The caller flushes once (changed = a file was written).
+        public static int Prepare(out bool changed)
+        {
+            var items = new List<HierarchyBindingsPrefabItem>();
+
+            foreach (var path in PrefabsWithBindings())
+                HierarchyBindingsPrefabItems.CollectPrefab(path, items);
 
             if (HierarchyBindingsPrefabItems.ValidateUniqueTypes(items) == false)
                 throw new InvalidOperationException("Duplicate bindings types. See the console.");
