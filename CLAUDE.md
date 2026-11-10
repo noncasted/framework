@@ -320,8 +320,8 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1550, common 92, Verify 166, control 23, telemetry 84, EditMode 1076 (4 of them skipped, the
-benchmarks of `ContainerBenchmarkTests`), PlayMode 118 (24 of them skipped, the end to end tests of the telemetry without their host);
+Release build replaces it. The expected numbers: backend 1565, common 96, Verify 168, control 23, telemetry 84, EditMode 1185 (4 of them skipped, the
+benchmarks of `ContainerBenchmarkTests`), PlayMode 120 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 
 `tools/scripts/test-telemetry-transport.sh` runs those 24 against a real backend: it starts `ClientTelemetry.TestHost` (needs Docker) and takes
