@@ -77,3 +77,14 @@ Postgres через `IDbSource` (`MatchMetricsSchema`), не состояния 
   команды.
 - Deploy setup: `await MatchMetricsSchema.Create(connection)` (рядом с `AuditLogSetup`; `grep -rn "AuditLogSetup.Run" backend`).
 - Хост, который пишет поток сервера (игровой сервер): `builder.AddMatchMetricsWriter()`.
+
+### match-metrics на бэкенде: чтение
+
+Кого касается: игры с модулем `match-metrics` (консоль, агенты, история матчей). Игре без модуля - ничего.
+
+`IMatchMetricsReader` (`backend/MatchMetrics/Reading`): потоки матча, словарь рядов, точки матча по группам тегов (шаг 1 / 10 /
+60 с, ось часов забега или серверная), итоги матча и между матчами, события матча. GET эндпоинты `/api/match-metrics/...`
+(`MapMatchMetricsRead`), контракт чтения - раздел «Reading» в `Contract/CONTRACT.md`. Таблицы те же, схема не менялась.
+
+Что сделать игре: в хосте с чтением (мета-гейтвей) `builder.AddMatchMetricsReader()` и
+`app.MapMatchMetricsRead().RequireConsoleToken()` (токен - свой у игры, как у `MapClientTelemetryRead`).
