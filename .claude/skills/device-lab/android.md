@@ -31,5 +31,14 @@ A screenshot <out.png>        # adb exec-out screencap -p, whatever is on top
   (`Page.addScriptToEvaluateOnNewDocument` on a websocket kept open over the navigation); under `?glcheck` the methods of the
   context itself are wrapped, so wrap the instance (`canvas.getContext('webgl2')`) instead. Keep a probe to one `getError` per
   draw: 16 `getVertexAttrib` per draw froze a Redmi 12 page.
+- A local build on the phone without the LAN problems of plain http (brotli, insecure http, [lan.md](lan.md)): serve it with
+  `lan/serve.py` (inject `remote-log.js` first) and `adb reverse tcp:8770 tcp:8770`, then `open http://localhost:8770/...`:
+  `localhost` is a secure context, so the compressed build of `deploy-client --no-deploy` starts as it is. The meta refuses it
+  (offline mode: the game server of the session runs in the page itself, so its frame times are not those of a production
+  run) and it sends no telemetry: the measure is the remote log (`lan/windows.py --client 127.0.0.1`). After: close the tab,
+  `adb reverse --remove tcp:8770`, stop the server by its pid.
 - A production page on the phone (`open https://<host>/<autorunQuery>`) reaches the telemetry: read it with `client-telemetry`.
   A LAN build sends none ([lan.md](lan.md)): measure it with the remote log or `eval`.
+- Plugging an iPhone / iPad on the same hub re-enumerates USB (`usbmuxd`): adb loses the phone (`no devices`, `lsusb` still
+  shows `ADB Interface`) and the `adb reverse` with it, while the page goes on. `adb kill-server; adb start-server`, wait up to
+  40 s for `device` (twice if needed), then `adb reverse` again.
