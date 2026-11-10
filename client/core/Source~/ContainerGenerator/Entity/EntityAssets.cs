@@ -57,7 +57,7 @@ namespace ContainerGenerator {
                         document.Diagnostics.Add(new DiagnosticInfo(
                             GraphDescriptors.UncoveredSyntax,
                             registration.Location,
-                            "scene '" + registration.Hole + "' without SceneServicesFactory in the asset index",
+                            MissingScene(document, index, registration.Hole),
                             method.Id,
                             registration.File ?? "",
                             registration.Line.ToString(CultureInfo.InvariantCulture)));
@@ -75,6 +75,22 @@ namespace ContainerGenerator {
                     }
                 }
             }
+        }
+
+        // Without a single scene the map itself is out of sight: it lives in the content assembly of the project, and an
+        // assembly that walks the scopes of a game without a reference to it reads them with an empty map.
+        private static string MissingScene(GraphDocument document, EntityAssetIndex index, string hole) {
+            const string map = "the asset map (ContainerGraph.AssetMap.cs)";
+
+            for (var i = 0; i < index.Assets.Count; i++) {
+                if (EntityAssetIndex.Normalize(index.Assets[i].HolderType).EndsWith("SceneServicesFactory", StringComparison.Ordinal))
+                    return "the services of scene '" + hole + "': " + map + " has no SceneServicesFactory of this scene - " +
+                           "regenerate the map (Tools/Framework/Codegen/Container Asset Map) or put a SceneServicesFactory into the scene";
+            }
+
+            return "the services of scene '" + hole + "': assembly '" + document.AssemblyName + "' sees no scene of " + map +
+                   " - most likely it does not reference the content assembly of the project, which holds the map " +
+                   "(FrameworkSettings.ContentAssembly, Internal.Content by default): add it to the references of the asmdef";
         }
 
         private static EntityAsset? FindScene(EntityAssetIndex index, string hole) {

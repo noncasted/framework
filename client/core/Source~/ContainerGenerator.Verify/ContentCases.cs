@@ -8,6 +8,8 @@ namespace ContainerGenerator.Verify {
             Run("LoadContent and RequestContent are content primitives by the attribute", TestContentPrimitives);
             Run("LoadContent and RequestContent are content primitives by the name when unbound", TestContentPrimitivesByName);
             Run("scene anchor of a ContentScene merges its scene services", TestContentSceneAnchor);
+            Run("CINGR001 scene anchor without an asset map names the content assembly", TestSceneWithoutAssetMap);
+            Run("CINGR001 scene anchor missing in the asset map names the regeneration", TestSceneMissingInAssetMap);
         }
 
         private static void TestContentPrimitives() {
@@ -46,6 +48,27 @@ namespace ContainerGenerator.Verify {
             FindRegistration(graph, "MenuThing");
         }
 
+        // An assembly that walks the scopes of a game but does not reference its content assembly sees no asset map.
+        private static void TestSceneWithoutAssetMap() {
+            var document = WalkBound(Compile(ContentSceneSource.Replace(MenuAssetMap, ""), "GamePlay.Tools", extraSource: ContentStubs));
+            var message = RequireDocumentDiagnostic(document, "CINGR001").ToDiagnostic().GetMessage();
+            Require(message.IndexOf("'Scenes.Menu'", StringComparison.Ordinal) >= 0, "must name the scene: " + message);
+            Require(message.IndexOf("'GamePlay.Tools'", StringComparison.Ordinal) >= 0, "must name the assembly: " + message);
+            Require(message.IndexOf("ContainerGraph.AssetMap.cs", StringComparison.Ordinal) >= 0, "must name the asset map: " + message);
+            Require(message.IndexOf("content assembly", StringComparison.Ordinal) >= 0, "must name the content assembly: " + message);
+            Require(message.IndexOf("asmdef", StringComparison.Ordinal) >= 0, "must say what to do: " + message);
+        }
+
+        private static void TestSceneMissingInAssetMap() {
+            var source = ContentSceneSource.Replace("Assets/Scenes/Menu.unity", "Assets/Scenes/Lobby.unity");
+            var document = WalkBound(Compile(source, extraSource: ContentStubs));
+            var message = RequireDocumentDiagnostic(document, "CINGR001").ToDiagnostic().GetMessage();
+            Require(message.IndexOf("'Scenes.Menu'", StringComparison.Ordinal) >= 0, "must name the scene: " + message);
+            Require(message.IndexOf("content assembly", StringComparison.Ordinal) < 0, "the map is visible, the content assembly is not the cause: " + message);
+            Require(message.IndexOf("Tools/Framework/Codegen/Container Asset Map", StringComparison.Ordinal) >= 0, "must say how to regenerate the map: " + message);
+            Require(message.IndexOf("SceneServicesFactory", StringComparison.Ordinal) >= 0, "must name the factory: " + message);
+        }
+
         // The content API of Runtime/Content, with the attributes of the runtime.
         private const string ContentStubs = @"
 namespace Internal {
@@ -81,8 +104,11 @@ namespace Sample {
     }
 }";
 
+        private const string MenuAssetMap =
+            @"[assembly: Internal.ContainerGraphAsset(""Assets/Scenes/Menu.unity"", ""Internal.SceneServicesFactory"", new string[] { ""Sample.MenuService"" })]";
+
         private const string ContentSceneSource = Usings + @"
-[assembly: Internal.ContainerGraphAsset(""Assets/Scenes/Menu.unity"", ""Internal.SceneServicesFactory"", new string[] { ""Sample.MenuService"" })]
+" + MenuAssetMap + @"
 
 namespace Sample {
     public class MenuThing {}

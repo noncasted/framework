@@ -188,7 +188,7 @@ Example: `tools/framework/client/modules/audio/Runtime/AudioPlayer.cs`. Make the
 
 **Prefab instance.** `builder.Instantiate(prefab)` instantiates and moves it to the scope scene; then `builder.Inject(instance)` and/or `builder.RegisterInstance(instance).As<...>()` (see `AddLoadingScreen` in `tools/framework/client/modules/ui/Runtime/UIExtensions.cs`).
 
-New scene services: the compile-time check resolves scene services from `client/Assets/Common/Internal/Runtime/Tools/Container/ContainerGraph.AssetMap.cs`, written by `ContainerGraphPostprocessor` (menu `Tools/GenerateContainerGraphAssets`). A new dependency on a scene service fails with CINGR003 until the component is in the scene, `Assets/Scan services` has run and the scene is saved. Add the dependency after that (see `CODEGEN.md`).
+New scene services: the compile-time check resolves scene services from `client/Assets/Common/Internal/Runtime/Tools/Container/ContainerGraph.AssetMap.cs`, written by `ContainerGraphPostprocessor` (menu `Tools/Framework/Codegen/Container Asset Map`). A new dependency on a scene service fails with CINGR003 until the component is in the scene, `Assets/Scan services` has run and the scene is saved. Add the dependency after that (see `CODEGEN.md`).
 
 ## Asset Groups
 
@@ -216,6 +216,7 @@ The generator reports errors at compile time; the Unity console shows them as co
 | Id | Meaning | Typical fix |
 |----|---------|-------------|
 | CINGR001 | Walker does not understand a syntax form in an installer | Write the installer as plain calls of `BuilderExtensions` / other installers |
+| CINGR001 `the services of scene 'Scenes.X'` | The scene of `FindOrLoadSceneWithServices` is not in the asset map this assembly sees. `sees no scene of the asset map`: the assembly walks scopes of the game without a reference to the content assembly | Reference the content assembly (`FrameworkSettings.ContentAssembly`) in the asmdef; when the map is visible, regenerate it (`Tools/Framework/Codegen/Container Asset Map`) or add the `SceneServicesFactory` to the scene |
 | CINGR002 | Installer call cannot be resolved | Make the helper a non-generic extension method visible to the root assembly |
 | CINGR003 | Constructor / `[Inject]` parameter has no registration in the scope or its parents | Register it (registration before the dependent type, see `CODEGEN.md` for scene services) |
 | CINGR004 | Circular dependency (path in the message) | Break the cycle (event, lazy factory, split the service) |
