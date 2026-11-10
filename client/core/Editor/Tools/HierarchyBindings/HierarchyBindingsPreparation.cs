@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Text.RegularExpressions;
 using UnityEngine;
 
 namespace Internal
@@ -10,9 +8,6 @@ namespace Internal
     internal static class HierarchyBindingsPreparation
     {
         private const string LogTag = HierarchyBindingsLog.Tag;
-
-        // The namespace line HierarchyBindingsCodeGenerator writes; a class without a namespace has none.
-        private static readonly Regex DeclaredNamespace = new(@"^namespace (\S+) \{", RegexOptions.Multiline);
 
         // Code is written separately from triggering compilation: batch regeneration writes all the
         // classes and only then calls Refresh once - otherwise the domain would reload mid-traversal.
@@ -90,7 +85,7 @@ namespace Internal
 
             var folder = HierarchyBindingsPaths.ResolveGeneratedFolder(root, assetPath);
             var filePath = HierarchyBindingsPaths.ToFilePath(folder, typeName);
-            var fileConflict = FindFileConflict(filePath, typeName, namespaceName);
+            var fileConflict = HierarchyBindingsFileConflicts.Find(filePath, typeName, namespaceName);
 
             if (fileConflict != null)
             {
@@ -131,24 +126,6 @@ namespace Internal
             }
 
             return true;
-        }
-
-        // The file at the path is generated for another class: writing would silently replace that class.
-        private static string FindFileConflict(string filePath, string typeName, string namespaceName)
-        {
-            var fullPath = CatalogPaths.ToFullPath(filePath);
-
-            if (File.Exists(fullPath) == false)
-                return null;
-
-            var match = DeclaredNamespace.Match(File.ReadAllText(fullPath));
-            var declared = match.Success ? match.Groups[1].Value : string.Empty;
-
-            if (string.Equals(declared, namespaceName, StringComparison.Ordinal))
-                return null;
-
-            var declaredName = string.IsNullOrEmpty(declared) ? typeName : declared + "." + typeName;
-            return $"{filePath} already holds {declaredName} of another object. Give these bindings another name.";
         }
 
         private static int CountEmptyReferences(ObjectBindings bound)

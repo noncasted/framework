@@ -26,6 +26,9 @@ namespace Internal.EditorTests
         // No asmdef above and no script on the objects: no assembly to put the bindings into.
         private const string NoAssemblyRoot = "Assets/BindingsTempNoAssembly";
 
+        // Outside the fixtures assembly: the asmdef above is the one of the tests, with another Generated folder.
+        private static string MovedRoot => EditorTestPaths.Root + "/BindingsTempMoved";
+
         private static string Fixture => EditorTestPaths.Root + "/Fixtures/Generated/ShopBindings.g.cs";
         private const string MenuNamespace = "Internal.EditorTests.Menu";
         private const string GamePlayNamespace = "Internal.EditorTests.GamePlay";
@@ -48,6 +51,7 @@ namespace Internal.EditorTests
 
             EditorTestAssets.DeleteFiles(TempRoot);
             EditorTestAssets.DeleteFolder(NoAssemblyRoot);
+            EditorTestAssets.DeleteFolder(MovedRoot);
         }
 
         [OneTimeTearDown]
@@ -674,6 +678,39 @@ namespace Internal.EditorTests
 
             var bindings = AssetDatabase.LoadAssetAtPath<GameObject>(shop).GetComponent<ShopBindings>();
             Assert.That(bindings.Transform, Is.EqualTo(bindings.transform));
+        }
+
+        // The prefab left the assembly its bindings were generated into (a move of the prefab or of the file by
+        // hand): its folder is another one now, and a second file of the same class must not appear there.
+        [Test]
+        public void Prepare_ClassGeneratedInAnotherFolder_IsRefused()
+        {
+            var moved = MakePrefab(MovedRoot + "/Shop.prefab", root => root.AddComponent<ShopBindings>());
+            var root = AssetDatabase.LoadAssetAtPath<GameObject>(moved);
+            var duplicate = CatalogPaths.ToFullPath(EditorTestPaths.Root + "/Generated/ShopBindings.g.cs");
+
+            try
+            {
+                LogAssert.Expect(LogType.Error, new Regex("is already generated into " + Regex.Escape(Fixture)));
+                var prepared = HierarchyBindingsGenerator.Prepare(root, "ShopBindings", MenuNamespace, false, false,
+                    out var changed);
+
+                Assert.That(File.Exists(duplicate), Is.False, "The class is written a second time.");
+                Assert.That(prepared, Is.False);
+                Assert.That(changed, Is.False);
+                Assert.That(HierarchyBindingsQueue.IsEmpty(), Is.True);
+            }
+            finally
+            {
+                // Removed before any refresh: the editor never sees the second class.
+                var folder = Path.GetDirectoryName(duplicate);
+
+                if (Directory.Exists(folder))
+                {
+                    Directory.Delete(folder, true);
+                    File.Delete(folder + ".meta");
+                }
+            }
         }
 
         private static List<string> CollectErrors(Action action)

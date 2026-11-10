@@ -87,6 +87,7 @@ From MCP (`execute_code`, no window): `HierarchyBindingsGenerator.Prepare(root, 
 Rules:
 - Never edit `*Bindings.g.cs` by hand except to unblock a compile deadlock (see `CODEGEN.md`, namespace rename).
 - One bindings class per object type: two owners of the same class name would overwrite each other's file.
+- One class - one file: the folder follows the assembly of the owner script or of the asset, so after a move of the asset to another assembly (or of the file by hand) the generator refuses to write a second `*Bindings.g.cs` of the same class (`is already generated into ...`). Move the asset back, or move the file with its `.meta` to the path the error names.
 - The namespace of a generated class follows its owner view; moving the owner to another namespace means regenerating the bindings.
 - After changing a prefab hierarchy used by an entity, regenerate the bindings, then rescan the `ScopeEntityView` list and let the container asset map refresh (CINGR006/CINGR003 otherwise, see `COMMON_CONTAINER.md`).
 
