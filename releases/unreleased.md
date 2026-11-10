@@ -32,3 +32,13 @@
 `grep -n "HierarchyBindingsValidator\|validation errors" <лог редактора>`. Каждую находку исправить, как сказано в её тексте
 (Regenerate в ассете, Scan на view, вернуть компонент в варианте). Скрипты игры, которые ждут конца Regenerate All по
 `HierarchyBindingsGenerator.HasPending()`, учитывают, что он остаётся `true` до этой проверки.
+
+## Окно реконнекта у сессии хоста-клиента
+
+Кому: играм с P2P-матчами (`LocalSessionServer` как хост матча). Действие необязательно, без него поведение прежнее.
+
+- `LocalSessionServer.Create(id, type, maxUsers, services, reconnectWindow)`: при ненулевом окне потеря соединения гостя без
+  `Leave` не завершает его слот: остальные получают `RemoteAway`, гость с билетом того же пользователя возвращается в слот со
+  своими сущностями (`LocalUpdate.IsReturn`, `SeatEntities`), по истечении окна слот завершается (`RemoteDisconnect`).
+- `SessionCore(..., isReconnectable)`, `SeatAway`, `ExpireAway`: то же для своего хоста без `LocalSessionServer`.
+- Поиск мест: `grep -rn "LocalSessionServer\|new SessionCore(" client/Assets`.

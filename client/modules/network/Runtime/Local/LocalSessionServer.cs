@@ -33,9 +33,17 @@ namespace Internal
         }
 
         // id: given by the creator (a P2P host runs the session of the match under the id of the server session).
-        public LocalSession Create(Guid id, SessionType type, int maxUsers, Func<SessionCore, IEnumerable<IService>> services)
+        // reconnectWindow: how long the seat of a user that lost its connection waits for it, as
+        // SessionCreateOptions.ReconnectWindow of the backend (the others get RemoteAway, a connection with the ticket
+        // of the same user returns to the seat); zero - a lost connection is a leave.
+        public LocalSession Create(
+            Guid id,
+            SessionType type,
+            int maxUsers,
+            Func<SessionCore, IEnumerable<IService>> services,
+            TimeSpan reconnectWindow = default)
         {
-            var session = new LocalSession(_lifetime.Child(), id, type, maxUsers, services);
+            var session = new LocalSession(_lifetime.Child(), id, type, maxUsers, services, reconnectWindow);
 
             _sessions.Add(session.Id, session);
             session.Lifetime.Listen(() => _sessions.Remove(session.Id));
@@ -139,13 +147,16 @@ namespace Internal
             Guid id,
             SessionType type,
             int maxUsers,
-            Func<SessionCore, IEnumerable<IService>> services)
+            Func<SessionCore, IEnumerable<IService>> services,
+            TimeSpan reconnectWindow)
         {
             _lifetime = lifetime;
             _maxUsers = maxUsers;
+            _reconnectWindow = reconnectWindow;
             Id = id;
 
-            Core = new SessionCore(id, type, lifetime, new UnitySessionLog());
+            Core = new SessionCore(id, type, lifetime, new UnitySessionLog(), reconnectWindow > TimeSpan.Zero);
+            Core.SeatAway.Advise(lifetime, (seat, wait) => WaitReturn(seat, wait).Forget());
 
             foreach (var service in services(Core))
                 Core.AddService(service);
@@ -158,6 +169,7 @@ namespace Internal
 
         private readonly ILifetime _lifetime;
         private readonly int _maxUsers;
+        private readonly TimeSpan _reconnectWindow;
 
         public Guid Id { get; }
         public SessionCore Core { get; }
@@ -191,6 +203,20 @@ namespace Internal
 
             Debug.Log($"[Network] [Local] User {user.Index} joins session {Id}");
             return user;
+        }
+
+        // The window in real time: the game of the host may stand meanwhile. The wait ends with the return of the user
+        // or with the seat.
+        private async UniTaskVoid WaitReturn(ISessionSeat seat, IReadOnlyLifetime wait)
+        {
+            var isCanceled = await UniTask
+                                   .Delay(_reconnectWindow, DelayType.Realtime, cancellationToken: wait.Token)
+                                   .SuppressCancellationThrow();
+
+            if (isCanceled == true)
+                return;
+
+            Core.ExpireAway(seat);
         }
     }
 
