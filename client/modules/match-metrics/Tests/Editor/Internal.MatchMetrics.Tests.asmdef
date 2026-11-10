@@ -1,0 +1,31 @@
+{
+    "name": "Internal.MatchMetrics.Tests",
+    "rootNamespace": "",
+    "references": [
+        "Internal",
+        "Internal.MatchMetrics",
+        "Internal.TestTools",
+        "Internal.Network",
+        "Framework.Common",
+        "Framework.Shared",
+        "UniTask",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll",
+        "MemoryPack.Core.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
