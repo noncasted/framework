@@ -23,7 +23,7 @@
         </div>
         <div>
             <span class="text-2xl font-bold">@_data.Current</span>
-            <span class="text-sm text-muted-foreground ml-2">users online, updated @OnlinePeriodFormat.Updated(_data.UpdatedAt)</span>
+            <span class="text-sm text-muted-foreground ml-2">users online, updated @OnlinePeriodFormat.Updated(_data.UpdatedAt, _zone)</span>
         </div>
     </div>
 
@@ -38,16 +38,16 @@
 
     <div class="flex flex-col gap-3">
         <h2 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b pb-2">
-            Last 48 hours (UTC)
+            Last 48 hours (@_zone.Name())
         </h2>
-        <OnlineChart Periods="@_data.Hours" Scale="OnlineScale.Hours" Height="200px"/>
+        <OnlineChart Periods="@_data.Hours" Scale="OnlineScale.Hours" Height="200px" Zone="@_zone"/>
     </div>
 
     <div class="flex flex-col gap-3">
         <h2 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b pb-2">
             Last 30 days (UTC)
         </h2>
-        <OnlineChart Periods="@_data.Days" Scale="OnlineScale.Days" Height="200px"/>
+        <OnlineChart Periods="@_data.Days" Scale="OnlineScale.Days" Height="200px" Zone="@_zone"/>
     </div>
 
     <div class="flex flex-col gap-3">
@@ -76,8 +76,10 @@
 
 @code {
     [Inject] private IDeploymentState<OnlineStatsLiveData> State { get; set; } = null!;
+    [Inject] private IBrowserTime BrowserTime { get; set; } = null!;
 
     private OnlineStatsLiveData _data = new();
+    private BrowserTimeZone _zone = BrowserTimeZone.Utc;
 
     protected override Task OnSetup(IReadOnlyLifetime lifetime)
     {
@@ -88,5 +90,14 @@
         });
 
         return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender == false)
+            return;
+
+        _zone = await BrowserTime.Zone();
+        StateHasChanged();
     }
 }

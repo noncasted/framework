@@ -9,6 +9,7 @@ public static class ConsoleCommonExtensions
     {
         builder.Services.AddScoped<IConsoleNavigation, ConsoleNavigation>();
         builder.Services.AddScoped<IClipboard, ClipboardService>();
+        builder.Services.AddScoped<IBrowserTime, BrowserTime>();
 
         return builder;
     }

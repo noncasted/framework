@@ -19,7 +19,7 @@
 
         <div class="text-right">
             <div class="text-2xl font-bold leading-none">@_data.Current</div>
-            <div class="text-xs text-muted-foreground">@(_data.UpdatedAt == default ? "no data" : OnlinePeriodFormat.Updated(_data.UpdatedAt))</div>
+            <div class="text-xs text-muted-foreground">@(_data.UpdatedAt == default ? "no data" : OnlinePeriodFormat.Updated(_data.UpdatedAt, _zone))</div>
         </div>
     </div>
 
@@ -35,7 +35,7 @@
                         Value="@(_scale == OnlineScale.Hours ? _data.Days[^1].UniqueUsers : _data.UniqueLast30Days)"/>
     </div>
 
-    <OnlineChart Periods="@_periods" Scale="@_scale" Height="125px"/>
+    <OnlineChart Periods="@_periods" Scale="@_scale" Height="125px" Zone="@_zone"/>
 
     <OnlineScaleSwitch Value="@_scale" ValueChanged="SetScale"/>
 </div>
@@ -43,6 +43,7 @@
 @code {
     [Inject] private IDeploymentState<OnlineStatsLiveData> State { get; set; } = null!;
     [Inject] private IConsoleNavigation Navigation { get; set; } = null!;
+    [Inject] private IBrowserTime BrowserTime { get; set; } = null!;
 
     // The periods of the chart: a day of hours, two weeks of days.
     private const int _hoursInView = 24;
@@ -51,6 +52,7 @@
     private OnlineStatsLiveData _data = new();
     private OnlineScale _scale = OnlineScale.Hours;
     private IReadOnlyList<OnlinePeriod> _periods = [];
+    private BrowserTimeZone _zone = BrowserTimeZone.Utc;
 
     protected override Task OnSetup(IReadOnlyLifetime lifetime)
     {
@@ -62,6 +64,15 @@
         });
 
         return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender == false)
+            return;
+
+        _zone = await BrowserTime.Zone();
+        StateHasChanged();
     }
 
     private void SetScale(OnlineScale scale)

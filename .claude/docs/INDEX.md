@@ -21,6 +21,10 @@ The framework of a game is updated by a release with the `update-framework` skil
 The cluster and the Unity editor are tools of the agent: start, restart, rebuild and recover them with the `control` skill, without
 asking the user. Agents testing in parallel take their own copy of the project with its own editor (`control copy create`).
 
+A session that takes a task from `docs/tasks` (a folder `docs/tasks/current/<task>` or a file of it, by a path, `/workflow`,
+`/orchestrate`, `/auto`) starts its first reply with the line `/rename <task>` for the user to type: the agent cannot rename
+the session itself. Once per task.
+
 Research media of a project: work in progress is in `docs/media/research/<topic>`, finished research in
 `docs/media/research/complete/<topic>`. A session that finished its task and left files in `docs/media` runs the
 `media-cleanup` skill. Before a new study look in both places.
