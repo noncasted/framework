@@ -112,3 +112,15 @@ definition for 'ListenClick'`.
 `network`, `telemetry`, `lobbies`) указывает пакет в манифесте сама, если ещё не указывает. `grep -rln "StableHash" client/Assets
 backend shared --include=*.cs`: asmdef каждой такой сборки ссылается на `Framework.Common` (`GUID:3ea5c3f1172040daa713d5ad71728b78`),
 csproj - на `framework.common.csproj`; без этого CS0103 `The name 'StableHash' does not exist`.
+
+### Декодер mp3 аудио-групп в сборке `Internal.EncodedAudio`
+
+Кого касается: клиент, игры, которые вызывают `EncodedAudio` из своего кода (редакторские инструменты аудио).
+
+Декодирование клипов, отгруженных байтами mp3 (`*.mp3.bytes`), перенесено из `Internal` в сборку `Internal.EncodedAudio` пакета ядра: ядро
+больше не ссылается на `UnityWebRequest`. Сборка регистрирует себя при старте (`[AlwaysLinkAssembly]`), группы работают как раньше.
+`EncodedAudio.Extension` -> `EncodedAudioDecoder.Extension`, статический `EncodedAudio.Decode` -> `EncodedAudioDecoder.Decode`.
+Игра без mp3 в аудио-группах может убрать сборку из плеера (`"StrippedPlayerAssemblies": [ "Internal.EncodedAudio" ]` в
+`ProjectSettings/Framework.json`), вместе с ней из плеера уходят `UnityWebRequest` и `Uri` / `Regex` из `System.dll`.
+
+Проверка: `grep -rn "EncodedAudio\." client/Assets --include=*.cs` - заменить по списку выше.

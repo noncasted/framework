@@ -135,7 +135,9 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   `app.css` of a console of a game: its pages on this host), `--no-telemetry` (the console of a game without the telemetry).
 - **Client core.** Assemblies `Internal`, `Internal.Editor`, `Internal.Tests` (namespace `Internal`, asmdef GUIDs of
   the projects kept; no uGUI in them: the helpers of uGUI (`ListenClick`, `ButtonSounds`, `Image.SetAlpha`, `Slider.ToLifetimedValue`)
-  are `Internal.UGUI` (`client/core/UGUI`, `GUID:1a5b96d3d6de4210867a24fe0a1f3fcb`, compiled only with `com.unity.ugui`); `Internal` is `GUID:f039cb8c565843dba6da5b3c1ccde7d6`, `Framework.Common`
+  are `Internal.UGUI` (`client/core/UGUI`, `GUID:1a5b96d3d6de4210867a24fe0a1f3fcb`, compiled only with `com.unity.ugui`);
+  the decoder of mp3 clips of the audio groups is `Internal.EncodedAudio` (`client/core/EncodedAudio`, registers itself, the only
+  user of `UnityWebRequest` in the core; a game without mp3 lists it in `StrippedPlayerAssemblies`); `Internal` is `GUID:f039cb8c565843dba6da5b3c1ccde7d6`, `Framework.Common`
   `GUID:3ea5c3f1172040daa713d5ad71728b78`, `Framework.Shared` `GUID:73681998e594465db2ed389d82d877b6`). The project owns the content assembly (`FrameworkSettings.ContentAssembly`, by default
   `Internal.Content` in `Assets/Common/Internal`): generated catalogues (`InternalAssets`, `Sprites`, audio, colors,
   `Scenes` of `ContentScene`s), catalogue groups and their json lists (one folder per kind, `Runtime/Catalogues/<Kind>`: the json

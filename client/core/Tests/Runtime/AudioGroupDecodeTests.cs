@@ -46,7 +46,7 @@ namespace Internal.Tests
 
             try
             {
-                await EncodedAudio.Decode(broken, $"AuditBytes{Guid.NewGuid():N}");
+                await EncodedAudioDecoder.Decode(broken, $"AuditBytes{Guid.NewGuid():N}");
                 Assert.Fail("Decode of broken bytes succeeded");
             }
             catch (Exception exception) when (exception is not AssertionException)

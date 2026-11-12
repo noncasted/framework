@@ -13,14 +13,19 @@ namespace Internal
     // For WebGL Unity re-encodes every AudioClip to AAC of at least ~100 kbps whatever the import settings say
     // (force to mono, sample rate and quality below 0.3 change nothing), so long or numerous clips ship as ready
     // mp3 bytes (TextAsset "*.mp3.bytes") and are decoded at load time: by the browser (decodeAudioData) in
-    // WebGL, by FMOD in the editor and other players. The result is a regular fully decoded AudioClip.
-    public static class EncodedAudio
+    // WebGL, by FMOD in the editor and other players. The result is a regular fully decoded AudioClip. Registered as
+    // the decoder of EncodedAudioDecoder at the start (before the first scene).
+    public sealed class EncodedAudio : IEncodedAudioDecoder
     {
-        public const string Extension = ".mp3.bytes";
-
         private const float DecodeTimeout = 30f;
 
-        public static async UniTask<AudioClip> Decode(TextAsset encoded, string name)
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void Register()
+        {
+            EncodedAudioDecoder.Use(new EncodedAudio());
+        }
+
+        public async UniTask<AudioClip> Decode(TextAsset encoded, string name)
         {
             var url = CreateUrl(encoded.bytes, name);
 

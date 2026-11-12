@@ -44,7 +44,7 @@ namespace Internal
         // A clip shipped as ready mp3 bytes (EncodedAudio): Unity does not re-encode it to AAC for WebGL.
         internal static bool IsEncodedPath(string path)
         {
-            return path.EndsWith(EncodedAudio.Extension, StringComparison.OrdinalIgnoreCase);
+            return path.EndsWith(EncodedAudioDecoder.Extension, StringComparison.OrdinalIgnoreCase);
         }
 
         internal static string GetSourceName(string path)
@@ -52,7 +52,7 @@ namespace Internal
             var fileName = Path.GetFileName(path);
 
             return IsEncodedPath(path)
-                ? fileName.Substring(0, fileName.Length - EncodedAudio.Extension.Length)
+                ? fileName.Substring(0, fileName.Length - EncodedAudioDecoder.Extension.Length)
                 : Path.GetFileNameWithoutExtension(fileName);
         }
     }

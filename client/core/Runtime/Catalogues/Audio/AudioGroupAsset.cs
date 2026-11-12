@@ -20,7 +20,7 @@ namespace Internal
         [SerializeField] [FormerlySerializedAs("Name")] private string _name;
         [SerializeField] [FormerlySerializedAs("Clip")] private AudioClip _clip;
 
-        // Set instead of Clip for clips shipped as mp3 bytes (EncodedAudio): decoded by Decode() on group load.
+        // Set instead of Clip for clips shipped as mp3 bytes (EncodedAudioDecoder): decoded by Decode() on group load.
         [SerializeField] [FormerlySerializedAs("Encoded")] private TextAsset _encoded;
 
         [SerializeField] [FormerlySerializedAs("Volume")] [Range(0f, 1f)] private float _volume = 1f;
@@ -121,7 +121,7 @@ namespace Internal
         {
             try
             {
-                decoded.Add(entry.Name, await EncodedAudio.Decode(entry.Encoded, entry.Name));
+                decoded.Add(entry.Name, await EncodedAudioDecoder.Decode(entry.Encoded, entry.Name));
                 return null;
             }
             catch (Exception exception)
