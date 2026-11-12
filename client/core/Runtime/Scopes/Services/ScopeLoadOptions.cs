@@ -30,7 +30,7 @@ namespace Internal
             Func<IScopeBuilder, TArg, UniTask> construct,
             TArg arg)
         {
-            return new ScopeLoadOptions(parent, new ScopeArgumentRoot<TArg>(construct, arg).Construct, construct.Method);
+            return new ScopeLoadOptions(parent, new ScopeArgumentRoot<TArg>(construct, arg).Invoke, construct.Method);
         }
 
         public ILoadedScope Parent { get; }
