@@ -2,7 +2,6 @@ using System.Collections;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
-using UnityEngine.UI;
 
 namespace Internal.Tests
 {
@@ -47,26 +46,6 @@ namespace Internal.Tests
             yield return null;
 
             Assert.IsTrue(lifetime.IsTerminated, "the subscriptions of a screen never shown outlive it");
-        }
-
-        [UnityTest]
-        public IEnumerator HiddenBeforeStart_ListenClick_WorksWhenShown()
-        {
-            var gameObject = new GameObject("Hidden");
-            gameObject.SetActive(false);
-            var button = gameObject.AddComponent<Button>();
-
-            var clicks = 0;
-            button.ListenClick(() => clicks++);
-
-            gameObject.SetActive(true);
-            yield return null;
-
-            button.onClick.Invoke();
-
-            Assert.AreEqual(1, clicks);
-
-            Object.Destroy(gameObject);
         }
 
         [UnityTest]

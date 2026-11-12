@@ -2,12 +2,10 @@
     "name": "Internal.PlayMode.Tests",
     "rootNamespace": "",
     "references": [
-        "GUID:1a5b96d3d6de4210867a24fe0a1f3fcb",
         "Internal",
         "GUID:3ea5c3f1172040daa713d5ad71728b78",
         "UniTask",
         "Internal.Editor.Tests.Fixtures",
-        "UnityEngine.UI",
         "UnityEngine.TestRunner"
     ],
     "includePlatforms": [],

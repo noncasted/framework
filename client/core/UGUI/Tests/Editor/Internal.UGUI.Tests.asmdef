@@ -1,0 +1,33 @@
+{
+    "name": "Internal.UGUI.Tests",
+    "rootNamespace": "",
+    "references": [
+        "GUID:1a5b96d3d6de4210867a24fe0a1f3fcb",
+        "Internal",
+        "GUID:3ea5c3f1172040daa713d5ad71728b78",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS",
+        "FRAMEWORK_UGUI"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.ugui",
+            "expression": "",
+            "define": "FRAMEWORK_UGUI"
+        }
+    ],
+    "noEngineReferences": false
+}

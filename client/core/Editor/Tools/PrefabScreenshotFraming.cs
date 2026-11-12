@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Internal
 {
@@ -16,12 +15,6 @@ namespace Internal
             canvas.worldCamera = cam;
             canvas.planeDistance = 10f;
 
-            var scaler = canvasGo.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.matchWidthOrHeight = 0.5f;
-
-            canvasGo.AddComponent<GraphicRaycaster>();
-
             instance.transform.SetParent(canvasGo.transform, false);
 
             var instanceRect = instance.GetComponent<RectTransform>();
@@ -33,7 +26,9 @@ namespace Internal
             var elementSize = MeasureUIElement(instance);
             var maxDim = Mathf.Max(elementSize.x, elementSize.y);
             if (maxDim < 1f) maxDim = 200f;
-            scaler.referenceResolution = new Vector2(maxDim * CameraPadding, maxDim * CameraPadding);
+            // The square shot of `resolution` pixels holds the element with its padding: the scale a CanvasScaler with this
+            // reference resolution would give, set on the canvas itself so the tool needs no uGUI.
+            canvas.scaleFactor = resolution / (maxDim * CameraPadding);
 
             cam.orthographic = true;
             cam.orthographicSize = 0.5f;
