@@ -1,5 +1,4 @@
 using System;
-using Shared;
 using UnityEngine;
 
 namespace Internal
@@ -24,7 +23,7 @@ namespace Internal
             get
             {
 #if UNITY_EDITOR
-                return StableHash.Get(Application.dataPath).ToString("x8");
+                return Shared.StableHash.Get(Application.dataPath).ToString("x8");
 #else
                 return PlayerScope;
 #endif

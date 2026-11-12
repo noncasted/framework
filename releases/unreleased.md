@@ -100,3 +100,15 @@ Postgres через `IDbSource` (`MatchMetricsSchema`), не состояния 
 Проверка: `grep -rln -E "ListenClick\(|\.SetAlpha\(|ButtonSounds\.|Slider.*ToLifetimedValue" client/Assets --include=*.cs`; в asmdef каждой
 найденной сборки добавить `"GUID:1a5b96d3d6de4210867a24fe0a1f3fcb"` в `references`. Ошибка без этого: CS1061 `'Button' does not contain a
 definition for 'ListenClick'`.
+
+### Ядро без `Framework.Shared`: `StableHash` в `Framework.Common`
+
+Кого касается: клиент, все игры.
+
+`Internal` больше не ссылается на `Framework.Shared`, а пакет ядра не тянет `com.noncasted.framework.shared` (и через него MemoryPack):
+игра без сетевого протокола собирается без них. `Shared.StableHash` перенесён в `Framework.Common`, пространство имён прежнее.
+
+Проверка: `grep -n '"com.noncasted.framework.shared"' client/Packages/manifest.json` - игра с протоколом (`shared/` игры, модули
+`network`, `telemetry`, `lobbies`) указывает пакет в манифесте сама, если ещё не указывает. `grep -rln "StableHash" client/Assets
+backend shared --include=*.cs`: asmdef каждой такой сборки ссылается на `Framework.Common` (`GUID:3ea5c3f1172040daa713d5ad71728b78`),
+csproj - на `framework.common.csproj`; без этого CS0103 `The name 'StableHash' does not exist`.

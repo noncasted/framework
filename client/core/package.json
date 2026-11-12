@@ -6,7 +6,7 @@
   "description": "Client core: DI container (+ ContainerGenerator), reactive, lifetimes, scopes, catalogues, profiling, editor tools (namespace Internal).",
   "dependencies": {
     "com.cysharp.unitask": "2.5.11",
-    "com.noncasted.framework.shared": "0.1.0",
+    "com.noncasted.framework.common": "0.1.0",
     "com.unity.2d.aseprite": "7.0.1",
     "com.unity.modules.audio": "1.0.0",
     "com.unity.modules.unitywebrequest": "1.0.0",

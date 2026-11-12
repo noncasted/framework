@@ -1,3 +1,5 @@
+// In Framework.Common (no MemoryPack) under the namespace of the protocol it came from: the core hashes with it
+// without referencing Framework.Shared.
 namespace Shared
 {
     // string.GetHashCode is randomized per process on CoreCLR: ids shared between processes (clients and the
