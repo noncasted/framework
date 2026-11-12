@@ -134,7 +134,8 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   warnings are counted apart from the errors (`warningCount`). The test host runs without a game: `--token <value>` (required), `--seed`, `--console <folder>` (`theme.css` and
   `app.css` of a console of a game: its pages on this host), `--no-telemetry` (the console of a game without the telemetry).
 - **Client core.** Assemblies `Internal`, `Internal.Editor`, `Internal.Tests` (namespace `Internal`, asmdef GUIDs of
-  the projects kept; `Internal` is `GUID:f039cb8c565843dba6da5b3c1ccde7d6`, `Framework.Common`
+  the projects kept; no uGUI in them: the helpers of uGUI (`ListenClick`, `ButtonSounds`, `Image.SetAlpha`, `Slider.ToLifetimedValue`)
+  are `Internal.UGUI` (`client/core/UGUI`, `GUID:1a5b96d3d6de4210867a24fe0a1f3fcb`, compiled only with `com.unity.ugui`); `Internal` is `GUID:f039cb8c565843dba6da5b3c1ccde7d6`, `Framework.Common`
   `GUID:3ea5c3f1172040daa713d5ad71728b78`, `Framework.Shared` `GUID:73681998e594465db2ed389d82d877b6`). The project owns the content assembly (`FrameworkSettings.ContentAssembly`, by default
   `Internal.Content` in `Assets/Common/Internal`): generated catalogues (`InternalAssets`, `Sprites`, audio, colors,
   `Scenes` of `ContentScene`s), catalogue groups and their json lists (one folder per kind, `Runtime/Catalogues/<Kind>`: the json
@@ -335,7 +336,7 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1565, common 96, Verify 171, control 23, telemetry 84, EditMode 1239 (4 of them skipped, the
+Release build replaces it. The expected numbers: backend 1645, common 96, Verify 180, control 23, telemetry 84, EditMode 1261 (4 of them skipped, the
 benchmarks of `ContainerBenchmarkTests`), PlayMode 139 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 

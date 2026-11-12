@@ -1,0 +1,26 @@
+{
+    "name": "Internal.UGUI",
+    "rootNamespace": "",
+    "references": [
+        "GUID:f039cb8c565843dba6da5b3c1ccde7d6",
+        "GUID:3ea5c3f1172040daa713d5ad71728b78",
+        "GUID:2bafac87e7f4b9b418d9448d219b01ab"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "FRAMEWORK_UGUI"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.ugui",
+            "expression": "",
+            "define": "FRAMEWORK_UGUI"
+        }
+    ],
+    "noEngineReferences": false
+}

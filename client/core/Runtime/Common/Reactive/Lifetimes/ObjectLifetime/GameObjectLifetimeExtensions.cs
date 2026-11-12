@@ -1,6 +1,4 @@
-﻿using UnityEngine;
-using UnityEngine.Events;
-using UnityEngine.UI;
+using UnityEngine;
 
 namespace Internal
 {
@@ -12,21 +10,6 @@ namespace Internal
                 lifetimeSource = monoBehaviour.gameObject.AddComponent<GameObjectLifetime>();
 
             return lifetimeSource.GetValidLifetime();
-        }
-
-        public static void ListenClick(this Button button, UnityAction listener)
-        {
-            var lifetime = button.GetObjectLifetime();
-            ButtonSounds.Attach(button);
-            button.onClick.AddListener(listener);
-            lifetime.Listen(() => button.onClick.RemoveListener(listener));
-        }
-
-        public static void ListenClick(this Button button, IReadOnlyLifetime lifetime, UnityAction listener)
-        {
-            ButtonSounds.Attach(button);
-            button.onClick.AddListener(listener);
-            lifetime.Listen(() => button.onClick.RemoveListener(listener));
         }
     }
 }

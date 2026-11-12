@@ -1,18 +1,10 @@
 using System;
 using UnityEngine.Events;
-using UnityEngine.UI;
 
 namespace Internal
 {
     public static class UnityLifetimesIntegrationExtensions
     {
-        public static ILifetimedValue<float> ToLifetimedValue(this Slider source, IReadOnlyLifetime lifetime)
-        {
-            var lifetimedValue = source.onValueChanged.ToLifetimedValue(source.value, lifetime);
-
-            return lifetimedValue;
-        }
-
         public static ILifetimedValue<T> ToLifetimedValue<T>(
             this UnityEvent<T> source,
             T baseValue,

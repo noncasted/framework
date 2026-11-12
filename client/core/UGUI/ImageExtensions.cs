@@ -2,7 +2,7 @@
 
 namespace Internal
 {
-    public static class ColorUtils
+    public static class ImageExtensions
     {
         public static void SetAlpha(this Image image, float alpha)
         {

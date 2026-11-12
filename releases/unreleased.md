@@ -88,3 +88,15 @@ Postgres через `IDbSource` (`MatchMetricsSchema`), не состояния 
 
 Что сделать игре: в хосте с чтением (мета-гейтвей) `builder.AddMatchMetricsReader()` и
 `app.MapMatchMetricsRead().RequireConsoleToken()` (токен - свой у игры, как у `MapClientTelemetryRead`).
+
+### uGUI вне ядра: сборка `Internal.UGUI`
+
+Кого касается: клиент, все игры, которые вызывают `ListenClick`, `SetAlpha` (`Image`), `ToLifetimedValue` (`Slider`) или `ButtonSounds`.
+
+Ядро (`Internal`) больше не использует uGUI, чтобы игра без `com.unity.ugui` собиралась. Эти помощники перенесены в сборку
+`Internal.UGUI` пакета ядра (`client/core/UGUI`, GUID `1a5b96d3d6de4210867a24fe0a1f3fcb`, компилируется только при установленном
+`com.unity.ugui`), пространство имён прежнее (`Internal`); `ColorUtils` переименован в `ImageExtensions`. Модуль `ui` ссылается на неё сам.
+
+Проверка: `grep -rln -E "ListenClick\(|\.SetAlpha\(|ButtonSounds\.|Slider.*ToLifetimedValue" client/Assets --include=*.cs`; в asmdef каждой
+найденной сборки добавить `"GUID:1a5b96d3d6de4210867a24fe0a1f3fcb"` в `references`. Ошибка без этого: CS1061 `'Button' does not contain a
+definition for 'ListenClick'`.
