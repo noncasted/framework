@@ -3,12 +3,10 @@
   "displayName": "Framework Telemetry",
   "version": "0.1.0",
   "unity": "7000.0",
-  "description": "Client telemetry: numbers and names from the code are collected once a second inside a session the game opens, and go through ITelemetryTransport, over the meta socket with AddSocketClientTelemetry; the base metrics come with AddStandardTelemetryCollectors, the other collectors belong to the game (namespace Global.Telemetry).",
+  "description": "Client telemetry: numbers and names from the code are collected once a second inside a session the game opens, and go through ITelemetryTransport: JSON over HTTP with AddHttpClientTelemetry, or over the meta socket with AddSocketClientTelemetry (assembly Internal.Telemetry.Socket, compiled only with the network package); the base metrics come with AddStandardTelemetryCollectors, the other collectors belong to the game (namespace Global.Telemetry).",
   "dependencies": {
     "com.cysharp.unitask": "2.5.11",
     "com.noncasted.framework.core": "0.1.0",
-    "com.noncasted.framework.common": "0.1.0",
-    "com.noncasted.framework.shared": "0.1.0",
-    "com.noncasted.framework.network": "0.1.0"
+    "com.noncasted.framework.common": "0.1.0"
   }
 }

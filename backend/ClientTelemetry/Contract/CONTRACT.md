@@ -1,7 +1,8 @@
 # Client telemetry: the contract
 
-MemoryPack messages over the meta socket of a client (`shared/ClientTelemetry/SharedClientTelemetry`), never the socket of a game
-session and no HTTP. Union tags `NetworkContextTags.Telemetry*`, 200-206: a project lists them in its `NetworkContextUnion`.
+MemoryPack messages over the meta socket of a client (`shared/ClientTelemetry/SharedClientTelemetry`), or the same messages as JSON
+over an HTTP link (below, "HTTP"); never the socket of a game session. Union tags `NetworkContextTags.Telemetry*`, 200-206: a project
+with the socket lists them in its `NetworkContextUnion`. "Socket" below means either: a meta socket or an HTTP link.
 Limits: `ClientTelemetryLimits`. A session is a part of the game the game names with its tags (a menu, a match): the framework
 knows no values of them. Nothing is sent outside a session but the startup trace (below).
 
@@ -42,7 +43,8 @@ Null lists are empty. `Time` is milliseconds since the start of the session, no 
 
 A batch of 30 metrics with 2 samples (every 2 seconds) is under 600 bytes, the first one with the names under 1500.
 
-**The socket decides.** Its close counts as a crash of the client: no retry, no reconnect, no queue. The end of the lifetime of the
+**The socket decides.** Its close (for an HTTP link: `IdleAfter` without a request) counts as a crash of the client: no retry, no
+reconnect, no queue. The end of the lifetime of the
 connection closes its session with status `lost`, with the summary and the log. A failure of that write is logged there and never
 reaches the gateway.
 
@@ -96,10 +98,35 @@ from the server and lives as long as the socket (after a reconnect a client star
   not below the index: the span goes with its children, counted in `rejectedSpans`. A `File` out of the form of a name (words of
   `[A-Za-z0-9_-]` between dots, up to 64) is dropped, the span stays; negative `TransferBytes` drop the span.
 
+## HTTP
+
+For a client that cannot open the meta socket (a page in an iframe that reaches only its own server). The client:
+`AddHttpClientTelemetry(options, TelemetryHttpOptions)`; the server: `MapClientTelemetryHttpIntake()` on a group of the game.
+
+- **The routes**, `POST` with `Content-Type: application/json`, relative to the group: `/start`, `/batch`, `/end`, `/startup` - the
+  four requests above. The answers are those of the socket in camelCase: `{ enabled, sessionId }`, `{ enabled }`, `{}`,
+  `{ enabled, startupId }`. 400: a body that is not this JSON (`NaN` in it too) or without `linkId`. The intake knows no game and no
+  authorization: the game maps it on its group and puts its filter there (`app.MapGroup(...).AddEndpointFilter(...).MapClientTelemetryHttpIntake()`).
+- **The link.** Every request holds `linkId`, a random guid the client makes per page (per transport); the server keeps a link by it
+  as a socket: a session, the startup ids given on it. A link without a request for `ClientTelemetryHttpOptions.IdleAfter` (60 s, must be
+  below `LostAfter`) is a closed socket: its session closes as `lost`. A request with an unknown id opens a new link (the batch of an
+  older session gets `enabled` false). The client takes a new link after any request that failed on the way (a network failure, the
+  timeout of `TelemetryHttpOptions`, a status that is not 2xx): the server may have taken it or not, so the old link counts as lost.
+  Nothing is repeated. A page in the background that stops sending loses its session after `IdleAfter`, where a socket keeps it.
+- **The JSON** is written by `JsonUtility`, which writes no null: the names are those of the messages in camelCase; guids are their
+  text, `Guid.Empty` for none (also `previous.sessionId` when there is no previous); an empty text is none (`unit`, `detail`, `stack`,
+  `file`, the texts of `device`); 0 a number not known (`device`); `level` by name (`Error`, `Exception`, `Warning`; another one drops
+  the error); `hasPrevious` false: no `previous` (its object is there, ignored); a mark with `hasDuration` false closes nothing
+  (`durationMs` ignored).
+- **NaN.** JSON has no `NaN` and no infinity. A sample is `{ time, values, empty, hidden }`: `empty` lists the slots of `values` without
+  a value (their numbers, written as 0, are ignored; an index out of `values` is ignored); the client writes an infinite value as empty
+  too. The same in `previous.samples`. A number of the trace or of the device is finite.
+
 ## What the game does
 
-`AddClientTelemetry()` on the gateway registers `IClientTelemetryConnections`. The four commands of the meta socket stay in the game:
-`telemetry.Of(session.Lifetime).Start(request)`, `.Accept(request)`, `.End(request)`, `.AcceptStartup(request)`.
+`AddClientTelemetry()` on the gateway registers `IClientTelemetryConnections` and the links of the HTTP intake. The four commands of
+the meta socket stay in the game: `telemetry.Of(session.Lifetime).Start(request)`, `.Accept(request)`, `.End(request)`,
+`.AcceptStartup(request)`. Over HTTP: `MapClientTelemetryHttpIntake()` on the group of the game, nothing else.
 
 ## Reading
 
@@ -185,7 +212,7 @@ One grain per session (`ClientTelemetrySession`, the guid is its key). The sampl
 
 The close, once; a closed session never opens again:
 - **`SessionEnd`, the next `SessionStart`, a batch under the flag off:** status `ended`.
-- **The end of the socket:** status `lost`.
+- **The end of the socket** (of an HTTP link: `IdleAfter` without a request): status `lost`.
 - **No batch for `LostAfter`** (120 s, the timer of the grain): status `lost`. The reserve for a gateway gone without closing its
   sockets, so a page in the background, which sends rarely, keeps its session. A failed write is repeated by the next tick.
 - **A deactivation of a live grain** (a stop of the silo, a migration): status `lost`, the same write.

@@ -4,6 +4,7 @@
     "references": [
         "Internal",
         "Internal.Telemetry",
+        "Internal.Telemetry.Socket",
         "Internal.Telemetry.Editor",
         "Internal.Telemetry.PlayMode.Tests",
         "Internal.Network",

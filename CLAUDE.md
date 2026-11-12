@@ -130,7 +130,9 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   `AddClientTelemetrySessions` on the silo, `AddClientTelemetry` on the meta gateway and `AddClientTelemetryReader` on the console (the
   panel appears from it, no other registration), maps `MapClientTelemetryRead().RequireConsoleToken()` and keeps the commands of its
   meta socket over `IClientTelemetryConnections.Of(session.Lifetime)`: `Start`, `Accept`, `End`, `AcceptStartup`; the id of the user
-  stays in the game. A session holds the previous one its client did not close (`previous`, found back by `sessions?previousId=`);
+  stays in the game. A client without the meta socket posts JSON: the game maps `MapClientTelemetryHttpIntake()` on its own group with its
+  authorization (`/start`, `/batch`, `/end`, `/startup`; a link id of the client is its socket, ended by `ClientTelemetryHttpOptions.IdleAfter`,
+  60 s, below `LostAfter`). A session holds the previous one its client did not close (`previous`, found back by `sessions?previousId=`);
   warnings are counted apart from the errors (`warningCount`). The test host runs without a game: `--token <value>` (required), `--seed`, `--console <folder>` (`theme.css` and
   `app.css` of a console of a game: its pages on this host), `--no-telemetry` (the console of a game without the telemetry).
 - **Client core.** Assemblies `Internal`, `Internal.Editor`, `Internal.Tests` (namespace `Internal`, asmdef GUIDs of
@@ -255,9 +257,12 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
     as `IMetaSocket`; `LobbyNetworkService`, the client of the lobby service of a lobby session (a derived one adds the
     properties of the game in `CollectProperties`); `OfflineLobbyService` for the offline local server (the game
     gives `IOfflineLobbyMatches`); `SessionData`, `LobbyJoinResult`, `SessionSearchResult`. Depends on `network`.
-  - `telemetry` (`Internal.Telemetry`, namespace `Global.Telemetry`; `AddSocketClientTelemetry(options)`,
-    `AddStandardTelemetryCollectors`): metrics, errors and the startup trace over the meta socket, which the game gives as
-    `ITelemetrySocket`, so it is called in the scope of the meta backend. `IClientTelemetry`: `StartSession(lifetime, tags)` per part of the
+  - `telemetry` (`Internal.Telemetry`, namespace `Global.Telemetry`; `AddSocketClientTelemetry(options)` or
+    `AddHttpClientTelemetry(options, TelemetryHttpOptions)`, `AddStandardTelemetryCollectors`): metrics, errors and the startup trace
+    over the meta socket, which the game gives as `ITelemetrySocket`, so it is called in the scope of the meta backend
+    (`Internal.Telemetry.Socket`, compiled only with the `network` package, `FRAMEWORK_NETWORK`), or as JSON POSTs of `JsonUtility` to
+    `<BaseUrl>/start|batch|end|startup` (`fetch` of the page on WebGL, System.Net.Http elsewhere; no MemoryPack, network or
+    UnityWebRequest; a failure is a warning and a new link). `IClientTelemetry`: `StartSession(lifetime, tags)` per part of the
     game, `Mark`, `SendStartupTrace` after every authorization of the socket. Nothing runs without a session; a game adds a
     collector as `ITelemetryCollector` in the scope of the telemetry, or from a scope below (a run) with
     `AddCollector(lifetime, collector)`: sampled in every session while the lifetime lives, a live one started per session with the
@@ -338,7 +343,7 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1645, common 96, Verify 180, control 23, telemetry 84, EditMode 1261 (4 of them skipped, the
+Release build replaces it. The expected numbers: backend 1656, common 96, Verify 180, control 23, telemetry 84, EditMode 1275 (4 of them skipped, the
 benchmarks of `ContainerBenchmarkTests`), PlayMode 139 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 

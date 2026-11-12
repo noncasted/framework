@@ -124,3 +124,21 @@ csproj - на `framework.common.csproj`; без этого CS0103 `The name 'Sta
 `ProjectSettings/Framework.json`), вместе с ней из плеера уходят `UnityWebRequest` и `Uri` / `Regex` из `System.dll`.
 
 Проверка: `grep -rn "EncodedAudio\." client/Assets --include=*.cs` - заменить по списку выше.
+
+### Телеметрия клиента: сокетный транспорт в сборке `Internal.Telemetry.Socket`, транспорт по HTTP
+
+Кого касается: клиент, все игры с модулем `telemetry`; бэкенд - только игры, которые хотят телеметрию без мета-сокета.
+
+`Internal.Telemetry` больше не ссылается на `Internal.Network`, `Framework.Shared` и `Framework.Session.Core`, пакет `telemetry` не тянет
+пакеты `network` и `shared`. Транспорт по мета-сокету (`AddSocketClientTelemetry`, `ITelemetrySocket`, `TelemetrySocketTransport`,
+`TelemetryMessages`, `MetaNetworkTelemetryCollector`) перенесён в сборку `Internal.Telemetry.Socket` (`client/modules/telemetry/Socket`,
+GUID `802942ed80b040b1af69d20046688f31`, компилируется только при установленном пакете `com.noncasted.framework.network`), пространство
+имён прежнее (`Global.Telemetry`). Новый транспорт без сокета: `AddHttpClientTelemetry(options, new TelemetryHttpOptions("/api/telemetry"))`
+- JSON (`JsonUtility`) через `fetch` страницы, на бэкенде `MapClientTelemetryHttpIntake()` на группе игры с её авторизацией
+(`backend/ClientTelemetry/Contract/CONTRACT.md`, раздел «HTTP»).
+
+Проверка: `grep -rln "AddSocketClientTelemetry\|ITelemetrySocket" client/Assets --include=*.cs` - asmdef каждой такой сборки добавляет
+`"GUID:802942ed80b040b1af69d20046688f31"` в `references`; без этого CS1061 `'IScopeBuilder' does not contain a definition for
+'AddSocketClientTelemetry'` / CS0246 `ITelemetrySocket`. Игра, у которой `network` или `shared` приходили в манифест только через
+`telemetry`, указывает их в `client/Packages/manifest.json` сама (`grep -n '"com.noncasted.framework.network"\|"com.noncasted.framework.shared"'
+client/Packages/manifest.json`).

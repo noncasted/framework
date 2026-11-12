@@ -30,11 +30,14 @@ public static class ClientTelemetryStorageExtensions
         return builder;
     }
 
-    // The gateway of the clients: the telemetry of its sockets and the reading.
+    // The gateway of the clients: the telemetry of its sockets, the links of MapClientTelemetryHttpIntake and the reading. A game
+    // with other ClientTelemetryHttpOptions registers them before this call.
     public static IHostApplicationBuilder AddClientTelemetry(this IHostApplicationBuilder builder, ClientTelemetryStorageOptions? options = null)
     {
         builder.AddClientTelemetryReader(options);
         builder.Services.AddSingleton<IClientTelemetryConnections, ClientTelemetryConnections>();
+        builder.Services.TryAddSingleton(new ClientTelemetryHttpOptions());
+        builder.Services.AddSingleton<ClientTelemetryHttpLinks>();
 
         return builder;
     }

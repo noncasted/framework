@@ -167,6 +167,18 @@ namespace Global.Telemetry.Tests
             Assert.IsInstanceOf<SharedClientTelemetry.SessionStart>(ContainerProbe.Writer.Requests[0]);
         });
 
+        // The transport over HTTP needs nothing from the scope of the game: no socket and no network module.
+        [UnityTest]
+        public IEnumerator Scope_OverHttp_Builds() => UniTask.ToCoroutine(async () =>
+        {
+            ContainerProbe.Reset();
+            RegisterGenerated(ContainerRoots.OverHttp);
+            var scope = await new ServiceScopeLoader().Load(new ScopeLoadOptions(null, ContainerRoots.OverHttp));
+
+            await scope.Initialize();
+            await scope.Dispose();
+        });
+
         private static string[] NamesSent()
         {
             return ContainerProbe.Transport.Batches.SelectMany(call => TelemetryFixture.NamesOf(call.Batch)).ToArray();
@@ -297,6 +309,13 @@ namespace Global.Telemetry.Tests
             builder.RegisterInstance<ITelemetrySocket>(ContainerProbe.Socket);
             builder.AddSocketClientTelemetry(Options(true));
             builder.Register<SessionOnLoad>().As<IScopeLoaded>();
+            return UniTask.CompletedTask;
+        }
+
+        [ContainerGraphRoot]
+        public static UniTask OverHttp(IScopeBuilder builder)
+        {
+            builder.AddHttpClientTelemetry(Options(true), new TelemetryHttpOptions("http://127.0.0.1:9/api/telemetry", 1f));
             return UniTask.CompletedTask;
         }
 
