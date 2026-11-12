@@ -4,8 +4,9 @@ using System.Collections.Generic;
 namespace Internal
 {
     // The content directories of the root scope by name: the one of AddContent first, then the ones of
-    // AddContentDirectory. They live as long as the root.
-    internal sealed class ContentDirectories : IContentDirectories
+    // AddContentDirectory. They live as long as the root. Public: the container of the root scope of a game, generated in
+    // its own assembly, names the registered type.
+    public sealed class ContentDirectories : IContentDirectories
     {
         private readonly Dictionary<string, IContentLoader> _loaders = new(StringComparer.OrdinalIgnoreCase);
 
@@ -18,13 +19,13 @@ namespace Internal
                 $"[Content] No content directory {name} in the root scope: it has {string.Join(", ", _loaders.Keys)} (AddContentDirectory registers one)");
         }
 
-        public void Add(string name, IContentLoader loader)
+        internal void Add(string name, IContentLoader loader)
         {
             ThrowIfRegistered(name);
             _loaders.Add(name, loader);
         }
 
-        public void ThrowIfRegistered(string name)
+        internal void ThrowIfRegistered(string name)
         {
             if (_loaders.ContainsKey(name))
                 throw new InvalidOperationException($"[Content] The content directory {name} is registered twice");
