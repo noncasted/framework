@@ -167,6 +167,113 @@ public class SessionCoreTests
         next.OneWay.OfType<SharedSessionPlayer.RemoteUpdate>().Should().ContainSingle();
     }
 
+    // A reconnectable host: a lost connection keeps the seat and its entities, the others see the user away, and the
+    // user that connects again gets its seat back with its entities to restore.
+    [Fact]
+    public void Loss_Reconnectable_SeatWaits_ReturnRestoresIt()
+    {
+        var core = Create(isReconnectable: true);
+        var other = new RecordingConnection();
+        var userId = Guid.NewGuid();
+        var lostLifetime = core.Lifetime.Child();
+        var lost = core.Connect(lostLifetime, userId, new RecordingConnection());
+        core.Connect(core.Lifetime, Guid.NewGuid(), other);
+
+        var id = SharedEntityIds.Create(lost.Index, 1);
+        core.OnRequest(lost, new SharedSessionEntity.CreateRequest
+        {
+            Id = id,
+            Payload = new TestPayload(),
+            Properties = Array.Empty<SharedSessionObject.PropertyUpdate>()
+        }, 1);
+
+        IReadOnlyLifetime wait = null;
+        core.SeatAway.Advise(core.Lifetime, (_, lifetime) => wait = lifetime);
+
+        lostLifetime.Terminate();
+
+        other.OneWay.OfType<SharedSessionPlayer.RemoteAway>().Single().Index.Should().Be(lost.Index);
+        other.OneWay.OfType<SharedSessionPlayer.RemoteDisconnect>().Should().BeEmpty();
+        core.Entities.Entries.Should().ContainKey(id);
+        wait.IsTerminated.Should().BeFalse();
+
+        var returned = new RecordingConnection();
+        var user = core.Connect(core.Lifetime, userId, returned);
+
+        user.Index.Should().Be(lost.Index);
+        wait.IsTerminated.Should().BeTrue();
+
+        var local = returned.OneWay.OfType<SharedSessionPlayer.LocalUpdate>().Single();
+        local.IsReturn.Should().BeTrue();
+        local.SeatEntities.Should().Be(1);
+        other.OneWay.OfType<SharedSessionPlayer.RemoteUpdate>().Last().Index.Should().Be(lost.Index);
+    }
+
+    [Fact]
+    public void Loss_Reconnectable_Expired_SeatEnded()
+    {
+        var core = Create(isReconnectable: true);
+        var other = new RecordingConnection();
+        var lostLifetime = core.Lifetime.Child();
+        var lost = core.Connect(lostLifetime, Guid.NewGuid(), new RecordingConnection());
+        core.Connect(core.Lifetime, Guid.NewGuid(), other);
+
+        ISessionSeat away = null;
+        IReadOnlyLifetime wait = null;
+        core.SeatAway.Advise(core.Lifetime, (seat, lifetime) => {
+            away = seat;
+            wait = lifetime;
+        });
+
+        lostLifetime.Terminate();
+        core.ExpireAway(away);
+
+        other.OneWay.OfType<SharedSessionPlayer.RemoteDisconnect>().Single().Index.Should().Be(lost.Index);
+        wait.IsTerminated.Should().BeTrue();
+        core.Seats.Entries.Should().NotContainKey(lost.BackendId);
+
+        var act = () => core.ExpireAway(away);
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    // A leave is not a loss, a reconnectable host included.
+    [Fact]
+    public void Leave_Reconnectable_SeatEnded()
+    {
+        var core = Create(isReconnectable: true);
+        var other = new RecordingConnection();
+        var leavingLifetime = core.Lifetime.Child();
+        var leaving = core.Connect(leavingLifetime, Guid.NewGuid(), new RecordingConnection());
+        core.Connect(core.Lifetime, Guid.NewGuid(), other);
+
+        core.OnOneWay(leaving, new SharedSessionPlayer.Leave());
+        leavingLifetime.Terminate();
+
+        other.OneWay.OfType<SharedSessionPlayer.RemoteAway>().Should().BeEmpty();
+        other.OneWay.OfType<SharedSessionPlayer.RemoteDisconnect>().Single().Index.Should().Be(leaving.Index);
+    }
+
+    // The user returns before the host has noticed the loss: the previous connection is dropped and ends silently.
+    [Fact]
+    public void Return_BeforeLossNoticed_StaleConnectionDropped()
+    {
+        var core = Create(isReconnectable: true);
+        var other = new RecordingConnection();
+        var userId = Guid.NewGuid();
+        var staleLifetime = core.Lifetime.Child();
+        var stale = new RecordingConnection { OnDisconnect = staleLifetime.Terminate };
+        core.Connect(staleLifetime, userId, stale);
+        core.Connect(core.Lifetime, Guid.NewGuid(), other);
+
+        var user = core.Connect(core.Lifetime, userId, new RecordingConnection());
+
+        staleLifetime.IsTerminated.Should().BeTrue();
+        user.Seat.Connected.Should().Be(user);
+        core.Users.Should().HaveCount(2);
+        other.OneWay.OfType<SharedSessionPlayer.RemoteAway>().Should().BeEmpty();
+        other.OneWay.OfType<SharedSessionPlayer.RemoteDisconnect>().Should().BeEmpty();
+    }
+
     [Fact]
     public void Ping_Answered()
     {
@@ -179,9 +286,9 @@ public class SessionCoreTests
         connection.OneWay.OfType<SharedSessionLatency.Pong>().Single().Id.Should().Be(3);
     }
 
-    private static SessionCore Create(bool start = true)
+    private static SessionCore Create(bool start = true, bool isReconnectable = false)
     {
-        var core = new SessionCore(Guid.NewGuid(), SessionType.Match, new Lifetime(), new NullSessionLog());
+        var core = new SessionCore(Guid.NewGuid(), SessionType.Match, new Lifetime(), new NullSessionLog(), isReconnectable);
 
         if (start == true)
             core.Start();
@@ -204,8 +311,11 @@ public class SessionCoreTests
             Responses.Add((context, requestId));
         }
 
+        public Action OnDisconnect { get; init; }
+
         public void Disconnect()
         {
+            OnDisconnect?.Invoke();
         }
     }
 }

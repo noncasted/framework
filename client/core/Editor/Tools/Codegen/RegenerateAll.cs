@@ -15,7 +15,8 @@ namespace Internal
     //   5. container asset map (views and bindings of prefabs and scenes, read by the container generator);
     //   6. content root (after every catalog group exists);
     // then one refresh: changed scripts recompile and the Roslyn container generator runs inside that compile.
-    // Bindings whose code changed are bound after the reload. Colors run only in a project with a ColorCatalog asset:
+    // Bindings whose code changed are bound after the reload, and that pass ends with the validation of all bindings
+    // (HierarchyBindingsProjectValidation), its findings are errors in the console. Colors run only in a project with a ColorCatalog asset:
     // the catalogue is optional, and its generator throws without one.
     //
     // Works after a failed compile too: the editor keeps the previous domain and its menus, and the generators read

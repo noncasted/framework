@@ -115,6 +115,8 @@ Rules for the brief:
 - One step per agent. Name real files (verified with Grep/Glob), not guesses.
 - Repeat the project rules the step touches (fail fast, Lifetime for subscriptions, `[Inject]` methods public across
   assemblies, Russian prose / English code, no commits unless the task says so).
+- Rules of the project for a kind of step are in `.claude/project-skills.md` § orchestrate, when it has one: the
+  brief carries them, and the step is accepted only by a report that answers each.
 - Do not pass the orchestrator's hypothesis as a fact; pass what is verified and what is not.
 - Launch the independent agents of a wave **in one message** (parallel tool calls). Use `isolation: "worktree"` only
   for parallel steps that must edit overlapping areas and will be merged later - otherwise the shared working tree.

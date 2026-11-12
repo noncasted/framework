@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -17,9 +16,6 @@ namespace Internal
     public static class HierarchyBindingsValidator
     {
         private const string LogTag = "HierarchyBindingsValidator";
-
-        private const BindingFlags DeclaredFields =
-            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
 
         // Returns the number of errors; each one is already in the console.
         public static int ValidatePrefabs(IEnumerable<string> assetPaths)
@@ -128,47 +124,21 @@ namespace Internal
                 problems.Add("'Is Scene Service' differs from the generated code. Regenerate.");
         }
 
-        // Any empty reference of the generated class is an error: the generator fills every field, so null
-        // means the object or the component is gone (typically - a variant removed a component of the base).
+        // Any empty reference of the generated class is an error, an element of an array too: the generator fills
+        // every field, so null means the object or the component is gone (a variant removed a component of the base,
+        // a child was replaced by another object).
         private static void ValidateReferences(ObjectBindings bindings, Type generatedType, List<string> problems)
         {
-            var serializedObject = new SerializedObject(bindings);
+            var empty = new List<string>();
+            var unserialized = new List<string>();
+            HierarchyBindingsEmptyReferences.Collect(bindings, generatedType, empty, unserialized);
 
-            foreach (var field in generatedType.GetFields(DeclaredFields))
-            {
-                if (field.IsDefined(typeof(SerializeField)) == false)
-                    continue;
+            foreach (var field in unserialized)
+                problems.Add($"generated field '{field}' is not serialized. Recompile and regenerate.");
 
-                var property = serializedObject.FindProperty(field.Name);
-
-                if (property == null)
-                {
-                    problems.Add($"generated field '{field.Name}' is not serialized. Recompile and regenerate.");
-                    continue;
-                }
-
-                CollectNulls(property, problems);
-            }
-        }
-
-        private static void CollectNulls(SerializedProperty root, List<string> problems)
-        {
-            // The walk is limited to the subtree of the field: everything under it has a path with its prefix.
-            var current = root.Copy();
-            var prefix = root.propertyPath;
-
-            do
-            {
-                if (current.propertyPath != prefix &&
-                    current.propertyPath.StartsWith(prefix + ".", StringComparison.Ordinal) == false)
-                    break;
-
-                if (current.propertyType == SerializedPropertyType.ObjectReference &&
-                    current.objectReferenceValue == null)
-                    problems.Add($"reference '{current.propertyPath}' is null. The object or component is " +
-                                 "missing (removed in a variant, renamed or deleted without Regenerate).");
-            }
-            while (current.Next(true));
+            foreach (var path in empty)
+                problems.Add($"reference '{path}' is null. The object or component is " +
+                             "missing (removed in a variant, renamed or deleted without Regenerate).");
         }
 
         private static void ValidateEntityRegistration(ObjectBindings bindings, List<string> problems)

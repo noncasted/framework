@@ -46,6 +46,7 @@
         <ProjectReference Include="..\Hosting\Hosting.csproj"/>
         <ProjectReference Include="..\ClientTelemetry\ClientTelemetry.csproj"/>
         <ProjectReference Include="..\Console\Console.csproj"/>
+        <ProjectReference Include="..\MatchMetrics\MatchMetrics.csproj"/>
     </ItemGroup>
 
 </Project>

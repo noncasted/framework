@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Text.RegularExpressions;
 using UnityEngine;
 
 namespace Internal
@@ -11,13 +9,11 @@ namespace Internal
     {
         private const string LogTag = HierarchyBindingsLog.Tag;
 
-        // The namespace line HierarchyBindingsCodeGenerator writes; a class without a namespace has none.
-        private static readonly Regex DeclaredNamespace = new(@"^namespace (\S+) \{", RegexOptions.Multiline);
-
         // Code is written separately from triggering compilation: batch regeneration writes all the
         // classes and only then calls Refresh once - otherwise the domain would reload mid-traversal.
         // bindUnchanged = false skips the binding phase when the generated code did not change (Regenerate All:
-        // the same code means the same structure, and binding would re-save every prefab).
+        // the same code means the same structure, and binding would re-save every prefab). An object that is stale
+        // or holds an empty reference is bound anyway.
         public static bool Prepare(
             GameObject root,
             string bindingsName,
@@ -49,6 +45,7 @@ namespace Internal
             string code = null;
             string structureHash = null;
             string boundHash = null;
+            var emptyReferences = 0;
 
             using (var target = HierarchyBindingsTarget.OpenForScan(root, assetPath, objectPath, isPrefab,
                        out var openError))
@@ -67,7 +64,9 @@ namespace Internal
                 if (node != null)
                 {
                     structureHash = HierarchyBindingsStructure.ComputeHash(node);
-                    boundHash = HierarchyBindingsGeneratedTypes.FindBindings(target.Root, typeName, namespaceName)?.StructureHash;
+                    var bound = HierarchyBindingsGeneratedTypes.FindBindings(target.Root, typeName, namespaceName);
+                    boundHash = bound?.StructureHash;
+                    emptyReferences = CountEmptyReferences(bound);
                     code = HierarchyBindingsCodeGenerator.Build(
                             node,
                             namespaceName,
@@ -86,7 +85,7 @@ namespace Internal
 
             var folder = HierarchyBindingsPaths.ResolveGeneratedFolder(root, assetPath);
             var filePath = HierarchyBindingsPaths.ToFilePath(folder, typeName);
-            var fileConflict = FindFileConflict(filePath, typeName, namespaceName);
+            var fileConflict = HierarchyBindingsFileConflicts.Find(filePath, typeName, namespaceName);
 
             if (fileConflict != null)
             {
@@ -101,7 +100,14 @@ namespace Internal
 
             // Same code but a stale hash on the object: an earlier binding failed or never ran (the object was
             // saved with old references). Bind again, otherwise the object never catches up with its code.
-            var isBoundStale = boundHash != structureHash;
+            // Same code and the same hash but an empty reference: what it pointed at was replaced by an object of the
+            // same name and content (a child turned into a prefab instance), which neither the code nor the hash sees.
+            var isBoundStale = boundHash != structureHash || emptyReferences > 0;
+
+            if (emptyReferences > 0)
+                Debug.LogWarning(
+                    $"[{LogTag}] {typeName} on '{root.name}' in {assetPath} holds {emptyReferences} empty " +
+                    "references: binding again.", root);
 
             if (changed || bindUnchanged || isBoundStale)
             {
@@ -122,22 +128,15 @@ namespace Internal
             return true;
         }
 
-        // The file at the path is generated for another class: writing would silently replace that class.
-        private static string FindFileConflict(string filePath, string typeName, string namespaceName)
+        private static int CountEmptyReferences(ObjectBindings bound)
         {
-            var fullPath = CatalogPaths.ToFullPath(filePath);
+            if (bound == null)
+                return 0;
 
-            if (File.Exists(fullPath) == false)
-                return null;
-
-            var match = DeclaredNamespace.Match(File.ReadAllText(fullPath));
-            var declared = match.Success ? match.Groups[1].Value : string.Empty;
-
-            if (string.Equals(declared, namespaceName, StringComparison.Ordinal))
-                return null;
-
-            var declaredName = string.IsNullOrEmpty(declared) ? typeName : declared + "." + typeName;
-            return $"{filePath} already holds {declaredName} of another object. Give these bindings another name.";
+            var empty = new List<string>();
+            HierarchyBindingsEmptyReferences.Collect(bound, HierarchyBindingsGeneratedTypes.ResolveGeneratedType(bound),
+                empty, new List<string>());
+            return empty.Count;
         }
 
         private static HierarchyBindingsNode Scan(

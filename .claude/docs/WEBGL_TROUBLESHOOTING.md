@@ -50,6 +50,8 @@ iPad 7 (A10, 3 GB) is iPadOS 18.2.1; the Android phone is a Mali-G52 MC2 with Ch
 | WebGL build larger than expected | [B11](#b11-what-keeps-code-in-the-build) |
 | `is not supported on this GPU`, `Active draw buffers with missing fragment shader outputs`, an effect not drawn | [G8](#g8-no-blending-per-render-target) |
 | Sprites invisible after the Unity 7000 upgrade, sprites never SRP-batched | [G9](#g9-sprites-and-the-srp-batcher-sprite-flags-of-unity-7000) |
+| Windows: a freeze of seconds at the first load, `webgl.shader.slow[compile status,8s]`, gone after a reload | [G10](#g10-loops-unrolled-by-the-d3d11-compiler) |
+| Safari (iOS / iPadOS): the context is lost when a level first draws, `GLSL link error: (unknown error)`; a small program `LINK FAILED` with an empty log | [G11](#g11-an-int-scalar-plus-or-minus-an-int-vector-does-not-link-on-metal) |
 | Works in the editor, throws or has empty fields only in the WebGL player | [R10](#r10-works-in-the-editor-fails-only-in-the-player) |
 | iPadOS fullscreen: the exit cross covers the UI | [I9](#i9-fullscreen-and-bars-of-ios-safari) |
 | Loading screen never goes away while the window is off screen | [P5](#p5-page-state-that-waits-on-raf) |
@@ -92,6 +94,11 @@ iPad 7 (A10, 3 GB) is iPadOS 18.2.1; the Android phone is a Mali-G52 MC2 with Ch
   .CompileVariant(ShaderType.Vertex, keywords, ShaderCompilerPlatform.GLES3x, BuildTarget.WebGL)` returns the GLSL (vertex and
   fragment) to search for `ImmCB_` / `TempArray`. `WebGlShaderCheck` of `Internal.TestTools` does it: a game keeps an EditMode test
   `WebGlShaderCheck.AssertSafe(WebGlShaderCheck.Find(new[] { "Assets" }, thirdPartyPrefixes))` over its shaders.
+- **Traps of `CompileVariant`:** for GLES3x the whole program comes with `ShaderType.Vertex` (`#ifdef VERTEX` / `#ifdef FRAGMENT`
+  in one text); `ShaderType.Fragment` returns 0 bytes with `Success = true`, so a check that asks for the fragment passes over
+  nothing (`forExternalTool: true` gives the stages apart). The editor answers from the imported shader: a `.shader` or an
+  include changed on disk without an import (a merge, a write from outside, no refresh) gives the old GLSL silently -
+  `AssetDatabase.ImportAsset` of the shader first, and compare the size with the previous one.
 - **Status:** fixed in pixel-swarm (e8a88090, test `WebGlShaderTablesTests`); iPad run ~33 -> ~52 FPS.
 
 ### G3. Constant weights
@@ -148,6 +155,71 @@ iPad 7 (A10, 3 GB) is iPadOS 18.2.1; the Android phone is a Mali-G52 MC2 with Ch
   `SpriteRenderer` (invisible sprites). mines-leader moved to its own SRP.
 - URP 2D: the variants of 2D lights were stripped from the WebGL build; turn off the Light2D prefiltering and the 2D variant
   stripping (peace-data-reborn 6ceba806a).
+
+### G10. Loops unrolled by the D3D11 compiler
+- **Symptom:** Chrome on Windows (ANGLE D3D11): one compile or link of 5-9 s (`webgl.shader.slow[compile status,8.38s]`,
+  `[link status,7.41s]`) when a scene first draws its sprites, a frozen loading screen; after a reload the same programs cost
+  milliseconds (the GPU shader cache of the browser), so only a new player or the first start after a shader change pays it.
+- **Cause (proven by timing, the ANGLE step inferred):** ANGLE translates the GLSL to HLSL and compiles it with FXC. GLSL keeps
+  no `[loop]`, so a loop of constant bounds may be unrolled by FXC. pixel-swarm: the stalk loops of `WheatHide.hlsl` (8 x 6
+  iterations with hashes, `sin`, 3 samples) in every sprite program; FXC with `[unroll]` took 9.1 / 5.5 / 7.5 s for the three
+  programs and made 200 KB of DXBC (16 KB as a loop): the same sum as the telemetry of the player (RX 7800 XT).
+- **Fix:** the bound of a heavy loop is a uniform, not a constant (`for (int k = -3; k <= (int)_Loops.x; k++)`, set from C#):
+  FXC cannot unroll it even when forced (`unable to unroll loop`). Check: `pass.CompileVariant(ShaderType.Fragment, keywords,
+  ShaderCompilerPlatform.D3D, BuildTarget.StandaloneWindows64)` of a copy with `[loop]` replaced by `[unroll]`
+  (`ShaderUtil.CreateShaderAsset`, the include inlined): seconds and a failure-free compile mean the loop can be unrolled.
+- **Status:** fixed in pixel-swarm (`_WheatStalkLoops`); not yet confirmed on the Windows player.
+- The same in the water of pixel-swarm (`Water.shader`, `_WaterLoops`): the HighFields variant `_RIVER _FALL _FLOW` was 850 KB
+  of GLSL and 7.3 s of FXC; with loops of uniform bounds 224 KB and 0.8 s, the picture identical (the editor render compared
+  pixel by pixel at a fixed `_WaterClock`).
+- That water program also lost the context of Safari on iPad at its link, at 850 and at 224 KB alike: not the size and not
+  the loops, see [G11](#g11-an-int-scalar-plus-or-minus-an-int-vector-does-not-link-on-metal) (224 KB links there once two
+  lines of its GLSL are changed).
+
+### G11. An int scalar plus or minus an int vector does not link on Metal
+- **Symptom:** Safari only (ANGLE on Metal). A small program: `LINK FAILED` with an empty info log. A big one (70-850 KB of
+  GLSL): `GLSL link error: (unknown error)`, then `createShader` returns null and `isContextLost()` is true - the level that
+  first draws the program never starts.
+- **Where:** iPad 7 (A10), iPadOS 18.2.1 Safari. Not on iPhone 11 (A13), iOS 16.6.1: the same test page links every
+  failing variant there, the 351 byte pair included (whether the WebKit / ANGLE version or the GPU decides was not separated).
+- **Cause (proven by minimal pairs on the device; the Metal error text was never obtained):** a GLSL statement
+  `ivecN = <int scalar> - ivecN` (or `+`), as in `u_xlati8.xw = 0 - u_xlati9.yz;`. HLSLcc writes the negation of an int vector
+  this way, and FXC makes that vector itself: it merges two scalar int negations (`-r` and `-g`, `-(int)_Loops.y` and
+  `-(int)_Loops.z`, a function inlined with a constant direction `(0, -1)`) into one `ineg` of a vector, so no vector negation
+  has to stand in the HLSL. ANGLE wraps int `+` / `-` into helpers that return the type of the left operand
+  (`ANGLE_isub(0, _ua.yz)` -> `as_type<int>(uint - uint2)`): MSL that does not compile (read from the translated source,
+  inferred). Pairs: `b.xw = 0 - a.yz;` (a 351 byte program) fails 3 of 3 and `1 + a.yz` fails; `b.x = 0 - a.y; b.w = 0 - a.z;`,
+  `ivec2(0) - a.yz`, `-a.yz`, `3 * a.yz`, `a.yz * 3` link. Programs of 73, 122 and 224 KB that lost the context link after
+  `0 -` is replaced by `ivec2(0) -` in the one or two such lines of the built GLSL. The sign split all 153 variants with a
+  recorded verdict (45 failing, 108 linking); an earlier "limit of 120-131 KB" and "a constant argument" were coincidences of
+  the same line appearing and vanishing. Hypothesis: the context is lost because ANGLE crashes while reporting the error of a
+  big program (a crash report points into its link task).
+- **Fix:** a shader for WebGL has no int negation FXC could merge into a vector. A negative int is made of a float before the
+  cast (`(int)(-_Loops.y)`, a `float2(1, -1)` factor before `(int2)`, `(int)(-(float)value)`: exact under 2^24) or as
+  `intN(0) - v` of the whole vector. Size, loops and the count of statements do not matter for this.
+- **Recognize:** in the built GLSL ([G2](#g2-arrays-indexed-at-run-time), `CompileVariant`), an assignment to two or more int
+  components that starts with a bare int literal: `^\s*u_xlat[iu][0-9]+\.[xyzw]{2,4} = -?[0-9]+ [-+] `, and the same without a
+  swizzle (`^\s*u_xlat[iu][0-9]+ = -?[0-9]+ [-+] `) where the temp is declared `ivecN` / `uvecN`. A scalar that is not a literal
+  on the left of such an operation (not tried on the device) needs the types and is not searched for. The MSL of a shader, without a link
+  (so the context survives): compile it alone on a page and read `gl.getExtension('WEBGL_debug_shaders')
+  .getTranslatedShaderSource(shader)`; on Safari it returns the Metal source. The verdicts were taken with one fresh Safari per
+  program. `MTLCompilerService` in the syslog shows
+  `Compilation BEGIN` without `SUCCESS` and no text.
+- **Status:** fixed in the water of pixel-swarm (pixel-swarm d005dbd23): on the test page of the iPad the full
+  variant (111 KB) `LINKED`, the editor render identical pixel by pixel. In the game (a LAN build, autoplay to the second
+  stage of the level, no shader error in the remote log): iPad 7, iPhone 11, Redmi 12 (Chrome); headless Chromium to the
+  first stage. Guarded by the EditMode test `WebGlIntVectorNegationTests` of pixel-swarm over the real keyword sets of its
+  shaders.
+
+### G12. HLSLcc and Unity traps of a shader rewrite
+- **An int and a float chosen by one `?:`.** FXC packs the choices of one condition into a vector `movc`, HLSLcc gives the
+  vector one type: the int travels as the bits of a float - a denormal (`2.8e-45`), or `intBitsToFloat(0xFFFFFFFD)`, a NaN, for
+  a negative - which a GPU is free to flush. `(int)(cond ? 98.0 : 97.0)` does not help, FXC
+  folds it back to an int. Choose ints by arithmetic on the index (`97 + kind`) or in vectors of ints only. Recognize in the
+  built GLSL: a new `intBitsToFloat` / `floatBitsToInt`, constants `e-45`.
+- **A material remembers the default of a shader property.** After the default of a property changes in `Properties`, a
+  material asset loaded before keeps drawing with the old value (its file on disk does not change, so nothing reimports it):
+  `AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate)` of every material of the shader before comparing renders.
 
 ## Rendering and the Unity WebGL player
 

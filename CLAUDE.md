@@ -298,7 +298,8 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   builds the container of one session; the game adds its network services (`IService`), commands and logic and
   registers an `ILoggerFactory`. `SessionCreateOptions`: type, expected users (bots included), places (`MaxUsers`,
   bots take none), `JoinTimeout`, `ReconnectWindow` (zero - a lost connection is a leave; otherwise the seat waits
-  and the others get `RemoteAway`). `IUser.Id` is the id of the user in this session (sent to the clients),
+  and the others get `RemoteAway`). A host client has the same: `LocalSessionServer.Create(..., reconnectWindow)`
+  (`SessionCore` with `isReconnectable`, `SeatAway`, `ExpireAway`; the window is counted by the host in real time). `IUser.Id` is the id of the user in this session (sent to the clients),
   `IUser.BackendId` the meta id (never sent). Bots: `IUserFactory.CreateBot`. Entities built by the backend:
   `IEntityFactory.Create(seat)`. Users and seats are created in the execution queue of the session only. The factory
   of the sessions, the gateway and the search stay in the game.

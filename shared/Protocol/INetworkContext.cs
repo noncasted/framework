@@ -21,7 +21,7 @@
     // Tag ranges of the INetworkContext union, shared by the framework and every project:
     // - 0-249 framework (one byte on the wire): 0 EmptyResponse, 1 ErrorResponse, 10-19 session auth, 20-29 entity,
     //   30-39 object, 40-49 player, 50-59 service, 60-69 latency, 70-79 peers, 100-149 backend meta, 150-179 session
-    //   requests, 180-199 lobbies, 200-219 client telemetry; one exception: SessionCreateSolo (a session request) took 184 in the
+    //   requests, 180-199 lobbies, 200-219 client telemetry, 220-229 match metrics; one exception: SessionCreateSolo (a session request) took 184 in the
     //   lobbies range;
     // - 1000+ game.
     // A tag is never moved: shipped clients have it on the wire. A removed type leaves a hole: tags are never reused.
@@ -91,6 +91,12 @@
         public const ushort TelemetrySessionEnd = 204;
         public const ushort TelemetryStartupTrace = 205;
         public const ushort TelemetryStartupTraceResult = 206;
+
+        // The game data of a match (MatchMetrics/SharedMatchMetrics): a project with the match-metrics module lists all of them.
+        public const ushort MatchMetricsOpen = 220;
+        public const ushort MatchMetricsOpened = 221;
+        public const ushort MatchMetricsBatch = 222;
+        public const ushort MatchMetricsBatchResult = 223;
 
         public const ushort GameFirst = 1000;
     }

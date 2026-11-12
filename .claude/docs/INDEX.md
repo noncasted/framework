@@ -21,6 +21,10 @@ The framework of a game is updated by a release with the `update-framework` skil
 The cluster and the Unity editor are tools of the agent: start, restart, rebuild and recover them with the `control` skill, without
 asking the user. Agents testing in parallel take their own copy of the project with its own editor (`control copy create`).
 
+A session that takes a task from `docs/tasks` (a folder `docs/tasks/current/<task>` or a file of it, by a path, `/workflow`,
+`/orchestrate`, `/auto`) starts its first reply with the line `/rename <task>` for the user to type: the agent cannot rename
+the session itself. Once per task.
+
 Research media of a project: work in progress is in `docs/media/research/<topic>`, finished research in
 `docs/media/research/complete/<topic>`. A session that finished its task and left files in `docs/media` runs the
 `media-cleanup` skill. Before a new study look in both places.
@@ -40,6 +44,7 @@ Research media of a project: work in progress is in `docs/media/research/<topic>
 | member order, _camelCase, NoAwait, Async suffix, braces, comments, public setters, file size, catch | CODE_STYLE_FULL.md |
 | Grain, IGrainWithGuidKey, [Transaction], constructor injection, State<T>, IStateValue, [GenerateSerializer], [Id(N)], StatesLookup, StateCollection, jsonb, IStateStorage, DirectStorage, EventState, Marten, GrainState, PostgreSQL, IOrleans, GetGrain, messaging, ListenDurableQueue, PushTransactionalQueue | COMMON_ORLEANS.md |
 | delivery semantics, DurableQueue, RuntimeChannel, RuntimePipe, catch-up, GapDetected, observer keep-alive, dead letter | MESSAGING.md |
+| match metrics, match-metrics, MatchMetrics, IMatchMetrics, IMatchMetricsStream, IMatchCounter, IMatchGauge, MatchTags, IMatchMetricsClock, clock of the run, buckets, series, AddSocketMatchMetrics, IMatchMetricsSocket, SharedMatchMetrics, tags 220-223, IMatchMetricsAdmission, IMatchMetricsConnections, MatchMetricsSchema, match_metric_*, MatchMetricBatchWriter, IMatchMetricsWriter, IMatchMetricsReader, /api/match-metrics | MATCH_METRICS.md (contract: `backend/MatchMetrics/Contract/CONTRACT.md`) |
 | Blazor, razor, @inject, UiComponent, early return, console UI | BLAZOR.md |
 | which pattern to use, decision | DECISION_TREES.md |
 | WebGL, iOS, iPadOS, Safari, WebKit, Android, Mali, ANGLE, Metal, shader, nointerpolation, flat varying, ImmCB, GPU hang, frame every 5 s, black screen, context lost, INVALID_OPERATION, ?glcheck, DPR, fullscreen, silent mode, JSPI, emscripten, wasm, stripping, Bee, Brotli, CRC Mismatch, Cache API, Telegram WebView, test on a device | WEBGL_TROUBLESHOOTING.md |

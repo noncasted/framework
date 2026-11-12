@@ -17,6 +17,7 @@
         <Project Path="backend/Console/Console.csproj" />
         <Project Path="backend/Hosting/Hosting.csproj" />
         <Project Path="backend/Infrastructure/Infrastructure.csproj" />
+        <Project Path="backend/MatchMetrics/MatchMetrics.csproj" />
         <Project Path="backend/Session/Session.csproj" />
         <Project Path="backend/Tests/Tests.csproj" />
     </Folder>

@@ -13,6 +13,7 @@
     [Parameter, EditorRequired] public required IReadOnlyList<OnlinePeriod> Periods { get; set; }
     [Parameter, EditorRequired] public required OnlineScale Scale { get; set; }
     [Parameter, EditorRequired] public required string Height { get; set; }
+    [Parameter, EditorRequired] public required BrowserTimeZone Zone { get; set; }
 
     private List<ChartRow> _rows = [];
 
@@ -28,7 +29,7 @@
     {
         _rows = Periods.Select(period => new ChartRow
         {
-            key = OnlinePeriodFormat.Label(period, Scale),
+            key = OnlinePeriodFormat.Label(period, Scale, Zone),
             peak = period.Peak,
             unique = period.UniqueUsers
         }).ToList();

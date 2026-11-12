@@ -99,7 +99,8 @@ namespace Internal
         }
 
         // Every binding declared in prefab assets and in loaded scenes (Regenerate All, see HierarchyBindingsProjectBatch).
-        // The caller flushes once (changed = a file was written).
+        // The caller flushes once (changed = a file was written); the pass that follows ends with the validation of
+        // every prefab with bindings and of the loaded scenes, its findings are errors in the console.
         public static int PrepareProject(out bool changed)
         {
             if (IsRunning)
@@ -110,7 +111,11 @@ namespace Internal
 
             RequireNoPrefabStage();
 
-            return HierarchyBindingsProjectBatch.Prepare(out changed);
+            var prepared = HierarchyBindingsProjectBatch.Prepare(out changed);
+
+            // The validator runs after the binding pass the caller flushes (HierarchyBindingsProjectValidation).
+            HierarchyBindingsProjectValidation.Request();
+            return prepared;
         }
 
         public static int Count(Scene scene)
@@ -123,6 +128,8 @@ namespace Internal
         {
             if (IsRunning)
                 RunNextPhase();
+            else
+                HierarchyBindingsProjectValidation.RunIfRequested();
         }
 
         // A phase that throws (a prefab that cannot be found or scanned) ends the batch: its plan already points past
@@ -209,13 +216,9 @@ namespace Internal
                 AssetDatabase.SaveAssets();
 
             var errors = HierarchyBindingsValidator.ValidatePrefabs(plan.Assets);
-            var message = $"[{LogTag}] Prefab batch done: {plan.Assets.Count} prefabs, " +
-                          $"{synced} entity view lists updated, {errors} validation errors.";
-
-            if (errors > 0)
-                Debug.LogError(message);
-            else
-                Debug.Log(message);
+            HierarchyBindingsLog.ReportResult(
+                $"Prefab batch done: {plan.Assets.Count} prefabs, {synced} entity view lists updated, " +
+                $"{errors} validation errors.", errors);
         }
     }
 }

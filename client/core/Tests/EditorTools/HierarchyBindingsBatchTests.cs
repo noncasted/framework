@@ -26,6 +26,9 @@ namespace Internal.EditorTests
         // No asmdef above and no script on the objects: no assembly to put the bindings into.
         private const string NoAssemblyRoot = "Assets/BindingsTempNoAssembly";
 
+        // Outside the fixtures assembly: the asmdef above is the one of the tests, with another Generated folder.
+        private static string MovedRoot => EditorTestPaths.Root + "/BindingsTempMoved";
+
         private static string Fixture => EditorTestPaths.Root + "/Fixtures/Generated/ShopBindings.g.cs";
         private const string MenuNamespace = "Internal.EditorTests.Menu";
         private const string GamePlayNamespace = "Internal.EditorTests.GamePlay";
@@ -48,6 +51,7 @@ namespace Internal.EditorTests
 
             EditorTestAssets.DeleteFiles(TempRoot);
             EditorTestAssets.DeleteFolder(NoAssemblyRoot);
+            EditorTestAssets.DeleteFolder(MovedRoot);
         }
 
         [OneTimeTearDown]
@@ -610,6 +614,168 @@ namespace Internal.EditorTests
             }
         }
 
+        // An element of an array of references and of an array inside a nested class left empty: each is named.
+        [Test]
+        public void Validator_EmptyElementOfAnArray_IsAnError()
+        {
+            var rack = MakePrefab(TempRoot + "/Rack.prefab", root =>
+            {
+                var slots = new[] { Child(root, "Slot"), Child(root, "Slot (1)"), Child(root, "Slot (2)") };
+                var serialized = new SerializedObject(root.AddComponent<RackBindings>());
+
+                foreach (var name in new[] { "_slots", "_shelf._items" })
+                {
+                    var array = serialized.FindProperty(name);
+                    array.arraySize = 3;
+                    array.GetArrayElementAtIndex(0).objectReferenceValue = slots[0].transform;
+                    array.GetArrayElementAtIndex(2).objectReferenceValue = slots[2].transform;
+                }
+
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            });
+
+            var errors = CollectErrors(() => HierarchyBindingsValidator.ValidatePrefab(rack));
+
+            Assert.That(errors, Has.Some.Contains("'_slots.Array.data[1]' is null"));
+            Assert.That(errors, Has.Some.Contains("'_shelf._items.Array.data[1]' is null"));
+            Assert.That(errors, Has.None.Contains("data[0]"));
+            Assert.That(errors, Has.None.Contains("data[2]"));
+        }
+
+        // The game case: a child was replaced, the code and the structure hash stayed, the reference became empty.
+        // Regenerate All binds such an object again instead of passing it as unchanged.
+        [Test]
+        public void PrepareProject_EmptyReference_IsBoundAgain()
+        {
+            var shop = MakePrefab(TempRoot + "/Menu/Shop.prefab", root => root.AddComponent<ShopBindings>());
+
+            HierarchyBindingsBatch.RegeneratePrefabs(new[] { shop });
+            Assert.That(HierarchyBindingsGenerator.PumpPending(), Is.EqualTo("Idle."));
+            Assert.That(HierarchyBindingsBatch.PrepareProject(out _), Is.EqualTo(1));
+            Assert.That(HierarchyBindingsQueue.IsEmpty(), Is.True, "A bound prefab is not bound again.");
+
+            var contents = PrefabUtility.LoadPrefabContents(shop);
+
+            try
+            {
+                var serialized = new SerializedObject(contents.GetComponent<ShopBindings>());
+                serialized.FindProperty("_transform").objectReferenceValue = null;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                PrefabUtility.SaveAsPrefabAsset(contents, shop);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(contents);
+            }
+
+            Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(shop).GetComponent<ShopBindings>().Transform, Is.Null);
+
+            Assert.That(HierarchyBindingsBatch.PrepareProject(out var changed), Is.EqualTo(1));
+            Assert.That(changed, Is.False);
+            Assert.That(HierarchyBindingsQueue.Load().Single().AssetPath, Is.EqualTo(shop));
+
+            HierarchyBindingsGenerator.PumpPending();
+
+            var bindings = AssetDatabase.LoadAssetAtPath<GameObject>(shop).GetComponent<ShopBindings>();
+            Assert.That(bindings.Transform, Is.EqualTo(bindings.transform));
+        }
+
+        // A finding only the validator sees: a variant emptied a reference of the bindings of its base. The base is
+        // regenerated without a change, the variant declares nothing, so Regenerate All has to validate to show it.
+        [Test]
+        public void PrepareProject_ValidatesAfterTheBinding()
+        {
+            var shop = MakePrefab(TempRoot + "/Menu/Shop.prefab", root => root.AddComponent<ShopBindings>());
+
+            HierarchyBindingsBatch.RegeneratePrefabs(new[] { shop });
+            Assert.That(HierarchyBindingsGenerator.PumpPending(), Is.EqualTo("Idle."));
+
+            var variant = TempRoot + "/Menu/ShopVariant.prefab";
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(shop));
+
+            try
+            {
+                var serialized = new SerializedObject(instance.GetComponent<ShopBindings>());
+                serialized.FindProperty("_transform").objectReferenceValue = null;
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+                PrefabUtility.SaveAsPrefabAsset(instance, variant, out var success);
+                Assert.That(success, Is.True, variant);
+            }
+            finally
+            {
+                Object.DestroyImmediate(instance);
+            }
+
+            Assert.That(HierarchyBindingsBatch.PrepareProject(out _), Is.EqualTo(1));
+            Assert.That(HierarchyBindingsQueue.IsEmpty(), Is.True);
+            Assert.That(HierarchyBindingsGenerator.HasPending(), Is.True, "The validation waits for the binding pass.");
+
+            LogAssert.Expect(LogType.Error, new Regex(Regex.Escape(variant) + ".*reference '_transform' is null"));
+            LogAssert.Expect(LogType.Error, new Regex("Regenerate All: .* 1 validation errors"));
+
+            Assert.That(HierarchyBindingsGenerator.PumpPending(), Is.EqualTo("Idle."));
+            Assert.That(HierarchyBindingsGenerator.HasPending(), Is.False);
+        }
+
+        // The prefab left the assembly its bindings were generated into (a move of the prefab or of the file by
+        // hand): its folder is another one now, and a second file of the same class must not appear there.
+        [Test]
+        public void Prepare_ClassGeneratedInAnotherFolder_IsRefused()
+        {
+            var moved = MakePrefab(MovedRoot + "/Shop.prefab", root => root.AddComponent<ShopBindings>());
+            var root = AssetDatabase.LoadAssetAtPath<GameObject>(moved);
+            var duplicate = CatalogPaths.ToFullPath(EditorTestPaths.Root + "/Generated/ShopBindings.g.cs");
+
+            try
+            {
+                LogAssert.Expect(LogType.Error, new Regex("is already generated into " + Regex.Escape(Fixture)));
+                var prepared = HierarchyBindingsGenerator.Prepare(root, "ShopBindings", MenuNamespace, false, false,
+                    out var changed);
+
+                Assert.That(File.Exists(duplicate), Is.False, "The class is written a second time.");
+                Assert.That(prepared, Is.False);
+                Assert.That(changed, Is.False);
+                Assert.That(HierarchyBindingsQueue.IsEmpty(), Is.True);
+            }
+            finally
+            {
+                // Removed before any refresh: the editor never sees the second class.
+                var folder = Path.GetDirectoryName(duplicate);
+
+                if (Directory.Exists(folder))
+                {
+                    Directory.Delete(folder, true);
+                    File.Delete(folder + ".meta");
+                }
+            }
+        }
+
+        private static List<string> CollectErrors(Action action)
+        {
+            var errors = new List<string>();
+
+            void OnLog(string condition, string stackTrace, LogType type)
+            {
+                if (type == LogType.Error)
+                    errors.Add(condition);
+            }
+
+            LogAssert.ignoreFailingMessages = true;
+            Application.logMessageReceived += OnLog;
+
+            try
+            {
+                action();
+            }
+            finally
+            {
+                Application.logMessageReceived -= OnLog;
+                LogAssert.ignoreFailingMessages = false;
+            }
+
+            return errors;
+        }
+
         // Base: root with the Holder/Inherited and Untouched branches and ShopBindings; variant: Holder/Added.
         private static (string basePath, string variantPath) MakeVariant(Action<GameObject> onAdded)
         {
@@ -691,6 +857,7 @@ namespace Internal.EditorTests
             SessionState.EraseString("Internal.HierarchyBindings.PrefabBatch");
             SessionState.EraseString("Internal.HierarchyBindings.PendingRequests");
             SessionState.EraseBool("Internal.HierarchyBindings.AwaitingReload");
+            SessionState.EraseBool("Internal.HierarchyBindings.ProjectValidation");
         }
     }
 }
