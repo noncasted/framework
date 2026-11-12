@@ -52,6 +52,10 @@ namespace Framework.Tests.Protocol;
 [MemoryPackUnion(NetworkContextTags.TelemetrySessionEnd, typeof(SharedClientTelemetry.SessionEnd))]
 [MemoryPackUnion(NetworkContextTags.TelemetryStartupTrace, typeof(SharedClientTelemetry.StartupTrace))]
 [MemoryPackUnion(NetworkContextTags.TelemetryStartupTraceResult, typeof(SharedClientTelemetry.StartupTraceResult))]
+[MemoryPackUnion(NetworkContextTags.MatchMetricsOpen, typeof(SharedMatchMetrics.Open))]
+[MemoryPackUnion(NetworkContextTags.MatchMetricsOpened, typeof(SharedMatchMetrics.Opened))]
+[MemoryPackUnion(NetworkContextTags.MatchMetricsBatch, typeof(SharedMatchMetrics.Batch))]
+[MemoryPackUnion(NetworkContextTags.MatchMetricsBatchResult, typeof(SharedMatchMetrics.BatchResult))]
 public partial class TestNetworkContextUnion
 {
 }
