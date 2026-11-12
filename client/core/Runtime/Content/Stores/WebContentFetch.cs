@@ -49,10 +49,11 @@ namespace Internal
             WebContentFetch_Pin(path);
         }
 
-        // Removes from the cache of the page every entry of another URL than these: the files of the builds before.
-        public static void KeepOnly(params string[] urls)
+        // Removes from the cache of the page every entry of the directory (ContentPaths.Directory of its name, wherever
+        // it was fetched from) of another URL than these: the files of its builds before. The other directories keep theirs.
+        public static void KeepOnly(string name, params string[] urls)
         {
-            WebContentFetch_KeepOnly(string.Join("\n", urls));
+            WebContentFetch_KeepOnly(ContentPaths.Directory(name), string.Join("\n", urls));
         }
 
         private static async UniTask Await(IReadOnlyLifetime lifetime, int fetch, string what)
@@ -106,8 +107,9 @@ namespace Internal
         [DllImport("__Internal")]
         private static extern void WebContentFetch_Pin(string path);
 
-        // The URLs to keep, one per line; an entry is kept when its URL without the query is one of them.
+        // directory: Content/<name>, only the entries whose URL holds /Content/<name>/ are looked at. The URLs to keep, one
+        // per line; an entry is kept when its URL without the query is one of them.
         [DllImport("__Internal")]
-        private static extern void WebContentFetch_KeepOnly(string urls);
+        private static extern void WebContentFetch_KeepOnly(string directory, string urls);
     }
 }

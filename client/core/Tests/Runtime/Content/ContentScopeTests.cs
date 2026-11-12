@@ -82,6 +82,75 @@ namespace Internal.Tests
         });
 #endif
 
+#if UNITY_EDITOR
+        // The root registers a second directory next to the one of the catalogues: each has its own loader, an object of
+        // the second loads from a reference of its roots and goes with the root.
+        [UnityTest]
+        public IEnumerator AddContentDirectory_SecondDirectory_LoadsFromItsRoots() => UniTask.ToCoroutine(async () =>
+        {
+            var main = await Register(ContentTestPaths.Index, ContentTestPaths.Folder);
+            var extra = await Register(ContentTestPaths.ExtraIndex, ContentTestPaths.ExtraFolder);
+            var previous = EditorContentDirectories.Install(name => name == ContentTestPaths.Name ? main : name == ContentTestPaths.ExtraName ? extra :
+                throw new InvalidOperationException($"No test directory {name}"));
+
+            try
+            {
+                var options = new[] { new ContentOptions(ContentTestPaths.Name), new ContentOptions(ContentTestPaths.ExtraName) };
+                var root = await new ServiceScopeLoader().Load(ScopeLoadOptions.Create(null, ContentScopeRoots.TwoDirectories.Construct, options));
+                var directories = root.Resolve<IContentDirectories>();
+                var loader = directories.Get(ContentTestPaths.ExtraName);
+                var references = loader.RootAssets<ContentTestReferences>().Single();
+
+                Assert.AreSame(root.Resolve<IContentLoader>(), directories.Get(ContentTestPaths.Name), "The loader of AddContent");
+                Assert.AreNotSame(root.Resolve<IContentLoader>(), loader);
+                Assert.IsEmpty(root.Resolve<IContentLoader>().RootAssets<ContentTestReferences>().Where(asset => asset.name == "ExtraReferences"));
+
+                var target = await loader.Load(root.Lifetime, references.Target);
+
+                Assert.AreEqual("ExtraTarget", target.name);
+                Assert.AreEqual(loader.Progress(references.Target).Value.Total, loader.Progress(references.Target).Value.Loaded, "Its files are real");
+                Assert.Throws<InvalidOperationException>(() => directories.Get("Missing"));
+
+                var scene = await loader.LoadScene(root.Lifetime, references.Scene);
+                Assert.IsTrue(scene.Scene.isLoaded, "A scene of the second directory");
+
+                await root.Dispose();
+                Assert.IsFalse(references.Target.IsLoaded, "Released with the root");
+            }
+            finally
+            {
+                EditorContentDirectories.Install(previous);
+            }
+
+            await UniTask.DelayFrame(ReleaseFrames);
+            LogAssert.NoUnexpectedReceived();
+        });
+
+        private async UniTask<ContentDirectory> Register(string index, string folder)
+        {
+            return await ContentDirectory.Register(_lifetime, ContentIndex.FromJson(File.ReadAllText(index)), new LocalContentStore(Path.GetFullPath(folder)));
+        }
+#endif
+
+        [UnityTest]
+        public IEnumerator AddContentDirectory_WithoutAddContent_Throws() => UniTask.ToCoroutine(async () =>
+        {
+            var caught = default(Exception);
+
+            try
+            {
+                await new ServiceScopeLoader().Load(ScopeLoadOptions.Create(null, ContentScopeRoots.ExtraOnly.Construct,
+                    new ContentOptions(ContentTestPaths.ExtraName)));
+            }
+            catch (Exception exception)
+            {
+                caught = exception;
+            }
+
+            Assert.IsInstanceOf<InvalidOperationException>(caught);
+            StringAssert.Contains("AddContentDirectory needs AddContent", caught.Message);
+        });
+
         [UnityTest]
         public IEnumerator RootWithoutContent_ContentScene_Throws() => UniTask.ToCoroutine(async () =>
         {

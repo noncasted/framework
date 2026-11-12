@@ -12,7 +12,7 @@ namespace Internal.EditorTests
     // Builds the content directory of the Play Mode tests of the stores, the loader and the catalogue groups before Play
     // Mode (registration is refused in edit mode): a root with a lazy reference to a target and the id of a scene, a root
     // with a content reference and a content scene, a ContentRoot with a group and a preloaded group, its archive and index as a player reads them in place,
-    // a copy of the index and the GUID of the target next to it (ContentTestPaths). The assets stay in the project until the run ends: Play Mode
+    // a copy of the index and the GUID of the target next to it (ContentTestPaths), and a second directory of its own assets. The assets stay in the project until the run ends: Play Mode
     // without a registered directory loads them.
     public sealed class ContentDirectoryTestBuild : IPrebuildSetup, IPostBuildCleanup
     {
@@ -57,6 +57,38 @@ namespace Internal.EditorTests
             ContentShipment.Write(index, ContentTestPaths.Folder, false, false);
             File.WriteAllText(ContentTestPaths.Index, index.ToJson());
             File.WriteAllText(ContentTestPaths.TargetGuid, AssetDatabase.AssetPathToGUID(ContentTestPaths.TargetAsset));
+
+            BuildExtra();
+        }
+
+        // The second directory: its own target and scene, nothing of the first one.
+        private static void BuildExtra()
+        {
+            File.WriteAllText(ContentTestPaths.ExtraSceneAsset, "%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n");
+            AssetDatabase.ImportAsset(ContentTestPaths.ExtraSceneAsset, ImportAssetOptions.ForceSynchronousImport);
+
+            var target = ScriptableObject.CreateInstance<ContentTestTarget>();
+            AssetDatabase.CreateAsset(target, ContentTestPaths.ExtraTargetAsset);
+
+            var references = ScriptableObject.CreateInstance<ContentTestReferences>();
+            references.Init(ContentReferenceFields.Create(target), ContentReferenceFields.CreateScene(ContentTestPaths.ExtraSceneAsset));
+            AssetDatabase.CreateAsset(references, ContentTestPaths.ExtraReferencesAsset);
+            AssetDatabase.SaveAssets();
+
+            var report = BuildPipeline.BuildContentDirectory(new BuildContentDirectoryParameters
+            {
+                name = ContentTestPaths.ExtraName,
+                outputPath = ContentTestPaths.ExtraBuilt,
+                rootAssetPaths = new[] { ContentTestPaths.ExtraReferencesAsset },
+                options = BuildContentOptions.None
+            });
+
+            Assert.That(report.summary.result, Is.EqualTo(BuildResult.Succeeded), "The build of the extra content directory");
+
+            var manifest = ContentManifest.Read(ContentTestPaths.ExtraBuilt);
+            var index = ContentIndexWriter.Write(manifest, ContentArchiveWriter.Write(manifest, new ContentLoadKey[0], ContentTestPaths.ExtraFolder));
+            ContentShipment.Write(index, ContentTestPaths.ExtraFolder, false, false);
+            File.WriteAllText(ContentTestPaths.ExtraIndex, index.ToJson());
         }
 
         public void Cleanup()

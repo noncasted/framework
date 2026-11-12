@@ -13,6 +13,19 @@ namespace Internal
 
         private readonly ILoadedScope _parent;
         private IContentLoader _loader;
+        private ContentDirectories _directories;
+
+        // The directories of the root, for AddContentDirectory: after AddContent, in the root only.
+        internal ContentDirectories Directories
+        {
+            get
+            {
+                if (_parent != null)
+                    throw new InvalidOperationException("[Content] AddContentDirectory belongs to the root scope: a child resolves IContentDirectories");
+
+                return _directories ?? throw new InvalidOperationException("[Content] AddContentDirectory needs AddContent before it in the root scope");
+            }
+        }
 
         public IContentLoader Loader
         {
@@ -29,7 +42,7 @@ namespace Internal
             }
         }
 
-        internal void Use(IContentLoader loader)
+        internal void Use(IContentLoader loader, ContentDirectories directories)
         {
             if (_parent != null)
                 throw new InvalidOperationException("[Content] AddContent belongs to the root scope: a child takes the loader of its parent");
@@ -38,6 +51,7 @@ namespace Internal
                 throw new InvalidOperationException("[Content] AddContent is called twice in one scope");
 
             _loader = loader;
+            _directories = directories;
         }
     }
 }

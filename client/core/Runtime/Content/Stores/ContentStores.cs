@@ -26,12 +26,12 @@ namespace Internal
 
             if (stamp.IsPreloaded)
             {
-                WebContentFetch.KeepOnly(indexUrl);
+                WebContentFetch.KeepOnly(options.Name, indexUrl);
                 return (index, new LocalContentStore(local));
             }
 
             var archive = new WebContentArchive(folder, stamp.ManifestHash);
-            WebContentFetch.KeepOnly(indexUrl, archive.Url);
+            WebContentFetch.KeepOnly(options.Name, indexUrl, archive.Url);
             return (index, new FetchedContentStore(archive, cache, options.RangeGap));
 #else
             lifetime.Token.ThrowIfCancellationRequested();

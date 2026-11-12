@@ -27,6 +27,16 @@ namespace Internal.EditorTests.Content
         public const string RootAsset = Assets + "/Root.asset";
         public const string ReferencesAsset = Assets + "/References.asset";
 
+        // A second directory next to the first one (AddContentDirectory): a root with a content reference to its own
+        // target and a content scene of its own, built and shipped as the first one.
+        public const string ExtraName = "TestsExtra";
+        public const string ExtraBuilt = Output + "/Built/" + ExtraName;
+        public const string ExtraFolder = Output + "/" + ExtraName;
+        public const string ExtraIndex = Output + "/" + ExtraName + ".json";
+        public const string ExtraTargetAsset = Assets + "/ExtraTarget.asset";
+        public const string ExtraSceneAsset = Assets + "/ExtraLevel.unity";
+        public const string ExtraReferencesAsset = Assets + "/ExtraReferences.asset";
+
         // The ContentRoot of the group tests: one group loaded on Retain, one preloaded.
         public const string ContentRootAsset = Assets + "/ContentRoot.asset";
         public const string GroupAsset = Assets + "/Group.asset";

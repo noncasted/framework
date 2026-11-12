@@ -4,11 +4,15 @@ using Object = UnityEngine.Object;
 
 namespace Internal
 {
-    // Loads the objects and scenes of the content directory on a lifetime, which owns the result: an object is released,
+    // Loads the objects and scenes of one content directory on a lifetime, which owns the result: an object is released,
     // a scene unloaded when it ends. A lifetime that ends during the load gives OperationCanceledException; a load the
     // engine has started goes on and is released at once. An empty reference throws.
     public interface IContentLoader
     {
+        // The root assets of the directory, loaded with its registration: the entry to the objects of a directory no
+        // catalogue knows (an extra one of AddContentDirectory).
+        IReadOnlyList<T> RootAssets<T>() where T : Object;
+
         // Fetches the files the object needs that are not real yet, then loads it.
         UniTask<T> Load<T>(IReadOnlyLifetime lifetime, ContentReference<T> reference) where T : Object;
 

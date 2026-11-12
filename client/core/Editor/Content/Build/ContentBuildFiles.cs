@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
@@ -5,8 +6,8 @@ using UnityEditor;
 namespace Internal
 {
     // The files a player build gets from the content build for its time only, removed after it, also a failed one:
-    // the stamp (ContentStamp) as a json TextAsset in Resources (an asset folder of its own) and, for a preloaded
-    // directory of a WebGL build, the preload manifest that puts its archive into the .data file (the index stays a file
+    // the stamp (ContentStamp) of each directory as a json TextAsset in Resources (an asset folder of its own) and, for the
+    // preloaded directories of a WebGL build, the preload manifest that puts their archives into the .data file (the index stays a file
     // of StreamingAssets, fetched at the start).
     public static class ContentBuildFiles
     {
@@ -30,10 +31,12 @@ namespace Internal
             AssetDatabase.ImportAsset(StampFolder, ImportAssetOptions.ImportRecursive | ImportAssetOptions.ForceSynchronousImport);
         }
 
-        public static void WritePreloadManifest(ContentIndex index)
+        // The archives of the preloaded directories of the build.
+        public static void WritePreloadManifest(IReadOnlyList<ContentIndex> indexes)
         {
-            var folder = ContentPaths.Directory(index.Name);
-            var files = new[] { ContentPaths.ArchiveFile, ContentPaths.ManifestHashFile }.Select(file => $"{folder}/{file}");
+            var files = indexes
+                .Select(index => ContentPaths.Directory(index.Name))
+                .SelectMany(folder => new[] { ContentPaths.ArchiveFile, ContentPaths.ManifestHashFile }.Select(file => $"{folder}/{file}"));
 
             Directory.CreateDirectory(Path.GetDirectoryName(PreloadManifest) ?? throw new IOException(PreloadManifest));
             File.WriteAllLines(PreloadManifest, files);

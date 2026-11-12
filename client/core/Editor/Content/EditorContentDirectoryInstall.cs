@@ -6,8 +6,8 @@ using Object = UnityEngine.Object;
 
 namespace Internal
 {
-    // Gives AddContent of Play Mode the content directory of the project: the roots of the Content section of
-    // ProjectSettings/Framework.json, as assets of the project; while Tools/Content/Record Load Order is on, its fetches
+    // Gives AddContent and AddContentDirectory of Play Mode the content directories of the project: the roots of the
+    // Content section of ProjectSettings/Framework.json or of an entry of ExtraContent, as assets of the project; while Tools/Content/Record Load Order is on, its fetches
     // are recorded into the load order (ContentLoadOrder).
     internal static class EditorContentDirectoryInstall
     {
@@ -19,12 +19,7 @@ namespace Internal
 
         private static IContentDirectory Create(string name)
         {
-            var settings = FrameworkSettings.ContentDirectory;
-
-            if (settings.Name != name)
-                throw new InvalidOperationException(
-                    $"[Content] ContentOptions name the content directory {name}, {FrameworkSettings.SettingsPath} has {settings.Name}");
-
+            var settings = FrameworkSettings.ContentDirectoryOf(name);
             var roots = settings.Roots.Select(Load).ToArray();
             var directory = new EditorContentDirectory(name, roots);
 

@@ -18,6 +18,7 @@ namespace Internal.EditorTests
     public class ContentBuildTests
     {
         public const string Name = "ContentBuildTests";
+        public const string ExtraName = "ContentBuildTestsExtra";
 
         private const string TempFolder = "Assets/ContentBuildTemp";
         private const string TargetPath = TempFolder + "/Target.asset";
@@ -29,6 +30,10 @@ namespace Internal.EditorTests
         private const string BrokenScenePath = TempFolder + "/BrokenLevel.unity";
         private const string BrokenSceneRootPath = TempFolder + "/BrokenSceneRoot.asset";
         private const string StaleKeysRootPath = TempFolder + "/StaleKeysRoot.asset";
+        private const string ExtraTargetPath = TempFolder + "/ExtraTarget.asset";
+        private const string ExtraScenePath = TempFolder + "/ExtraLevel.unity";
+        private const string ExtraRootPath = TempFolder + "/ExtraRoot.asset";
+        private const string SharedRootPath = TempFolder + "/SharedRoot.asset";
 
         private static string SettingsFile => Path.Combine(Path.GetDirectoryName(Application.dataPath), FrameworkSettings.SettingsPath);
 
@@ -69,6 +74,16 @@ namespace Internal.EditorTests
             AssetDatabase.CreateAsset(stale, StaleKeysRootPath);
             AssetDatabase.SaveAssets();
 
+            // The roots of an extra directory: its own target and scene, or the target of Root with its own scene.
+            EditorSceneManager.SaveScene(EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single), ExtraScenePath);
+            var extraScene = LoadableSceneIdEditorUtility.CreateLoadableSceneId(ExtraScenePath);
+            var extraTarget = ScriptableObject.CreateInstance<ContentTestTarget>();
+            AssetDatabase.CreateAsset(extraTarget, ExtraTargetPath);
+            CreateRoot(ExtraRootPath, LoadableObjectIdEditorUtility.CreateLoadableObjectId(extraTarget), extraScene);
+            // The new scenes above unloaded the object of Target: loaded again from its asset.
+            CreateRoot(SharedRootPath, LoadableObjectIdEditorUtility.CreateLoadableObjectId(AssetDatabase.LoadAssetAtPath<ContentTestTarget>(TargetPath)), extraScene);
+            AssetDatabase.SaveAssets();
+
             // The reference of MissingRoot now leads to a deleted asset.
             AssetDatabase.DeleteAsset(MissingPath);
         }
@@ -78,10 +93,13 @@ namespace Internal.EditorTests
         {
             EditorTestAssets.DeleteFolder(TempFolder);
 
-            foreach (var folder in new[] { $"{ContentBuild.Output}/{Name}", $"{ContentArchiveWriter.Output}/{Name}", $"{ContentShipment.Output}/{Name}" })
+            foreach (var name in new[] { Name, ExtraName })
             {
-                if (Directory.Exists(folder))
-                    Directory.Delete(folder, true);
+                foreach (var folder in new[] { $"{ContentBuild.Output}/{name}", $"{ContentArchiveWriter.Output}/{name}", $"{ContentShipment.Output}/{name}" })
+                {
+                    if (Directory.Exists(folder))
+                        Directory.Delete(folder, true);
+                }
             }
         }
 
@@ -109,12 +127,12 @@ namespace Internal.EditorTests
         {
             WriteSettings(RootPath, true);
 
-            var output = ContentBuild.Prepare(BuildTarget.WebGL);
+            var output = ContentBuild.Prepare(BuildTarget.WebGL).Single();
             var stamp = Stamp();
             var index = ContentIndex.FromJson(File.ReadAllText($"{output.Shipped}/{ContentPaths.IndexFile(stamp.ManifestHash)}"));
             var root = ObjectFiles(index, AssetDatabase.LoadAssetAtPath<ContentTestRoot>(RootPath));
 
-            Assert.That(ContentBuild.Current, Is.SameAs(output));
+            Assert.That(ContentBuild.Current, Is.EqualTo(new[] { output }));
             Assert.That(output.Folder, Is.EqualTo($"{ContentBuild.Output}/{Name}"));
             Assert.That(File.Exists($"{output.Folder}/{ContentManifest.HashFile}"), Is.True, "The manifest hash");
             Assert.That(stamp.ManifestHash, Is.EqualTo(output.Index.ManifestHash));
@@ -127,11 +145,76 @@ namespace Internal.EditorTests
         }
 
         [Test]
+        public void Prepare_BuildsTheExtraDirectoryNextToAPreloadedOne()
+        {
+            WriteSettings(RootPath, true, Extra(ExtraRootPath));
+
+            var outputs = ContentBuild.Prepare(BuildTarget.WebGL);
+            var extra = outputs[1];
+            var hash = extra.Index.ManifestHash;
+
+            Assert.That(outputs.Select(output => output.Directory.Name), Is.EqualTo(new[] { Name, ExtraName }), "In the order of the settings");
+            Assert.That(ContentBuild.Current, Is.EqualTo(outputs));
+            Assert.That(Stamp().IsPreloaded, Is.True);
+            Assert.That(Stamp(ExtraName).IsPreloaded, Is.False);
+            Assert.That(Stamp(ExtraName).ManifestHash, Is.EqualTo(hash));
+            Assert.That(extra.Shipped, Is.EqualTo($"{ContentShipment.Output}/{ExtraName}"));
+            Assert.That(Directory.GetFiles(extra.Shipped).Select(Path.GetFileName), Is.EquivalentTo(new[] { $"{hash}.archive", $"{hash}.index.json" }),
+                "Fetched by the player");
+            Assert.That(File.ReadAllLines(ContentBuildFiles.PreloadManifest),
+                Is.EquivalentTo(new[] { $"Content/{Name}/{ContentPaths.ArchiveFile}", $"Content/{Name}/{ContentManifest.HashFile}" }), "Only the preloaded one");
+            Assert.That(extra.Index.RootFiles, Is.EqualTo(ObjectFiles(extra.Index, AssetDatabase.LoadAssetAtPath<ContentTestRoot>(ExtraRootPath))));
+            Assert.That(ObjectFiles(extra.Index, AssetDatabase.LoadAssetAtPath<ContentTestTarget>(ExtraTargetPath)), Is.Not.Empty);
+            Assert.Throws<System.Collections.Generic.KeyNotFoundException>(
+                () => ObjectFiles(outputs[0].Index, AssetDatabase.LoadAssetAtPath<ContentTestTarget>(ExtraTargetPath)),
+                "The target of the extra root is not in the first directory");
+            Assert.That(ContentTestBuildStep.Calls, Is.EqualTo(1), "The step sees each directory once");
+        }
+
+        [Test]
+        public void Prepare_RecordsTheTypesOfEveryDirectoryForThePlayerBuild()
+        {
+            WriteSettings(RootPath, false, Extra(ExtraRootPath));
+
+            var outputs = ContentBuild.Prepare(BuildTarget.WebGL);
+
+            Assert.That(outputs.Select(output => output.ReportDirectory).Distinct().Count(), Is.EqualTo(2), "A report directory each");
+
+            foreach (var output in outputs)
+            {
+                var usage = File.ReadAllText(Path.Combine(output.ReportDirectory, ContentDirectoryBuilder.TypeUsageFile));
+                Assert.That(usage, Does.Contain(typeof(ContentTestTarget).FullName), output.Directory.Name);
+            }
+        }
+
+        [Test]
+        public void AssetInTwoDirectories_FailsTheBuild()
+        {
+            WriteSettings(RootPath, false, Extra(SharedRootPath));
+
+            var exception = Assert.Throws<BuildFailedException>(() => ContentBuild.Prepare(BuildTarget.WebGL));
+
+            Assert.That(exception.Message, Does.Contain($"{TargetPath} in {Name} and {ExtraName}"));
+            Assert.That(exception.Message, Does.Not.Contain(ExtraScenePath), "The scene of the extra root is in it alone");
+            Assert.That(ContentBuild.Current, Is.Null);
+        }
+
+        [Test]
+        public void TwoDirectoriesOfOneName_FailTheBuild()
+        {
+            WriteSettings(RootPath, false, new JObject { ["Name"] = Name.ToLowerInvariant(), ["Roots"] = new JArray(ExtraRootPath), ["IsPreloaded"] = false });
+
+            var exception = Assert.Throws<InvalidOperationException>(() => ContentBuild.Prepare(BuildTarget.WebGL));
+
+            Assert.That(exception.Message, Does.Contain("two content directories are named"));
+        }
+
+        [Test]
         public void Prepare_RecordsTheTypesOfTheDirectoryForThePlayerBuild()
         {
             WriteSettings(RootPath, false);
 
-            var output = ContentBuild.Prepare(BuildTarget.WebGL);
+            var output = ContentBuild.Prepare(BuildTarget.WebGL).Single();
             var usage = File.ReadAllText(Path.Combine(output.ReportDirectory, ContentDirectoryBuilder.TypeUsageFile));
 
             // The target of the lazy reference is in the directory only: no scene of a player names its script.
@@ -169,7 +252,7 @@ namespace Internal.EditorTests
             WriteSettings(RootPath, false);
             Compress(WebGLCompressionFormat.Brotli, false);
 
-            var output = ContentBuild.Prepare(BuildTarget.WebGL);
+            var output = ContentBuild.Prepare(BuildTarget.WebGL).Single();
             var hash = output.Index.ManifestHash;
             var expected = new[] { $"{hash}.archive", $"{hash}.index.json.br" };
 
@@ -190,7 +273,7 @@ namespace Internal.EditorTests
             WriteSettings(RootPath, false);
             Compress(WebGLCompressionFormat.Gzip, false);
 
-            var output = ContentBuild.Prepare(BuildTarget.WebGL);
+            var output = ContentBuild.Prepare(BuildTarget.WebGL).Single();
             var hash = output.Index.ManifestHash;
 
             Assert.That(Stamp().IsIndexBrotli, Is.False);
@@ -203,7 +286,7 @@ namespace Internal.EditorTests
             WriteSettings(RootPath, true);
             Compress(WebGLCompressionFormat.Brotli, false);
 
-            var output = ContentBuild.Prepare(BuildTarget.WebGL);
+            var output = ContentBuild.Prepare(BuildTarget.WebGL).Single();
 
             Assert.That(Stamp().IsIndexBrotli, Is.False, "The .data file is compressed whole");
             AssertReadInPlace(output);
@@ -215,7 +298,7 @@ namespace Internal.EditorTests
             WriteSettings(RootPath, false);
             Compress(WebGLCompressionFormat.Brotli, false);
 
-            var output = ContentBuild.Prepare(BuildTarget.StandaloneLinux64);
+            var output = ContentBuild.Prepare(BuildTarget.StandaloneLinux64).Single();
 
             Assert.That(Stamp().IsIndexBrotli, Is.False);
             Assert.That(Stamp().IsPreloaded, Is.False);
@@ -230,9 +313,14 @@ namespace Internal.EditorTests
             Assert.That(Directory.GetFiles(output.Shipped).Select(Path.GetFileName), Is.EquivalentTo(expected));
         }
 
-        private static ContentStamp Stamp()
+        private static ContentStamp Stamp(string name = Name)
         {
-            return ContentStamp.FromJson(Resources.Load<TextAsset>(ContentPaths.StampResource(Name)).text);
+            return ContentStamp.FromJson(Resources.Load<TextAsset>(ContentPaths.StampResource(name)).text);
+        }
+
+        private static JObject Extra(string root)
+        {
+            return new JObject { ["Name"] = ExtraName, ["Roots"] = new JArray(root), ["IsPreloaded"] = false };
         }
 
         [Test]
@@ -336,7 +424,7 @@ namespace Internal.EditorTests
             AssetDatabase.CreateAsset(root, path);
         }
 
-        private void WriteSettings(string root, bool preloaded)
+        private void WriteSettings(string root, bool preloaded, params JObject[] extra)
         {
             var json = JObject.Parse(_settings);
             json["Content"] = new JObject
@@ -345,6 +433,7 @@ namespace Internal.EditorTests
                 ["Roots"] = new JArray(root),
                 ["IsPreloaded"] = preloaded
             };
+            json["ExtraContent"] = new JArray(extra.Cast<object>().ToArray());
             File.WriteAllText(SettingsFile, json.ToString());
         }
 

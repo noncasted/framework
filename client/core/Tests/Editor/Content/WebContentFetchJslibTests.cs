@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -17,6 +18,30 @@ namespace Internal.Tests
             var source = File.ReadAllText(Path.GetFullPath(JslibPath()));
 
             Assert.That(source, Does.Contain("cache: 'no-store', headers: { Range: "));
+        }
+
+        // The cache entries of the builds before go per directory: a directory registered later (fetched when the menu
+        // opens) keeps its cached files when the first one opens. On node: core/Tests~/web-content-fetch.test.js.
+        [Test]
+        public void KeepOnly_OnNode_RemovesOnlyTheEntriesOfItsDirectory()
+        {
+            // <core>/Runtime/Content/Plugins/WebContentFetch.jslib
+            var core = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(JslibPath())), "..", "..", ".."));
+            var script = Path.Combine(core, "Tests~", "web-content-fetch.test.js");
+            var info = new ProcessStartInfo("node", $"--test \"{script}\"")
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(info);
+            var errors = process.StandardError.ReadToEndAsync();
+            var output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+
+            Assert.AreEqual(0, process.ExitCode, output + errors.Result);
         }
 
         private static string JslibPath()

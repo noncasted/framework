@@ -32,6 +32,24 @@ namespace Internal.Tests
             }
         }
 
+        // AddContent, then AddContentDirectory: the directories of the options in their order.
+        public static class TwoDirectories
+        {
+            public static async UniTask Construct(IScopeBuilder builder, ContentOptions[] options)
+            {
+                await builder.AddContent(options[0]);
+                await builder.AddContentDirectory(options[1]);
+            }
+        }
+
+        public static class ExtraOnly
+        {
+            public static async UniTask Construct(IScopeBuilder builder, ContentOptions options)
+            {
+                await builder.AddContentDirectory(options);
+            }
+        }
+
         public static class Empty
         {
             public static UniTask Construct(IScopeBuilder builder)

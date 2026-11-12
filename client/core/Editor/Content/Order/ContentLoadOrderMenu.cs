@@ -1,10 +1,11 @@
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
 namespace Internal
 {
-    // Tools/Content: record the load order of the content directory in Play Mode (play the menu and the levels with it
-    // on, then commit ProjectSettings/ContentLoadOrder/<name>.txt), clear it before a new recording.
+    // Tools/Content: record the load order of the content directories in Play Mode (play the menu and the levels with it
+    // on, then commit ProjectSettings/ContentLoadOrder/<name>.txt, one per directory), clear them before a new recording.
     internal static class ContentLoadOrderMenu
     {
         private const string Record = "Tools/Content/Record Load Order";
@@ -15,7 +16,7 @@ namespace Internal
         {
             ContentLoadOrder.IsRecording = ContentLoadOrder.IsRecording == false;
             Debug.Log($"[Content] Recording of the load order {(ContentLoadOrder.IsRecording ? "on" : "off")} (from the next Play Mode): " +
-                      ContentLoadOrder.PathOf(FrameworkSettings.ContentDirectory.Name));
+                      string.Join(", ", FrameworkSettings.ContentDirectories.Select(directory => ContentLoadOrder.PathOf(directory.Name))));
         }
 
         [MenuItem(Record, true)]
@@ -28,9 +29,11 @@ namespace Internal
         [MenuItem(Clear)]
         private static void ClearOrder()
         {
-            var name = FrameworkSettings.ContentDirectory.Name;
-            ContentLoadOrder.Clear(name);
-            Debug.Log($"[Content] Load order cleared: {ContentLoadOrder.PathOf(name)}");
+            foreach (var directory in FrameworkSettings.ContentDirectories)
+            {
+                ContentLoadOrder.Clear(directory.Name);
+                Debug.Log($"[Content] Load order cleared: {ContentLoadOrder.PathOf(directory.Name)}");
+            }
         }
     }
 }

@@ -7,13 +7,19 @@ player build. Addressables are gone from the framework. Code: `client/core/Runti
 
 ## Model
 
-- **One directory per game.** Its name and roots are the `Content` section of `ProjectSettings/Framework.json`:
+- **The directory of the game, and extra ones.** The name and roots of the main directory (the catalogues, `ContentRoot`) are the
+  `Content` section of `ProjectSettings/Framework.json`; `ExtraContent` lists more directories, built with every player too:
 
   ```json
-  "Content": { "Name": "Game", "Roots": [ "Assets/Common/Internal/Runtime/Catalogues/ContentRoot.asset" ], "IsPreloaded": false }
+  "Content": { "Name": "Game", "Roots": [ "Assets/Common/Internal/Runtime/Catalogues/ContentRoot.asset" ], "IsPreloaded": true },
+  "ExtraContent": [ { "Name": "Stream", "Roots": [ "Assets/Stream/StreamRoot.asset" ], "IsPreloaded": false } ]
   ```
 
-  A root is an asset registered with the directory; the build takes the roots and everything they reach.
+  A root is an asset registered with the directory; the build takes the roots and everything they reach. Each directory is
+  self-contained (the engine knows no links between directories): **an asset of the project reached from two directories fails the
+  build** (`ContentDirectoryOverlap`: `<path> in Game and Stream`; scripts and the resources of the engine may be in both). Names are
+  unique, case aside (`StreamingAssets/Content/<name>`). Typical use: the menu and the global prefabs preloaded in the `.data`, the
+  heavy or optional content (music) in a directory fetched over the network when it is first loaded.
 - **`ContentRoot` is generated** (`<ContentFolder>/Runtime/Catalogues/ContentRoot.asset`, Codegen/Content Root, a step of Regenerate
   All and of every content build): lazy references to the catalogue groups (`_groups`, `_preloadedGroups`) and the scenes of the scene
   folders (`_scenes`). It holds no direct reference: the registration opens the files of the roots and of what they reference
@@ -78,6 +84,24 @@ await builder.FindOrLoadScene<ArenaView>(level.Scene);
 new ScopeLoadOptions(parent, Construct).WithAssetScene(Scenes.Game);
 ```
 
+An extra directory (an entry of `ExtraContent`), root scope, after `AddContent`: its own loader, never bound to the catalogues
+(`Scenes`, groups and `CatalogContent` stay on the main one). The registration fetches the index, the header and the roots only:
+
+```csharp
+await builder.AddContentDirectory(options.Stream);                 // ContentOptions with _name "Stream"; IContentDirectories.Get("Stream")
+```
+
+```csharp
+var stream = _directories.Get("Stream");                           // [Inject] IContentDirectories; Get of the main name = IContentLoader
+var root = stream.RootAssets<StreamRoot>().Single();               // a root of the directory, loaded with the registration
+var music = await stream.Load(lifetime, root.MenuMusic);           // ContentReference<AudioClip> inside Stream: fetched now
+stream.Progress(root.MenuMusic).Advise(lifetime, p => _bar.Set(p.Loaded, p.Total));
+```
+
+A reference is loaded by the loader of its own directory (another loader throws: the object is not in its index). The references
+of the main directory never point into an extra one (the build fails on a reference outside the directory): an extra directory is
+entered through its roots. It lives as long as the root scope, as the main one.
+
 During the game, on the lifetime of the owner (`[Inject] IContentLoader`):
 
 ```csharp
@@ -102,14 +126,16 @@ var icon = _content.LoadNow(lifetime, reference);                         // onl
 ## Build
 
 `ContentBuild` runs before every player build: an `IPlayerBuildStep` around `PlayerBuildSteps.Run` (`WebGlBuild.Build`,
-`deploy-client`) and a `BuildPlayerProcessor` for the build window and `-build*Player`. It:
+`deploy-client`) and a `BuildPlayerProcessor` for the build window and `-build*Player`. For every directory, `Content` first, then
+`ExtraContent` in order (`ContentBuild.Current` is the list), it:
 
 1. calls every `IContentBuildStep` (the `ContentRoot` generator);
 2. builds the directory into `Library/Content/<name>` (`FailBuildWhenErrorsLogged | DisableWriteTypeTree | SerializeUnityVersion`: no type
    trees, about 2/3 of the bytes; safe because the directory is built with every player, so both serialize the same types. The editor
    registers no directory without type trees: the test builds keep them);
 3. checks the lazy references of the assets and scenes of the directory: empty, pointing outside it, a GUID / local id that differs
-   from the id (`... (assign it in the inspector)`) - errors with the list, the build fails;
+   from the id (`... (assign it in the inspector)`) - errors with the list, the build fails; once all are built, that no asset is in two
+   of them;
 4. packs it into `Library/ContentArchive/<name>` (`ContentArchiveWriter`: `ArchiveAndCompress` LZ4 in the order of `ContentArchiveOrder`,
    `content0.archive` + `BuildManifestHash.txt`; `ContentArchiveReader` reads the table of contents back for the spans) and writes the index
    (`ContentIndex`: archive length, header, files with their spans, manifest hash, files of the roots, of each object and scene) as
@@ -118,16 +144,22 @@ var icon = _content.LoadNow(lifetime, reference);                         // onl
 5. gives the player build the build report directory of the content build (`BuildHistory`, its `ScriptsOnlyCache.yaml`:
    scripts, serialized classes, native classes of the directory) through `AddPreviousBuildReportDirectory`, so the linker keeps the
    types only the directory uses; without it a level loses its `CircleCollider2D` (`contained objects with undefined types ...
-   stripped`). A content build without that file fails;
+   stripped`). A content build without that file fails. Each directory adds its own (the engine keeps a list,
+   `BuildPlayerOptions.previousBuildReportDirectories`);
 6. adds the shipped folder (`ContentShipment`) to `StreamingAssets/Content/<name>` of the player (`AddAdditionalPathToStreamingAssets`,
    nothing in `Assets`): read in place (standalone, `IsPreloaded` on WebGL) - the archive folder with `<hash>.index.json` in it, the
-   preloaded archive into the `.data` file (`Library/PlayerDataCache/WebGLPreloadedStreamingAssets/framework-content.manifest`; the index
+   preloaded archive into the `.data` file (`Library/PlayerDataCache/WebGLPreloadedStreamingAssets/framework-content.manifest`, the archives
+   of every preloaded directory, nothing of the others; the index
    stays a file fetched at the start, not verified on a game: none preloads); fetched by WebGL - `Library/ContentShipped/<name>` with
    `<hash>.archive` (the archive as it is) and `<hash>.index.json`, `.br` with brotli compression (`ContentBrotli`). Brotli with the
    decompression fallback fails the build (the loader would decode its own files, the fetch of the index would get raw `.br` bytes).
 
 The build fails without the `Content` section. File names are hashes, so a changed asset is a new URL. Two builds of one tree give the
 same manifest hash (checked on `ContentSmoke`: 4 builds in 2 editor processes, one hash).
+
+A fetched directory of a WebGL build with GZip, no compression or the decompression fallback ships its index raw
+(`<hash>.index.json`): a host that serves `.br` files as they are (the CDN of Reddit, which needs the decompression fallback for the
+files of Unity anyway) gets a json it can send as is, compressed by itself or not. Brotli with the fallback fails the build (below).
 
 **The server** sends `<hash>.index.json.br` with `Content-Encoding: br`, as `Build/*.br` of Unity (the generic `\.br$` rule of nginx,
 `lan/serve.py`, `stand/serve_tls.py`); an index that comes in still compressed is no json and fails with `... is no json: the server must send
@@ -140,7 +172,9 @@ load with its reason in the console. Both names are of one build: `Cache-Control
 | Player | Store | Behaviour |
 |---|---|---|
 | Standalone, WebGL with `IsPreloaded` | `LocalContentStore` | registers `StreamingAssets/Content/<name>` as is, fetch does nothing |
-| WebGL | `FetchedContentStore` over `WebContentArchive` | the index from `<remoteUrl or StreamingAssets>/Content/<name>/<hash>.index.json[.br]` (`WebContentIndex`, its hash checked against the stamp); `content0.archive` of zeros + `BuildManifestHash.txt` in `temporaryCachePath/Content/<name>`, ranges of `<hash>.archive` written at their offsets; the Cache API (`caches.open('content')`) keeps the index by URL and every file of a range by `<url>?offset=<n>` (the Cache API ignores a fragment), a range comes from it when it holds all its files; at start every cached entry of another URL is deleted; without Cache API (plain http) only `fetch` and one log line |
+| WebGL | `FetchedContentStore` over `WebContentArchive` | the index from `<remoteUrl or StreamingAssets>/Content/<name>/<hash>.index.json[.br]` (`WebContentIndex`, its hash checked against the stamp); `content0.archive` of zeros + `BuildManifestHash.txt` in `temporaryCachePath/Content/<name>`, ranges of `<hash>.archive` written at their offsets; the Cache API (`caches.open('content')`) keeps the index by URL and every file of a range by `<url>?offset=<n>` (the Cache API ignores a fragment), a range comes from it when it holds all its files; at its registration every cached entry of the directory (a URL with
+`/Content/<name>/`, on any host: the builds before at another URL too) of another URL is deleted, the other directories keep theirs;
+`MaxFetches` is one limit of the page, the options of the last registered directory set it; without Cache API (plain http) only `fetch` and one log line |
 | Play Mode of the editor | `EditorContentDirectory` | nothing built or registered: `Loadable` and `LoadableSceneId` give the assets and scenes of the project (`AssetDatabase`), `Release` does not destroy them; the roots come from `Content.Roots` |
 
 ## Telemetry and problems
@@ -152,7 +186,7 @@ load with its reason in the console. Both names are of one build: `Cache-Control
   `built-in resources in the directory: unity_builtin_extra (...)` - a scene with `m_LightingDataAsset {20201, unity_builtin_extra}`
   copies ~0.5 MB of built-in resources into the directory (clear the field when nothing is baked; `m_SpotCookie` of `RenderSettings`
   costs nothing).
-- `deploy-client` checks each WebGL output (`verify.sh`, needs `brotli`, `jq`): `Library/Content/<name>` fresh, its manifest hash inside
+- `deploy-client` checks each WebGL output (`verify.sh`, needs `brotli`, `jq`; the main directory only, not `ExtraContent`): `Library/Content/<name>` fresh, its manifest hash inside
   the `.data` (the stamp), without `IsPreloaded` `StreamingAssets/Content/<name>` exactly `<hash>.archive` (the one of
   `Library/ContentArchive/<name>`, `UnityFS`) and `<hash>.index.json.br` (its hash, the archive length, every built file).
 - `[Content] ... needs a fetch: load it with Load` - `LoadNow` of a remote object; `... is requested, read it after the build of the

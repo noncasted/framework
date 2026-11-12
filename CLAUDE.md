@@ -170,6 +170,9 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   reference instance, one fetch per file). References: `ContentReference<T>` (`Loadable<T>`), `ContentScene`
   (`LoadableSceneId`), only inside assets of the directory (a player scene erases them). Stores: local (`StreamingAssets`),
   web (zeros + fetch, Cache API `content`, `remoteUrl` for a CDN), Play Mode without a directory (assets of the project).
+  Extra directories (`ExtraContent` of `Framework.json`, e.g. music fetched apart from a preloaded main one) are built the same way;
+  an asset in two directories fails the build; the root registers each with `AddContentDirectory(ContentOptions)` after `AddContent`
+  (`IContentDirectories.Get(name)`, a loader of its own, no catalogues: loads from its `RootAssets<T>()`).
   `IsPreloaded` groups (`preloaded` in the json lists) are read synchronously. Unity 7000 alpha API.
 - **Player build steps.** A project step around the build entry points of the platforms implements `IPlayerBuildStep`
   (`core/Editor/Tools/Build`: `BeforeBuild` / `AfterBuild(target, succeeded)`, a parameterless class, found by

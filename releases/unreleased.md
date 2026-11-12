@@ -142,3 +142,18 @@ GUID `802942ed80b040b1af69d20046688f31`, компилируется только
 'AddSocketClientTelemetry'` / CS0246 `ITelemetrySocket`. Игра, у которой `network` или `shared` приходили в манифест только через
 `telemetry`, указывает их в `client/Packages/manifest.json` сама (`grep -n '"com.noncasted.framework.network"\|"com.noncasted.framework.shared"'
 client/Packages/manifest.json`).
+
+### Дополнительные content directories (`ExtraContent`, `AddContentDirectory`)
+
+Кого касается: клиент; обязательных шагов нет, только игры, которые хотят отдельную директорию (например музыку, которая качается по
+сети при входе в меню, рядом с предзагруженной основной), и игры со своей реализацией `IContentLoader`.
+
+`ProjectSettings/Framework.json` принимает список `"ExtraContent": [ { "Name": "Stream", "Roots": [ ... ], "IsPreloaded": false } ]`;
+каждая директория собирается с каждым плеером (`StreamingAssets/Content/<name>`, свой штамп, свой report directory для линкера), ассет,
+достижимый из двух директорий, валит сборку. Корневой скоуп после `AddContent` вызывает `await builder.AddContentDirectory(options)`;
+загрузчик директории - `[Inject] IContentDirectories` -> `Get(name)`, ассеты - из её корней: `loader.RootAssets<T>()`, затем
+`Load(lifetime, reference)`. Каталоги остаются на основной директории. `IContentLoader` получил `RootAssets<T>()`,
+`ContentBuild.Prepare` / `ContentBuild.Current` - список директорий. Кэш страницы (Cache API) чистится по каждой директории отдельно.
+
+Проверка: `grep -rn ": IContentLoader\|ContentBuild\.\(Prepare\|Current\)" client/Assets --include=*.cs` - своя реализация добавляет
+`RootAssets<T>()`, вызовы `ContentBuild` берут список.

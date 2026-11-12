@@ -220,8 +220,11 @@ mergeInto(LibraryManager.library, {
         entry.controller.abort();
     },
 
+    // Only the entries of one directory (their URL holds its folder, /Content/<name>/, on any host and path, so the
+    // builds before at another URL go too): the other directories of the page keep theirs.
     WebContentFetch_KeepOnly__deps: ['$WebContentFetchCache'],
-    WebContentFetch_KeepOnly: function (urlsPointer) {
+    WebContentFetch_KeepOnly: function (directoryPointer, urlsPointer) {
+        var directory = '/' + UTF8ToString(directoryPointer) + '/';
         var keep = new Set(UTF8ToString(urlsPointer).split('\n'));
 
         function url(request) {
@@ -235,7 +238,7 @@ mergeInto(LibraryManager.library, {
                     return;
 
                 return cache.keys().then(function (requests) {
-                    var stale = requests.filter(function (request) { return !keep.has(url(request)); });
+                    var stale = requests.filter(function (request) { return url(request).indexOf(directory) >= 0 && !keep.has(url(request)); });
 
                     return Promise.all(stale.map(function (request) { return cache.delete(request); })).then(function () {
                         if (stale.length > 0)
