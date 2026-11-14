@@ -3,6 +3,7 @@ using Cluster.Monitoring;
 using FluentAssertions;
 using Game.Hosting;
 using Game.Session;
+using Framework.Tests.Session;
 using Internal;
 using NSubstitute;
 using Xunit;
@@ -19,37 +20,44 @@ public class SessionsCollectionTests
     public async Task PushesFromTwoSessionQueues_TheLatestStateIsSentLast()
     {
         var slices = new List<List<LiveSessionEntry>>();
+        var paused = new ManualResetEventSlim();
+        var resume = new ManualResetEventSlim();
+        var pausedThread = -1;
         var liveData = Substitute.For<IServiceSlicedState<LiveSessionsData, List<LiveSessionEntry>>>();
 
         liveData.SetSlice(Arg.Any<List<LiveSessionEntry>>()).Returns(call => {
+            // The queue of the first session has built its snapshot and has not handed it over yet.
+            if (Environment.CurrentManagedThreadId == Volatile.Read(ref pausedThread))
+            {
+                paused.Set();
+                resume.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+            }
+
             lock (slices)
                 slices.Add(call.Arg<List<LiveSessionEntry>>());
 
             return Task.CompletedTask;
         });
 
-        var time = new PausingTime();
-        var collection = new SessionsCollection(liveData, time);
+        var collection = new SessionsCollection(liveData, new ManualTimeProvider());
 
         var (first, firstUsers) = CreateSession();
         var (second, secondUsers) = CreateSession();
         collection.Add(first);
         collection.Add(second);
 
-        // The queue of the first session reads the users of both sessions and pauses before the snapshot is sent:
-        // the clock is read once per session, after its users.
         var firstQueue = Task.Run(() => {
-            time.PauseOnCall(2);
+            Volatile.Write(ref pausedThread, Environment.CurrentManagedThreadId);
             firstUsers.AddUser(CreateUser());
         });
 
-        time.Paused.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
+        paused.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
 
         var userOfSecond = CreateUser();
         var secondQueue = Task.Run(() => secondUsers.AddUser(userOfSecond));
         await Task.WhenAny(secondQueue, Task.Delay(TimeSpan.FromMilliseconds(200)));
 
-        time.Resume.Set();
+        resume.Set();
         await Task.WhenAll(firstQueue, secondQueue);
 
         List<LiveSessionEntry> last;
@@ -78,35 +86,5 @@ public class SessionsCollectionTests
         user.BackendId.Returns(Guid.NewGuid());
         user.Lifetime.Returns(new Lifetime());
         return user;
-    }
-
-    // Pauses the thread that armed it on its n-th read of the clock, until Resume.
-    private class PausingTime : TimeProvider
-    {
-        public readonly ManualResetEventSlim Paused = new();
-        public readonly ManualResetEventSlim Resume = new();
-
-        private readonly DateTimeOffset _now = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
-        private int _thread = -1;
-        private int _pauseOnCall;
-        private int _calls;
-
-        public void PauseOnCall(int call)
-        {
-            _pauseOnCall = call;
-            _calls = 0;
-            _thread = Environment.CurrentManagedThreadId;
-        }
-
-        public override DateTimeOffset GetUtcNow()
-        {
-            if (Environment.CurrentManagedThreadId == _thread && ++_calls == _pauseOnCall)
-            {
-                Paused.Set();
-                Resume.Wait(TimeSpan.FromSeconds(10)).Should().BeTrue();
-            }
-
-            return _now;
-        }
     }
 }

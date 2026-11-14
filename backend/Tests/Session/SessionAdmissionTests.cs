@@ -25,8 +25,8 @@ public class SessionAdmissionTests
 
         closed.Should().BeTrue();
         admission.IsClosed.Should().BeTrue();
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start + Tick).Should().BeFalse();
-        admission.TryReserve(user, MaxUsers, Start + Tick).Should().BeFalse();
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start + Tick).Should().NotBe(SessionReservation.Reserved);
+        admission.Reserve(user, MaxUsers, Start + Tick).Should().NotBe(SessionReservation.Reserved);
         admission.TryAccept(user, Start + Tick, false).Should().BeFalse();
     }
 
@@ -41,7 +41,7 @@ public class SessionAdmissionTests
 
         closed.Should().BeFalse();
         admission.IsClosed.Should().BeFalse();
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start + Tick).Should().BeTrue();
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start + Tick).Should().Be(SessionReservation.Reserved);
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public class SessionAdmissionTests
         var admission = Create();
         var user = Join(admission, Start);
         var incoming = Guid.NewGuid();
-        admission.TryReserve(incoming, MaxUsers, Start + Tick).Should().BeTrue();
+        admission.Reserve(incoming, MaxUsers, Start + Tick).Should().Be(SessionReservation.Reserved);
 
         admission.OnUserLeft(user, Start + Tick * 2).Should().BeFalse();
 
@@ -70,7 +70,7 @@ public class SessionAdmissionTests
     {
         var timeout = TimeSpan.FromSeconds(5);
         var admission = Create(joinTimeout: timeout);
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start).Should().BeTrue();
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start).Should().Be(SessionReservation.Reserved);
 
         admission.GetReservationsTimeout(Start).Should().Be(timeout);
         admission.TryCloseIfEmpty(Start + timeout - Tick).Should().BeFalse();
@@ -83,7 +83,7 @@ public class SessionAdmissionTests
         var admission = Create();
         var user = Join(admission, Start);
         var incoming = Guid.NewGuid();
-        admission.TryReserve(incoming, MaxUsers, Start).Should().BeTrue();
+        admission.Reserve(incoming, MaxUsers, Start).Should().Be(SessionReservation.Reserved);
 
         admission.OnUserLeft(user, Start + Tick).Should().BeFalse();
         admission.TryAccept(incoming, Start + Tick, false).Should().BeTrue();
@@ -102,7 +102,7 @@ public class SessionAdmissionTests
 
         admission.OnUserLeft(user, Start + Tick).Should().BeTrue();
 
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start + Tick).Should().BeFalse();
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start + Tick).Should().NotBe(SessionReservation.Reserved);
     }
 
     [Fact]
@@ -111,7 +111,7 @@ public class SessionAdmissionTests
         var admission = Create();
         var user = Join(admission, Start);
         var incoming = Guid.NewGuid();
-        admission.TryReserve(incoming, MaxUsers, Start).Should().BeTrue();
+        admission.Reserve(incoming, MaxUsers, Start).Should().Be(SessionReservation.Reserved);
         admission.TryAccept(incoming, Start, false).Should().BeTrue();
 
         // The last joined user leaves and the reservation time passes while the incoming user is between the accept
@@ -128,7 +128,7 @@ public class SessionAdmissionTests
     {
         var admission = Create();
         var incoming = Guid.NewGuid();
-        admission.TryReserve(incoming, MaxUsers, Start).Should().BeTrue();
+        admission.Reserve(incoming, MaxUsers, Start).Should().Be(SessionReservation.Reserved);
         admission.TryAccept(incoming, Start, false).Should().BeTrue();
 
         admission.OnJoinFailed(incoming, Start + Tick).Should().BeTrue();
@@ -150,7 +150,7 @@ public class SessionAdmissionTests
     public void NeverEnteredSession_ClosesOnlyAfterReservationExpires()
     {
         var admission = Create();
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start).Should().BeTrue();
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start).Should().Be(SessionReservation.Reserved);
 
         admission.TryCloseIfEmpty(Start + Tick).Should().BeFalse();
         admission.TryCloseIfEmpty(Start + JoinTimeout).Should().BeTrue();
@@ -170,9 +170,9 @@ public class SessionAdmissionTests
     {
         var admission = Create();
 
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start).Should().BeTrue();
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start).Should().BeTrue();
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start).Should().BeFalse();
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start).Should().Be(SessionReservation.Reserved);
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start).Should().Be(SessionReservation.Reserved);
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start).Should().NotBe(SessionReservation.Reserved);
     }
 
     [Fact]
@@ -181,8 +181,8 @@ public class SessionAdmissionTests
         var admission = Create();
         Join(admission, Start);
 
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start).Should().BeTrue();
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start).Should().BeFalse();
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start).Should().Be(SessionReservation.Reserved);
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start).Should().NotBe(SessionReservation.Reserved);
     }
 
     [Fact]
@@ -191,10 +191,10 @@ public class SessionAdmissionTests
         var admission = Create();
         var user = Guid.NewGuid();
 
-        admission.TryReserve(user, MaxUsers, Start).Should().BeTrue();
-        admission.TryReserve(user, MaxUsers, Start + Tick * 10).Should().BeTrue();
+        admission.Reserve(user, MaxUsers, Start).Should().Be(SessionReservation.Reserved);
+        admission.Reserve(user, MaxUsers, Start + Tick * 10).Should().Be(SessionReservation.Reserved);
 
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start + Tick * 10).Should().BeTrue("the first user holds one place");
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start + Tick * 10).Should().Be(SessionReservation.Reserved, "the first user holds one place");
         admission.GetReservationsTimeout(Start + Tick * 10).Should().Be(JoinTimeout);
     }
 
@@ -203,10 +203,10 @@ public class SessionAdmissionTests
     {
         var admission = Create();
         Join(admission, Start);
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start).Should().BeTrue();
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start).Should().Be(SessionReservation.Reserved);
 
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start + Tick).Should().BeFalse();
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start + JoinTimeout).Should().BeTrue();
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start + Tick).Should().NotBe(SessionReservation.Reserved);
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start + JoinTimeout).Should().Be(SessionReservation.Reserved);
     }
 
     // The place comes only from a live reservation of the user: the limit and the seal are checked there.
@@ -228,7 +228,7 @@ public class SessionAdmissionTests
         var admission = Create();
         var user = Join(admission, Start);
         var incoming = Guid.NewGuid();
-        admission.TryReserve(incoming, MaxUsers, Start).Should().BeTrue();
+        admission.Reserve(incoming, MaxUsers, Start).Should().Be(SessionReservation.Reserved);
 
         admission.TryAccept(incoming, Start + JoinTimeout, false).Should().BeFalse();
 
@@ -241,7 +241,7 @@ public class SessionAdmissionTests
     {
         var admission = Create();
         var incoming = Guid.NewGuid();
-        admission.TryReserve(incoming, MaxUsers, Start).Should().BeTrue();
+        admission.Reserve(incoming, MaxUsers, Start).Should().Be(SessionReservation.Reserved);
 
         admission.TryAccept(incoming, Start, false).Should().BeTrue();
         admission.TryAccept(incoming, Start, false).Should().BeFalse();
@@ -253,13 +253,13 @@ public class SessionAdmissionTests
     {
         var admission = Create();
         var reserved = Guid.NewGuid();
-        admission.TryReserve(reserved, MaxUsers, Start).Should().BeTrue();
+        admission.Reserve(reserved, MaxUsers, Start).Should().Be(SessionReservation.Reserved);
 
         admission.Seal();
 
         admission.IsSealed.Should().BeTrue();
         admission.HasFreePlace(Guid.NewGuid(), MaxUsers, Start).Should().BeFalse();
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start).Should().BeFalse();
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start).Should().NotBe(SessionReservation.Reserved);
         admission.TryAccept(Guid.NewGuid(), Start, false).Should().BeFalse();
         admission.TryAccept(reserved, Start, false).Should().BeTrue();
     }
@@ -273,7 +273,7 @@ public class SessionAdmissionTests
         Join(admission, Start);
         var extra = Guid.NewGuid();
 
-        admission.TryReserve(extra, MaxUsers, Start).Should().BeFalse();
+        admission.Reserve(extra, MaxUsers, Start).Should().NotBe(SessionReservation.Reserved);
         admission.TryAccept(extra, Start, false).Should().BeFalse();
     }
 
@@ -286,7 +286,7 @@ public class SessionAdmissionTests
 
         admission.IsJoined(user).Should().BeTrue();
         admission.HasFreePlace(user, MaxUsers, Start + Tick).Should().BeFalse();
-        admission.TryReserve(user, MaxUsers, Start + Tick).Should().BeFalse();
+        admission.Reserve(user, MaxUsers, Start + Tick).Should().NotBe(SessionReservation.Reserved);
 
         admission.OnUserLeft(user, Start + Tick).Should().BeTrue();
         admission.IsJoined(user).Should().BeFalse();
@@ -301,7 +301,7 @@ public class SessionAdmissionTests
 
         admission.HasFreePlace(Guid.NewGuid(), MaxUsers, Start).Should().BeFalse("two joined users fill the session");
         admission.HasFreePlace(user, MaxUsers, Start).Should().BeTrue();
-        admission.TryReserve(user, MaxUsers, Start).Should().BeTrue();
+        admission.Reserve(user, MaxUsers, Start).Should().Be(SessionReservation.Reserved);
 
         // The stale connection leaves, the reservation and the live user hold the session.
         admission.OnUserLeft(user, Start + Tick).Should().BeFalse();
@@ -320,7 +320,7 @@ public class SessionAdmissionTests
         var user = Join(admission, Start);
 
         // The second connection comes with its own reservation (its first connection is stale for it).
-        admission.TryReserve(user, MaxUsers, Start + Tick).Should().BeTrue();
+        admission.Reserve(user, MaxUsers, Start + Tick).Should().Be(SessionReservation.Reserved);
         admission.TryAccept(user, Start + Tick, false).Should().BeTrue();
         admission.OnUserJoined(user);
 
@@ -340,8 +340,8 @@ public class SessionAdmissionTests
         var admission = Create();
         admission.GetReservationsTimeout(Start).Should().BeNull();
 
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start).Should().BeTrue();
-        admission.TryReserve(Guid.NewGuid(), MaxUsers, Start + Tick * 5).Should().BeTrue();
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start).Should().Be(SessionReservation.Reserved);
+        admission.Reserve(Guid.NewGuid(), MaxUsers, Start + Tick * 5).Should().Be(SessionReservation.Reserved);
 
         admission.GetReservationsTimeout(Start + Tick * 10).Should().Be(JoinTimeout - Tick * 5);
         admission.GetReservationsTimeout(Start + Tick * 5 + JoinTimeout).Should().BeNull();
@@ -354,8 +354,8 @@ public class SessionAdmissionTests
         var joined = Join(admission, Start);
         var reserved = Guid.NewGuid();
         var joining = Guid.NewGuid();
-        admission.TryReserve(reserved, int.MaxValue, Start).Should().BeTrue();
-        admission.TryReserve(joining, int.MaxValue, Start).Should().BeTrue();
+        admission.Reserve(reserved, int.MaxValue, Start).Should().Be(SessionReservation.Reserved);
+        admission.Reserve(joining, int.MaxValue, Start).Should().Be(SessionReservation.Reserved);
         admission.TryAccept(joining, Start, false).Should().BeTrue();
 
         admission.GetPendingUsers(Start).Should().BeEquivalentTo([reserved, joining]);
@@ -368,7 +368,7 @@ public class SessionAdmissionTests
     {
         var admission = Create();
         var user = Guid.NewGuid();
-        admission.TryReserve(user, MaxUsers, Start).Should().BeTrue();
+        admission.Reserve(user, MaxUsers, Start).Should().Be(SessionReservation.Reserved);
 
         admission.CancelReservation(Guid.NewGuid(), Start).Should().BeFalse("no reservation, nothing changes");
         admission.CancelReservation(user, Start).Should().BeTrue();
@@ -383,7 +383,7 @@ public class SessionAdmissionTests
         var admission = Create(reconnectWindow: ReconnectWindow);
         var user = Guid.NewGuid();
 
-        admission.TryReserve(user, 4, Start).Should().BeTrue();
+        admission.Reserve(user, 4, Start).Should().Be(SessionReservation.Reserved);
         admission.TryAccept(user, Start, true).Should().BeTrue();
         admission.OnUserJoined(user);
         admission.OnUserAway(user, Start);
@@ -459,7 +459,7 @@ public class SessionAdmissionTests
                 },
                 () => {
                     barrier.SignalAndWait();
-                    reserved = admission.TryReserve(incoming, MaxUsers, Start + Tick);
+                    reserved = admission.Reserve(incoming, MaxUsers, Start + Tick) == SessionReservation.Reserved;
                     accepted = admission.TryAccept(incoming, Start + Tick, false);
                 });
 
@@ -531,7 +531,7 @@ public class SessionAdmissionTests
         var admission = Create();
         var user = Guid.NewGuid();
 
-        admission.TryReserve(user, MaxUsers, Start).Should().BeTrue();
+        admission.Reserve(user, MaxUsers, Start).Should().Be(SessionReservation.Reserved);
         admission.OnUserJoined(user);
 
         admission.GetPendingUsers(Start).Should().BeEmpty();
@@ -600,8 +600,7 @@ public class SessionAdmissionTests
         var user = Join(admission, Start);
         admission.OnUserAway(user, Start);
 
-        admission.IsHeldOnlyBy(user).Should().BeTrue();
-        admission.TryReserve(user, MaxUsers, Start).Should().BeFalse();
+        admission.Reserve(user, MaxUsers, Start).Should().Be(SessionReservation.HeldOnlyByOwnStale);
         admission.HasFreePlace(user, MaxUsers, Start).Should().BeFalse();
     }
 
@@ -615,9 +614,9 @@ public class SessionAdmissionTests
         admission.OnUserAway(other, Start);
         admission.OnUserLeft(other, Start);
 
-        admission.IsHeldOnlyBy(user).Should().BeFalse();
         admission.HasFreePlace(Guid.NewGuid(), 2, Start).Should().BeFalse();
         admission.HasFreePlace(Guid.NewGuid(), 3, Start).Should().BeTrue();
+        admission.Reserve(user, 2, Start).Should().Be(SessionReservation.Reserved);
     }
 
     private static SessionAdmission Create(TimeSpan? joinTimeout = null, TimeSpan? reconnectWindow = null)
@@ -637,7 +636,7 @@ public class SessionAdmissionTests
     {
         var user = Guid.NewGuid();
 
-        admission.TryReserve(user, int.MaxValue, now).Should().BeTrue();
+        admission.Reserve(user, int.MaxValue, now).Should().Be(SessionReservation.Reserved);
         admission.TryAccept(user, now, false).Should().BeTrue();
         admission.OnUserJoined(user);
 

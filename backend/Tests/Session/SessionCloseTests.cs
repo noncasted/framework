@@ -511,7 +511,7 @@ public class SessionCloseTests
 
         session.Lifetime.IsTerminated.Should().BeTrue();
         closedAtTheEnd.Should().BeTrue();
-        session.Session.TryReserve(Guid.NewGuid()).Should().BeFalse();
+        session.Session.Reserve(Guid.NewGuid()).Should().NotBe(SessionReservation.Reserved);
     }
 
     // Nothing of a session that has ended waits on the clock: its timers queue no action after its end (the join

@@ -27,18 +27,16 @@ internal class SessionHolders
 
     public bool IsEmpty => _joinedCount == 0 && _joiningCount == 0 && _reservations.Count == 0 && _away.Count == 0;
 
-    public bool IsHeldOnlyBy(Guid userId)
-    {
-        return _joined.ContainsKey(userId) == true && CountHoldersExcept(userId) == 0;
-    }
-
-    // No expired reservations: removed by the caller.
-    public bool CanReserve(Guid userId, int maxUsers)
+    // No expired reservations: removed by the caller. Neither the seal nor the close: the state of the session.
+    public SessionReservation CheckReserve(Guid userId, int maxUsers)
     {
         if (IsHeldOnlyBy(userId) == true)
-            return false;
+            return SessionReservation.HeldOnlyByOwnStale;
 
-        return _reservations.ContainsKey(userId) == true || CountHoldersExcept(userId) < maxUsers;
+        if (_reservations.ContainsKey(userId) == true || CountHoldersExcept(userId) < maxUsers)
+            return SessionReservation.Reserved;
+
+        return SessionReservation.Full;
     }
 
     public void Reserve(Guid userId, DateTime now)
@@ -163,6 +161,11 @@ internal class SessionHolders
             if (expiresAt <= now)
                 _reservations.Remove(userId);
         }
+    }
+
+    private bool IsHeldOnlyBy(Guid userId)
+    {
+        return _joined.ContainsKey(userId) == true && CountHoldersExcept(userId) == 0;
     }
 
     // The joined connections of the user itself are stale: they neither take a place nor hold the session.

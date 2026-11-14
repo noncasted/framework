@@ -206,7 +206,7 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
 
         foreach (var userId in userIds)
         {
-            if (session.Session.TryReserve(userId) == false)
+            if (session.Session.Reserve(userId) != SessionReservation.Reserved)
                 throw new InvalidOperationException($"Created match session {session.Session.Id} rejected the reservation");
         }
 
@@ -224,7 +224,7 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
         if (Collection.TryGet(matchSessionId, out var session) == false || session.Type != SessionType.Match)
             return null;
 
-        if (session.TryReserve(userId) == false)
+        if (session.Reserve(userId) != SessionReservation.Reserved)
             return null;
 
         return new LobbyMatch
@@ -251,7 +251,7 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
 
         foreach (var userId in userIds)
         {
-            if (session.Session.TryReserve(userId) == false)
+            if (session.Session.Reserve(userId) != SessionReservation.Reserved)
                 throw new InvalidOperationException($"Created match session {session.Session.Id} rejected the reservation of {userId}");
         }
 
@@ -268,13 +268,13 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
             if (session.Type != SessionType.Match || session.IsPrivate == true)
                 continue;
 
-            if (session.TryReserve(userId) == true)
+            if (session.Reserve(userId) == SessionReservation.Reserved)
                 return session.Id;
         }
 
         var created = CreatePublicMatch();
 
-        if (created.Session.TryReserve(userId) == false)
+        if (created.Session.Reserve(userId) != SessionReservation.Reserved)
             throw new InvalidOperationException($"Created session {created.Session.Id} rejected the reservation");
 
         return created.Session.Id;
