@@ -97,7 +97,7 @@ public class LobbySessions : ILobbySessions
         catch
         {
             // No lobby holds the code: nothing would ever release it.
-            await _codes.Release(code, sessionId);
+            await ReleaseUnheldCode(code, sessionId);
             throw;
         }
 
@@ -171,5 +171,20 @@ public class LobbySessions : ILobbySessions
     public LobbyJoined JoinLate(Guid matchSessionId, Guid userId)
     {
         return _runningMatches.JoinLobby(Guid.Empty, matchSessionId, string.Empty, userId);
+    }
+
+    // The failure of the release is logged, not thrown: the caller gets the failure of the creation, the cause.
+    private async Task ReleaseUnheldCode(string code, Guid sessionId)
+    {
+        try
+        {
+            await _codes.Release(code, sessionId);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "[Lobby] Code {Code} of lobby session {SessionID} that was not created is not released, it stays in the registry until the next deploy",
+                code,
+                sessionId);
+        }
     }
 }
