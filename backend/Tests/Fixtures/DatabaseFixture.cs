@@ -4,10 +4,8 @@ using Shared;
 
 namespace Framework.Tests.Fixtures;
 
-/// <summary>
-/// A test database of its own in the container of the run (PostgresContainer).
-/// Creates the state tables of TestStates and the side effects tables.
-/// </summary>
+// A test database of its own in the container of the run (PostgresContainer).
+// Creates the state tables of TestStates and the side effects tables.
 public class DatabaseFixture : IAsyncDisposable
 {
     private string _databaseName = string.Empty;
@@ -115,9 +113,6 @@ public class DatabaseFixture : IAsyncDisposable
         await seCmd.ExecuteNonQueryAsync();
     }
 
-    /// <summary>
-    /// Truncate all state and side effects tables for per-test isolation.
-    /// </summary>
     public async Task ResetDatabase()
     {
         await using var connection = await DataSource.OpenConnectionAsync();

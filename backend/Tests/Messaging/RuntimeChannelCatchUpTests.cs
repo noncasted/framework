@@ -10,9 +10,6 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// Tests RuntimeChannel catch-up: ring buffer, sequence numbers, CatchUp replay, delivery timeout.
-/// </summary>
 [Collection(nameof(OrleansIntegrationCollection))]
 public class RuntimeChannelCatchUpTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

@@ -6,10 +6,6 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Tests RequeueStuckOlderThan time-based detection, retry count progression,
-/// stats accuracy, and mixed-outcome batch processing.
-/// </summary>
 [Collection(nameof(SideEffectIntegrationCollection))]
 public class SideEffectStuckDetectionTests(SideEffectTestFixture fixture)
     : IntegrationTestBase<SideEffectTestFixture>(fixture)

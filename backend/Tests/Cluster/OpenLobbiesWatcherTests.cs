@@ -9,10 +9,8 @@ using Xunit;
 
 namespace Framework.Tests.Cluster;
 
-/// <summary>
-/// OpenLobbiesWatcher over a substituted registry and an in-memory channel: a gap of the channel (missed pushes)
-/// reloads the open lobbies from the registry.
-/// </summary>
+// OpenLobbiesWatcher over a substituted registry and an in-memory channel: a gap of the channel (missed pushes)
+// reloads the open lobbies from the registry.
 public class OpenLobbiesWatcherTests
 {
     [Fact]

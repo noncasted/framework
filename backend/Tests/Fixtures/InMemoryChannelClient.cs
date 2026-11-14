@@ -5,10 +5,8 @@ using Newtonsoft.Json;
 
 namespace Framework.Tests.Fixtures;
 
-/// <summary>
-/// A runtime channel client without Orleans: delivers to the listeners present at the moment of the delivery, as the
-/// channel grain does, and reports a gap on demand.
-/// </summary>
+// A runtime channel client without Orleans: delivers to the listeners present at the moment of the delivery, as the
+// channel grain does, and reports a gap on demand.
 public class InMemoryChannelClient : IRuntimeChannelClient
 {
     private readonly List<(Func<object, Task> Listener, Action? OnGap)> _listeners = [];
@@ -44,9 +42,7 @@ public class InMemoryChannelClient : IRuntimeChannelClient
     }
 }
 
-/// <summary>
-/// Plain Json.NET in place of StateSerializer, which needs the grain reference activator of a silo.
-/// </summary>
+// Plain Json.NET in place of StateSerializer, which needs the grain reference activator of a silo.
 public class JsonTestSerializer : IStateSerializer
 {
     public string Serialize(object value) => JsonConvert.SerializeObject(value);

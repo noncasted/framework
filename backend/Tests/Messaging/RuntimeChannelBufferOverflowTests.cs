@@ -5,10 +5,6 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// Tests RuntimeChannel circular buffer overflow and gap detection edge cases.
-/// Covers scenarios where published messages exceed CatchUpBufferSize.
-/// </summary>
 [Collection(nameof(OrleansIntegrationCollection))]
 public class RuntimeChannelBufferOverflowTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

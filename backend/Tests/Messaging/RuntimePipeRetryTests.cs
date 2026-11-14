@@ -6,9 +6,7 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// Tests RuntimePipe retry boundaries: transport-style failures may retry, handler failures do not.
-/// </summary>
+// Transport-style failures may retry, handler failures do not.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class RuntimePipeRetryTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

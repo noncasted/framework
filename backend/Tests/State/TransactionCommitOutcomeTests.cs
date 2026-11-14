@@ -11,10 +11,8 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// A commit whose call fails after the server committed (the connection dropped while the answer was on the way):
-/// the transaction is done and must not be reported as failed, a caller would apply it again.
-/// </summary>
+// A commit whose call fails after the server committed (the connection dropped while the answer was on the way):
+// the transaction is done and must not be reported as failed, a caller would apply it again.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class TransactionCommitOutcomeTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

@@ -2,10 +2,8 @@ using Xunit;
 
 namespace Framework.Tests.Fixtures;
 
-/// <summary>
-/// Waits for an asynchronous effect by its condition, with an upper bound for a loaded machine: a passing test takes
-/// as long as the effect, a failing one throws at the bound.
-/// </summary>
+// Waits for an asynchronous effect by its condition, with an upper bound for a loaded machine: a passing test takes
+// as long as the effect, a failing one throws at the bound.
 public static class TestWait
 {
     private static readonly TimeSpan Bound = TimeSpan.FromSeconds(30);

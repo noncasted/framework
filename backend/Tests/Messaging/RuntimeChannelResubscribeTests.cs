@@ -9,10 +9,8 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// Resubscribe of a channel listener: two of them in flight together (the first Listen and the resubscribe loop), and
-/// a channel grain reactivated between two of them (its sequence numbers start again from 1).
-/// </summary>
+// Resubscribe of a channel listener: two of them in flight together (the first Listen and the resubscribe loop), and
+// a channel grain reactivated between two of them (its sequence numbers start again from 1).
 [Collection(nameof(OrleansIntegrationCollection))]
 public class RuntimeChannelResubscribeTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

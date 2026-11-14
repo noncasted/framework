@@ -11,10 +11,8 @@ using static Framework.Tests.Messaging.MessagingClientStubs;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// The client side of a channel without a cluster: what a resubscribe does with a catch-up, the local handlers of an
-/// observer, the failures of the transport and the resubscribe loop.
-/// </summary>
+// The client side of a channel without a cluster: what a resubscribe does with a catch-up, the local handlers of an
+// observer, the failures of the transport and the resubscribe loop.
 public class RuntimeChannelClientTests : LifetimeTest
 {
     private readonly IRuntimeChannel _channel = Substitute.For<IRuntimeChannel>();

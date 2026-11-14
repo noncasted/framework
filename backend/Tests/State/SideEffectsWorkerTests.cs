@@ -11,11 +11,9 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// A SideEffectsWorker of its own over the database of the test cluster (the fixtures have no worker): an effect
-/// running longer than the stuck threshold, the shutdown while the effects are disabled, a payload that does not
-/// deserialize.
-/// </summary>
+// A SideEffectsWorker of its own over the database of the test cluster (the fixtures have no worker): an effect
+// running longer than the stuck threshold, the shutdown while the effects are disabled, a payload that does not
+// deserialize.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class SideEffectsWorkerTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

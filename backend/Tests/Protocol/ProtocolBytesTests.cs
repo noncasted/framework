@@ -4,14 +4,12 @@ using Xunit;
 
 namespace Framework.Tests.Protocol;
 
-/// <summary>
-/// The bytes the backend writes for every [MemoryPackable] type of shared (as itself) and for every union
-/// member (through its base, with the tag) are pinned in protocol_bytes.golden.txt: a changed tag, member order or
-/// member type shows up as a diff of the golden file in review (the projects pin their whole protocol the same way,
-/// and their client reads the file back in an EditMode test).
-/// Values come from SharedSerializationTests.ValueFiller (deterministic, non-default members).
-/// Run with UPDATE_PROTOCOL_GOLDEN=1 to rewrite the golden file after an intended protocol change.
-/// </summary>
+// The bytes the backend writes for every [MemoryPackable] type of shared (as itself) and for every union
+// member (through its base, with the tag) are pinned in protocol_bytes.golden.txt: a changed tag, member order or
+// member type shows up as a diff of the golden file in review (the projects pin their whole protocol the same way,
+// and their client reads the file back in an EditMode test).
+// Values come from SharedSerializationTests.ValueFiller (deterministic, non-default members).
+// Run with UPDATE_PROTOCOL_GOLDEN=1 to rewrite the golden file after an intended protocol change.
 public class ProtocolBytesTests
 {
     private const string UpdateVariable = "UPDATE_PROTOCOL_GOLDEN";

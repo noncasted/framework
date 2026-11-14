@@ -4,11 +4,9 @@ using Xunit;
 
 namespace Framework.Tests.Protocol;
 
-/// <summary>
-/// Shared.StableHash is part of the wire: entity property ids are StableHash of the value type full name, service
-/// ids are StableHash of the service key. string.GetHashCode is randomized per process on CoreCLR (the backend and
-/// the Unity 7000 client), so the values are pinned: FNV-1a over UTF-16 code units, byte for byte.
-/// </summary>
+// Shared.StableHash is part of the wire: entity property ids are StableHash of the value type full name, service
+// ids are StableHash of the service key. string.GetHashCode is randomized per process on CoreCLR (the backend and
+// the Unity 7000 client), so the values are pinned: FNV-1a over UTF-16 code units, byte for byte.
 public class StableHashTests
 {
     [Theory]

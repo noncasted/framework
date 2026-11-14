@@ -11,10 +11,8 @@ using static Framework.Tests.Messaging.MessagingClientStubs;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// The client side of a pipe without a cluster: the repeats of a send, the binding of a handler, the failures of the
-/// transport and the resubscribe loop.
-/// </summary>
+// The client side of a pipe without a cluster: the repeats of a send, the binding of a handler, the failures of the
+// transport and the resubscribe loop.
 public class RuntimePipeClientTests : LifetimeTest
 {
     private readonly IRuntimePipe _pipe = Substitute.For<IRuntimePipe>();

@@ -14,10 +14,8 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// F2.5: StateCollection subscribes before the load and buffers notifications, re-reads records from storage
-/// (order independent of clocks), fails fast on a failed load and is registered once.
-/// </summary>
+// StateCollection subscribes before the load and buffers notifications, re-reads records from storage
+// (order independent of clocks), fails fast on a failed load and is registered once.
 public class StateCollectionSyncTests
 {
     private static readonly TimeSpan Wait = TimeSpan.FromSeconds(5);
@@ -156,7 +154,7 @@ public class StateCollectionSyncTests
         var lifetime = new Lifetime();
         await collection.OnLocalSetupCompleted(lifetime);
 
-        utils.ReadFailure = new InvalidOperationException("db down");
+        utils.FailReads(new InvalidOperationException("db down"));
 
         // The durable queue sees the exception and retries the side effect instead of losing the update.
         await utils.Invoking(u => u.Notify(Guid.NewGuid())).Should().ThrowAsync<InvalidOperationException>();
@@ -285,7 +283,12 @@ public class StateCollectionSyncTests
         public TaskCompletionSource LoadStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public Func<Guid, Task>? Listener { get; private set; }
         public bool BlockLoad { get; init; }
-        public Exception? ReadFailure { get; set; }
+        public Exception? ReadFailure { get; private set; }
+
+        public void FailReads(Exception failure)
+        {
+            ReadFailure = failure;
+        }
 
         public void ReleaseLoad()
         {
@@ -328,9 +331,7 @@ public class StateCollectionSyncTests
     }
 }
 
-/// <summary>
-/// F2.5: StateCollectionUtils.Read against the real database - the re-read used for every notification.
-/// </summary>
+// StateCollectionUtils.Read against the real database - the re-read used for every notification.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class StateCollectionReadTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

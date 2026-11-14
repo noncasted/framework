@@ -11,10 +11,8 @@ using static Framework.Tests.Messaging.MessagingClientStubs;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// The client side of a durable queue without a cluster: one listener of a queue with its local handlers, the
-/// failures of the transport, the resubscribe loop and the push without a transaction.
-/// </summary>
+// The client side of a durable queue without a cluster: one listener of a queue with its local handlers, the
+// failures of the transport, the resubscribe loop and the push without a transaction.
 public class DurableQueueClientTests : LifetimeTest
 {
     private readonly IDurableQueue _queue = Substitute.For<IDurableQueue>();

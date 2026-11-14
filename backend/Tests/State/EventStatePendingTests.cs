@@ -8,10 +8,8 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// An EventState outside a transaction: the events appended and applied to the value stay pending until Write, a Read
-/// in between does not drop them while keeping their effect on the value.
-/// </summary>
+// An EventState outside a transaction: the events appended and applied to the value stay pending until Write, a Read
+// in between does not drop them while keeping their effect on the value.
 public class EventStatePendingTests
 {
     [Fact]

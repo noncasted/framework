@@ -7,12 +7,10 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Tests StateCollection sync: load from DB, verify persistence through grain writes.
-/// Note: PushUpdate/PushTransactionalUpdate require the full side effects pipeline
-/// (DurableQueue + SideEffectsProcessor), which is tested separately in SideEffectTests.
-/// These tests verify the DB-backed load path and grain-state-to-collection consistency.
-/// </summary>
+// Tests StateCollection sync: load from DB, verify persistence through grain writes.
+// Note: PushUpdate/PushTransactionalUpdate require the full side effects pipeline
+// (DurableQueue + SideEffectsProcessor), which is tested separately in SideEffectTests.
+// These tests verify the DB-backed load path and grain-state-to-collection consistency.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class StateCollectionTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

@@ -4,10 +4,6 @@ using Xunit;
 
 namespace Framework.Tests.Fixtures;
 
-/// <summary>
-/// Extends OrleansTestClusterFixture with side effects pipeline support.
-/// Provides pump/drain semantics for testing SE execution.
-/// </summary>
 public class SideEffectTestFixture : OrleansTestClusterFixture
 {
     public SideEffectTestPipeline Pipeline { get; private set; } = null!;
@@ -28,8 +24,5 @@ public class SideEffectTestFixture : OrleansTestClusterFixture
     }
 }
 
-/// <summary>
-/// xUnit collection for tests that need side effects pipeline.
-/// </summary>
 [CollectionDefinition(nameof(SideEffectIntegrationCollection))]
 public class SideEffectIntegrationCollection : ICollectionFixture<SideEffectTestFixture>;

@@ -6,9 +6,6 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Tests side effect registration, execution, and pipeline drain.
-/// </summary>
 [Collection(nameof(SideEffectIntegrationCollection))]
 public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBase<SideEffectTestFixture>(fixture)
 {
@@ -341,10 +338,8 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         valueNonTx2.Should().Be(1, "second non-transactional side effect should increment its target");
     }
 
-    /// <summary>
-    /// Force-expire all entries in retry queue by setting retry_after to past.
-    /// Then call RequeueReady to move them back to main queue.
-    /// </summary>
+    // Force-expire all entries in retry queue by setting retry_after to past.
+    // Then call RequeueReady to move them back to main queue.
     private async Task ForceExpireRetryQueue()
     {
         await using var connection = await Database.DataSource.OpenConnectionAsync();

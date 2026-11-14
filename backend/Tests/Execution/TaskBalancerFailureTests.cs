@@ -11,9 +11,7 @@ using Xunit;
 
 namespace Framework.Tests.Execution;
 
-/// <summary>
-/// The failure paths of the TaskBalancer: the penalty of a failing task and the drain at the end of the lifetime.
-/// </summary>
+// The failure paths of the TaskBalancer: the penalty of a failing task and the drain at the end of the lifetime.
 [Collection(nameof(NoAwaitCollection))]
 public class TaskBalancerFailureTests : LifetimeTest
 {

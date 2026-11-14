@@ -6,10 +6,6 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Tests side effect dead letter: max retries moves to dead letter table,
-/// RequeueStuckOlderThan, and GetStats includes dead letter count.
-/// </summary>
 [Collection(nameof(SideEffectIntegrationCollection))]
 public class SideEffectDeadLetterTests(SideEffectTestFixture fixture)
     : IntegrationTestBase<SideEffectTestFixture>(fixture)

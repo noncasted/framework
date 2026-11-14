@@ -7,9 +7,6 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Tests event-sourced state (EventState<T>) and its integration with the transaction system.
-/// </summary>
 [Collection(nameof(OrleansIntegrationCollection))]
 public class EventStateTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

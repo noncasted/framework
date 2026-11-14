@@ -6,10 +6,6 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// Tests RuntimeChannel: pub/sub broadcast, multiple subscribers, listener isolation.
-/// RuntimeChannel is in-memory (no side effects needed).
-/// </summary>
 [Collection(nameof(OrleansIntegrationCollection))]
 public class RuntimeChannelTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

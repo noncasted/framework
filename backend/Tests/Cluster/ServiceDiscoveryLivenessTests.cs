@@ -18,11 +18,9 @@ using Xunit;
 
 namespace Framework.Tests.Cluster;
 
-/// <summary>
-/// The liveness of the members of the service discovery: a stopping service stays unregistered, the staleness is
-/// measured by one clock, a game server that stopped refreshing is not picked, the wait for the cluster does not
-/// flood the log.
-/// </summary>
+// The liveness of the members of the service discovery: a stopping service stays unregistered, the staleness is
+// measured by one clock, a game server that stopped refreshing is not picked, the wait for the cluster does not
+// flood the log.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class ServiceDiscoveryLivenessTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

@@ -3,10 +3,8 @@ using NSubstitute;
 
 namespace Framework.Tests.Fixtures;
 
-/// <summary>
-/// Other options of a config mock of the fixture until disposed. The tests of a collection run one at a time, so the
-/// other tests keep the values of the fixture, which stay wide enough for a loaded machine.
-/// </summary>
+// Other options of a config mock of the fixture until disposed. The tests of a collection run one at a time, so the
+// other tests keep the values of the fixture, which stay wide enough for a loaded machine.
 public sealed class ConfigOverride<TOptions> : IDisposable
     where TOptions : class, new()
 {

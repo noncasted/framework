@@ -8,11 +8,9 @@ using Xunit;
 
 namespace Framework.Tests.Protocol;
 
-/// <summary>
-/// Every [MemoryPackable] type of shared survives serialize -> deserialize -> serialize with the same bytes,
-/// both as itself and through each union base it is tagged in. Instances are filled with non-default values, so a
-/// member that is written but not read back (or the other way round) changes the bytes.
-/// </summary>
+// Every [MemoryPackable] type of shared survives serialize -> deserialize -> serialize with the same bytes,
+// both as itself and through each union base it is tagged in. Instances are filled with non-default values, so a
+// member that is written but not read back (or the other way round) changes the bytes.
 public class SharedSerializationTests
 {
     public static TheoryData<string> ConcreteTypes()

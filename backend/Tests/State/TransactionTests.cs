@@ -6,9 +6,6 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Tests custom transaction system: commit, rollback, concurrent access.
-/// </summary>
 [Collection(nameof(OrleansIntegrationCollection))]
 public class TransactionTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

@@ -10,10 +10,8 @@ using Xunit;
 
 namespace Framework.Tests.Cluster;
 
-/// <summary>
-/// F2.39: live monitoring data written by several gateways of one deploy. Every gateway owns its slice,
-/// so two gateways no longer overwrite each other's users / sessions.
-/// </summary>
+// live monitoring data written by several gateways of one deploy. Every gateway owns its slice,
+// so two gateways no longer overwrite each other's users / sessions.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class ServiceSlicedStateTests(OrleansTestClusterFixture fixture)
     : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

@@ -6,10 +6,6 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// Tests DurableQueue: push via side effects, listen with observer, multi-consumer delivery.
-/// DurableQueue uses side effects for delivery, so requires SideEffectTestFixture.
-/// </summary>
 [Collection(nameof(SideEffectIntegrationCollection))]
 public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestBase<SideEffectTestFixture>(fixture)
 {

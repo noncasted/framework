@@ -10,9 +10,7 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Unexpected data of the storages throws instead of being skipped, rebuilt or replaced by a default.
-/// </summary>
+// Unexpected data of the storages throws instead of being skipped, rebuilt or replaced by a default.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class StorageFailFastTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

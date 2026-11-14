@@ -5,10 +5,8 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// A durable queue delivers every message to every subscribed observer. An observer that failed must get the message
-/// on the retry of the side effect, the ones that got it already must not get it again.
-/// </summary>
+// A durable queue delivers every message to every subscribed observer. An observer that failed must get the message
+// on the retry of the side effect, the ones that got it already must not get it again.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class DurableQueuePartialDeliveryTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

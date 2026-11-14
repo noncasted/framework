@@ -6,10 +6,6 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// Tests RuntimePipe: request-response pattern, handler binding, error propagation.
-/// RuntimePipe is in-memory (no side effects needed).
-/// </summary>
 [Collection(nameof(OrleansIntegrationCollection))]
 public class RuntimePipeTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

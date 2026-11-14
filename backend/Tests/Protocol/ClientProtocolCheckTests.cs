@@ -14,11 +14,9 @@ using Xunit;
 
 namespace Framework.Tests.Protocol;
 
-/// <summary>
-/// A socket upgrade with another protocol hash (or none) is accepted and closed with
-/// ClientOutdatedCloseCode, the current hash passes. A real Kestrel on a free loopback port, the check is the one both
-/// gateways call before reading anything.
-/// </summary>
+// A socket upgrade with another protocol hash (or none) is accepted and closed with
+// ClientOutdatedCloseCode, the current hash passes. A real Kestrel on a free loopback port, the check is the one both
+// gateways call before reading anything.
 public class ClientProtocolCheckTests
 {
     private const string PassedReason = "passed";

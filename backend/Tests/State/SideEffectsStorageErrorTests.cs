@@ -9,10 +9,8 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// The monitor operations of the side effects storage over a database that does not answer: the console must see the
-/// failure, not an empty result or a "done".
-/// </summary>
+// The monitor operations of the side effects storage over a database that does not answer: the console must see the
+// failure, not an empty result or a "done".
 public class SideEffectsStorageErrorTests : IAsyncDisposable
 {
     public SideEffectsStorageErrorTests()
