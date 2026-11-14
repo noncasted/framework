@@ -2,7 +2,7 @@ namespace Game.MatchMetrics;
 
 // The totals of one batch per series, one row per series (an upsert may not touch a row twice). NaN (a gauge unchanged)
 // is not a value; a series of NaN only has no row.
-public static class MatchMetricTotals
+internal static class MatchMetricTotals
 {
     public static List<MatchMetricTotal> Of(IReadOnlyList<ParsedMatchChunk> chunks, Func<int, int> seriesOf)
     {

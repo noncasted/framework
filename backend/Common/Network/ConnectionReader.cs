@@ -10,7 +10,6 @@ public interface IConnectionReader
 {
     IViewableDelegate<OneWayMessageFromClient> OneWay { get; }
     IViewableDelegate<RequestMessageFromClient> Requests { get; }
-    IViewableDelegate<ResponseMessageFromClient> Responses { get; }
 }
 
 public class ConnectionReader : IConnectionReader
@@ -26,11 +25,12 @@ public class ConnectionReader : IConnectionReader
 
     private readonly ViewableDelegate<OneWayMessageFromClient> _oneWay = new();
     private readonly ViewableDelegate<RequestMessageFromClient> _requests = new();
-    private readonly ViewableDelegate<ResponseMessageFromClient> _responses = new();
 
     public IViewableDelegate<OneWayMessageFromClient> OneWay => _oneWay;
     public IViewableDelegate<RequestMessageFromClient> Requests => _requests;
-    public IViewableDelegate<ResponseMessageFromClient> Responses => _responses;
+
+    // Connection.Run starts reading only with a handler: a message read before it would be lost.
+    public bool HasHandlers => _oneWay.ListenersCount + _requests.ListenersCount > 0;
 
     public async Task Run(IReadOnlyLifetime lifetime)
     {
@@ -81,66 +81,70 @@ public class ConnectionReader : IConnectionReader
 
             if (status == WebSocketReadStatus.TooBig)
             {
-                _logger.LogError("[Connection] Message exceeds {Limit} bytes — closing connection",
-                    WebSocketMessageReader.MaxMessageBytes);
-
-                await CloseTooBig();
+                _logger.LogError("[Connection] Message exceeds {Limit} bytes — closing connection", reader.Limit);
+                await Close(WebSocketCloseStatus.MessageTooBig, "Message too big");
                 break;
             }
 
-            var payload = reader.Payload;
+            var refusal = Dispatch(reader.Payload);
 
-            IMessageFromClient? context;
-
-            try
+            if (refusal != null)
             {
-                context = MemoryPackSerializer.Deserialize<IMessageFromClient>(payload.Span);
-            }
-            catch (Exception e)
-            {
-                _logger.LogError(e, "[Connection] Failed to deserialize message — dropping payload ({Bytes} bytes)",
-                    payload.Length);
-                continue;
-            }
-
-            if (context == null)
-            {
-                _logger.LogWarning("[Connection] Deserialized null message — dropping payload ({Bytes} bytes)",
-                    payload.Length);
-                continue;
-            }
-
-            switch (context)
-            {
-                case OneWayMessageFromClient oneWay:
-                    _oneWay.Invoke(oneWay);
-                    break;
-                case RequestMessageFromClient request:
-                    _requests.Invoke(request);
-                    break;
-                case ResponseMessageFromClient response:
-                    _responses.Invoke(response);
-                    break;
-                default:
-                    _logger.LogWarning("[Connection] Unknown message type received: {Type} — dropping",
-                        context.GetType().FullName);
-                    break;
+                await Close(refusal.Value, refusal == WebSocketCloseStatus.InvalidPayloadData
+                    ? "Unreadable message"
+                    : "Unexpected message");
+                break;
             }
         }
     }
 
-    private async Task CloseTooBig()
+    // The close status when the message is not one the server takes: the connection is closed, a dropped request would
+    // leave the client waiting for its response.
+    private WebSocketCloseStatus? Dispatch(ReadOnlyMemory<byte> payload)
+    {
+        IMessageFromClient? message;
+
+        try
+        {
+            message = MemoryPackSerializer.Deserialize<IMessageFromClient>(payload.Span);
+        }
+        catch (Exception e)
+        {
+            // The bytes of the client are untrusted: whatever the deserializer throws on them is a broken message.
+            _logger.LogError(e, "[Connection] Failed to deserialize message ({Bytes} bytes) — closing connection",
+                payload.Length);
+            return WebSocketCloseStatus.InvalidPayloadData;
+        }
+
+        switch (message)
+        {
+            case OneWayMessageFromClient oneWay:
+                _oneWay.Invoke(oneWay);
+                return null;
+            case RequestMessageFromClient request:
+                _requests.Invoke(request);
+                return null;
+            default:
+                // Null, or a response: the server sends no requests, so a response answers nothing.
+                _logger.LogError("[Connection] Unexpected message {Type} ({Bytes} bytes) — closing connection",
+                    message?.GetType().FullName ?? "null",
+                    payload.Length);
+                return WebSocketCloseStatus.ProtocolError;
+        }
+    }
+
+    private async Task Close(WebSocketCloseStatus status, string description)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 
         try
         {
-            await _webSocket.CloseOutputAsync(WebSocketCloseStatus.MessageTooBig, "Message too big", timeout.Token);
+            await _webSocket.CloseOutputAsync(status, description, timeout.Token);
         }
         catch (Exception e) when (e is WebSocketException or OperationCanceledException or ObjectDisposedException)
         {
             // The client may be gone already; the connection closes either way.
-            _logger.LogWarning(e, "[Connection] Close after a too big message failed");
+            _logger.LogWarning(e, "[Connection] Close with {Status} failed", status);
         }
     }
 }

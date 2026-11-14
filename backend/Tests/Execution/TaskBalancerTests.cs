@@ -8,7 +8,7 @@ using Xunit;
 
 namespace Framework.Tests.Execution;
 
-public class TaskBalancerTests
+public class TaskBalancerTests : LifetimeTest
 {
     private readonly TaskQueue _queue;
     private readonly TaskBalancer _balancer;
@@ -52,7 +52,7 @@ public class TaskBalancerTests
         var logger = Substitute.For<ILogger<TaskBalancer>>();
         var balancer = new TaskBalancer(_queue, logger, config);
 
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         await balancer.Run(lifetime);
 
         await TestWait.Until(() => executionOrder.Count >= 2);
@@ -71,7 +71,7 @@ public class TaskBalancerTests
 
         _queue.Enqueue(task);
 
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         await _balancer.Run(lifetime);
 
         await TestWait.Until(() => task.ExecuteCount >= 2);
@@ -101,7 +101,7 @@ public class TaskBalancerTests
         var logger = Substitute.For<ILogger<TaskBalancer>>();
         var balancer = new TaskBalancer(_queue, logger, config);
 
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         await balancer.Run(lifetime);
 
         // Let the low task age through several collect cycles (gains IterationScore=100 each cycle)
@@ -132,7 +132,7 @@ public class TaskBalancerTests
         foreach (var task in tasks)
             _queue.Enqueue(task);
 
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         await _balancer.Run(lifetime);
 
         await TestWait.Until(() => tasks.All(t => t.ExecuteCount >= 1));
@@ -146,7 +146,7 @@ public class TaskBalancerTests
     [Fact]
     public async Task LifetimeTermination_StopsProcessing()
     {
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         await _balancer.Run(lifetime);
 
         await Task.Delay(50, TestContext.Current.CancellationToken);

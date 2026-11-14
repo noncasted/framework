@@ -64,6 +64,6 @@ public class TelemetryDeviceParsingTests
 
     private static TelemetryDevice Parse(SharedClientTelemetry.Device? device)
     {
-        return TelemetryBatchParser.ParseDevice(device);
+        return TelemetryDeviceParser.Parse(device);
     }
 }

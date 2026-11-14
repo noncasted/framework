@@ -108,9 +108,10 @@ from the server and lives as long as the socket (after a reconnect a client star
 A live session is read from the memory of its grain, without the database. A closed one: the row and the log from the states,
 without a grain.
 
-- `GET /api/client-telemetry/sessions?status=live|ended|lost&platform=&tag=&metric=&averageBelow=&averageAbove=&minErrors=&offset=&limit=`,
+- `GET /api/client-telemetry/sessions?status=live|ended|lost&platform=&build=&tag=&metric=&averageBelow=&averageAbove=&minErrors=&startupId=&previousId=&offset=&limit=`,
   newest first, from the collection of the sessions in memory of the host. `tag` is an exact match, several of them mean all of
-  them. Each row and the card of a session hold `tags` (`[]` when there are none, also in a row written before the tags). `metric` with no average: sessions that have the metric in the summary;
+  them. `build` is an exact match of `BuildVersion`; `startupId` gives the sessions of one startup record, `previousId` the session
+  that reported the given one as its previous. Each row and the card of a session hold `tags` (`[]` when there are none, also in a row written before the tags). `metric` with no average: sessions that have the metric in the summary;
   `averageBelow`, `averageAbove` need `metric` (400 otherwise). A live session has no summary yet, so `metric` and `minErrors` leave it out.
 - `GET .../sessions/{id}`: `ackSeq` is the `seq` of the last batch in memory, `after` of a live reading (the name stays for the skill); `digest` (the summary of the close, the counts of errors and marks, the dropped counters, `errorGroups:
   { groups: [{ fingerprint, level, message, count, rows, firstSeenAt, lastSeenAt }], omittedGroups, omittedCount }` with up to 12
@@ -184,7 +185,8 @@ One grain per session (`ClientTelemetrySession`, the guid is its key). The sampl
   go and are counted (`droppedSamples`, `droppedErrors`, `droppedMarks`).
 
 The close, once; a closed session never opens again:
-- **`SessionEnd`, the next `SessionStart`, a batch under the flag off:** status `ended`.
+- **`SessionEnd`, the next `SessionStart`, a batch under the flag off:** status `ended`. A failed write is repeated by the next tick
+  of the timer with the status asked for, so a clean close never reads as `lost`.
 - **The end of the socket:** status `lost`.
 - **No batch for `LostAfter`** (120 s, the timer of the grain): status `lost`. The reserve for a gateway gone without closing its
   sockets, so a page in the background, which sends rarely, keeps its session. A failed write is repeated by the next tick.

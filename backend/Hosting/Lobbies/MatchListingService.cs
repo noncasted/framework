@@ -44,16 +44,7 @@ public class MatchListingService : Service
         Report();
         _owner.Owner.Advise(lifetime, (_, _) => Report());
 
-        // The list lifetime of a user ends after the user is removed from the list - or with the service (the
-        // lifetime given by View is bounded by the subscriber one): the end of the session reports nothing.
-        _users.View(lifetime, (userLifetime, _) => {
-            Report();
-
-            userLifetime.Listen(() => {
-                if (lifetime.IsTerminated == false)
-                    Report();
-            });
-        });
+        _users.ViewChanges(lifetime, Report);
     }
 
     private void Report()

@@ -6,37 +6,11 @@ using System.Text;
 
 namespace Common.Network;
 
-/// <summary>
-/// F1.1: the entry into a game session. The meta issues a ticket to the user it has authenticated on the meta
-/// socket; the game gateway takes the user and the session only from a ticket it can verify.
-/// Format: <c>v1.&lt;base64url(payload)&gt;.&lt;base64url(mac)&gt;</c>, payload (56 bytes) = UserId (16) + SessionId (16) +
-/// ExpiresAt (unix seconds, int64 little endian) + Nonce (16); mac = HMAC-SHA256(secret, "v1." + payload).
-/// The client does not parse it.
-/// </summary>
-public readonly record struct SessionTicket(Guid UserId, Guid SessionId, DateTime ExpiresAt, Guid Nonce);
-
-public enum SessionTicketCheck
-{
-    Ok,
-    Invalid,
-    Expired,
-    Replayed
-}
-
-public readonly record struct SessionTicketResult(SessionTicketCheck Check, SessionTicket Ticket);
-
-public interface ISessionTicketIssuer
-{
-    string Issue(Guid userId, Guid sessionId);
-}
-
-public interface ISessionTicketVerifier
-{
-    // Signature -> expiry -> nonce: a valid ticket is accepted once (the nonce is remembered until the ticket
-    // expires). A session lives on one game server, so the set of used nonces is local to the process.
-    SessionTicketResult Verify(string ticket);
-}
-
+// F1.1: the entry into a game session. The meta issues a ticket to the user it has authenticated on the meta
+// socket; the game gateway takes the user and the session only from a ticket it can verify.
+// Format: v1.<base64url(payload)>.<base64url(mac)>, payload (56 bytes) = UserId (16) + SessionId (16) +
+// ExpiresAt (unix seconds, int64 little endian) + Nonce (16); mac = HMAC-SHA256(secret, "v1." + payload).
+// The client does not parse it.
 public class SessionTickets : ISessionTicketIssuer, ISessionTicketVerifier
 {
     public SessionTickets(SessionTicketKey key, TimeProvider time)
@@ -171,23 +145,4 @@ public class SessionTickets : ISessionTicketIssuer, ISessionTicketVerifier
                 _usedNonces.TryRemove(nonce, out _);
         }
     }
-}
-
-/// <summary>
-/// The HMAC key of <see cref="SessionTickets"/>, shared by the meta and the game gateways (<c>SESSION_TICKET_SECRET</c>,
-/// base64, at least 32 bytes). Read by <c>Orchestration.SessionTicketsExtensions</c>.
-/// </summary>
-public sealed class SessionTicketKey
-{
-    public SessionTicketKey(byte[] value)
-    {
-        if (value.Length < MinLength)
-            throw new ArgumentException($"A session ticket key needs at least {MinLength} bytes, got {value.Length}", nameof(value));
-
-        Value = value;
-    }
-
-    public const int MinLength = 32;
-
-    public byte[] Value { get; }
 }

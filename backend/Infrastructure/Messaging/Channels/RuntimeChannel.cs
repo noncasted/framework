@@ -101,13 +101,13 @@ public class RuntimeChannel : Grain, IRuntimeChannel
     public Task Publish(object message)
     {
         var channelName = this.GetPrimaryKeyString();
-        using var activity = TraceExtensions.MessagingRuntimeChannel.StartActivity("RuntimeChannel.Publish");
+        using var activity = RuntimeChannelTelemetry.Source.StartActivity("RuntimeChannel.Publish");
         activity?.SetTag("messaging.channel", channelName);
         activity?.SetTag("message.type", message.GetType().Name);
         activity?.SetTag("observer.count", _observers.Count);
 
-        BackendMetrics.ChannelPublished.Add(1);
-        BackendMetrics.ChannelObserverCount.Record(_observers.Count);
+        RuntimeChannelTelemetry.Published.Add(1);
+        RuntimeChannelTelemetry.ObserverCount.Record(_observers.Count);
 
         var sequenced = _catchUpBuffer.Add(message);
         activity?.SetTag("messaging.sequence", sequenced.Sequence);
@@ -118,7 +118,7 @@ public class RuntimeChannel : Grain, IRuntimeChannel
                 continue;
 
             // Behind by a whole catch-up buffer: drop it, the client recovers through CatchUp / gap detection.
-            BackendMetrics.ChannelDeliveryFailure.Add(1);
+            RuntimeChannelTelemetry.DeliveryFailure.Add(1);
 
             _logger.LogWarning(
                 "[Messaging] [Channel] Delivery queue overflow on {ChannelName} for observer {ObserverId} at sequence {Sequence}",

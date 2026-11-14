@@ -11,10 +11,8 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// AddressableState over a substituted storage and an in-memory channel: the load at start, the updates of the
-/// channel around it and the persisting write.
-/// </summary>
+// AddressableState over a substituted storage and an in-memory channel: the load at start, the updates of the
+// channel around it and the persisting write.
 public class AddressableStateLoadTests
 {
     public AddressableStateLoadTests()

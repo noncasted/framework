@@ -1,6 +1,9 @@
 enum Shared.ErrorCode System.Byte Internal=1,UnknownCommand=2,InvalidRequest=3,Forbidden=4,NotFound=5
 enum Shared.SessionAuthStatus System.Int32 Ok=0,InvalidTicket=1,Expired=2,NoReservation=3,Closed=4
 enum Shared.SharedClientTelemetry+ErrorLevel System.Byte Error=1,Exception=2,Warning=3
+enum Shared.SharedMatchMetrics+MatchMetricsStatus System.Byte Ok=0,Duplicate=1,Rejected=2,Closed=3,NotInMatch=4
+enum Shared.SharedMatchMetrics+MatchSeriesKind System.Byte Counter=0,Gauge=1
+enum Shared.SharedMatchMetrics+MatchStreamKind System.Byte Client=0,Server=1
 enum Shared.SharedSessionPeer+SignalKind System.Byte Description=0,Candidate=1
 enum Shared.SharedSessionRequests+EntryStatus System.Int32 Ok=0,NotFound=1,Full=2,Started=3
 type Framework.Tests.Protocol.TestEntityPayload Kind:System.Int32
@@ -40,6 +43,14 @@ type Shared.SharedLobbies+JoinMatch Code:System.String
 type Shared.SharedLobbies+List Entries:System.Collections.Generic.List<Shared.SharedLobbies+Entry>
 type Shared.SharedLobbies+Subscribe
 type Shared.SharedLobbies+Unsubscribe
+type Shared.SharedMatchMetrics+Batch StreamId:System.Guid,Seq:System.Int32,Series:Shared.SharedMatchMetrics+MatchSeriesDecl[],Chunks:Shared.SharedMatchMetrics+MatchChunk[],Events:Shared.SharedMatchMetrics+MatchEvent[]
+type Shared.SharedMatchMetrics+BatchResult Status:Shared.SharedMatchMetrics+MatchMetricsStatus
+type Shared.SharedMatchMetrics+MatchChunk Slot:System.Int32,Start:System.Int32,AgeMs:System.Int64,Values:System.Single[]
+type Shared.SharedMatchMetrics+MatchEvent Name:System.String,Time:System.Single,AgeMs:System.Int64,Fields:Shared.SharedMatchMetrics+MatchEventField[]
+type Shared.SharedMatchMetrics+MatchEventField Key:System.String,Number:System.Double,Text:System.String
+type Shared.SharedMatchMetrics+MatchSeriesDecl Slot:System.Int32,Name:System.String,Kind:Shared.SharedMatchMetrics+MatchSeriesKind,TagKeys:System.String[],TagValues:System.String[]
+type Shared.SharedMatchMetrics+Open MatchId:System.Guid,WriterId:System.Guid,Kind:Shared.SharedMatchMetrics+MatchStreamKind
+type Shared.SharedMatchMetrics+Opened Status:Shared.SharedMatchMetrics+MatchMetricsStatus,StreamId:System.Guid,LastSeq:System.Int32
 type Shared.SharedSessionAuth+Request Ticket:System.String
 type Shared.SharedSessionAuth+Response Status:Shared.SessionAuthStatus
 type Shared.SharedSessionEntity+CreateRequest Id:System.Int32,Properties:System.Collections.Generic.IReadOnlyList<Shared.SharedSessionObject+PropertyUpdate>,Payload:Shared.IEntityPayload
@@ -103,6 +114,10 @@ union Shared.INetworkContext 205 Shared.SharedClientTelemetry+StartupTrace
 union Shared.INetworkContext 206 Shared.SharedClientTelemetry+StartupTraceResult
 union Shared.INetworkContext 21 Shared.SharedSessionEntity+CreateResponse
 union Shared.INetworkContext 22 Shared.SharedSessionEntity+CreatedOverview
+union Shared.INetworkContext 220 Shared.SharedMatchMetrics+Open
+union Shared.INetworkContext 221 Shared.SharedMatchMetrics+Opened
+union Shared.INetworkContext 222 Shared.SharedMatchMetrics+Batch
+union Shared.INetworkContext 223 Shared.SharedMatchMetrics+BatchResult
 union Shared.INetworkContext 23 Shared.SharedSessionEntity+Destroy
 union Shared.INetworkContext 24 Shared.SharedSessionEntity+DestroyUpdate
 union Shared.INetworkContext 30 Shared.SharedSessionObject+SetProperty

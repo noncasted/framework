@@ -15,7 +15,7 @@ repeat them. It is the map of the parts and the wiring of a game.
 | Part | Where | Assembly / namespace |
 |------|-------|----------------------|
 | Client writer and sender | `client/modules/match-metrics` (package `com.noncasted.framework.match-metrics`) | `Internal.MatchMetrics` / `Global.MatchMetrics` |
-| Messages | `shared/MatchMetrics/SharedMatchMetrics.cs` | `Framework.Shared` / `Shared` |
+| Messages, the rule of names and the limits of content | `shared/MatchMetrics/SharedMatchMetrics.cs`, `SharedMatchMetricNames.cs`, `SharedMatchMetricsLimits.cs` | `Framework.Shared` / `Shared` |
 | Intake, storage, server stream, reading | `backend/MatchMetrics` (`MatchMetrics.csproj`) | `Framework.MatchMetrics` / `Game.MatchMetrics` |
 | Contract | `backend/MatchMetrics/Contract/CONTRACT.md` | |
 | Tests | `client/modules/match-metrics/Tests/Editor` (`Internal.MatchMetrics.Tests`), `backend/Tests/MatchMetrics` (Postgres of the test fixture) | |
@@ -92,7 +92,9 @@ Intake (the gateway of the meta socket):
 - `IMatchMetricsAdmission.Check(matchId, userId)` -> `MatchMetricsAdmit(IsPlayer, ClosedAt)` - the answer of the game (the
   collector knows nothing of matches). Asked on `Open` and again after `AdmissionRecheck` (60 s). A closed match still takes
   batches during `CloseGrace` (2 min): the last batch of a run leaves when the match closes.
-- `MatchMetricsBatchParser` checks every batch against `MatchMetricsLimits` (the client is not trusted).
+- `MatchMetricsBatchParser` checks every batch against `SharedMatchMetricNames`, `SharedMatchMetricsLimits` (the same on the
+  client) and the sizes of a batch in `MatchMetricsLimits` (the server's alone): the client is not trusted. The parser, the
+  storage and the server stream are internal; a game reaches them through `IMatchMetricsConnections` and `IMatchMetricsWriter`.
 
 Storage (`Storage/`, Npgsql over `IDbSource`, not grain states):
 - `MatchMetricsSchema` - 6 tables: `match_metric_series` (dictionary), `match_metric_streams`, `match_metric_slots` (the slot
@@ -101,11 +103,15 @@ Storage (`Storage/`, Npgsql over `IDbSource`, not grain states):
   ones.
 - `MatchMetricBatchWriter` - one transaction per batch: `last_seq` moves from `Seq - 1` only (a copy - `Duplicate`, a gap -
   `Rejected`), `COPY` of chunks and events, upsert of totals. A failure of the database is an error answer: the client repeats.
+  A `Duplicate` found in the database reads the slots of the stream back: the stored copy may have declared slots the stream
+  in memory has not seen (a reopen while the copy was still written, a commit that threw after it went through).
 - Volume at 1 s buckets: ~0.8 MB per match of 4 players and 10 min. Nothing is cleaned.
 
 Server stream: `IMatchMetricsWriter.Open(lifetime, matchId)` -> `IMatchMetricsServerStream` (`Event`, `Gauge`). Kind
 `Server`, user `Guid.Empty`, the axis is the server time since the open (the server has no clock of the run). Flushed every
-`ServerFlush` (30 s) and at the end of the lifetime. Only what the clients cannot see (the host of a session, a lost seat).
+`ServerFlush` (30 s) and at the end of the lifetime; a write after the last flush throws. A failed write sends the same batch
+again first. A gauge whose name the dictionary has as a counter is dropped with its values (logged), a later write of it
+throws. Only what the clients cannot see (the host of a session, a lost seat).
 
 Reading:
 - In the process: `IMatchMetricsReader` (`GetStreams`, `GetSeries`, `GetPoints`, `GetTotals`, `GetEvents`) - for a console,

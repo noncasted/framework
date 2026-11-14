@@ -7,21 +7,11 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Tests event-sourced state (EventState<T>) and its integration with the transaction system.
-/// </summary>
 [Collection(nameof(OrleansIntegrationCollection))]
 public class EventStateTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)
 {
     // --- Standalone (non-transactional) event append ---
-
-    [Fact]
-    public async Task DirectMarten_SmokeTest()
-    {
-        var store = GetSiloService<IDocumentStore>();
-        using var session = store.QuerySession();
-    }
 
     [Fact]
     public async Task StandaloneAppend_EventsWrittenToMarten()

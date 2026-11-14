@@ -1,54 +1,9 @@
 using Common.Extensions;
 using Internal;
-using Marten;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace Infrastructure.State;
-
-// Equal by value: two records of one state of one grain are one row (StateStorageExtensions.ToIdentityMap).
-public class StateIdentity : IEquatable<StateIdentity>
-{
-    public required object Key { get; init; }
-    public required string Type { get; init; }
-    public required string TableName { get; init; }
-    public required string? Extension { get; init; }
-
-    public bool Equals(StateIdentity? other)
-    {
-        return other is not null
-               && Key.Equals(other.Key)
-               && Type == other.Type
-               && TableName == other.TableName
-               && Extension == other.Extension;
-    }
-
-    public override bool Equals(object? obj) => Equals(obj as StateIdentity);
-
-    public override int GetHashCode() => HashCode.Combine(Key, Type, TableName, Extension);
-
-    public override string ToString() => Extension == null
-        ? $"{TableName}/{Type}/{Key}"
-        : $"{TableName}/{Type}/{Key}/{Extension}";
-}
-
-public class GrainStateRecord
-{
-    public required GrainId Id { get; init; }
-    public required IStateValue Value { get; init; }
-}
-
-public class StateWriteRequest
-{
-    public required IReadOnlyDictionary<StateIdentity, IStateValue> Records { get; init; }
-    public NpgsqlTransaction? Transaction { get; init; }
-}
-
-public class StateDeleteRequest
-{
-	public required IReadOnlyList<StateIdentity> Identities { get; init; }
-	public NpgsqlTransaction? Transaction { get; init; }
-}
 
 public interface IStateStorage
 {
@@ -84,7 +39,6 @@ public class StateStorage : IStateStorage
 	public StateStorage(
 		DirectStorage directStorage,
 		IEventStorage eventStorage,
-		IDocumentStore documentStore,
 		IGrainStatesRegistry statesRegistry,
 		IStateSerializer stateSerializer,
 		IDbSource dbSource,
@@ -92,7 +46,6 @@ public class StateStorage : IStateStorage
 	{
 		_directStorage = directStorage;
 		_eventStorage = eventStorage;
-		_documentStore = documentStore;
 		_stateSerializer = stateSerializer;
 		_dbSource = dbSource;
 		_logger = logger;
@@ -101,7 +54,6 @@ public class StateStorage : IStateStorage
 
 	private readonly DirectStorage _directStorage;
 	private readonly IEventStorage _eventStorage;
-	private readonly IDocumentStore _documentStore;
 	private readonly IStateSerializer _stateSerializer;
 	private readonly IDbSource _dbSource;
 	private readonly ILogger<StateStorage> _logger;

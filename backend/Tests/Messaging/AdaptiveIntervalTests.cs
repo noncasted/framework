@@ -4,10 +4,6 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// Unit tests for AdaptiveInterval: exponential backoff, success growth, jitter, capping.
-/// No Orleans cluster needed.
-/// </summary>
 public class AdaptiveIntervalTests
 {
     private static AdaptiveInterval Create(

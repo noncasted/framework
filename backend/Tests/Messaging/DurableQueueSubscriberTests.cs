@@ -5,9 +5,6 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// Tests DurableQueue subscriber failure handling and no-subscriber behavior.
-/// </summary>
 [Collection(nameof(OrleansIntegrationCollection))]
 public class DurableQueueSubscriberTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

@@ -9,10 +9,8 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// Resubscribe of a channel listener: two of them in flight together (the first Listen and the resubscribe loop), and
-/// a channel grain reactivated between two of them (its sequence numbers start again from 1).
-/// </summary>
+// Resubscribe of a channel listener: two of them in flight together (the first Listen and the resubscribe loop), and
+// a channel grain reactivated between two of them (its sequence numbers start again from 1).
 [Collection(nameof(OrleansIntegrationCollection))]
 public class RuntimeChannelResubscribeTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)
@@ -80,7 +78,7 @@ public class RuntimeChannelResubscribeTests
 
         // A new activation numbers its messages from 1 again: the listener has seen up to 3.
         await channel.Cast<IGrainManagementExtension>().DeactivateOnIdle();
-        await Task.Delay(500, TestContext.Current.CancellationToken);
+        await TestWait.Until(async () => (await channel.CatchUp(0)).CurrentSequence == 0);
 
         for (var i = 1; i <= 3; i++)
             await messaging.PublishChannel(channelId, new TestMessage { Text = $"new-{i}" });

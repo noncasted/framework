@@ -5,36 +5,11 @@ using Microsoft.Extensions.Logging;
 
 namespace Infrastructure;
 
-[GenerateSerializer]
-public class AddressableStateValue : IDirectStateValue
-{
-    [Id(0)]
-    public string Value { get; init; } = string.Empty;
-
-    [Id(1)]
-    public bool IsInitialized { get; init; }
-
-    [Id(2)]
-    public DateTime UpdateDate { get; init; }
-
-    public int Version => 0;
-}
-
 public interface IAddressableState<T> : IViewableProperty<T> where T : class, new()
 {
     bool IsInitialized { get; }
 
     Task SetValue(T value);
-}
-
-public class AddressableStateChannelId<T> : IRuntimeChannelId
-{
-    public required string Name { get; init; }
-
-    public string ToRaw()
-    {
-        return $"addressable-state-{Name}";
-    }
 }
 
 public class AddressableState<T> : ViewableProperty<T>, IOrleansStarted, IAddressableState<T>
@@ -67,6 +42,9 @@ public class AddressableState<T> : ViewableProperty<T>, IOrleansStarted, IAddres
     private readonly ILogger<AddressableState<T>> _logger;
     private readonly StateIdentity _identity;
     private readonly AddressableStateChannelId<T> _channelId;
+
+    private const int PublishAttempts = 5;
+    private static readonly TimeSpan PublishRetryDelay = TimeSpan.FromMilliseconds(200);
 
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly object _applyGate = new();
@@ -112,7 +90,7 @@ public class AddressableState<T> : ViewableProperty<T>, IOrleansStarted, IAddres
             await _orleans.StateStorage.Write(_identity, state);
             Apply(state, value);
 
-            await _messaging.PublishChannel(_channelId, state);
+            await Publish(state);
         }
         catch (Exception e)
         {
@@ -122,6 +100,33 @@ public class AddressableState<T> : ViewableProperty<T>, IOrleansStarted, IAddres
         finally
         {
             _writeLock.Release();
+        }
+    }
+
+    // The channel has no sequence for a message that never got in: without a retry the other hosts keep the old
+    // value until their next reload (a gap of the channel or a restart).
+    private async Task Publish(AddressableStateValue state)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await _messaging.PublishChannel(_channelId, state);
+                return;
+            }
+            catch (Exception e) when (attempt < PublishAttempts)
+            {
+                _logger.LogWarning(e, "[AddressableState] Publishing {Type} failed (attempt {Attempt}/{Max}), retrying",
+                    typeof(T).Name, attempt, PublishAttempts);
+
+                await Task.Delay(PublishRetryDelay * attempt);
+            }
+            catch (Exception e)
+            {
+                throw new InvalidOperationException(
+                    $"{typeof(T).Name} is saved and applied on this host but not published: the other hosts keep the old value until they reload it.",
+                    e);
+            }
         }
     }
 

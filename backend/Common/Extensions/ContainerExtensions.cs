@@ -11,63 +11,39 @@ public static class ContainerExtensions
         public required IServiceCollection Collection { get; init; }
     }
 
+    // The same registrations on the services of the builder.
     extension(IHostApplicationBuilder builder)
     {
         public Registration Add<TInterface, TImplementation>()
             where TInterface : class
             where TImplementation : class, TInterface
         {
-            builder.Services.Add<TImplementation>().As<TInterface>();
-
-            return new Registration
-            {
-                Collection = builder.Services,
-                Type = typeof(TImplementation)
-            };
+            return builder.Services.Add<TInterface, TImplementation>();
         }
 
         public Registration Add<T>()
             where T : class
         {
-            builder.Services.Add<T>();
-
-            return new Registration
-            {
-                Collection = builder.Services,
-                Type = typeof(T)
-            };
+            return builder.Services.Add<T>();
         }
 
         public Registration Add<T>(Func<IServiceProvider, T> factory)
             where T : class
         {
-            builder.Services.Add(factory);
-
-            return new Registration
-            {
-                Collection = builder.Services,
-                Type = typeof(T)
-            };
+            return builder.Services.Add(factory);
         }
 
         public Registration Add<T>(T instance)
             where T : class
         {
-            builder.Services.Add(instance);
-
-            return new Registration
-            {
-                Collection = builder.Services,
-                Type = typeof(T)
-            };
+            return builder.Services.Add(instance);
         }
 
         public Registration Pass<T>(IServiceProvider services) where T : class
         {
-            return builder.Add(services.GetRequiredService<T>());
+            return builder.Services.Pass<T>(services);
         }
     }
-
 
     extension(IServiceCollection services)
     {

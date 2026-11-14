@@ -2,7 +2,6 @@ using Common.Extensions;
 using Internal;
 using Infrastructure;
 using Infrastructure.State;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Shared;
 
@@ -13,14 +12,7 @@ public interface IDeployCleanup
     Task<DeployCleanupResult> Run();
 }
 
-public class DeployCleanupResult
-{
-    public required int Removed { get; init; }
-    public required IReadOnlyList<Guid> RemovedDeployIds { get; init; }
-    public required Guid KeptDeployId { get; init; }
-}
-
-public class DeployCleanup : IDeployCleanup, IHostedService
+public class DeployCleanup : IDeployCleanup
 {
     public DeployCleanup(
         IDeployContext deployContext,
@@ -38,16 +30,6 @@ public class DeployCleanup : IDeployCleanup, IHostedService
     private readonly IStateStorage _stateStorage;
     private readonly IMessaging _messaging;
     private readonly ILogger<DeployCleanup> _logger;
-
-    public Task StartAsync(CancellationToken cancellationToken)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        return Task.CompletedTask;
-    }
 
     public async Task<DeployCleanupResult> Run()
     {
@@ -140,17 +122,5 @@ public class DeployCleanup : IDeployCleanup, IHostedService
         }
 
         return result;
-    }
-}
-
-public static class DeployCleanupExtensions
-{
-    public static IHostApplicationBuilder AddDeployCleanup(this IHostApplicationBuilder builder)
-    {
-        builder.Add<DeployCleanup>()
-               .As<IDeployCleanup>()
-               .As<IHostedService>();
-
-        return builder;
     }
 }

@@ -140,20 +140,20 @@ namespace Global.MatchMetrics.Tests
         public void Names_Limited()
         {
             Assert.Throws<ArgumentException>(() => _stream.Counter("Damage"));
-            Assert.Throws<ArgumentException>(() => _stream.Counter(new string('a', MatchMetricsLimits.MaxNameLength + 1)));
+            Assert.Throws<ArgumentException>(() => _stream.Counter(new string('a', SharedMatchMetricsLimits.MaxNameLength + 1)));
             Assert.Throws<ArgumentException>(() => MatchTags.Of("source", "Orb"));
             Assert.Throws<ArgumentException>(() => MatchTags.Of("so-urce", "orb"));
             Assert.Throws<ArgumentException>(() => MatchTags.Of("a", "1").With("a", "2"));
             Assert.Throws<ArgumentException>(() => MatchTags.Of("a", "1").With("b", "1").With("c", "1").With("d", "1").With("e", "1"));
             Assert.Throws<ArgumentException>(() => MatchEventField.Of("x", double.NaN));
-            Assert.Throws<ArgumentException>(() => _stream.Event("e", new MatchEventField[MatchMetricsLimits.MaxFields + 1]));
+            Assert.Throws<ArgumentException>(() => _stream.Event("e", new MatchEventField[SharedMatchMetricsLimits.MaxFields + 1]));
             Assert.DoesNotThrow(() => MatchTags.Of("enemy", "elite-3"));
         }
 
         [Test]
         public void Series_Limited()
         {
-            for (var i = 0; i < MatchMetricsLimits.MaxSeries; i++)
+            for (var i = 0; i < SharedMatchMetricsLimits.MaxSeries; i++)
                 _stream.Counter("s" + i);
 
             Assert.Throws<InvalidOperationException>(() => _stream.Counter("over"));

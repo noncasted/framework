@@ -41,8 +41,8 @@ public class Transactions : ITransactions
 
     public async Task<TransactionResult> Process(TransactionParameters parameters)
     {
-        using var activity = TraceExtensions.Transactions.StartActivity("Transaction.Process");
-        using var watch = MetricWatch.Start(BackendMetrics.TransactionDuration);
+        using var activity = TransactionTelemetry.Source.StartActivity("Transaction.Process");
+        using var watch = MetricWatch.Start(TransactionTelemetry.Duration);
 
         var context = new TransactionContext
         {
@@ -82,7 +82,7 @@ public class Transactions : ITransactions
         }
 
         activity?.SetTag("participant.count", context.Participants.Count);
-        BackendMetrics.TransactionParticipantCount.Record(context.Participants.Count);
+        TransactionTelemetry.ParticipantCount.Record(context.Participants.Count);
 
         try
         {
@@ -113,8 +113,8 @@ public class Transactions : ITransactions
         // result would make the caller retry an operation that is already done.
         await _participants.Confirm(context);
 
-        BackendMetrics.TransactionTotal.Add(1);
-        BackendMetrics.TransactionSuccess.Add(1);
+        TransactionTelemetry.Total.Add(1);
+        TransactionTelemetry.Success.Add(1);
 
         return new TransactionResult
         {
@@ -131,12 +131,12 @@ public class Transactions : ITransactions
     private async Task<TransactionResult> Fail(TransactionContext context, Activity? activity, Exception error)
     {
         activity?.SetStatus(ActivityStatusCode.Error, "Transaction rolled back");
-        BackendMetrics.TransactionRollback.Add(1);
+        TransactionTelemetry.Rollback.Add(1);
 
         await _participants.Rollback(context);
 
-        BackendMetrics.TransactionTotal.Add(1);
-        BackendMetrics.TransactionFailure.Add(1);
+        TransactionTelemetry.Total.Add(1);
+        TransactionTelemetry.Failure.Add(1);
 
         return new TransactionResult
         {

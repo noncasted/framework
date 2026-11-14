@@ -5,14 +5,12 @@ using Shared;
 
 namespace Common.Network;
 
-/// <summary>
-/// F3.2: a client built from another protocol (a cached web build after a deploy) sends another
-/// protocol hash in the upgrade query, or none at all (a build from before the check). It is
-/// told to update before anything is read: the socket is accepted and closed with
-/// <see cref="ProtocolVersion.ClientOutdatedCloseCode"/>. Refusing the upgrade with an HTTP status would not do -
-/// a browser WebSocket does not see the status, only 1006.
-/// The expected hash is the protocol hash of the project (its shared types plus the framework ones).
-/// </summary>
+// F3.2: a client built from another protocol (a cached web build after a deploy) sends another
+// protocol hash in the upgrade query, or none at all (a build from before the check). It is
+// told to update before anything is read: the socket is accepted and closed with
+// ProtocolVersion.ClientOutdatedCloseCode. Refusing the upgrade with an HTTP status would not do -
+// a browser WebSocket does not see the status, only 1006.
+// The expected hash is the protocol hash of the project (its shared types plus the framework ones).
 public static class ClientProtocolCheck
 {
     private static readonly TimeSpan CloseTimeout = TimeSpan.FromSeconds(5);

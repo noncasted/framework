@@ -50,7 +50,7 @@ internal class TransactionParticipants
                     "[Transaction] [Error] Participant {ParticipantId} failed to confirm committed transaction {TransactionId}",
                     participant.Key, context.Id);
 
-                BackendMetrics.TransactionConfirmFailure.Add(1);
+                TransactionTelemetry.ConfirmFailure.Add(1);
             }
         });
 
@@ -68,7 +68,7 @@ internal class TransactionParticipants
             catch (Exception e)
             {
                 _logger.LogError(e, "[Transactions] Failed to rollback participant {ParticipantId}", participantId);
-                BackendMetrics.TransactionRollbackFailure.Add(1);
+                TransactionTelemetry.RollbackFailure.Add(1);
             }
         }
     }

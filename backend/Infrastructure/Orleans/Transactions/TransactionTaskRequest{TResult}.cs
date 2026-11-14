@@ -20,7 +20,7 @@ public abstract class TransactionTaskRequest<TResult> : TransactionRequestBase
                 return new ValueTask<Response>(Response.FromResult(resultTask.GetAwaiter().GetResult()));
             }
 
-            return CompleteInvokeAsync(resultTask);
+            return CompleteInvoke(resultTask);
         }
         catch (Exception exception)
         {
@@ -28,7 +28,7 @@ public abstract class TransactionTaskRequest<TResult> : TransactionRequestBase
         }
     }
 
-    private static async ValueTask<Response> CompleteInvokeAsync(Task<TResult> resultTask)
+    private static async ValueTask<Response> CompleteInvoke(Task<TResult> resultTask)
     {
         try
         {

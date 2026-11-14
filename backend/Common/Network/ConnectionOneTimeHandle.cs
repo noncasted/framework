@@ -12,10 +12,13 @@ public class ConnectionOneTimeHandle : IDisposable
         _socket = socket;
     }
 
+    // The handshake carries a ticket or credentials, far below this.
+    public const int MaxRequestBytes = 16 * 1024;
+
     private readonly WebSocket _socket;
     private readonly MemoryStream _writeBuffer = new();
 
-    private readonly WebSocketMessageReader _reader = new();
+    private readonly WebSocketMessageReader _reader = new(MaxRequestBytes);
 
     private int _requestId;
 

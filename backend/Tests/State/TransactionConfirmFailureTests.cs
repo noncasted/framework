@@ -8,10 +8,8 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// F2.2: a participant failing to confirm (OnSuccess) after the database commit must not turn the transaction
-/// into a failure: the data is committed, so the result is success and no participant is rolled back.
-/// </summary>
+// a participant failing to confirm (OnSuccess) after the database commit must not turn the transaction
+// into a failure: the data is committed, so the result is success and no participant is rolled back.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class TransactionConfirmFailureTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)
@@ -104,7 +102,7 @@ public class TxConfirmFailingGrain : Grain, ITxConfirmFailingGrain
 
     public Task Write(int value)
     {
-        _participant.Value = TxTestState.Of(value);
+        _participant.SetValue(TxTestState.Of(value));
 
         var handler = (GrainTransactionHandler)GrainContext.GetComponent<IGrainTransactionHandler>().ThrowIfNull();
         handler.RecordStateChanged(_participant);
@@ -124,9 +122,14 @@ public class TxConfirmFailingGrain : Grain, ITxConfirmFailingGrain
 
     private class ConfirmFailingParticipant : IGrainStateTransactionParticipant
     {
-        public TxTestState? Value { get; set; }
+        public TxTestState? Value { get; private set; }
         public int ConfirmCalls { get; private set; }
         public int RollbackCalls { get; private set; }
+
+        public void SetValue(TxTestState value)
+        {
+            Value = value;
+        }
 
         public IStateValue GetState()
         {

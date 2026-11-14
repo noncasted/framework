@@ -3,10 +3,7 @@ using Infrastructure;
 
 namespace Framework.Tests.Fixtures;
 
-/// <summary>
-/// Controls the side effects execution cycle in tests.
-/// Replaces SideEffectsWorker with synchronous pump/drain semantics.
-/// </summary>
+// Runs the side effects in the test instead of SideEffectsWorker: one pump, or a drain until the queue is quiet.
 public class SideEffectTestPipeline
 {
     public SideEffectTestPipeline(
@@ -26,11 +23,7 @@ public class SideEffectTestPipeline
     private readonly IOrleans _orleans;
     private readonly ISideEffectsConfig _config;
 
-    /// <summary>
-    /// OnTime one cycle: requeue ready retries, fetch from queue, execute each.
-    /// Returns the number of entries processed.
-    /// </summary>
-    public async Task<PumpResult> PumpOnceAsync()
+    public async Task<PumpResult> PumpOnce()
     {
         await _storage.RequeueReady();
 
@@ -88,12 +81,9 @@ public class SideEffectTestPipeline
         }
     }
 
-    /// <summary>
-    /// Settle — wait for SE to appear in queue, then drain until quiet.
-    /// </summary>
-    public async Task<DrainResult> SettleAndDrainAsync(int settleTimeoutMs = 500, int maxIterations = 50)
+    // Waits for the first entry to appear in the queue, then drains until quiet.
+    public async Task<DrainResult> SettleAndDrain(int settleTimeoutMs = 500, int maxIterations = 50)
     {
-        // Adaptive settle: poll until queue has something or timeout
         var settleStart = DateTime.UtcNow;
 
         while ((DateTime.UtcNow - settleStart).TotalMilliseconds < settleTimeoutMs)
@@ -103,11 +93,9 @@ public class SideEffectTestPipeline
 
             if (peek.Count > 0)
             {
-                // Put it back (we just want to peek)
-                // Actually Read() moves to processing, so we need to execute it
-                // Let's just proceed to drain
+                // Read moved the entry to processing, so it is executed here and not by the drain.
                 var firstResult = await ExecuteEntry(peek[0]);
-                return await DrainUntilQuietAsync(maxIterations, [firstResult]);
+                return await DrainUntilQuiet(maxIterations, [firstResult]);
             }
 
             await Task.Delay(10);
@@ -116,10 +104,7 @@ public class SideEffectTestPipeline
         return DrainResult.Quiet;
     }
 
-    /// <summary>
-    /// Pump until no more work is found.
-    /// </summary>
-    public async Task<DrainResult> DrainUntilQuietAsync(
+    public async Task<DrainResult> DrainUntilQuiet(
         int maxIterations = 50,
         List<BatchExecutionInfo>? initial = null)
     {
@@ -128,7 +113,7 @@ public class SideEffectTestPipeline
 
         while (iterations < maxIterations)
         {
-            var result = await PumpOnceAsync();
+            var result = await PumpOnce();
 
             if (result.IsEmpty)
                 break;
@@ -138,25 +123,6 @@ public class SideEffectTestPipeline
         }
 
         return new DrainResult(allResults, iterations < maxIterations);
-    }
-
-    /// <summary>
-    /// Pump until a condition is met.
-    /// </summary>
-    public async Task<DrainResult> PumpUntilAsync(Func<bool> condition, int maxIterations = 50)
-    {
-        var allResults = new List<BatchExecutionInfo>();
-
-        for (var i = 0; i < maxIterations && !condition(); i++)
-        {
-            var result = await PumpOnceAsync();
-            allResults.AddRange(result.Batches);
-
-            if (result.IsEmpty)
-                await Task.Delay(50);
-        }
-
-        return new DrainResult(allResults, condition());
     }
 }
 

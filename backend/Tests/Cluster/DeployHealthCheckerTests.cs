@@ -12,7 +12,7 @@ using Xunit;
 
 namespace Framework.Tests.Cluster;
 
-public class DeployHealthCheckerTests
+public class DeployHealthCheckerTests : LifetimeTest
 {
     private readonly Guid _deployId = Guid.NewGuid();
     private readonly ClusterFeaturesState _features = new();
@@ -50,12 +50,12 @@ public class DeployHealthCheckerTests
         var checker = CreateChecker(TestRoles.Meta);
 
         _lastHeartbeat = DateTime.UtcNow - TimeSpan.FromMinutes(1);
-        await checker.Poll(new Lifetime());
+        await checker.Poll(TestLifetime);
 
         _features.CoordinatorUnhealthy.Should().BeTrue();
 
         _lastHeartbeat = DateTime.UtcNow;
-        await checker.Poll(new Lifetime());
+        await checker.Poll(TestLifetime);
 
         _features.CoordinatorUnhealthy.Should().BeFalse();
         _features.AcceptingConnections.Should().BeTrue("recovery must not touch the operator switch");
@@ -69,7 +69,7 @@ public class DeployHealthCheckerTests
         _lastHeartbeat = DateTime.UtcNow;
 
         // The coordinator never closes the deploy itself, but reopens it like everyone else.
-        await CreateChecker(ServiceTag.Coordinator).Poll(new Lifetime());
+        await CreateChecker(ServiceTag.Coordinator).Poll(TestLifetime);
 
         _features.CoordinatorUnhealthy.Should().BeFalse();
     }
@@ -79,7 +79,7 @@ public class DeployHealthCheckerTests
     {
         _lastHeartbeat = DateTime.UtcNow;
 
-        await CreateChecker(TestRoles.Game).Poll(new Lifetime());
+        await CreateChecker(TestRoles.Game).Poll(TestLifetime);
 
         await _clusterFeatures.DidNotReceive().SetCoordinatorUnhealthy(Arg.Any<bool>());
     }
@@ -89,7 +89,7 @@ public class DeployHealthCheckerTests
     {
         _lastHeartbeat = DateTime.UtcNow - TimeSpan.FromMinutes(1);
 
-        await CreateChecker(ServiceTag.Coordinator).Poll(new Lifetime());
+        await CreateChecker(ServiceTag.Coordinator).Poll(TestLifetime);
 
         await _clusterFeatures.DidNotReceive().SetCoordinatorUnhealthy(Arg.Any<bool>());
     }
@@ -105,7 +105,7 @@ public class DeployHealthCheckerTests
         _deployContext.Set(newDeployId, Arg.Any<IReadOnlyLifetime>())
                       .Returns(Task.FromException(new InvalidOperationException("subscriber failed")));
 
-        var act = () => CreateChecker(TestRoles.Meta).Poll(new Lifetime());
+        var act = () => CreateChecker(TestRoles.Meta).Poll(TestLifetime);
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("subscriber failed");
     }
@@ -119,10 +119,25 @@ public class DeployHealthCheckerTests
         _messaging.RuntimePipe.Send<DeployIdResponse>(Arg.Any<IRuntimePipeId>(), Arg.Any<object>())
                   .Returns(_ => new DeployIdResponse { DeployId = newDeployId });
 
-        await CreateChecker(TestRoles.Meta).Poll(new Lifetime());
+        await CreateChecker(TestRoles.Meta).Poll(TestLifetime);
 
         await _deployContext.Received(1).Set(newDeployId, Arg.Any<IReadOnlyLifetime>());
         await _clusterFeatures.DidNotReceive().SetAcceptingConnections(Arg.Any<bool>());
+    }
+
+    [Fact]
+    public async Task CoordinatorReplaced_LeavesItsDeploy()
+    {
+        _lastHeartbeat = DateTime.UtcNow;
+
+        _messaging.RuntimePipe.Send<DeployIdResponse>(Arg.Any<IRuntimePipeId>(), Arg.Any<object>())
+                  .Returns(_ => new DeployIdResponse { DeployId = Guid.NewGuid() });
+
+        await CreateChecker(ServiceTag.Coordinator).Poll(TestLifetime);
+
+        await _clusterFeatures.Received(1).SetAcceptingConnections(false);
+        _deployContext.Received(1).Leave();
+        await _deployContext.DidNotReceive().Set(Arg.Any<Guid>(), Arg.Any<IReadOnlyLifetime>());
     }
 
     private DeployHealthChecker CreateChecker(ServiceTag tag)

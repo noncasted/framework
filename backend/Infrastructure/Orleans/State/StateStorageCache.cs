@@ -12,10 +12,6 @@ public class StateStorageCache
     private readonly ConcurrentDictionary<(string TableName, string Type), string> _readAllQueries = new();
     private readonly ConcurrentDictionary<(string TableName, string Type), string> _readBatchQueries = new();
     private readonly ConcurrentDictionary<(string TableName, string Type), string> _readBatchExtQueries = new();
-    private readonly ConcurrentDictionary<(string TableName, string Type), string> _writeQueries = new();
-    private readonly ConcurrentDictionary<(string TableName, string Type), string> _writeExtQueries = new();
-    private readonly ConcurrentDictionary<(string TableName, string Type), string> _deleteQueries = new();
-    private readonly ConcurrentDictionary<(string TableName, string Type), string> _deleteExtQueries = new();
 
     public string GetReadQuery(StateIdentity stateIdentity)
     {
@@ -62,45 +58,6 @@ public class StateStorageCache
 
         query =
             $"SELECT key, value, version FROM {stateIdentity.TableName} WHERE type = @type AND key = ANY(@keys) {extensionClause}";
-
-        cache[Key(stateIdentity)] = query;
-        return query;
-    }
-
-    public string GetWriteQuery(StateIdentity stateIdentity)
-    {
-        var hasExtension = stateIdentity.Extension != null;
-        var cache = hasExtension ? _writeExtQueries : _writeQueries;
-
-        if (cache.TryGetValue(Key(stateIdentity), out var query))
-            return query;
-
-        var extension = hasExtension ? ", extension" : string.Empty;
-        var extensionParam = hasExtension ? ", @extension" : string.Empty;
-
-        query = $@"
-            insert into {stateIdentity.TableName}
-            (key, type, version, value{extension})
-            values (@key, @type, @version, @value::jsonb{extensionParam})
-            on conflict (key, type{extension})
-            do update set value = EXCLUDED.value
-            ";
-
-        cache[Key(stateIdentity)] = query;
-        return query;
-    }
-
-    public string GetDeleteQuery(StateIdentity stateIdentity)
-    {
-        var hasExtension = stateIdentity.Extension != null;
-        var cache = hasExtension ? _deleteExtQueries : _deleteQueries;
-
-        if (cache.TryGetValue(Key(stateIdentity), out var query))
-            return query;
-
-        var extensionClause = hasExtension ? " AND extension = @extension" : string.Empty;
-
-        query = $"DELETE FROM {stateIdentity.TableName} WHERE key = @key AND type = @type{extensionClause}";
 
         cache[Key(stateIdentity)] = query;
         return query;

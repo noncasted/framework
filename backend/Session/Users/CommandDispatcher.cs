@@ -28,7 +28,6 @@ public class CommandDispatcher : ICommandDispatcher
 
         reader.OneWay.Advise(lifetime, HandleOneWay);
         reader.Requests.Advise(lifetime, HandleRequest);
-        reader.Responses.Advise(lifetime, HandleResponse);
 
         void HandleOneWay(OneWayMessageFromClient oneWay)
         {
@@ -41,11 +40,6 @@ public class CommandDispatcher : ICommandDispatcher
                 var result = _runner.RunRequest(user, request.Context, request.RequestId);
                 writer.WriteResponse(result, request.RequestId);
             });
-        }
-
-        void HandleResponse(ResponseMessageFromClient response)
-        {
-            writer.OnRequestHandled(response.Context, response.RequestId);
         }
     }
 }

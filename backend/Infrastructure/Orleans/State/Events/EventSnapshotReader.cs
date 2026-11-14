@@ -20,7 +20,7 @@ internal class EventSnapshotReader
 
         // Snapshot is an inline projection (see MartenSetupExtensions): missing snapshot = missing stream,
         // so no second round trip to aggregate mt_events for a new stream.
-        var aggregate = await TryLoadAsync<T>(session, streamId);
+        var aggregate = await TryLoad<T>(session, streamId);
 
         if (aggregate == null)
             return new T();
@@ -154,7 +154,7 @@ internal class EventSnapshotReader
 
     // A snapshot that does not deserialize throws: it is not rebuilt from the events behind the caller's back (Rebuild
     // is the explicit way after a manual recovery).
-    private static Task<T?> TryLoadAsync<T>(IQuerySession session, string streamId) where T : class, new()
+    private static Task<T?> TryLoad<T>(IQuerySession session, string streamId) where T : class, new()
     {
         return session.LoadAsync<T>(streamId);
     }

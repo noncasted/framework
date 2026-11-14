@@ -62,7 +62,7 @@ public static class TelemetryStartupParser
 
         return new TelemetryStartupTrace
         {
-            Device = TelemetryBatchParser.ParseDevice(trace.Device),
+            Device = TelemetryDeviceParser.Parse(trace.Device),
             Name = CleanName(trace.Name) ?? string.Empty,
             Final = trace.Final,
             DurationMs = hasDuration ? Math.Round(trace.DurationMs, _timeDecimals) : 0,

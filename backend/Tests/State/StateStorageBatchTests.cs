@@ -7,10 +7,6 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Tests StateStorage batch operations: ReadBatch and WriteBatch (via StateWriteRequest with multiple records).
-/// Basic Write/Read/Delete/ReadAll are covered by StateReadWriteTests.
-/// </summary>
 [Collection(nameof(OrleansIntegrationCollection))]
 public class StateStorageBatchTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

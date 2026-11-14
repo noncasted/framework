@@ -2,10 +2,8 @@ using System.Collections.Concurrent;
 
 namespace Framework.Tests.Grains;
 
-/// <summary>
-/// Holds a call of a test grain until the test releases it. The cluster of the tests lives in this process, so the
-/// grain finds the gate by its id.
-/// </summary>
+// Holds a call of a test grain until the test releases it. The cluster of the tests lives in this process, so the
+// grain finds the gate by its id.
 public sealed class TestGate
 {
     private static readonly ConcurrentDictionary<Guid, TestGate> Gates = new();

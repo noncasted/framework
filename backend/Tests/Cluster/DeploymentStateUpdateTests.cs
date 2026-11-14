@@ -10,11 +10,9 @@ using Xunit;
 
 namespace Framework.Tests.Cluster;
 
-/// <summary>
-/// F2.39: a channel update that does not deserialize fails loudly instead of leaving a silently stale value.
-/// F2.40: updates from the channel and from the own writes arrive on different threads: they are applied one
-/// at a time and the newest one wins.
-/// </summary>
+// a channel update that does not deserialize fails loudly instead of leaving a silently stale value.
+// updates from the channel and from the own writes arrive on different threads: they are applied one
+// at a time and the newest one wins.
 public class DeploymentStateUpdateTests
 {
     [Fact]

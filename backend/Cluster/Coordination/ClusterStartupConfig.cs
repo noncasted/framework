@@ -12,12 +12,6 @@ public interface IClusterStartupConfig
     IReadOnlyList<ServiceTag> RequiredServices { get; }
 }
 
-public class ClusterStartupOptions
-{
-    // Set by the composition root through ConfigureRequiredServices; there is no default set.
-    public IReadOnlyList<ServiceTag> RequiredServices { get; init; } = [];
-}
-
 public class ClusterStartupConfig : IClusterStartupConfig
 {
     public ClusterStartupConfig(IOptions<ClusterStartupOptions> options)
@@ -36,15 +30,4 @@ public class ClusterStartupConfig : IClusterStartupConfig
     }
 
     public IReadOnlyList<ServiceTag> RequiredServices { get; }
-}
-
-public static class ClusterStartupConfigExtensions
-{
-    public static IHostApplicationBuilder ConfigureRequiredServices(
-        this IHostApplicationBuilder builder,
-        params ServiceTag[] required)
-    {
-        builder.Services.AddSingleton(Options.Create(new ClusterStartupOptions { RequiredServices = required }));
-        return builder;
-    }
 }

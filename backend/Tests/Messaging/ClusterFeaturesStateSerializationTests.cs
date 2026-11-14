@@ -19,7 +19,7 @@ public class ClusterFeaturesStateSerializationTests(OrleansTestClusterFixture fi
         var received = new TaskCompletionSource<ClusterFeaturesState>();
         var messaging = GetSiloService<IMessaging>();
 
-        await messaging.ListenChannel<ClusterFeaturesState>(new Lifetime(), channelId, msg =>
+        await messaging.ListenChannel<ClusterFeaturesState>(TestLifetime, channelId, msg =>
         {
             received.TrySetResult(msg);
         });

@@ -6,9 +6,6 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Tests StateCollection timestamp-based idempotency.
-/// </summary>
 [Collection(nameof(OrleansIntegrationCollection))]
 public class StateCollectionIdempotencyTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

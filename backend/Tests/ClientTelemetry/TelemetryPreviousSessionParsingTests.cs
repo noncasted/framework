@@ -11,13 +11,13 @@ public class TelemetryPreviousSessionParsingTests
     [Fact]
     public void None_IsNull()
     {
-        TelemetryBatchParser.ParsePrevious(null).Session.Should().BeNull();
+        TelemetryPreviousParser.Parse(null).Session.Should().BeNull();
     }
 
     [Fact]
     public void AnEmptyId_DropsTheWhole_AndCountsIt()
     {
-        var parsed = TelemetryBatchParser.ParsePrevious(new SharedClientTelemetry.PreviousSession { Tags = ["menu"] });
+        var parsed = TelemetryPreviousParser.Parse(new SharedClientTelemetry.PreviousSession { Tags = ["menu"] });
 
         parsed.Session.Should().BeNull();
         parsed.Rejected.Should().Be(1);
@@ -33,7 +33,7 @@ public class TelemetryPreviousSessionParsingTests
                               .Append(null!)
                               .ToArray();
 
-        var parsed = TelemetryBatchParser.ParsePrevious(new SharedClientTelemetry.PreviousSession
+        var parsed = TelemetryPreviousParser.Parse(new SharedClientTelemetry.PreviousSession
         {
             SessionId = Guid.NewGuid(),
             Tags = ["run", "Bad Tag"],
@@ -56,7 +56,7 @@ public class TelemetryPreviousSessionParsingTests
     [Fact]
     public void TheDetailAndDuration_AreKeptLikeTheOnesOfABatch()
     {
-        var parsed = TelemetryBatchParser.ParsePrevious(new SharedClientTelemetry.PreviousSession
+        var parsed = TelemetryPreviousParser.Parse(new SharedClientTelemetry.PreviousSession
         {
             SessionId = Guid.NewGuid(),
             LastSampleTime = -1,
@@ -86,7 +86,7 @@ public class TelemetryPreviousSessionParsingTests
     [Fact]
     public void TheSamples_AreKeptByTheirNames()
     {
-        var parsed = TelemetryBatchParser.ParsePrevious(Previous(["frame.dt.max", "render.draw_calls"],
+        var parsed = TelemetryPreviousParser.Parse(Previous(["frame.dt.max", "render.draw_calls"],
             new SharedClientTelemetry.Sample { Time = 30_000, Values = [41.5, 120] },
             new SharedClientTelemetry.Sample { Time = 31_000, Values = [double.NaN, 95], Hidden = true },
             new SharedClientTelemetry.Sample { Time = 32_000, Values = [55] },
@@ -104,7 +104,7 @@ public class TelemetryPreviousSessionParsingTests
     [Fact]
     public void NoLists_AreNoSamples()
     {
-        var parsed = TelemetryBatchParser.ParsePrevious(Previous(null, null));
+        var parsed = TelemetryPreviousParser.Parse(Previous(null, null));
 
         parsed.Session!.Samples.Should().BeEmpty();
         parsed.Rejected.Should().Be(0);
@@ -114,7 +114,7 @@ public class TelemetryPreviousSessionParsingTests
     [Fact]
     public void ABadName_DropsItsValues_AndIsCounted()
     {
-        var parsed = TelemetryBatchParser.ParsePrevious(Previous(["frame.dt.max", "Player Ivan", null!, "frame.dt.max", "frame.cpu.main"],
+        var parsed = TelemetryPreviousParser.Parse(Previous(["frame.dt.max", "Player Ivan", null!, "frame.dt.max", "frame.cpu.main"],
             new SharedClientTelemetry.Sample { Time = 1000, Values = [1, 2, 3, 4, 5, 6, 7] }));
 
         parsed.Session!.Samples.Single().Values.Should().BeEquivalentTo(new Dictionary<string, double> { ["frame.dt.max"] = 1, ["frame.cpu.main"] = 5 });
@@ -124,7 +124,7 @@ public class TelemetryPreviousSessionParsingTests
     [Fact]
     public void AnInfiniteValue_IsNoValue_AndIsCounted()
     {
-        var parsed = TelemetryBatchParser.ParsePrevious(Previous(["frame.dt.max", "frame.cpu.main"],
+        var parsed = TelemetryPreviousParser.Parse(Previous(["frame.dt.max", "frame.cpu.main"],
             new SharedClientTelemetry.Sample { Time = 1000, Values = [double.PositiveInfinity, 3] }));
 
         parsed.Session!.Samples.Single().Values.Should().BeEquivalentTo(new Dictionary<string, double> { ["frame.cpu.main"] = 3 });
@@ -134,7 +134,7 @@ public class TelemetryPreviousSessionParsingTests
     [Fact]
     public void ASampleOutOfTime_IsDropped_AndCounted()
     {
-        var parsed = TelemetryBatchParser.ParsePrevious(Previous(["frame.dt.max"],
+        var parsed = TelemetryPreviousParser.Parse(Previous(["frame.dt.max"],
             new SharedClientTelemetry.Sample { Time = -1, Values = [1] },
             null!,
             new SharedClientTelemetry.Sample { Time = ClientTelemetryLimits.MaxPreviousMs + 1, Values = [2] },
@@ -153,7 +153,7 @@ public class TelemetryPreviousSessionParsingTests
                                 .Select(index => new SharedClientTelemetry.Sample { Time = index, Values = names.Select(_ => (double)index).ToArray() })
                                 .ToArray();
 
-        var parsed = TelemetryBatchParser.ParsePrevious(Previous(names, samples));
+        var parsed = TelemetryPreviousParser.Parse(Previous(names, samples));
 
         var kept = parsed.Session!.Samples;
         kept.Should().HaveCount(ClientTelemetryLimits.MaxPreviousSamples);

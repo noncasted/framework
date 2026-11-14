@@ -23,7 +23,7 @@
             The current deploy is preserved.
         </div>
 
-        <button class="btn btn-destructive self-start" disabled="@_isRunning" @onclick="RunCleanup">
+        <BbButton Variant="ButtonVariant.Destructive" class="self-start" Disabled="_isRunning" @onclick="RunCleanup">
             @if (_isRunning)
             {
                 <LucideIcon Name="loader-circle" Size="16" class="animate-spin mr-2"/>
@@ -33,7 +33,7 @@
             {
                 <span>Cleanup deploy states</span>
             }
-        </button>
+        </BbButton>
 
         @if (_lastResult != null)
         {

@@ -15,24 +15,14 @@ using NSubstitute;
 namespace Framework.ClientTelemetry.TestHost.ConsolePages;
 
 // The console of a game around the pages of the framework, for a look in a browser over the data of this host. The audit log is real;
-// its table comes from the deploy setup of a game, so it is created here. The features of the cluster and the online statistics are
+// a game creates its table in the deploy setup, this host creates it here. The features of the cluster and the online statistics are
 // stand-ins: this silo has neither.
 public static class TelemetryHostConsole
 {
-    private const string _auditLogTable = """
-        CREATE TABLE audit_log (
-            id uuid NOT NULL DEFAULT gen_random_uuid(),
-            timestamp timestamptz NOT NULL DEFAULT now(),
-            action text NOT NULL,
-            details text NOT NULL DEFAULT '',
-            PRIMARY KEY (id)
-        )
-        """;
-
     public static async Task Add(WebApplicationBuilder builder, NpgsqlDataSource database)
     {
-        await using (var command = database.CreateCommand(_auditLogTable))
-            await command.ExecuteNonQueryAsync();
+        await using (var connection = await database.OpenConnectionAsync())
+            await AuditLogTable.Create(connection);
 
         // The assets of the packages come from the build output in any environment, this process is never published.
         builder.WebHost.UseStaticWebAssets();
@@ -47,7 +37,7 @@ public static class TelemetryHostConsole
         builder.Services.AddSingleton(source);
         builder.Services.AddSingleton(features);
         builder.Services.AddSingleton<IDeploymentState<OnlineStatsLiveData>, TelemetryHostOnline>();
-        builder.Services.AddSingleton<IAuditLogStorage, AuditLogStorage>();
+        builder.AddConsoleAuditLog();
         builder.AddCommonConsoleComponents();
         builder.Services.AddBlazorBlueprintComponents();
         builder.Services.AddRazorComponents().AddInteractiveServerComponents();

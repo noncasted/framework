@@ -226,7 +226,7 @@ await orleans.InTransaction(async () => {
 });
 ```
 
-**Inside a grain** — use the `Grain.GrainFactory` property (`CommonGrain` / `UserGrain` expose it as `Grains`, see `backend/Infrastructure/Orleans/Utils/CommonGrain.cs`).
+**Inside a grain** — use the `Grain.GrainFactory` property.
 
 ---
 

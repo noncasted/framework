@@ -4,46 +4,6 @@ using Microsoft.Extensions.Hosting;
 
 namespace Infrastructure;
 
-public interface IDurableQueueId
-{
-    string ToRaw();
-}
-
-public class DurableQueueId : IDurableQueueId
-{
-    public DurableQueueId(string id)
-    {
-        _id = id;
-    }
-
-    private readonly string _id;
-
-    public string ToRaw()
-    {
-        return _id;
-    }
-}
-
-public interface IRuntimePipeId
-{
-    string ToRaw();
-}
-
-public class RuntimePipeId : IRuntimePipeId
-{
-    public RuntimePipeId(string id)
-    {
-        _id = id;
-    }
-
-    private readonly string _id;
-
-    public string ToRaw()
-    {
-        return _id;
-    }
-}
-
 public static class MessagingExtensions
 {
     extension(IMessaging messaging)
@@ -135,6 +95,11 @@ public static class MessagingExtensions
 
         builder.Add<RuntimeChannelClient>()
                .As<IRuntimeChannelClient>();
+
+        builder.AddBackendMeter()
+               .AddTraceSource(DurableQueueTelemetry.Source)
+               .AddTraceSource(RuntimePipeTelemetry.Source)
+               .AddTraceSource(RuntimeChannelTelemetry.Source);
 
         return builder;
     }

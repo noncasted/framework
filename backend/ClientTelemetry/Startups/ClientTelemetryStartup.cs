@@ -44,8 +44,8 @@ public class ClientTelemetryStartup : Grain, IClientTelemetryStartup
         {
             Records = new Dictionary<StateIdentity, IStateValue>
             {
-                [Identity<TelemetryStartupState>()] = _startup.Value,
-                [Identity<TelemetryStartupTraceState>()] = TelemetryStartupTraceState.Of(trace)
+                [_storage.IdentityOf<TelemetryStartupState>(Id)] = _startup.Value,
+                [_storage.IdentityOf<TelemetryStartupTraceState>(Id)] = TelemetryStartupTraceState.Of(trace)
             }
         });
 
@@ -61,7 +61,7 @@ public class ClientTelemetryStartup : Grain, IClientTelemetryStartup
         if (!_startup.Value.IsStored || _startup.Value.UpdatedAt > _time.UtcNow - TimeSpan.FromDays(_options.RetentionDays))
             return;
 
-        await _storage.Delete(new StateDeleteRequest { Identities = [Identity<TelemetryStartupState>(), Identity<TelemetryStartupTraceState>()] });
+        await _storage.Delete(new StateDeleteRequest { Identities = [_storage.IdentityOf<TelemetryStartupState>(Id), _storage.IdentityOf<TelemetryStartupTraceState>(Id)] });
 
         // A notification only names the key: every host re-reads the row, finds none and drops the entry.
         await Notify();
@@ -71,10 +71,5 @@ public class ClientTelemetryStartup : Grain, IClientTelemetryStartup
     private Task Notify()
     {
         return _collection.OnUpdated(Id, _startup.Value.Snapshot());
-    }
-
-    private StateIdentity Identity<T>() where T : IStateValue
-    {
-        return GrainContext.GrainId.ToIdentity(_storage.Registry.Get<T>());
     }
 }

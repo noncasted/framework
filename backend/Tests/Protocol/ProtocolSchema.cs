@@ -6,14 +6,12 @@ using Shared;
 
 namespace Framework.Tests.Protocol;
 
-/// <summary>
-/// The wire schema of the framework protocol (shared) and of the union over it declared by this test assembly
-/// (TestNetworkContextUnion, as a project declares its own), built by reflection:
-/// every union tag, the members of every [MemoryPackable] type in serialization order and the values of the enums
-/// those members use. Client and backend compile the same shared sources, so one table describes both sides.
-/// A union is declared either on its base ([MemoryPackable] interface with [MemoryPackUnion]) or, when its types
-/// span both assemblies, on a [MemoryPackUnionFormatter] class (INetworkContext: the union of the project).
-/// </summary>
+// The wire schema of the framework protocol (shared) and of the union over it declared by this test assembly
+// (TestNetworkContextUnion, as a project declares its own), built by reflection:
+// every union tag, the members of every [MemoryPackable] type in serialization order and the values of the enums
+// those members use. Client and backend compile the same shared sources, so one table describes both sides.
+// A union is declared either on its base ([MemoryPackable] interface with [MemoryPackUnion]) or, when its types
+// span both assemblies, on a [MemoryPackUnionFormatter] class (INetworkContext: the union of the project).
 public static class ProtocolSchema
 {
     public static readonly IReadOnlyList<Assembly> SharedAssemblies =

@@ -1,8 +1,10 @@
+using Game.Lobbies;
+
 namespace Game.Hosting;
 
 // The requests of the meta to a game server over the message pipes (MessagePipeServiceRequestId of the server and
 // the request type), answered by SessionEndpoints.
-public class SessionPayloads
+public static class SessionPayloads
 {
     public class Create
     {
@@ -97,17 +99,4 @@ public class SessionPayloads
             [Id(0)] public required LobbyJoinStatus Status { get; init; }
         }
     }
-}
-
-// Same values as SharedSessionRequests.EntryStatus (SessionRequester.ToWire).
-[GenerateSerializer]
-public enum LobbyJoinStatus
-{
-    Ok = 0,
-    NotFound = 1,
-    Full = 2,
-
-    // The lobby of the code has started its match and the match can't be entered now (the lobby is starting it,
-    // the game does not let anybody in at the moment).
-    Started = 3,
 }

@@ -62,10 +62,7 @@ public class LobbyCodeLeases : ILobbyCodeLeases, ILobbyListings
             if (_leases.TryGetValue(lobbySessionId, out lease) == false)
                 throw new InvalidOperationException($"Lobby session {lobbySessionId} holds no code");
 
-            if (lease.IsPassed == true)
-                throw new InvalidOperationException($"The code of lobby session {lobbySessionId} is already passed");
-
-            lease.IsPassed = true;
+            lease.PassToMatch();
             Enqueue(lease, () => _codes.MarkStarted(lease.Code, lobbySessionId, match.Id));
 
             // The lobby is not shown any more; the match shows itself once its players are in.
@@ -125,21 +122,14 @@ public class LobbyCodeLeases : ILobbyCodeLeases, ILobbyListings
     // Under the lock.
     private void ReportLocked(Lease lease, LobbyListing listing)
     {
-        lease.Listing = listing;
-
-        if (lease.IsReportQueued == true)
+        if (lease.QueueReport(listing) == false)
             return;
-
-        lease.IsReportQueued = true;
 
         Enqueue(lease, () => {
             LobbyListing latest;
 
             lock (_lock)
-            {
-                lease.IsReportQueued = false;
-                latest = lease.Listing!;
-            }
+                latest = lease.TakeReport();
 
             return _codes.UpdateListing(lease.Code, lease.LobbySessionId, latest);
         });
@@ -152,7 +142,7 @@ public class LobbyCodeLeases : ILobbyCodeLeases, ILobbyListings
             if (_leases.TryGetValue(lobbySessionId, out var lease) == false)
                 throw new InvalidOperationException($"Closed lobby session {lobbySessionId} holds no code");
 
-            lease.IsLobbyClosed = true;
+            lease.MarkLobbyClosed();
 
             // The match of the lobby holds the code: the lease lives until the match is closed.
             if (lease.IsPassed == true)
@@ -171,15 +161,14 @@ public class LobbyCodeLeases : ILobbyCodeLeases, ILobbyListings
     // Under the lock.
     private void Release(Lease lease)
     {
-        lease.IsReleased = true;
+        lease.MarkReleased();
         Enqueue(lease, () => _codes.Release(lease.Code, lease.LobbySessionId));
     }
 
     // Under the lock. A failed call is logged and does not stop the calls after it.
     private void Enqueue(Lease lease, Func<Task> call)
     {
-        lease.Tail = Run(lease.Tail);
-        lease.Tail.NoAwait();
+        lease.Chain(Run).NoAwait();
 
         async Task Run(Task previous)
         {
@@ -204,18 +193,62 @@ public class LobbyCodeLeases : ILobbyCodeLeases, ILobbyListings
             LobbySessionId = lobbySessionId;
         }
 
-        public readonly string Code;
-        public readonly Guid LobbySessionId;
+        public string Code { get; }
+        public Guid LobbySessionId { get; }
 
-        public bool IsPassed;
-        public bool IsLobbyClosed;
-        public bool IsReleased;
+        public bool IsPassed { get; private set; }
+        public bool IsLobbyClosed { get; private set; }
+        public bool IsReleased { get; private set; }
 
         // The last reported listing (of the lobby, then of its match); null until the lobby reports itself.
-        public LobbyListing? Listing;
-        public bool IsReportQueued;
+        public LobbyListing? Listing { get; private set; }
+
+        private bool _isReportQueued;
 
         // The last registry call of the code.
-        public Task Tail = Task.CompletedTask;
+        private Task _tail = Task.CompletedTask;
+
+        public void PassToMatch()
+        {
+            if (IsPassed == true)
+                throw new InvalidOperationException($"The code of lobby session {LobbySessionId} is already passed");
+
+            IsPassed = true;
+        }
+
+        public void MarkLobbyClosed()
+        {
+            IsLobbyClosed = true;
+        }
+
+        public void MarkReleased()
+        {
+            IsReleased = true;
+        }
+
+        // The listing to send; true when no report is queued yet (the queued one sends the latest listing).
+        public bool QueueReport(LobbyListing listing)
+        {
+            Listing = listing;
+
+            if (_isReportQueued == true)
+                return false;
+
+            _isReportQueued = true;
+            return true;
+        }
+
+        public LobbyListing TakeReport()
+        {
+            _isReportQueued = false;
+            return Listing!;
+        }
+
+        // The next registry call runs after the previous one.
+        public Task Chain(Func<Task, Task> call)
+        {
+            _tail = call(_tail);
+            return _tail;
+        }
     }
 }

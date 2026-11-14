@@ -11,6 +11,18 @@
     return;
 }
 
+@if (_loadError != null)
+{
+    <div class="container mx-auto max-w-5xl px-4 py-4 flex flex-col gap-6">
+        <div class="text-sm text-destructive rounded border border-destructive/30 bg-destructive/10 p-3">@_loadError</div>
+        <BbButton Variant="ButtonVariant.Outline" @onclick="Refresh">
+            <LucideIcon Name="refresh-cw" Size="16" class="mr-2"/>
+            Refresh
+        </BbButton>
+    </div>
+    return;
+}
+
 <div class="container mx-auto max-w-5xl px-4 py-4 flex flex-col gap-6">
 
     <div class="flex items-center justify-between">
@@ -25,7 +37,7 @@
         <table class="w-full text-sm">
             <thead>
             <tr class="border-b bg-muted/50">
-                <th class="h-10 px-4 text-left font-medium text-muted-foreground">Timestamp</th>
+                <th class="h-10 px-4 text-left font-medium text-muted-foreground">Timestamp (UTC)</th>
                 <th class="h-10 px-4 text-left font-medium text-muted-foreground">Action</th>
                 <th class="h-10 px-4 text-left font-medium text-muted-foreground">Details</th>
             </tr>
@@ -33,13 +45,7 @@
             <tbody>
             @foreach (var entry in _entries)
             {
-                <tr class="border-b last:border-b-0 hover:bg-muted/30">
-                    <td class="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">@entry.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                    <td class="px-4 py-2.5 text-xs">
-                        <span class="bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">@entry.Action</span>
-                    </td>
-                    <td class="px-4 py-2.5 text-xs text-muted-foreground break-all">@entry.Details</td>
-                </tr>
+                <AuditEntryRow Entry="entry"/>
             }
             @if (_entries.Count == 0)
             {
@@ -83,6 +89,7 @@
     private int _page;
     private int _totalPages;
     private bool _isLoading = true;
+    private string? _loadError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -98,10 +105,12 @@
             _entries = result.Entries;
             _totalCount = result.TotalCount;
             _totalPages = _totalCount == 0 ? 1 : (_totalCount + PageSize - 1) / PageSize;
+            _loadError = null;
         }
         catch (Exception ex)
         {
-            ToastService.Error($"[AuditLog] {ex.Message}", "Error");
+            _loadError = $"[AuditLog] Failed to read the audit log: {ex.Message}";
+            ToastService.Error(_loadError, "Error");
         }
     }
 

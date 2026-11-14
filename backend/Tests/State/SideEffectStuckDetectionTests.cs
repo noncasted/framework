@@ -6,10 +6,6 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Tests RequeueStuckOlderThan time-based detection, retry count progression,
-/// stats accuracy, and mixed-outcome batch processing.
-/// </summary>
 [Collection(nameof(SideEffectIntegrationCollection))]
 public class SideEffectStuckDetectionTests(SideEffectTestFixture fixture)
     : IntegrationTestBase<SideEffectTestFixture>(fixture)
@@ -38,7 +34,7 @@ public class SideEffectStuckDetectionTests(SideEffectTestFixture fixture)
         await storage.RequeueStuckOlderThan(TimeSpan.FromSeconds(1));
 
         // Entry is now back in queue — drain should execute it
-        var result = await DrainSideEffectsAsync();
+        var result = await DrainSideEffects();
         result.AssertDrainedWithWork();
 
         var targetGrain = GetGrain<ITxTestGrain>(targetId);
@@ -102,7 +98,7 @@ public class SideEffectStuckDetectionTests(SideEffectTestFixture fixture)
         await storage.Write(new AlwaysFailingSideEffect { TrackingId = Guid.NewGuid() });
 
         // Pump once — reads, fails, moves to retry queue
-        var pump = await Pipeline!.PumpOnceAsync();
+        var pump = await Pipeline!.PumpOnce();
         pump.AllSucceeded.Should().BeFalse();
 
         var stats = await storage.GetStats();
@@ -124,7 +120,7 @@ public class SideEffectStuckDetectionTests(SideEffectTestFixture fixture)
         await storage.Write(new FailingTestSideEffect { TargetGrainId = targetId, FailCount = 3 });
 
         // Pump 1 — attempt 1 fails
-        var pump1 = await Pipeline!.PumpOnceAsync();
+        var pump1 = await Pipeline!.PumpOnce();
         pump1.AllSucceeded.Should().BeFalse();
 
         var statsAfter1 = await storage.GetStats();
@@ -133,7 +129,7 @@ public class SideEffectStuckDetectionTests(SideEffectTestFixture fixture)
         await ForceExpireRetryQueue();
 
         // Pump 2 — attempt 2 fails
-        var pump2 = await Pipeline.PumpOnceAsync();
+        var pump2 = await Pipeline.PumpOnce();
         pump2.AllSucceeded.Should().BeFalse();
 
         var statsAfter2 = await storage.GetStats();
@@ -142,13 +138,13 @@ public class SideEffectStuckDetectionTests(SideEffectTestFixture fixture)
         await ForceExpireRetryQueue();
 
         // Pump 3 — attempt 3 fails
-        var pump3 = await Pipeline.PumpOnceAsync();
+        var pump3 = await Pipeline.PumpOnce();
         pump3.AllSucceeded.Should().BeFalse();
 
         await ForceExpireRetryQueue();
 
         // Pump 4 — attempt 4 succeeds
-        var pump4 = await Pipeline.PumpOnceAsync();
+        var pump4 = await Pipeline.PumpOnce();
         pump4.AllSucceeded.Should().BeTrue();
 
         var finalStats = await storage.GetStats();
@@ -178,7 +174,7 @@ public class SideEffectStuckDetectionTests(SideEffectTestFixture fixture)
         await storage.Write(new TestSideEffect { TargetGrainId = goodTarget3 });
 
         // Pump once — all 5 are picked up, 3 succeed, 2 fail
-        var pump = await Pipeline!.PumpOnceAsync();
+        var pump = await Pipeline!.PumpOnce();
         pump.TotalTasks.Should().Be(5);
         pump.AllSucceeded.Should().BeFalse();
 
