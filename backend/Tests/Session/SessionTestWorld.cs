@@ -229,7 +229,7 @@ public class TestSession
 
 // The server side of a client connection: records what the session sends, delivers what the test makes the client
 // send. Like Common.Network.Connection: its lifetime is a child of the session one, Run completes when the connection
-// is closed (by the client, forced by the session, or with the session) and fails on a connection terminated before it.
+// is closed (by the client, forced by the session, or with the session), also on a connection terminated before it.
 public class TestConnection : IConnection, IConnectionReader, IConnectionWriter
 {
     public TestConnection(IReadOnlyLifetime parentLifetime)
@@ -243,14 +243,13 @@ public class TestConnection : IConnection, IConnectionReader, IConnectionWriter
     private readonly List<INetworkContext> _sent = new();
     private readonly ViewableDelegate<OneWayMessageFromClient> _oneWay = new();
     private readonly ViewableDelegate<RequestMessageFromClient> _requests = new();
-    private readonly ViewableDelegate<ResponseMessageFromClient> _responses = new();
 
     public IReadOnlyLifetime Lifetime => _lifetime;
     public IConnectionReader Reader => this;
     public IConnectionWriter Writer => this;
     public IViewableDelegate<OneWayMessageFromClient> OneWay => _oneWay;
     public IViewableDelegate<RequestMessageFromClient> Requests => _requests;
-    public IViewableDelegate<ResponseMessageFromClient> Responses => _responses;
+    public Task Closed => _run.Task;
 
     public int ForceDisconnects { get; private set; }
 
@@ -268,9 +267,6 @@ public class TestConnection : IConnection, IConnectionReader, IConnectionWriter
 
     public Task Run()
     {
-        if (_lifetime.IsTerminated == true)
-            return Task.FromException(new InvalidOperationException("Connection is terminated"));
-
         if (RunFailure != null)
             return Task.FromException(RunFailure);
 
@@ -308,19 +304,10 @@ public class TestConnection : IConnection, IConnectionReader, IConnectionWriter
             _sent.Add(context);
     }
 
-    public Task<T> WriteRequest<T>(INetworkContext context) where T : INetworkContext
-    {
-        throw new NotSupportedException("The session sends no requests in these tests");
-    }
-
     public void WriteResponse(INetworkContext context, int requestId)
     {
         lock (_sent)
             _sent.Add(context);
-    }
-
-    public void OnRequestHandled(INetworkContext context, int requestId)
-    {
     }
 }
 

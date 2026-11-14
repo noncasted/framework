@@ -148,7 +148,8 @@ public class ConnectionCloseTests
         await AssertCloseFrame(client);
     }
 
-    // The session of the connection is over before its Run: the client still gets the close, not a reset.
+    // The session of the connection is over before its Run: the client still gets the close, not a reset, and the Run ends
+    // as an ordinary disconnect.
     [Fact]
     public async Task Run_AfterTheEndOfTheParent_ClientGetsCloseFrame()
     {
@@ -158,7 +159,7 @@ public class ConnectionCloseTests
         await AssertCloseFrame(client);
 
         (await server.Finished.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken))
-            .Should().BeOfType<InvalidOperationException>();
+            .Should().BeNull();
     }
 
     // The session of the connection ends while the read loop waits for the client: the client gets the close, not a reset
@@ -364,6 +365,9 @@ public class ConnectionCloseTests
 
                 setup?.Invoke(connection);
 
+                // Run reads only with a handler (the session advises its dispatcher before it).
+                connection.Reader.Requests.Advise(connection.Lifetime, _ => { });
+
                 if (forceDisconnect != null)
                 {
                     await RunWithForceDisconnect(connection, forceDisconnect.Value);
@@ -408,15 +412,8 @@ public class ConnectionCloseTests
             if (moment == ForceDisconnectMoment.WithRun)
                 start.SignalAndWait();
 
-            try
-            {
-                await connection.Run();
-            }
-            catch (InvalidOperationException)
-            {
-                // A Run after the disconnect: the connection is terminated, what the client got is the point here.
-            }
-
+            // A Run after the disconnect completes as the disconnect: what the client got is the point here.
+            await connection.Run();
             await disconnect;
         }
 

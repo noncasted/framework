@@ -11,7 +11,15 @@ public interface IConnection
     IConnectionReader Reader { get; }
     IConnectionWriter Writer { get; }
 
+    // Completes once the socket is closed: the close frame went out or the client is gone. The owner of the socket (the
+    // handler of its request) returns only after it, a socket that ends with its handler takes the close frame with it.
+    Task Closed { get; }
+
+    // Reads the socket until the connection ends and completes after Closed. The handlers of Reader are advised before:
+    // a message read before them would be lost, so a run without a handler throws. A connection ended before the run is
+    // an ordinary disconnect: the run closes it and completes.
     Task Run();
+
     void ForceDisconnect();
 }
 
@@ -20,12 +28,14 @@ public class Connection : IConnection
     public Connection(WebSocket webSocket, IReadOnlyLifetime parentLifetime, ILogger logger)
     {
         _webSocket = webSocket;
+        _logger = logger;
         _lifetime = parentLifetime.Child();
         _reader = new ConnectionReader(webSocket, logger);
         _writer = new ConnectionWriter(webSocket, logger);
     }
 
     private readonly WebSocket _webSocket;
+    private readonly ILogger _logger;
     private static readonly TimeSpan CloseTimeout = TimeSpan.FromSeconds(2);
 
     private readonly ILifetime _lifetime;
@@ -43,8 +53,7 @@ public class Connection : IConnection
     // same: the loop may be about to receive, and a receive with a cancelled token aborts the socket.
     private readonly TaskCompletionSource _readEnded = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    // The close is over, the close frame went out or the client is gone. Run ends after it: the handler that awaits Run
-    // owns the socket, and a socket that ends with the handler takes the frame with it.
+    // The close is over (Closed). Run ends after it.
     private readonly TaskCompletionSource _closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     private int _isClosing;
@@ -52,15 +61,23 @@ public class Connection : IConnection
     public IReadOnlyLifetime Lifetime => _lifetime;
     public IConnectionReader Reader => _reader;
     public IConnectionWriter Writer => _writer;
+    public Task Closed => _closed.Task;
 
     public async Task Run()
     {
-        if (_lifetime.IsTerminated == true)
+        // Neither reads: the close is still made, so Closed completes for the owner either way.
+        if (_lifetime.IsTerminated == true || _reader.HasHandlers == false)
         {
+            var isMisused = _lifetime.IsTerminated == false;
+
             _readEnded.TrySetResult();
-            OnDisconnected();
+            ForceDisconnect();
             await _closed.Task;
-            throw new InvalidOperationException("Connection is terminated");
+
+            if (isMisused == true)
+                throw new InvalidOperationException("Connection.Run without a handler of its reader: advise Reader first");
+
+            return;
         }
 
         _lifetime.Listen(OnDisconnected);
@@ -114,7 +131,8 @@ public class Connection : IConnection
         catch (Exception e) when (e is WebSocketException or ObjectDisposedException or IOException
                                       or OperationCanceledException)
         {
-            // Close is best-effort: the client may already be gone without completing the handshake.
+            // The client may already be gone without completing the handshake: the connection ends without the frame.
+            _logger.LogInformation("[Connection] Close frame not delivered: {Reason}", e.Message);
         }
         finally
         {

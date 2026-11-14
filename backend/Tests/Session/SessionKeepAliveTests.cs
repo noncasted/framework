@@ -126,6 +126,7 @@ public class SessionKeepAliveTests
 
                 var lifetime = new Lifetime();
                 var connection = new Connection(webSocket, lifetime, logger);
+                connection.Reader.Requests.Advise(lifetime, _ => { });
 
                 try
                 {
