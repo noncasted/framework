@@ -1,7 +1,6 @@
 using System.Text;
 using Common;
 using Common.Extensions;
-using Microsoft.Extensions.Logging;
 using Npgsql;
 using Shared;
 
@@ -15,14 +14,8 @@ public class StatePageResult<TKey, TValue>
 
 public interface IStateStorageReader
 {
-    /// <summary>
-    /// Reads a page of states. For event-sourced states the data comes from Marten snapshots,
-    /// for the rest - directly from the grain state table.
-    /// </summary>
-    /// <param name="orderByProperty">
-    /// Name of the property to sort by. Used only for event-sourced states;
-    /// the direct storage is always sorted by key.
-    /// </param>
+    // Event-sourced states come from the Marten snapshots, the rest from the grain state table. orderByProperty
+    // sorts only the event-sourced ones: the direct storage is always sorted by key.
     Task<StatePageResult<TKey, TValue>> ReadPage<TKey, TValue>(
         int offset,
         int limit,
@@ -39,15 +32,13 @@ public class StateStorageReader : IStateStorageReader
         IEventStorage eventStorage,
         IDbSource dbSource,
         IStateSerializer serializer,
-        IStateMigrations migrations,
-        ILogger<StateStorageReader> logger)
+        IStateMigrations migrations)
     {
         _statesRegistry = statesRegistry;
         _eventStorage = eventStorage;
         _dbSource = dbSource;
         _serializer = serializer;
         _migrations = migrations;
-        _logger = logger;
     }
 
     private readonly IGrainStatesRegistry _statesRegistry;
@@ -55,7 +46,6 @@ public class StateStorageReader : IStateStorageReader
     private readonly IDbSource _dbSource;
     private readonly IStateSerializer _serializer;
     private readonly IStateMigrations _migrations;
-    private readonly ILogger<StateStorageReader> _logger;
 
     public async Task<StatePageResult<TKey, TValue>> ReadPage<TKey, TValue>(
         int offset,
@@ -68,81 +58,61 @@ public class StateStorageReader : IStateStorageReader
         var stateInfo = _statesRegistry.Get<TValue>();
         var latestVersion = _migrations.GetLatestVersion<TValue>();
 
-        try
+        // Event-sourced states are stored not in the grain state table but in Marten snapshots.
+        if (typeof(TValue).IsAssignableTo(typeof(IEventStateValue)))
         {
-            // Event-sourced states are stored not in the grain state table but in Marten snapshots.
-            if (typeof(TValue).IsAssignableTo(typeof(IEventStateValue)))
-            {
-                return await _eventStorage.ReadPage<TKey, TValue>(
-                    stateInfo.Name + ":",
-                    stateInfo.KeyType,
-                    offset,
-                    limit,
-                    orderByProperty,
-                    descending);
-            }
-
-            await using var connection = await _dbSource.Value.OpenConnectionAsync();
-
-            await using var countCmd = connection.CreateCommand();
-
-            countCmd.CommandText =
-                $"SELECT COUNT(*)::int FROM {stateInfo.TableName} WHERE type = @type AND value IS NOT NULL";
-            countCmd.Parameters.AddWithValue("type", stateInfo.Name);
-            var totalCount = (int)(await countCmd.ExecuteScalarAsync()).ThrowIfNull();
-
-            await using var cmd = connection.CreateCommand();
-
-            cmd.CommandText =
-                $"SELECT key, value, version FROM {stateInfo.TableName} WHERE type = @type AND value IS NOT NULL ORDER BY key DESC OFFSET @offset LIMIT @limit";
-            cmd.Parameters.AddWithValue("type", stateInfo.Name);
-            cmd.Parameters.AddWithValue("offset", offset);
-            cmd.Parameters.AddWithValue("limit", limit);
-
-            var entries = new List<(TKey Key, TValue Value)>();
-            await using var reader = await cmd.ExecuteReaderAsync();
-
-            while (await reader.ReadAsync())
-            {
-                try
-                {
-                    var key = ReadKeyFromReader<TKey>(reader, stateInfo);
-
-                    var payloadBinary = reader.GetFieldValue<byte[]>(1);
-                    var version = reader.GetFieldValue<int>(2);
-
-                    var startIndex = payloadBinary[0] == 0x01 ? 1 : 0;
-                    var raw = Encoding.UTF8.GetString(payloadBinary, startIndex, payloadBinary.Length - startIndex);
-
-                    var value = version < latestVersion
-                        ? _migrations.Migrate<TValue>(raw, version)
-                        : _serializer.TryDeserialize<TValue>(raw)!;
-
-                    entries.Add((key, value));
-                }
-                catch (Exception e)
-                {
-                    _logger.LogWarning(e, "[StateStorageReader] Failed to deserialize entry, skipping");
-                }
-            }
-
-            return new StatePageResult<TKey, TValue>
-            {
-                Entries = entries,
-                TotalCount = totalCount
-            };
+            return await _eventStorage.ReadPage<TKey, TValue>(
+                stateInfo.Name + ":",
+                stateInfo.KeyType,
+                offset,
+                limit,
+                orderByProperty,
+                descending);
         }
-        catch (Exception e)
+
+        await using var connection = await _dbSource.Value.OpenConnectionAsync();
+
+        await using var countCmd = connection.CreateCommand();
+
+        countCmd.CommandText =
+            $"SELECT COUNT(*)::int FROM {stateInfo.TableName} WHERE type = @type AND value IS NOT NULL";
+        countCmd.Parameters.AddWithValue("type", stateInfo.Name);
+        var totalCount = (int)(await countCmd.ExecuteScalarAsync()).ThrowIfNull();
+
+        await using var cmd = connection.CreateCommand();
+
+        cmd.CommandText =
+            $"SELECT key, value, version FROM {stateInfo.TableName} WHERE type = @type AND value IS NOT NULL ORDER BY key DESC OFFSET @offset LIMIT @limit";
+        cmd.Parameters.AddWithValue("type", stateInfo.Name);
+        cmd.Parameters.AddWithValue("offset", offset);
+        cmd.Parameters.AddWithValue("limit", limit);
+
+        var entries = new List<(TKey Key, TValue Value)>();
+        await using var reader = await cmd.ExecuteReaderAsync();
+
+        // A row that does not read throws: a skipped one would still be counted by TotalCount.
+        while (await reader.ReadAsync())
         {
-            _logger.LogError(e, "[StateStorageReader] Failed to read page {Type} (offset={Offset}, limit={Limit})",
-                typeof(TValue).Name, offset, limit);
+            var key = ReadKeyFromReader<TKey>(reader, stateInfo);
 
-            return new StatePageResult<TKey, TValue>
-            {
-                Entries = [],
-                TotalCount = 0
-            };
+            var payloadBinary = reader.GetFieldValue<byte[]>(1);
+            var version = reader.GetFieldValue<int>(2);
+
+            var startIndex = payloadBinary[0] == 0x01 ? 1 : 0;
+            var raw = Encoding.UTF8.GetString(payloadBinary, startIndex, payloadBinary.Length - startIndex);
+
+            var value = version < latestVersion
+                ? _migrations.Migrate<TValue>(raw, version)
+                : _serializer.Deserialize<TValue>(raw);
+
+            entries.Add((key, value));
         }
+
+        return new StatePageResult<TKey, TValue>
+        {
+            Entries = entries,
+            TotalCount = totalCount
+        };
     }
 
     private static TKey ReadKeyFromReader<TKey>(NpgsqlDataReader reader, GrainStateInfo info) => info.KeyType switch
