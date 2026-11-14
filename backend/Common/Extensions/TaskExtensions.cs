@@ -62,8 +62,10 @@ public static class TaskExtensions
                 }
 
                 return true;
+            // Another exception that wraps a cancellation is a failure of its own (a transport error behind an aborted
+            // read): only a task cancelled or failed with cancellations alone ends quietly.
             default:
-                return exception.InnerException.IsOperationCanceled();
+                return false;
         }
     }
 }
