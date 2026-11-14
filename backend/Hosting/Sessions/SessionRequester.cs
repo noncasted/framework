@@ -2,6 +2,7 @@ using Cluster.Coordination;
 using Cluster.Discovery;
 using Cluster.Lobbies;
 using Common.Network;
+using Game.Lobbies;
 using Infrastructure;
 using Microsoft.Extensions.Logging;
 using Shared;
@@ -148,19 +149,12 @@ public class SessionRequester : ISessionRequester
 
         async Task<SharedSessionRequests.Result> Join()
         {
-            // The code is typed by a user: anything that is not a code never reaches the registry.
-            if (LobbyCode.IsValid(code) == false)
+            var lobby = await FindLobby(code);
+
+            if (lobby == null)
                 return Refused(code, LobbyJoinStatus.NotFound);
 
-            var entry = await _lobbyCodes.Find(code);
-
-            if (entry == null)
-                return Refused(code, LobbyJoinStatus.NotFound);
-
-            // The server of the lobby is gone (its codes stay in the registry until the next deploy).
-            if (_serviceDiscovery.Entries.TryGetValue(entry.ServerId, out var overview) == false ||
-                overview is not GameServerOverview targetServer)
-                return Refused(code, LobbyJoinStatus.NotFound);
+            var (entry, targetServer) = lobby.Value;
 
             // A lobby that has left for its match (the code is held until the match is closed) leads to the lobby
             // of the late players of the match.
@@ -198,18 +192,13 @@ public class SessionRequester : ISessionRequester
 
         async Task<SharedSessionRequests.Result> Join()
         {
-            if (LobbyCode.IsValid(code) == false)
-                return Refused(code, LobbyJoinStatus.NotFound);
-
-            var entry = await _lobbyCodes.Find(code);
+            var lobby = await FindLobby(code);
 
             // The code is released with its match: the match is over.
-            if (entry == null || entry.MatchSessionId == Guid.Empty)
+            if (lobby == null || lobby.Value.Entry.MatchSessionId == Guid.Empty)
                 return Refused(code, LobbyJoinStatus.NotFound);
 
-            if (_serviceDiscovery.Entries.TryGetValue(entry.ServerId, out var overview) == false ||
-                overview is not GameServerOverview targetServer)
-                return Refused(code, LobbyJoinStatus.NotFound);
+            var (entry, targetServer) = lobby.Value;
 
             var request = new SessionPayloads.MatchJoin.Request
             {
@@ -231,6 +220,26 @@ public class SessionRequester : ISessionRequester
     public string IssueTicket(Guid userId, Guid sessionId)
     {
         return _tickets.Issue(userId, sessionId);
+    }
+
+    // The registry entry of the code and its game server; null when the code leads nowhere.
+    private async Task<(LobbyRegistryEntry Entry, GameServerOverview Server)?> FindLobby(string code)
+    {
+        // The code is typed by a user: anything that is not a code never reaches the registry.
+        if (LobbyCode.IsValid(code) == false)
+            return null;
+
+        var entry = await _lobbyCodes.Find(code);
+
+        if (entry == null)
+            return null;
+
+        // The server of the lobby is gone (its codes stay in the registry until the next deploy).
+        if (_serviceDiscovery.Entries.TryGetValue(entry.ServerId, out var overview) == false ||
+            overview is not GameServerOverview server)
+            return null;
+
+        return (entry, server);
     }
 
     // The values of the wire are pinned: the client switches on them.

@@ -5,6 +5,7 @@ using Framework.Tests.Cluster;
 using Framework.Tests.Security;
 using Framework.Tests.Session;
 using Game.Hosting;
+using Game.Lobbies;
 using Game.Session;
 using Infrastructure;
 using Internal;
