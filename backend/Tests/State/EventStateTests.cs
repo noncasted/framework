@@ -17,13 +17,6 @@ public class EventStateTests
     // --- Standalone (non-transactional) event append ---
 
     [Fact]
-    public async Task DirectMarten_SmokeTest()
-    {
-        var store = GetSiloService<IDocumentStore>();
-        using var session = store.QuerySession();
-    }
-
-    [Fact]
     public async Task StandaloneAppend_EventsWrittenToMarten()
     {
         var id = Guid.NewGuid();

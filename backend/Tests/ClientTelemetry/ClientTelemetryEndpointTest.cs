@@ -4,6 +4,7 @@ using Common.Extensions;
 using Framework.Tests.Fixtures;
 using Framework.Tests.Security;
 using Game.ClientTelemetry;
+using Internal;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,6 +25,7 @@ public abstract class ClientTelemetryEndpointTest : ClientTelemetryStorageTest
     protected const string TestToken = "secret";
 
     private readonly List<TestWebHost> _hosts = new();
+    private readonly Lifetime _lifetime = new();
 
     protected IClientTelemetrySwitch Switch { get; } = Substitute.For<IClientTelemetrySwitch>();
 
@@ -34,6 +36,7 @@ public abstract class ClientTelemetryEndpointTest : ClientTelemetryStorageTest
         foreach (var host in _hosts)
             await host.DisposeAsync();
 
+        _lifetime.Terminate();
         await base.DisposeAsync();
     }
 
@@ -45,7 +48,8 @@ public abstract class ClientTelemetryEndpointTest : ClientTelemetryStorageTest
 
     protected async Task<TestWebHost> StartHost(
         Action<WebApplicationBuilder>? configure = null,
-        Action<WebApplication>? map = null)
+        Action<WebApplication>? map = null,
+        bool ownCollections = false)
     {
         var builder = TestWebHost.CreateBuilder("Production", (AllowedOrigins.ConfigurationKey, Origin));
 
@@ -54,13 +58,23 @@ public abstract class ClientTelemetryEndpointTest : ClientTelemetryStorageTest
         builder.AddClientTelemetry(Cluster.Options);
         builder.Services.AddSingleton(Switch);
 
-        // The collection of the silo: a gateway of the test sees what the grain has told at once. The way through the queue to
-        // another host is covered apart.
-        builder.Services.AddSingleton(Cluster.Collection);
-        builder.Services.AddSingleton(Cluster.Startups);
+        // The collections of the silo: a gateway of the test sees what the grain has told at once. A gateway with its own
+        // collections learns it only through the queue of their updates, as another host does.
+        if (ownCollections == false)
+        {
+            builder.Services.AddSingleton(Cluster.Collection);
+            builder.Services.AddSingleton(Cluster.Startups);
+        }
+
         configure?.Invoke(builder);
 
         var app = builder.Build();
+
+        if (ownCollections == true)
+        {
+            await app.Services.GetRequiredService<TelemetrySessionCollection>().OnLocalSetupCompleted(_lifetime);
+            await app.Services.GetRequiredService<TelemetryStartupCollection>().OnLocalSetupCompleted(_lifetime);
+        }
 
         app.UseAllowedOrigins();
         app.UseRouting();
