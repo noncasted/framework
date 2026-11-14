@@ -5,7 +5,7 @@ namespace Game.MatchMetrics;
 
 // Opens a stream by its writer: the first Open creates the row, an Open after a reconnect (to any gateway) finds the same
 // row with its last seq and slots.
-public sealed class MatchMetricStreamStore
+internal sealed class MatchMetricStreamStore
 {
     public MatchMetricStreamStore(IDbSource db)
     {
@@ -45,22 +45,7 @@ public sealed class MatchMetricStreamStore
             lastSeq = reader.GetInt32(1);
         }
 
-        var slots = new Dictionary<int, MatchMetricSlot>();
-
-        await using (var command = connection.CreateCommand())
-        {
-            command.CommandText = $"""
-                                   SELECT slot.slot, slot.series_id, series.kind
-                                   FROM {MatchMetricsSchema.Slots} slot JOIN {MatchMetricsSchema.Series} series ON series.id = slot.series_id
-                                   WHERE slot.stream_id = @id
-                                   """;
-            command.Parameters.AddWithValue("id", id);
-
-            await using var reader = await command.ExecuteReaderAsync();
-
-            while (await reader.ReadAsync())
-                slots.Add(reader.GetInt16(0), new MatchMetricSlot(reader.GetInt32(1), (SharedMatchMetrics.MatchSeriesKind)reader.GetInt16(2)));
-        }
+        var slots = await MatchMetricSlots.Read(connection, id);
 
         return new MatchMetricStream(id, matchId, lastSeq, slots);
     }

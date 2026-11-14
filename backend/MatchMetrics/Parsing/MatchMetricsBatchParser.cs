@@ -7,7 +7,7 @@ namespace Game.MatchMetrics;
 // The client is not trusted: every rule of the contract is checked here, a batch that breaks one throws
 // MatchMetricsRejectedException. Names, keys and texts pass only the closed charset of SharedMatchMetricNames, so the json built
 // from them needs no escaping.
-public static class MatchMetricsBatchParser
+internal static class MatchMetricsBatchParser
 {
     // Slots: the series of the stream known before this batch and their kinds.
     public static ParsedMatchBatch Parse(SharedMatchMetrics.Batch batch, IReadOnlyDictionary<int, SharedMatchMetrics.MatchSeriesKind> slots)
@@ -31,6 +31,7 @@ public static class MatchMetricsBatchParser
 
         var result = new List<ParsedMatchSeries>(declarations.Length);
         var taken = new HashSet<int>();
+        var keys = new HashSet<MatchSeriesKey>();
 
         foreach (var declaration in declarations)
         {
@@ -47,6 +48,10 @@ public static class MatchMetricsBatchParser
                 throw Reject($"The kind {declaration.Kind} of a series");
 
             var key = new MatchSeriesKey(declaration.Name, ParseTags(declaration.TagKeys, declaration.TagValues));
+
+            if (keys.Add(key) == false)
+                throw Reject($"The series {key.Name} {key.Tags} in two slots");
+
             result.Add(new ParsedMatchSeries(declaration.Slot, key, declaration.Kind));
         }
 
@@ -122,7 +127,25 @@ public static class MatchMetricsBatchParser
             result.Add(new ParsedMatchChunk(chunk.Slot, chunk.Start, chunk.AgeMs, chunk.Values));
         }
 
+        RequireDisjoint(result);
+
         return result;
+    }
+
+    // A bucket of a series once a batch: two chunks with one start would break the key of the table, overlapping ones would
+    // count their common buckets twice.
+    private static void RequireDisjoint(List<ParsedMatchChunk> chunks)
+    {
+        var ordered = chunks.OrderBy(chunk => chunk.Slot).ThenBy(chunk => chunk.Start).ToList();
+
+        for (var i = 1; i < ordered.Count; i++)
+        {
+            var previous = ordered[i - 1];
+            var chunk = ordered[i];
+
+            if (chunk.Slot == previous.Slot && chunk.Start < previous.Start + previous.Values.Length)
+                throw Reject($"The chunks of the slot {chunk.Slot} from {previous.Start} and {chunk.Start} overlap");
+        }
     }
 
     private static SharedMatchMetrics.MatchSeriesKind KindOf(

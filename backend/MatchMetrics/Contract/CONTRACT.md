@@ -21,15 +21,15 @@ MemoryPack messages over the meta socket of a client (`shared/MatchMetrics/Share
 - A failure of the server (database, admission) is an error response: the client keeps the batch and sends it again.
 - The admission is asked on `Open` and again by a batch when its answer is older than `AdmissionRecheck` (60 s).
 
-## Rules of a batch (`MatchMetricsBatchParser`, `MatchMetricsLimits`)
+## Rules of a batch (`MatchMetricsBatchParser`; `SharedMatchMetricNames`, `SharedMatchMetricsLimits`, `MatchMetricsLimits`)
 
 - Names of series and events `[a-z0-9._]` up to 64; tag and field keys `[a-z0-9._]` up to 32; tag values and field texts
   `[a-z0-9._-]` up to 32. No free text.
 - `Series` - the series first used in this batch: a new slot 0..255 of the stream, not declared before; up to 4 tags, no key
   twice; `Kind` `Counter` or `Gauge`. The same name and tags (in any order) are one series of the game; another kind for them
-  is rejected.
+  is rejected. A series is in one slot of a stream: declared twice in a batch or again in another slot - rejected.
 - `Chunks`: a declared slot, at least one value, buckets `Start .. Start + n` within 0..86400, up to 4096 chunks and 65536
-  values a batch; no infinity; `NaN` only in a gauge (unchanged in the bucket); `AgeMs` 0..86 400 000.
+  values a batch; the chunks of one slot in a batch do not overlap (no bucket twice, no two with one `Start`); no infinity; `NaN` only in a gauge (unchanged in the bucket); `AgeMs` 0..86 400 000.
 - `Events`: up to 1024, `Time` finite 0..86400, up to 8 fields with distinct keys, a number finite or a text.
 
 ## Storage (`MatchMetricsSchema`)
@@ -62,4 +62,4 @@ In the process: `AddMatchMetricsReader()`, `IMatchMetricsReader`. Over HTTP: GET
   same unit. The points of a match are summed in memory of the host.
 - Totals are summed in SQL over `match_metric_totals`: `sum`, `count` of the values, `max`, `streams` - the streams in the group.
 - A name, a tag or a key out of the rule of names, a key twice, a step or an axis not listed, a group of counters and gauges -
-  400 with the reason; a failure of the database - 503 (repeat). Every value of a query is a parameter of SQL.
+  400 with the reason; a failure of the database (`DbException`) or a timeout - 503 (repeat); any other failure - 500. Every value of a query is a parameter of SQL.

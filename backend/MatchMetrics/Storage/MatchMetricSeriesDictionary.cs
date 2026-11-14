@@ -9,7 +9,7 @@ namespace Game.MatchMetrics;
 // The ids of the series of the game, cached for the life of the host: a row of the dictionary never changes or goes. Written
 // outside the transaction of a batch, so a batch that fails leaves no id in the cache without its row. The same name and
 // tags with another kind break the contract.
-public sealed class MatchMetricSeriesDictionary
+internal sealed class MatchMetricSeriesDictionary
 {
     public MatchMetricSeriesDictionary(IDbSource db)
     {

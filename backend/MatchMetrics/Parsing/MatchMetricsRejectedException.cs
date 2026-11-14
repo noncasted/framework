@@ -1,7 +1,7 @@
 namespace Game.MatchMetrics;
 
 // A batch that breaks the contract: answered Rejected, the client stops the stream.
-public sealed class MatchMetricsRejectedException : Exception
+internal sealed class MatchMetricsRejectedException : Exception
 {
     public MatchMetricsRejectedException(string message) : base(message)
     {
