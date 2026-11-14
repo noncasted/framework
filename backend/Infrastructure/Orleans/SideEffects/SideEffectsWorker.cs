@@ -68,6 +68,7 @@ public class SideEffectsWorker : IHostedService
         }
         catch (OperationCanceledException) when (lifetime.IsTerminated == true)
         {
+            // The stop of the worker: the loop just ends, StopAsync waits for the effects in progress.
         }
     }
 
@@ -107,13 +108,10 @@ public class SideEffectsWorker : IHostedService
             foundWork = entries.Count > 0;
             BackendMetrics.SideEffectQueueDepth.Record(entries.Count);
 
+            // The read moved the entries to processing: they run even when the stop came meanwhile, otherwise they
+            // hang there until the stuck check of another worker. StopAsync waits for them.
             foreach (var entry in entries)
-            {
-                if (_shutdownCts.IsCancellationRequested)
-                    break;
-
-                ExecuteEntry(entry, lifetime).NoAwait();
-            }
+                ExecuteEntry(entry).NoAwait();
         }
         catch (OperationCanceledException) when (lifetime.IsTerminated == true)
         {
@@ -128,7 +126,7 @@ public class SideEffectsWorker : IHostedService
         await Task.Delay(delay, lifetime.Token);
     }
 
-    private async Task ExecuteEntry(SideEffectEntry entry, IReadOnlyLifetime lifetime)
+    private async Task ExecuteEntry(SideEffectEntry entry)
     {
         using var activity = TraceExtensions.SideEffects.StartActivity("SideEffect.Execute");
         activity?.SetTag("side_effect.retry_count", entry.RetryCount);
@@ -151,8 +149,7 @@ public class SideEffectsWorker : IHostedService
                                        _storage.CompleteProcessing(npgsqlTransaction, entry.Id))
                                    .Run();
 
-                if (!result.IsSuccess)
-                    throw new Exception("[SideEffects] Transactional side effect failed.");
+                result.ThrowIfFailed();
             }
             else
             {
