@@ -1,3 +1,4 @@
+using Cluster.Discovery;
 using Cluster.Lobbies;
 using FluentAssertions;
 using Framework.Tests.Fixtures;
@@ -144,10 +145,12 @@ public class LobbyRegistryTests(OrleansTestClusterFixture fixture) : Integration
     [Fact]
     public async Task UpdateListing_OpenLobbyWithFreePlace_IsListed_ClosedOrFull_IsNot()
     {
-        var registry = GetGrain<ILobbyRegistry>(Guid.NewGuid());
+        var deployId = Guid.NewGuid();
+        var registry = GetGrain<ILobbyRegistry>(deployId);
         var serverId = Guid.NewGuid();
         var sessionId = Guid.NewGuid();
         var leader = Guid.NewGuid();
+        await Announce(deployId, serverId);
         var code = await registry.Register(serverId, sessionId);
 
         (await registry.GetOpenLobbies()).Entries.Should().BeEmpty();
@@ -174,12 +177,16 @@ public class LobbyRegistryTests(OrleansTestClusterFixture fixture) : Integration
     [Fact]
     public async Task Release_ListedLobby_LeavesTheList_VersionGrows()
     {
-        var registry = GetGrain<ILobbyRegistry>(Guid.NewGuid());
+        var deployId = Guid.NewGuid();
+        var registry = GetGrain<ILobbyRegistry>(deployId);
+        var serverId = Guid.NewGuid();
         var sessionId = Guid.NewGuid();
-        var code = await registry.Register(Guid.NewGuid(), sessionId);
+        await Announce(deployId, serverId);
+        var code = await registry.Register(serverId, sessionId);
 
         await registry.UpdateListing(code, sessionId, Listing(Guid.NewGuid(), isOpen: true, players: 1));
         var listed = await registry.GetOpenLobbies();
+        listed.Entries.Should().ContainSingle();
 
         await registry.Release(code, sessionId);
         var released = await registry.GetOpenLobbies();
@@ -197,6 +204,17 @@ public class LobbyRegistryTests(OrleansTestClusterFixture fixture) : Integration
         var update = () => registry.UpdateListing(code, Guid.NewGuid(), Listing(Guid.NewGuid(), isOpen: true, players: 1));
 
         await update.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    // A lobby is listed only while its game server is alive in the discovery of the deploy.
+    private Task Announce(Guid deployId, Guid serverId)
+    {
+        return GetGrain<IServiceDiscoveryStorage>(deployId).Update(new ServiceOverview
+        {
+            Id = serverId,
+            Tag = TestRoles.Game,
+            UpdateTime = DateTime.UtcNow
+        });
     }
 
     private static LobbyListing Listing(Guid leader, bool isOpen, int players)

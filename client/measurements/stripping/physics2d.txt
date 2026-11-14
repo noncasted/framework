@@ -1,0 +1,6 @@
+# The 2D physics, stripped by the variants whose scene has none (their manifest drops the physics2d modules too).
+Box2D v2
+Box2D v3
+Physics2D Core
+Physics2D Script Bindings
+PhysicsCore2D Core

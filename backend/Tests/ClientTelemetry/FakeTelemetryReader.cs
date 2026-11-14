@@ -38,6 +38,11 @@ public sealed class FakeTelemetryReader : IClientTelemetryReader
         return Task.FromResult(Page(Marks, afterSeq, limit, mark => mark.Seq));
     }
 
+    public Task<IReadOnlyList<TelemetryStoredSample>> GetSampleWindow(Guid session, long from, long to)
+    {
+        return Task.FromResult<IReadOnlyList<TelemetryStoredSample>>(Samples.Where(sample => sample.Time >= from && sample.Time <= to).ToArray());
+    }
+
     public Task<IReadOnlyList<TelemetrySessionInfo>> GetSessions(TelemetrySessionFilter filter)
     {
         throw new NotSupportedException();

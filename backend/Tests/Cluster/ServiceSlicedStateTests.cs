@@ -10,10 +10,8 @@ using Xunit;
 
 namespace Framework.Tests.Cluster;
 
-/// <summary>
-/// F2.39: live monitoring data written by several gateways of one deploy. Every gateway owns its slice,
-/// so two gateways no longer overwrite each other's users / sessions.
-/// </summary>
+// live monitoring data written by several gateways of one deploy. Every gateway owns its slice,
+// so two gateways no longer overwrite each other's users / sessions.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class ServiceSlicedStateTests(OrleansTestClusterFixture fixture)
     : IntegrationTestBase<OrleansTestClusterFixture>(fixture)
@@ -22,7 +20,7 @@ public class ServiceSlicedStateTests(OrleansTestClusterFixture fixture)
     public async Task TwoGateways_ConcurrentSlices_BothKept()
     {
         var deployId = Guid.NewGuid();
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
 
         var first = await Attach(deployId, lifetime);
         var second = await Attach(deployId, lifetime);
@@ -50,7 +48,7 @@ public class ServiceSlicedStateTests(OrleansTestClusterFixture fixture)
     public async Task SliceUpdate_ReplacesOnlyOwnSlice()
     {
         var deployId = Guid.NewGuid();
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
 
         var first = await Attach(deployId, lifetime);
         var second = await Attach(deployId, lifetime);
@@ -73,7 +71,7 @@ public class ServiceSlicedStateTests(OrleansTestClusterFixture fixture)
     public async Task ServiceGoneFromDiscovery_SliceDropped()
     {
         var deployId = Guid.NewGuid();
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
 
         var alive = await Attach(deployId, lifetime);
         var crashed = await Attach(deployId, lifetime);
@@ -96,7 +94,7 @@ public class ServiceSlicedStateTests(OrleansTestClusterFixture fixture)
     [Fact]
     public async Task SetValue_IsRejected()
     {
-        var attached = await Attach(Guid.NewGuid(), new Lifetime());
+        var attached = await Attach(Guid.NewGuid(), TestLifetime);
 
         var act = () => attached.State.SetValue(new ConnectedUsersLiveData());
 
@@ -105,7 +103,7 @@ public class ServiceSlicedStateTests(OrleansTestClusterFixture fixture)
 
     private async Task<Attached> Attach(Guid deployId, IReadOnlyLifetime lifetime)
     {
-        var environment = new ServiceEnvironment { IsDevelopment = true, Tag = TestRoles.Meta };
+        var environment = new ServiceEnvironment { Tag = TestRoles.Meta };
 
         var state = new ServiceSlicedState<ConnectedUsersLiveData, List<ConnectedUserEntry>>(
             GetSiloService<IOrleans>(),

@@ -5,7 +5,7 @@ using Shared;
 namespace Game.Lobbies;
 
 // The lobbies of the late players of the running matches: one per match, created by the first late player, replaced
-// when it is closed.
+// when it is closed or closing.
 internal class RunningLobbies
 {
     public RunningLobbies(ILobbyFactory factory, LobbyReservations reservations, int maxUsers, ILogger logger)
@@ -25,11 +25,13 @@ internal class RunningLobbies
     private readonly Dictionary<Guid, ISession> _lobbies = new();
     private readonly Lock _lock = new();
 
-    public ISession GetOrCreate(Guid lobbySessionId, Guid matchSessionId, string code)
+    // closing: the lobby of the match the caller has seen refusing as a closing one (null on the first try), replaced even
+    // before its close is visible here.
+    public ISession GetOrCreate(Guid lobbySessionId, Guid matchSessionId, string code, ISession? closing)
     {
         lock (_lock)
         {
-            if (_lobbies.TryGetValue(matchSessionId, out var existing) == true && existing.IsClosed == false)
+            if (_lobbies.TryGetValue(matchSessionId, out var existing) == true && existing.IsClosed == false && existing != closing)
                 return existing;
 
             var lobby = _factory.Create(new LobbyCreation

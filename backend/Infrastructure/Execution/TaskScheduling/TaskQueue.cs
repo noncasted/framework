@@ -16,80 +16,53 @@ public class TaskQueue : ITaskQueue
         _logger = logger;
     }
 
-    private readonly SemaphoreSlim _lock = new(1, 1);
+    private readonly Lock _lock = new();
     private readonly ILogger<TaskQueue> _logger;
     private readonly Dictionary<string, Entry> _queue = new();
 
     public void Enqueue(IPriorityTask task)
     {
-        try
+        lock (_lock)
         {
-            _lock.Wait();
-
-            try
+            _queue.TryAdd(task.Id, new Entry
             {
-                _queue.TryAdd(task.Id, new Entry
-                {
-                    Task = task,
-                    ScheduleDate = DateTime.UtcNow + task.Delay
-                });
-            }
-            finally
-            {
-                _lock.Release();
-            }
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "[TaskQueue] Failed to enqueue task {TaskId}", task.Id);
+                Task = task,
+                ScheduleDate = DateTime.UtcNow + task.Delay
+            });
         }
     }
 
     public IReadOnlyList<IPriorityTask> Collect()
     {
-        try
+        lock (_lock)
         {
-            _lock.Wait();
+            var tasks = new List<IPriorityTask>(_queue.Count);
+            var trace = _logger.IsEnabled(LogLevel.Trace) ? new StringBuilder() : null;
+            trace?.AppendLine($"[TaskQueue] Collecting tasks ({_queue.Count}): ");
 
-            try
+            var now = DateTime.UtcNow;
+
+            foreach (var (_, entry) in _queue)
             {
-                var tasks = new List<IPriorityTask>(_queue.Count);
-
-                var sb = new StringBuilder();
-                sb.AppendLine($"[TaskQueue] Collecting tasks ({_queue.Count}): ");
-
-                var now = DateTime.UtcNow;
-
-                foreach (var (_, entry) in _queue)
+                if (now < entry.ScheduleDate)
                 {
-                    if (now < entry.ScheduleDate)
-                    {
-                        sb.AppendLine(
-                            $"    Skipping task {entry.Task.Id}, wait for {(entry.ScheduleDate - now).TotalSeconds:F1}s");
+                    trace?.AppendLine(
+                        $"    Skipping task {entry.Task.Id}, wait for {(entry.ScheduleDate - now).TotalSeconds:F1}s");
 
-                        continue;
-                    }
-
-                    tasks.Add(entry.Task);
-                    sb.AppendLine($"    Scheduling task {entry.Task.Id}");
+                    continue;
                 }
 
-                foreach (var task in tasks)
-                    _queue.Remove(task.Id);
-
-                _logger.LogTrace(sb.ToString());
-
-                return tasks;
+                tasks.Add(entry.Task);
+                trace?.AppendLine($"    Scheduling task {entry.Task.Id}");
             }
-            finally
-            {
-                _lock.Release();
-            }
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "[TaskQueue] Failed to collect tasks");
-            return Array.Empty<IPriorityTask>();
+
+            foreach (var task in tasks)
+                _queue.Remove(task.Id);
+
+            if (trace != null)
+                _logger.LogTrace(trace.ToString());
+
+            return tasks;
         }
     }
 

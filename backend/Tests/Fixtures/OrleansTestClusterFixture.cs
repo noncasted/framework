@@ -17,11 +17,9 @@ using TaskScheduler = Infrastructure.Execution.TaskScheduler;
 
 namespace Framework.Tests.Fixtures;
 
-/// <summary>
-/// Base fixture for Orleans integration tests: an in-process TestCluster over a real PostgreSQL database, with the
-/// framework services a silo registers (states, transactions, side effects, messaging, task scheduling) and the test
-/// grains of this assembly.
-/// </summary>
+// Base fixture for Orleans integration tests: an in-process TestCluster over a real PostgreSQL database, with the
+// framework services a silo registers (states, transactions, side effects, messaging, task scheduling) and the test
+// grains of this assembly.
 public class OrleansTestClusterFixture : IAsyncLifetime
 {
     private InProcessTestCluster _cluster = null!;
@@ -33,23 +31,17 @@ public class OrleansTestClusterFixture : IAsyncLifetime
 
     protected virtual int SiloCount => 1;
 
-    /// <summary>
-    /// Override to register additional silo-level services.
-    /// </summary>
     protected virtual void ConfigureSiloServices(IServiceCollection services)
     {
     }
 
-    /// <summary>
-    /// Override to configure ISiloBuilder (e.g. grain extensions).
-    /// </summary>
     protected virtual void ConfigureSilo(ISiloBuilder siloBuilder)
     {
     }
 
     public virtual async ValueTask InitializeAsync()
     {
-        await Database.InitializeAsync();
+        await Database.Initialize();
 
         var builder = new InProcessTestClusterBuilder((short)SiloCount);
 
@@ -119,7 +111,6 @@ public class OrleansTestClusterFixture : IAsyncLifetime
                 // Service environment
                 services.AddSingleton<IServiceEnvironment>(new ServiceEnvironment
                 {
-                    IsDevelopment = true,
                     Tag = TestRoles.Silo
                 });
 
@@ -218,9 +209,5 @@ public class OrleansTestClusterFixture : IAsyncLifetime
     }
 }
 
-/// <summary>
-/// xUnit collection for Orleans integration tests.
-/// Tests in this collection share a single TestCluster.
-/// </summary>
 [CollectionDefinition(nameof(OrleansIntegrationCollection))]
 public class OrleansIntegrationCollection : ICollectionFixture<OrleansTestClusterFixture>;

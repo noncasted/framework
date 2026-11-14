@@ -79,7 +79,7 @@ public class ClientTelemetryPreviousSessionTests : ClientTelemetryStorageTest
     [Fact]
     public void TheSamples_SurviveTheSerializers()
     {
-        var previous = TelemetryBatchParser.ParsePrevious(Previous(Guid.NewGuid())).Session!;
+        var previous = TelemetryPreviousParser.Parse(Previous(Guid.NewGuid())).Session!;
         var silo = Cluster.Cluster.Silos[0].ServiceProvider;
         var serializer = silo.GetRequiredService<Serializer>();
         var copier = silo.GetRequiredService<DeepCopier>();

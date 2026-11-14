@@ -3,10 +3,6 @@ using Infrastructure;
 
 namespace Framework.Tests.Fixtures;
 
-/// <summary>
-/// Simple mock implementation of IAddressableState for tests.
-/// Pre-initialized with default values, no messaging or DB needed.
-/// </summary>
 public class TestAddressableState<T> : ViewableProperty<T>, IAddressableState<T>
     where T : class, new()
 {

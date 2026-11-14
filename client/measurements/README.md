@@ -22,7 +22,7 @@ for the next runs. Needs `brotli`, `node` >= 22 and Chromium (the stand of `tool
 |---|---|
 | `template/` | the project every variant starts from: `Assets/Measurement` (the scene content, the editor build) and `Packages/manifest.json` |
 | `template/Assets/Measurement/Profile/Web.asset` | the web build profile of pixel-swarm (`website.asset`): only the name, the page template (`APPLICATION:Minimal`), the defines of Odin and the preloaded assets differ |
-| `parts/<part>/` | content a variant adds over the template (`ui`: a camera canvas with a layout, an image, TextMeshPro and a button) |
+| `parts/<part>/` | content a variant adds over the template (`ui`: a camera canvas with a layout, an image, TextMeshPro and a button; `physics`: 2D bodies; `addressables`: a group of bundles with a prefab and a scene, loaded from StreamingAssets) |
 | `variants/<variant>.json` | `parts`, extra `packages` (`framework:<path>` is a folder of this repository), the `strip` lists and the `overrides` of some versions |
 | `template/ProjectSettings/` | the project settings of pixel-swarm that change the player (graphics: the built-in shaders off, quality, physics, audio, time, tags, input); the pipeline is set by the build |
 | `stripping/*.txt` | submodule names, one a line; `?` marks a name not every version has (skipped there and listed in the results) |
@@ -36,7 +36,9 @@ for the next runs. Needs `brotli`, `node` >= 22 and Chromium (the stand of `tool
 - `base`: the stripping of pixel-swarm (`client/Assets/Settings/DefaultSubmoduleStrippingSettings.asset`), the list a
   game runs with. Content: sprites, 2D physics, audio, uGUI and TextMeshPro with a static SDF font.
 - `aggressive`: `base` without the canvas, uGUI and TextMeshPro, and `stripping/aggressive.txt` on top (text rendering,
-  IMGUI, the rest of Freetype, tilemaps, mesh skinning, ...).
+  IMGUI, the rest of Freetype, tilemaps, mesh skinning, ...) and `stripping/physics2d.txt`.
+- `aggressive-addressables`: `aggressive` with Addressables (the fork of the framework, the part `addressables`: the
+  catalog, a prefab with a sprite and an additive scene from one group of bundles); of 2D only the sprites, as everywhere.
 
 A variant changes itself for some versions with `overrides` (each has a `why`, written into the result):
 `"unity": "6000."` (a prefix) or `"from": "7000.0.0a16"` (that version and later), then `packages` (entries of the
@@ -81,14 +83,14 @@ The smoke run waits for the line `[measurement] ready ...` in the console; a par
 work (no body fell, TextMeshPro laid out no characters). The stripping handles a call of a stripped submodule as
 `Ignore` (as pixel-swarm), so a feature broken by the stripping shows as a failed check or in `smoke.png`, not as an error.
 
-Not in the scene, so not in the numbers: Addressables, the client core of the framework (container, scopes), the
+Not in the scene, so not in the numbers (Addressables only in `aggressive-addressables`): the client core of the framework (container, scopes), the
 modules and the platforms. The numbers are the engine, the BCL and the common libraries; a game adds its own code and
 assets on top.
 
 ## Numbers
 
 - **Download**: `.wasm` + `.data` + `.framework.js` + `.loader.js` as served (brotli, `webGLCompressionFormat` 0 of
-  the profile). The external symbols file is not loaded by the page and not counted.
+  the profile) and the files of `StreamingAssets` (the catalog and the bundles of Addressables, served as they are). The external symbols file is not loaded by the page and not counted.
 - **wasm raw** and the sections (`code`, `data`): the module after decompression. The IL2CPP metadata (types, strings)
   is in the `.data` file, together with the scene and the assets.
 - **wasm before submodule stripping**: the backup the stripping tool keeps in

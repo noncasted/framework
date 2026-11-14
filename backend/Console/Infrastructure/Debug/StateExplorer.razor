@@ -153,12 +153,11 @@
         _dropdownOpen = false;
     }
 
-    private void OnDropdownFocusOut()
+    private async Task OnDropdownFocusOut()
     {
-        Task.Delay(150).ContinueWith(_ => InvokeAsync(() => {
-            _dropdownOpen = false;
-            StateHasChanged();
-        }));
+        // A click on an item of the list lands before the list closes.
+        await Task.Delay(150);
+        _dropdownOpen = false;
     }
 
     private async Task Load()
@@ -238,15 +237,17 @@
             await Clipboard.Copy(_json);
     }
 
-    private static string FormatJson(string json)
+    private string FormatJson(string json)
     {
         try
         {
             var element = JsonSerializer.Deserialize<JsonElement>(json);
             return JsonSerializer.Serialize(element, new JsonSerializerOptions { WriteIndented = true });
         }
-        catch
+        catch (JsonException ex)
         {
+            // The stored text is shown as it is, the user is told why it is not indented.
+            ToastService.Warning($"[StateExplorer] The state is not valid JSON: {ex.Message}", "Unformatted");
             return json;
         }
     }

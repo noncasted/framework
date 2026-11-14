@@ -4,10 +4,6 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// Tests ICorrelatedSideEffect and CorrelationId on DurableQueueSideEffect.
-/// Unit tests — no cluster needed.
-/// </summary>
 public class CorrelationIdTests
 {
     [Fact]

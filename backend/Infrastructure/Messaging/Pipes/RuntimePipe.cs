@@ -95,13 +95,13 @@ public class RuntimePipe : Grain, IRuntimePipe
     public async Task<TResponse> Send<TResponse>(object message)
     {
         var pipeId = this.GetPrimaryKeyString();
-        using var activity = TraceExtensions.MessagingRuntimePipe.StartActivity("RuntimePipe.Send");
+        using var activity = RuntimePipeTelemetry.Source.StartActivity("RuntimePipe.Send");
         activity?.SetTag("messaging.pipe", pipeId);
         activity?.SetTag("message.type", message.GetType().Name);
         activity?.SetTag("pipe.timeout", _config.Value.SendTimeoutSeconds);
 
-        BackendMetrics.PipeRequestSent.Add(1);
-        using var watch = MetricWatch.Start(BackendMetrics.PipeDuration);
+        RuntimePipeTelemetry.RequestSent.Add(1);
+        using var watch = MetricWatch.Start(RuntimePipeTelemetry.Duration);
 
         _logger.LogTrace(
             "[Messaging] [RuntimePipe] Sending request-response message {MessageType} expecting {ResponseType} to pipe {PipeId}",
@@ -132,7 +132,7 @@ public class RuntimePipe : Grain, IRuntimePipe
         {
             // A slow handler is not a dead observer: it stays bound, the request may still complete there.
             activity?.SetStatus(ActivityStatusCode.Error, "Pipe send timed out");
-            BackendMetrics.PipeTimeout.Add(1);
+            RuntimePipeTelemetry.Timeout.Add(1);
 
             _logger.LogError(ex,
                 "[Messaging] [RuntimePipe] Timed out processing request-response message {MessageType} on pipe {PipeId} with observer {ObserverId}",

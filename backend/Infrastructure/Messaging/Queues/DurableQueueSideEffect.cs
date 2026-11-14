@@ -1,10 +1,5 @@
 namespace Infrastructure;
 
-public interface ICorrelatedSideEffect
-{
-    Guid CorrelationId { get; }
-}
-
 [GenerateSerializer]
 public class DurableQueueSideEffect : ISideEffect, ICorrelatedSideEffect
 {

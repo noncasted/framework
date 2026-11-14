@@ -36,6 +36,18 @@ internal class RuntimeChannelDelivery
         }
     }
 
+    // The observer is dropped already: a late failure of its send is only logged, nobody awaits it any more.
+    private void ObserveLate(RuntimeChannel.ObserverData data, Task deliveryTask)
+    {
+        deliveryTask.ContinueWith(task => _logger.LogDebug(task.Exception,
+                    "[Messaging] [Channel] A timed out delivery on {ChannelName} to observer {ObserverId} failed later",
+                    _channelName, data.Id),
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default)
+            .NoAwait();
+    }
+
     private async Task<bool> TrySend(RuntimeChannel.ObserverData data, SequencedMessage sequenced)
     {
         try
@@ -48,7 +60,8 @@ internal class RuntimeChannelDelivery
 
             if (await Task.WhenAny(deliveryTask, Task.Delay(timeout, timer.Token)) != deliveryTask)
             {
-                BackendMetrics.ChannelDeliveryTimeout.Add(1);
+                RuntimeChannelTelemetry.DeliveryTimeout.Add(1);
+                ObserveLate(data, deliveryTask);
 
                 _logger.LogWarning(
                     "[Messaging] [Channel] Delivery timeout on {ChannelName} to observer {ObserverId} at sequence {Sequence}",
@@ -62,7 +75,7 @@ internal class RuntimeChannelDelivery
         }
         catch (Exception e)
         {
-            BackendMetrics.ChannelDeliveryFailure.Add(1);
+            RuntimeChannelTelemetry.DeliveryFailure.Add(1);
 
             _logger.LogError(e,
                 "[Messaging] [Channel] Delivering message from {ChannelName} to observer {ObserverId} failed at sequence {Sequence}",

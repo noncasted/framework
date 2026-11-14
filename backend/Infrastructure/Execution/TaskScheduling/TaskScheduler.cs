@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Logging;
-
 namespace Infrastructure.Execution;
 
 public interface ITaskScheduler
@@ -9,24 +7,15 @@ public interface ITaskScheduler
 
 public class TaskScheduler : ITaskScheduler
 {
-    public TaskScheduler(ITaskQueue queue, ILogger<TaskScheduler> logger)
+    public TaskScheduler(ITaskQueue queue)
     {
         _queue = queue;
-        _logger = logger;
     }
 
     private readonly ITaskQueue _queue;
-    private readonly ILogger<TaskScheduler> _logger;
 
     public void Schedule(IPriorityTask task)
     {
-        try
-        {
-            _queue.Enqueue(task);
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "[TaskScheduler] Failed to schedule task {TaskId}", task.Id);
-        }
+        _queue.Enqueue(task);
     }
 }

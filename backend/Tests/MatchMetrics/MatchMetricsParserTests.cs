@@ -62,7 +62,7 @@ public class MatchMetricsParserTests
     [Fact]
     public void Slots_out_of_range_declared_twice_or_unknown_are_rejected()
     {
-        Rejects(Batch(Guid.Empty, 1, [Series(MatchMetricsLimits.MaxSeries, "kills", Kind.Counter)]));
+        Rejects(Batch(Guid.Empty, 1, [Series(SharedMatchMetricsLimits.MaxSeries, "kills", Kind.Counter)]));
         Rejects(Batch(Guid.Empty, 1, [Series(2, "kills", Kind.Counter), Series(2, "xp", Kind.Counter)]));
         Rejects(Batch(Guid.Empty, 1, [Series(0, "kills", Kind.Counter)]), _known);
         Rejects(Batch(Guid.Empty, 1, chunks: [Chunk(5, 0, 1)]), _known);

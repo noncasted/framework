@@ -33,7 +33,7 @@ internal class RuntimePipeSender
 
                 if (attempt < options.SendRetryCount)
                 {
-                    BackendMetrics.PipeRetry.Add(1);
+                    RuntimePipeTelemetry.Retry.Add(1);
                     var delay = options.SendRetryBaseDelayMs * (1 << attempt);
 
                     _logger.LogWarning(e,

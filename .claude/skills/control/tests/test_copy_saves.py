@@ -280,6 +280,27 @@ class CopySavesTests(unittest.TestCase):
         self.commit_in(copy, "client/Assets/game.cs", "committed\n", "work")
         self.assertEqual(self.ref(self.source, "refs/heads/copy/work/main"), self.ref(copy, "HEAD"))
 
+    def test_hooks_of_the_project_in_its_tree_run_and_stay_untouched(self):
+        hooks = self.source / "tools/githooks"
+        hooks.mkdir(parents=True)
+        for name in ("pre-commit", "post-commit"):
+            (hooks / name).write_text(f'#!/bin/sh\necho ran > "$(git rev-parse --absolute-git-dir)/{name}-ran"\n')
+            (hooks / name).chmod(0o755)
+        self.git(self.source, "add", "-A")
+        self.git(self.source, "commit", "-q", "-m", "hooks")
+        self.git(self.source, "config", "core.hooksPath", "tools/githooks")
+        copy = self.create()
+        self.commit_in(copy, "client/Assets/game.cs", "committed\n", "work")
+        self.assertTrue((copy / ".git/pre-commit-ran").exists())
+        self.assertTrue((copy / ".git/post-commit-ran").exists())
+        self.assertEqual(self.ref(self.source, "refs/heads/copy/work/main"), self.ref(copy, "HEAD"))
+        self.assertEqual(self.git(copy, "status", "--porcelain"), "")
+        self.assertEqual(self.git(self.source, "config", "core.hooksPath"), "tools/githooks")
+        self.assertNotIn("control copy", (hooks / "post-commit").read_text())
+        self.assertEqual(self.entry()["pending"]["files"], [])
+        self.control("copy", "remove", "work", "--force")
+        self.assertFalse(copy.exists())
+
     def test_large_file_objects_reach_the_project_with_the_snapshot(self):
         copy = self.create()
         objects = copy / ".git/lfs/objects/aa/bb"

@@ -15,12 +15,6 @@ Clipper
 Texture Decompression Crunch
 ? Audio Random Container
 ? Graphics State Collection Serializer
-# The 2D physics (the scene of the variant has none; its modules are out of the manifest).
-Box2D v2
-Box2D v3
-Physics2D Core
-Physics2D Script Bindings
-PhysicsCore2D Core
 # Rendering features the sprites of the scene do not use: instancing, tiled sprites, the GPU Resident Drawer.
 GPU Instancing
 2D Rendering Sprite Tiling

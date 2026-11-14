@@ -12,7 +12,8 @@ public static class DbExtensions
     }
 
     // Attempts to open the connection and the pause between them: "PostgresConnect:Attempts" and
-    // "PostgresConnect:RetryDelayMs" of the configuration, 10 attempts a second apart by default.
+    // "PostgresConnect:RetryDelayMs" of the configuration, 10 attempts a second apart by default. Only a transient
+    // failure (a database still starting) is retried; any other one, or the last attempt, throws its own exception.
     public static async Task<NpgsqlConnection> GetConnection(this IConfigurationManager configuration)
     {
         var dbConnection = configuration.GetSection("postgres").Get<string>();
@@ -23,24 +24,28 @@ public static class DbExtensions
         if (attempts < 1)
             throw new ArgumentOutOfRangeException(nameof(attempts), attempts, "PostgresConnect:Attempts must be at least 1");
 
-        for (var attempt = 1; attempt <= attempts; attempt++)
+        for (var attempt = 1;; attempt++)
         {
+            var connection = new NpgsqlConnection(dbConnection);
+
             try
             {
-                var newConnection = new NpgsqlConnection(dbConnection);
-                await newConnection.OpenAsync();
-                return newConnection;
+                await connection.OpenAsync();
+                return connection;
             }
-            catch (Exception e)
+            catch (NpgsqlException e) when (e.IsTransient == true && attempt < attempts)
             {
-                Console.WriteLine("Failed to connect to database: {0}", e.Message);
+                // The deploy setup runs without a logger: its console is the log.
+                Console.Error.WriteLine($"Failed to connect to database (attempt {attempt} of {attempts}): {e.Message}");
+            }
+            finally
+            {
+                if (connection.State != System.Data.ConnectionState.Open)
+                    await connection.DisposeAsync();
             }
 
-            if (attempt < attempts)
-                await Task.Delay(retryDelay);
+            await Task.Delay(retryDelay);
         }
-
-        throw new Exception($"Failed to connect to database after {attempts} attempts");
     }
 
     public static async Task CreateIfNotExists(this NpgsqlConnection connection, string tableName, string createSql)

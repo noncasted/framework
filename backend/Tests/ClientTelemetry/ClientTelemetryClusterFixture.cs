@@ -81,7 +81,7 @@ public class ClientTelemetryClusterFixture : SideEffectTestFixture
     // Every notification reaches the observers of the queue.
     public async Task PumpSideEffects()
     {
-        while (!(await Pipeline.PumpOnceAsync()).IsEmpty)
+        while (!(await Pipeline.PumpOnce()).IsEmpty)
         {
         }
     }

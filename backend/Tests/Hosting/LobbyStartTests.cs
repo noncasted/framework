@@ -2,6 +2,7 @@ using FluentAssertions;
 using Framework.Tests.Session;
 using Game.Hosting;
 using Game.Lobbies;
+using Game.Session;
 using MemoryPack;
 using Shared;
 using Xunit;
@@ -203,7 +204,7 @@ public class LobbyStartTests
         var match = lobby.World.Sessions[lobby.Game.SessionId];
 
         // four reservations: the match is full for anybody else
-        match.Session.TryReserve(Guid.NewGuid()).Should().BeFalse();
+        match.Session.Reserve(Guid.NewGuid()).Should().NotBe(SessionReservation.Reserved);
 
         // the reservations hold the empty match until JoinTimeout
         lobby.World.Time.Advance(HostingTestWorld.JoinTimeout - TimeSpan.FromSeconds(1));
@@ -214,7 +215,7 @@ public class LobbyStartTests
             lobby.World.Enter(match.Session.Id, user.BackendId).Should().NotBeNull();
 
         match.Users.Count.Should().Be(4);
-        match.Session.TryReserve(Guid.NewGuid()).Should().BeFalse();
+        match.Session.Reserve(Guid.NewGuid()).Should().NotBe(SessionReservation.Reserved);
     }
 
     [Fact]
@@ -235,7 +236,7 @@ public class LobbyStartTests
 
         // 3 connected + 1 on its way: no place is left
         lobby.Game.PlayersCount.Should().Be(4);
-        match.Session.TryReserve(Guid.NewGuid()).Should().BeFalse();
+        match.Session.Reserve(Guid.NewGuid()).Should().NotBe(SessionReservation.Reserved);
 
         // the late user still enters the sealed lobby and reads the address of the match there
         lobby.World.Enter(lobby.Session.Session.Id, late).Should().NotBeNull();

@@ -7,18 +7,10 @@
         <h2 class="text-sm font-semibold">Transactions</h2>
     </div>
     <div class="flex flex-col">
-        <div class="flex items-center gap-3 py-1.5 border-b border-border/60">
-            <LucideIcon Name="timer" Size="12" class="text-muted-foreground shrink-0" />
-            <span class="text-sm flex-1">Lock Wait (sec)</span>
-            <input type="number" @bind:get="Value.LockWaitSeconds" @bind:set="v => ValueChanged.InvokeAsync(Value with { LockWaitSeconds = v })" step="0.5"
-                   class="w-24 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm" />
-        </div>
-        <div class="flex items-center gap-3 py-1.5">
-            <LucideIcon Name="clock" Size="12" class="text-muted-foreground shrink-0" />
-            <span class="text-sm flex-1">Stuck Grace Period (sec)</span>
-            <input type="number" @bind:get="Value.StuckGraceSeconds" @bind:set="v => ValueChanged.InvokeAsync(Value with { StuckGraceSeconds = v })" step="1"
-                   class="w-24 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm" />
-        </div>
+        <OptionNumberRow Icon="timer" Label="Lock Wait (sec)" Value="Value.LockWaitSeconds"
+                         Changed="v => ValueChanged.InvokeAsync(Value with { LockWaitSeconds = v })" Step="0.5"/>
+        <OptionNumberRow Icon="clock" Label="Stuck Grace Period (sec)" Value="Value.StuckGraceSeconds"
+                         Changed="v => ValueChanged.InvokeAsync(Value with { StuckGraceSeconds = v })" Step="1"/>
     </div>
 </div>
 

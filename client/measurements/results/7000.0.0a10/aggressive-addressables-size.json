@@ -1,0 +1,219 @@
+{
+  "unity": "7000.0.0a10",
+  "variant": "aggressive-addressables-size",
+  "description": "aggressive-addressables with the IL2CPP code generation of mines-leader: Optimize Size (Faster (smaller) builds, shared generics) instead of Optimize Speed of the profile",
+  "measured": "2026-11-12 07:14 UTC",
+  "build": {
+    "unityVersion": "7000.0.0a10",
+    "result": "Succeeded",
+    "buildSeconds": 73.9219321,
+    "reportedSize": 6530334,
+    "errors": 0,
+    "warnings": 0,
+    "strippedSubmodules": 128,
+    "missingSubmodules": "Ignore",
+    "profiled": false
+  },
+  "strippingSkipped": [
+    "Audio Random Container",
+    "Graphics State Collection Serializer"
+  ],
+  "overrides": [],
+  "files": [
+    {
+      "name": "6deeb24b7f7d5da394b943896b9e9c60.data.br",
+      "kind": "data",
+      "compressed": 766977,
+      "raw": 2391106,
+      "contents": [
+        {
+          "name": "RuntimeInitializeOnLoads.json",
+          "raw": 162,
+          "compressed": 126
+        },
+        {
+          "name": "ScriptingAssemblies.json",
+          "raw": 3775,
+          "compressed": 735
+        },
+        {
+          "name": "data.unity3d",
+          "raw": 350640,
+          "compressed": 243688
+        },
+        {
+          "name": "sharedassets0.resource",
+          "raw": 10237,
+          "compressed": 9495
+        },
+        {
+          "name": "boot.config",
+          "raw": 114,
+          "compressed": 92
+        },
+        {
+          "name": "Il2CppData/Metadata/global-metadata.dat",
+          "raw": 1561232,
+          "compressed": 400897
+        },
+        {
+          "name": "Resources/unity default resources",
+          "raw": 464672,
+          "compressed": 105869
+        }
+      ]
+    },
+    {
+      "name": "d5d4ff8958f8c0d836b734b0b490d840.loader.js",
+      "kind": "loader",
+      "compressed": 28175,
+      "raw": 28175
+    },
+    {
+      "name": "f8bf74155df1521c22c9c4d7d7a42d12.framework.js.br",
+      "kind": "framework",
+      "compressed": 63486,
+      "raw": 321644
+    },
+    {
+      "name": "fb0c84a15c6f55453df8ebe792de599d.wasm.br",
+      "kind": "wasm",
+      "compressed": 2053768,
+      "raw": 7124747,
+      "sections": {
+        "type": 2684,
+        "import": 10466,
+        "function": 32121,
+        "table": 9,
+        "memory": 7,
+        "tag": 3,
+        "global": 9,
+        "export": 482,
+        "element": 72065,
+        "datacount": 2,
+        "code": 5848695,
+        "data": 1158160
+      }
+    },
+    {
+      "name": "aa/WebGL/d4682dfa4ea48282811c1572ff3dc1c7_unitybuiltinassets_fa4834690c5e8aca46dc2f2e6816c1c7.bundle",
+      "kind": "streaming",
+      "compressed": 145712,
+      "raw": 145712
+    },
+    {
+      "name": "aa/WebGL/measurement_assets_all_e7356172f732da3b3158e15be9918982.bundle",
+      "kind": "streaming",
+      "compressed": 7328,
+      "raw": 7328
+    },
+    {
+      "name": "aa/WebGL/measurement_scenes_all_5bd7ade372e25ef978518493123ad01d.bundle",
+      "kind": "streaming",
+      "compressed": 11840,
+      "raw": 11840
+    },
+    {
+      "name": "aa/catalog.bin",
+      "kind": "streaming",
+      "compressed": 2702,
+      "raw": 2702
+    },
+    {
+      "name": "aa/catalog.hash",
+      "kind": "streaming",
+      "compressed": 32,
+      "raw": 32
+    },
+    {
+      "name": "aa/settings.json",
+      "kind": "streaming",
+      "compressed": 800,
+      "raw": 800
+    }
+  ],
+  "wasmBeforeStripping": {
+    "compressed": 2963324,
+    "raw": 12497705
+  },
+  "managed": {
+    "mscorlib.dll": 1285632,
+    "UnityEngine.CoreModule.dll": 376832,
+    "System.dll": 174080,
+    "Unity.ResourceManager.dll": 151552,
+    "Unity.Addressables.dll": 124928,
+    "UniTask.dll": 76800,
+    "UnityEngine.ManagedKernelModule.dll": 54272,
+    "MemoryPack.Core.dll": 53760,
+    "UnityEngine.U2DRuntimeModule.dll": 51200,
+    "Unity.Scripting.dll": 47616,
+    "System.Core.dll": 41984,
+    "UnityEngine.BurstModule.dll": 38400,
+    "UnityEngine.dll": 36352,
+    "UnityEngine.AudioModule.dll": 35328,
+    "UnityEngine.UnityWebRequestModule.dll": 35328,
+    "UnityEngine.ContentLoadModule.dll": 31232,
+    "UnityEngine.ScriptingModule.dll": 26112,
+    "Measurement.Runtime.dll": 25600,
+    "UnityEngine.AssetBundleModule.dll": 21504,
+    "UnityEngine.EntitiesModule.dll": 20480,
+    "UnityEngine.UnityWebRequestAssetBundleModule.dll": 19456,
+    "UnityEngine.JSONSerializeModule.dll": 18432,
+    "Framework.Common.dll": 14336,
+    "UnityEngine.MathematicsModule.dll": 12288,
+    "Measurement.Addressables.dll": 9216,
+    "System.Runtime.CompilerServices.Unsafe.dll": 5120
+  },
+  "smoke": {
+    "status": "ready",
+    "line": "[measurement] ready libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames; audio: 0.50 s clip, playing True; addressables: prefab with sprite 32 px, scene AddressableScene with 1 roots",
+    "seconds": 2.3,
+    "errors": [],
+    "console": [
+      "log: Initialize engine version: 7000.0.0a10 (4b5f18082ea8)\n",
+      "log: [EntityIdStore] init: page-table path, blockCount=262144, entitiesPerBlock=1024, top-level=2097152 bytes, sizeof(Block)=16512 (lazily allocated per committed block)\n",
+      "log: Creating WebGL 2.0 context.",
+      "log: Renderer: WebKit WebGL\n",
+      "log: Vendor:   WebKit\n",
+      "log: Version:  OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))\n",
+      "log: GLES:     3\n",
+      "log:  EXT_clip_control EXT_color_buffer_float EXT_color_buffer_half_float EXT_conservative_depth EXT_depth_clamp EXT_disjoint_timer_query_webgl2 EXT_float_blend EXT_polygon_offset_clamp EXT_texture_compression_bptc EXT_texture_compression_rgtc EXT_texture_filter_anisotropic NV_shader_noperspective_interp",
+      "log: mpressed_texture_astc GL_WEBGL_compressed_texture_etc GL_WEBGL_compressed_texture_etc1 GL_WEBGL_compressed_texture_s3tc GL_WEBGL_compressed_texture_s3tc_srgb GL_WEBGL_debug_renderer_info GL_WEBGL_debug_shaders GL_WEBGL_lose_context GL_WEBGL_multi_draw GL_WEBGL_polygon_mode\n",
+      "log: OPENGL LOG: Creating OpenGL ES 3.0 graphics device ; Context level  <OpenGL ES 3.0> ; Context handle 1\n",
+      "log: FMOD returns error code 78 (FMOD_ERR_UNIMPLEMENTED) executing setRecordMuted",
+      "log: FMOD returns error code 78 (r) executing setRecordMuted",
+      "log: Input Manager initialize...\n",
+      "log: UnloadTime: 0.300000 ms\n",
+      "log: Audio context resumed after 0.036 seconds.",
+      "log: [measurement] part libraries\n",
+      "log: [measurement] part sprites\n",
+      "log: [measurement] part audio\n",
+      "log: Trying to get length of sound which is not loaded yet.",
+      "log: Trying to get metadata of sound which is not loaded.",
+      "log: [measurement] part addressables\n",
+      "warning: [UnityCache] Response is served without Content-Length header. Please reconfigure server to include valid Content-Length for better download performance.",
+      "warning: [UnityCache] Response is served without Content-Length header. Please reconfigure server to include valid Content-Length for better download performance.",
+      "warning: [UnityCache] Response is served without Content-Length header. Please reconfigure server to include valid Content-Length for better download performance.",
+      "warning: [UnityCache] Response is served without Content-Length header. Please reconfigure server to include valid Content-Length for better download performance.",
+      "log: [UnityCache] 'http://127.0.0.1:35767/StreamingAssets/aa/WebGL/measurement_assets_all_e7356172f732da3b3158e15be9918982.bundle' successfully downloaded and stored in the browser cache",
+      "log: [UnityCache] 'http://127.0.0.1:35767/StreamingAssets/aa/WebGL/d4682dfa4ea48282811c1572ff3dc1c7_unitybuiltinassets_fa4834690c5e8aca46dc2f2e6816c1c7.bundle' successfully downloaded and stored in the browser cache",
+      "warning: [UnityCache] Response is served without Content-Length header. Please reconfigure server to include valid Content-Length for better download performance.",
+      "log: [UnityCache] 'http://127.0.0.1:35767/StreamingAssets/aa/WebGL/measurement_scenes_all_5bd7ade372e25ef978518493123ad01d.bundle' successfully downloaded and stored in the browser cache",
+      "log: [measurement] ready libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames; audio: 0.50 s clip, playing True; addressables: prefab with sprite 32 px, scene AddressableScene with 1 roots\n"
+    ],
+    "requests": [
+      "/",
+      "/Build/d5d4ff8958f8c0d836b734b0b490d840.loader.js",
+      "/Build/f8bf74155df1521c22c9c4d7d7a42d12.framework.js.br",
+      "/Build/fb0c84a15c6f55453df8ebe792de599d.wasm.br",
+      "/favicon.ico",
+      "/Build/6deeb24b7f7d5da394b943896b9e9c60.data.br",
+      "/StreamingAssets/aa/settings.json",
+      "/StreamingAssets/aa/catalog.bin",
+      "/StreamingAssets/aa/WebGL/measurement_assets_all_e7356172f732da3b3158e15be9918982.bundle",
+      "/StreamingAssets/aa/WebGL/d4682dfa4ea48282811c1572ff3dc1c7_unitybuiltinassets_fa4834690c5e8aca46dc2f2e6816c1c7.bundle",
+      "/StreamingAssets/aa/WebGL/measurement_scenes_all_5bd7ade372e25ef978518493123ad01d.bundle"
+    ],
+    "screenshot": "/projects/framework/client/measurements/projects/7000.0.0a10-aggressive-addressables-size/smoke.png"
+  }
+}

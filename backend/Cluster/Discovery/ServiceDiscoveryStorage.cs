@@ -32,7 +32,7 @@ public class ServiceDiscoveryStorage : Grain, IServiceDiscoveryStorage
         var value = await _state.Update(s => {
             // Stamped with the clock of this grain: the staleness of the members is measured by one clock, not by
             // the clocks of their hosts.
-            s.Members[overview.Id] = Stamp(overview, now);
+            s.Set(Stamp(overview, now));
 
             var staleIds = s.Members.Values
                             .Where(m => m.UpdateTime < staleCutoff)
@@ -42,7 +42,7 @@ public class ServiceDiscoveryStorage : Grain, IServiceDiscoveryStorage
             foreach (var id in staleIds)
             {
                 var member = s.Members[id];
-                s.Members.Remove(id);
+                s.Remove(id);
 
                 _logger.LogInformation(
                     "[ServiceDiscoveryStorage] Removed stale member {MemberId} (tag={Tag}, lastUpdate={LastUpdate}) from deploy {DeployId}",
@@ -50,7 +50,7 @@ public class ServiceDiscoveryStorage : Grain, IServiceDiscoveryStorage
             }
         });
 
-        return value.Members;
+        return value.Members.ToDictionary();
     }
 
     private static IServiceOverview Stamp(IServiceOverview overview, DateTime now)
@@ -77,12 +77,12 @@ public class ServiceDiscoveryStorage : Grain, IServiceDiscoveryStorage
     public async Task<Dictionary<Guid, IServiceOverview>> Get()
     {
         var value = await _state.ReadValue();
-        return value.Members;
+        return value.Members.ToDictionary();
     }
 
     public async Task Unregister(Guid serviceId)
     {
-        await _state.Write(s => s.Members.Remove(serviceId));
+        await _state.Write(s => s.Remove(serviceId));
 
         _logger.LogInformation("[ServiceDiscoveryStorage] Unregistered member {MemberId} from deploy {DeployId}",
             serviceId, this.GetPrimaryKey());

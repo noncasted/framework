@@ -1,0 +1,42 @@
+{
+  "description": "aggressive with Addressables (the fork, a group of bundles: a prefab with a sprite and an additive scene, loaded from StreamingAssets): of 2D only the sprites of every variant, no physics, no animation",
+  "parts": [
+    "addressables"
+  ],
+  "packages": {
+    "com.unity.addressables": "framework:client/packages/com.unity.addressables",
+    "com.unity.modules.accessibility": null,
+    "com.unity.modules.adaptiveperformance": null,
+    "com.unity.modules.ai": null,
+    "com.unity.modules.androidjni": null,
+    "com.unity.modules.animation": null,
+    "com.unity.modules.director": null,
+    "com.unity.modules.particlesystem": null,
+    "com.unity.modules.physics": null,
+    "com.unity.modules.physics2d": null,
+    "com.unity.modules.physicscore2d": null,
+    "com.unity.modules.screencapture": null,
+    "com.unity.modules.tilemap": null,
+    "com.unity.modules.timelinefoundation": null,
+    "com.unity.modules.umbra": null,
+    "com.unity.modules.unityanalytics": null,
+    "com.unity.modules.unitywebrequestaudio": null,
+    "com.unity.modules.unitywebrequesttexture": null,
+    "com.unity.modules.unitywebrequestwww": null,
+    "com.unity.modules.video": null
+  },
+  "strip": [
+    "base.txt",
+    "aggressive.txt",
+    "physics2d.txt"
+  ],
+  "overrides": [
+    {
+      "from": "7000.0.0a16",
+      "why": "the .NET 10 BCL of Unity 7000.0.0a16 loads ICU at the start (AppContext setup with icudt.dat): with the submodule ICU stripped the player stops with 'Unable to load required ICU Globalization data'",
+      "keep": [
+        "ICU"
+      ]
+    }
+  ]
+}

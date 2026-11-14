@@ -32,20 +32,7 @@
             <tbody>
             @foreach (var startup in _startups)
             {
-                <tr @key="startup.Id" class="border-b last:border-b-0 hover:bg-muted/30">
-                    <td class="px-4 py-2.5 text-xs whitespace-nowrap">
-                        <a class="underline" href="@ConsoleConstants.Pages.ClientTelemetryStartup(startup.Id)">@TelemetryValueFormat.Timestamp(startup.ReceivedAt)</a>
-                    </td>
-                    <td class="px-4 py-2.5 text-xs">@startup.Name</td>
-                    <td class="px-4 py-2.5 text-xs">@TelemetryStartupFacts.State(startup)</td>
-                    <td class="px-4 py-2.5 text-xs text-muted-foreground">@TelemetrySessionFacts.Device(startup.Device)</td>
-                    <td class="px-4 py-2.5 text-xs text-muted-foreground">@(startup.Device.BuildVersion ?? TelemetryValueFormat.Unknown)</td>
-                    <td class="px-4 py-2.5 text-xs text-right whitespace-nowrap">@TelemetryValueFormat.Milliseconds(startup.DurationMs)</td>
-                    <td class="px-4 py-2.5 text-xs text-right">@startup.Frames</td>
-                    <td class="px-4 py-2.5 text-xs text-right">@startup.SpanCount</td>
-                    <td class="px-4 py-2.5 text-xs text-right">@startup.Depth</td>
-                    <td class="px-4 py-2.5 text-xs text-right">@startup.DroppedSpans / @startup.RejectedSpans</td>
-                </tr>
+                <TelemetryStartupListRow @key="startup.Id" Startup="startup"/>
             }
             @if (_startups.Count == 0)
             {

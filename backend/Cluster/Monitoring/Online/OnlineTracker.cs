@@ -6,24 +6,39 @@ using Microsoft.Extensions.Logging;
 
 namespace Cluster.Monitoring.Online;
 
-// Runs on the coordinator, the one host of every deploy. Restores the days of the statistics, applies every change
+// Runs on the coordinator, the one host of every deploy, for as long as it holds its deploy. Restores the days of the statistics, applies every change
 // of ConnectedUsersLiveData (and the start of every hour, when the same users stay online) to the counter, and
-// writes the changed days and the OnlineStatsLiveData at most once per FlushDelay.
+// writes the changed days and the OnlineStatsLiveData at most once per flush delay.
 public class OnlineTracker : ICoordinatorSetupCompleted
 {
     public OnlineTracker(
         IDeploymentState<ConnectedUsersLiveData> connected,
         IDeploymentState<OnlineStatsLiveData> stats,
         IOnlineDaysStore store,
+        IDeployContext deployContext,
         ILogger<OnlineTracker> logger)
+        : this(connected, stats, store, deployContext, logger, TimeSpan.FromSeconds(5))
+    {
+    }
+
+    public OnlineTracker(
+        IDeploymentState<ConnectedUsersLiveData> connected,
+        IDeploymentState<OnlineStatsLiveData> stats,
+        IOnlineDaysStore store,
+        IDeployContext deployContext,
+        ILogger<OnlineTracker> logger,
+        TimeSpan flushDelay)
     {
         _connected = connected;
         _stats = stats;
         _store = store;
+        _deployContext = deployContext;
         _logger = logger;
+        _flushDelay = flushDelay;
     }
 
-    private static readonly TimeSpan FlushDelay = TimeSpan.FromSeconds(5);
+    private readonly TimeSpan _flushDelay;
+    private readonly IDeployContext _deployContext;
 
     private readonly IDeploymentState<ConnectedUsersLiveData> _connected;
     private readonly IDeploymentState<OnlineStatsLiveData> _stats;
@@ -36,8 +51,11 @@ public class OnlineTracker : ICoordinatorSetupCompleted
     private IReadOnlySet<Guid> _online = new HashSet<Guid>();
     private bool _flushScheduled;
 
-    public async Task OnCoordinatorSetupCompleted(IReadOnlyLifetime lifetime)
+    public async Task OnCoordinatorSetupCompleted(IReadOnlyLifetime serviceLifetime)
     {
+        // The deploy epoch, not the service: a coordinator replaced by the one of a newer deploy leaves its deploy
+        // (DeployHealthChecker), and its frozen online must not overwrite the days the new coordinator writes.
+        var lifetime = _deployContext.DeployLifetime;
         var now = DateTime.UtcNow;
         var restored = await _store.Read(OnlineCounter.FirstKeptDay(now), OnlineCounter.DayOf(now));
         _counter = new OnlineCounter(restored);
@@ -86,6 +104,7 @@ public class OnlineTracker : ICoordinatorSetupCompleted
         }
         catch (OperationCanceledException) when (lifetime.IsTerminated == true)
         {
+            _logger.LogDebug("[OnlineTracker] Hour ticks stopped: the deploy epoch has ended");
         }
     }
 
@@ -96,7 +115,7 @@ public class OnlineTracker : ICoordinatorSetupCompleted
 
         try
         {
-            await Task.Delay(FlushDelay, lifetime.Token);
+            await Task.Delay(_flushDelay, lifetime.Token);
 
             OnlineStatsLiveData summary;
 
@@ -112,6 +131,7 @@ public class OnlineTracker : ICoordinatorSetupCompleted
         }
         catch (OperationCanceledException) when (lifetime.IsTerminated == true)
         {
+            _logger.LogDebug("[OnlineTracker] Pending flush dropped: the deploy epoch has ended");
         }
         catch (Exception e)
         {

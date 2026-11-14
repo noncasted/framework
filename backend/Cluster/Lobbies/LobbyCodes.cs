@@ -67,25 +67,3 @@ public class LobbyCodes : ILobbyCodes
         return _orleans.GetGrain<ILobbyRegistry>(deployId);
     }
 }
-
-public static class LobbyCodesExtensions
-{
-    public static IHostApplicationBuilder AddLobbyCodes(this IHostApplicationBuilder builder)
-    {
-        builder.Add<LobbyCodes>()
-               .As<ILobbyCodes>();
-
-        return builder;
-    }
-
-    // The open lobbies of the current deploy, followed on this host (the meta): the snapshot of the registry, then
-    // every change it pushes.
-    public static IHostApplicationBuilder AddOpenLobbiesWatcher(this IHostApplicationBuilder builder)
-    {
-        builder.Add<OpenLobbiesWatcher>()
-               .As<IOpenLobbiesWatcher>()
-               .As<IDeployAware>();
-
-        return builder;
-    }
-}

@@ -41,17 +41,22 @@ public class SessionsCollection : ISessionsCollection
 
     // The queues of many sessions push at once: a snapshot is built and handed over under one lock, so the slices
     // reach SetSlice in the order of their state (the latest call wins there) and an older one never comes last.
+    // The three dictionaries change under it too: a session in the snapshot always has its moment and its users.
     private readonly Lock _pushLock = new();
 
     public IReadOnlyDictionary<Guid, ISession> Entries => _entries;
 
     public void Add(ISession session)
     {
-        if (_entries.TryAdd(session.Id, session) == false)
-            throw new InvalidOperationException($"Session {session.Id} is already added");
+        lock (_pushLock)
+        {
+            if (_entries.ContainsKey(session.Id) == true)
+                throw new InvalidOperationException($"Session {session.Id} is already added");
 
-        _createdAt[session.Id] = _time.GetUtcNow().UtcDateTime;
-        _userIds[session.Id] = [];
+            _createdAt[session.Id] = _time.GetUtcNow().UtcDateTime;
+            _userIds[session.Id] = [];
+            _entries[session.Id] = session;
+        }
 
         // The list lifetime of a user ends after the user is removed from the list.
         session.Users.View(session.Lifetime, (userLifetime, _) => {
@@ -60,21 +65,35 @@ public class SessionsCollection : ISessionsCollection
         });
 
         session.Lifetime.Listen(() => {
-            _entries.TryRemove(session.Id, out _);
-            _createdAt.TryRemove(session.Id, out _);
-            _userIds.TryRemove(session.Id, out _);
-            PushLiveData();
+            lock (_pushLock)
+            {
+                _entries.TryRemove(session.Id, out _);
+                _createdAt.TryRemove(session.Id, out _);
+                _userIds.TryRemove(session.Id, out _);
+                PushLiveDataLocked();
+            }
         });
 
-        PushLiveData();
+        lock (_pushLock)
+            PushLiveDataLocked();
 
         void OnUsersChanged()
         {
             if (session.Lifetime.IsTerminated == true)
                 return;
 
-            _userIds[session.Id] = session.Users.Select(user => user.BackendId).ToList();
-            PushLiveData();
+            // In the queue of the session: its own user list.
+            var userIds = session.Users.Select(user => user.BackendId).ToList();
+
+            lock (_pushLock)
+            {
+                // Removed meanwhile: its users are not live data any more.
+                if (_entries.ContainsKey(session.Id) == false)
+                    return;
+
+                _userIds[session.Id] = userIds;
+                PushLiveDataLocked();
+            }
         }
     }
 
@@ -88,16 +107,13 @@ public class SessionsCollection : ISessionsCollection
         return _entries.TryGetValue(id, out session);
     }
 
-    private void PushLiveData()
+    private void PushLiveDataLocked()
     {
-        lock (_pushLock)
+        _liveData.SetSlice(_entries.Values.Select(s => new LiveSessionEntry
         {
-            _liveData.SetSlice(_entries.Values.Select(s => new LiveSessionEntry
-            {
-                Id = s.Id,
-                UserIds = _userIds.GetValueOrDefault(s.Id, []).ToList(),
-                CreatedAt = _createdAt.GetValueOrDefault(s.Id, _time.GetUtcNow().UtcDateTime)
-            }).ToList()).NoAwait();
-        }
+            Id = s.Id,
+            UserIds = _userIds[s.Id].ToList(),
+            CreatedAt = _createdAt[s.Id]
+        }).ToList()).NoAwait();
     }
 }

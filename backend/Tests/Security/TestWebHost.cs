@@ -23,6 +23,7 @@ public sealed class TestWebHost : IAsyncDisposable
 
     public Uri Address { get; }
     public HttpClient Http { get; }
+    public IServiceProvider Services => _app.Services;
 
     public static WebApplicationBuilder CreateBuilder(string environment, params (string Key, string Value)[] settings)
     {

@@ -11,10 +11,8 @@ using Xunit;
 
 namespace Framework.Tests.Security;
 
-/// <summary>
-/// Browser origins of meta / game come from configuration (CORS and the WebSocket handshake);
-/// Development adds loopback, production needs an explicit list or the explicit "no browser origins" value.
-/// </summary>
+// Browser origins of meta / game come from configuration (CORS and the WebSocket handshake);
+// Development adds loopback, production needs an explicit list or the explicit "no browser origins" value.
 public class AllowedOriginsTests
 {
     private const string ProductionOrigins = "https://game.example, https://web.telegram.org";

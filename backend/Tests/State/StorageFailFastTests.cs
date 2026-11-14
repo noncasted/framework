@@ -10,9 +10,7 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Unexpected data of the storages throws instead of being skipped, rebuilt or replaced by a default.
-/// </summary>
+// Unexpected data of the storages throws instead of being skipped, rebuilt or replaced by a default.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class StorageFailFastTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)
@@ -119,8 +117,8 @@ public class StorageFailFastTests
 
         cache.GetReadQuery(first).Should().Contain("table_a");
         cache.GetReadQuery(second).Should().Contain("table_b");
-        cache.GetWriteQuery(first).Should().Contain("table_a");
-        cache.GetWriteQuery(second).Should().Contain("table_b");
+        cache.GetReadBatchQuery(first).Should().Contain("table_a");
+        cache.GetReadBatchQuery(second).Should().Contain("table_b");
     }
 
     [Fact]

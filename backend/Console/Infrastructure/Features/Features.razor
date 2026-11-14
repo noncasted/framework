@@ -94,7 +94,6 @@
     }
 
     private Task ToggleAcceptingConnections() => Toggle("AcceptingConnections", v => ClusterFeatures.SetAcceptingConnections(v), !_state.AcceptingConnections);
-    private bool IsEnabled(ConsoleGameFlag flag) => _state.GameFlags.TryGetValue(flag.Name, out var enabled) && enabled;
 
     private Task ToggleSideEffectsEnabled() => Toggle("SideEffects", v => ClusterFeatures.SetSideEffectsEnabled(v), !_state.SideEffectsEnabled);
 
@@ -105,17 +104,20 @@
         try
         {
             await setter(newValue);
-            await AuditLog.Write("FeatureToggled", $"{name} set to {newValue}");
-            ToastService.Success("Feature updated", "Saved");
         }
         catch (Exception ex)
         {
             ToastService.Error($"[Features] Failed to toggle feature: {ex.Message}", "Error");
+            return;
         }
         finally
         {
             _isSaving = false;
         }
+
+        await AuditLog.Report(ToastService, "FeatureToggled", $"{name} set to {newValue}", "Feature updated");
     }
+
+    private bool IsEnabled(ConsoleGameFlag flag) => _state.GameFlags.TryGetValue(flag.Name, out var enabled) && enabled;
 
 }

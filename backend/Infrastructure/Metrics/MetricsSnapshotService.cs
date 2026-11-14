@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Common.Extensions;
 using System.Diagnostics.Metrics;
 using System.Reflection;
 using System.Text.Json;
@@ -77,7 +78,7 @@ public class MetricsSnapshotService : IHostedService, IDisposable
 
     private void OnInstrumentPublished(Instrument instrument, MeterListener listener)
     {
-        if (instrument.Meter.Name == "Backend")
+        if (instrument.Meter.Name == BackendMeter.Name)
             listener.EnableMeasurementEvents(instrument);
     }
 

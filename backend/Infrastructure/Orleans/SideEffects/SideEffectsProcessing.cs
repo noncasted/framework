@@ -69,7 +69,7 @@ internal class SideEffectsProcessing
 
             await deadLetterTx.CommitAsync();
 
-            BackendMetrics.SideEffectDeadLetter.Add(1);
+            SideEffectTelemetry.DeadLetter.Add(1);
 
             _logger.LogError("[SideEffects] Effect {Id} moved to dead letter after {RetryCount} retries: {Error}",
                 id, retryCount, errorMessage);

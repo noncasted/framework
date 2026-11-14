@@ -151,7 +151,13 @@ public sealed class MatchMetricsReader : IMatchMetricsReader
                 reader.GetFloat(5),
                 reader.GetDateTime(6),
                 reader.GetString(7),
-                JsonDocument.Parse(reader.GetString(8)).RootElement.Clone()));
+                Fields(reader.GetString(8))));
+    }
+
+    private static JsonElement Fields(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.Clone();
     }
 
     private Task<IReadOnlyList<T>> Read<T>(string sql, Action<NpgsqlCommand> parameters, Func<NpgsqlDataReader, T> row)

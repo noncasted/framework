@@ -256,14 +256,20 @@ public class ClientTelemetryReadEndpointTests : ClientTelemetryEndpointTest
     [Fact]
     public async Task LongPoll_SeesARowOfAnotherGateway()
     {
-        var (host, session) = await StartWithSession();
+        var (_, session) = await StartWithSession();
 
-        var poll = Get(host, $"/sessions/{session}/samples?after=1&wait=30");
-        await Task.Delay(100, Cancel);
+        // Another gateway with collections of its own: only the queue of their updates tells it what the grain stored.
+        var other = await StartHost(ownCollections: true);
+        var collection = other.Services.GetRequiredService<ITelemetrySessionCollection>();
+        collection.Should().NotBeSameAs(Cluster.Collection);
+        await TestWait.Until(async () => {
+            await Cluster.PumpSideEffects();
+            return collection.ContainsKey(session);
+        });
 
-        // Another gateway: only the grain connects it to this one.
-        var other = await StartHost();
+        var poll = Get(other, $"/sessions/{session}/samples?after=1&wait=30");
         await Store(Hidden(session, 2, samples: [(4000, [40, 400], false)]));
+        await Cluster.PumpSideEffects();
 
         (await poll).GetProperty("lastSeq").GetInt64().Should().Be(2);
     }

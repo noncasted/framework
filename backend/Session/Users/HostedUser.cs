@@ -8,7 +8,10 @@ namespace Game.Session;
 // dispatcher that runs its messages in the session queue.
 public interface IHostedUser : IUser
 {
+    // The gateway that accepted the socket returns only after Socket.Closed: the lifetime of the user ends before the
+    // close frame is out.
     IConnection Socket { get; }
+
     ICommandDispatcher Dispatcher { get; }
 }
 
@@ -33,29 +36,4 @@ public class HostedUser : IHostedUser
     public IUserConnection Connection { get; }
     public IConnection Socket { get; }
     public ICommandDispatcher Dispatcher { get; }
-}
-
-public class SocketUserConnection : IUserConnection
-{
-    public SocketUserConnection(IConnection socket)
-    {
-        _socket = socket;
-    }
-
-    private readonly IConnection _socket;
-
-    public void Send(INetworkContext context)
-    {
-        _socket.Writer.WriteOneWay(context);
-    }
-
-    public void Respond(INetworkContext context, int requestId)
-    {
-        _socket.Writer.WriteResponse(context, requestId);
-    }
-
-    public void Disconnect()
-    {
-        _socket.ForceDisconnect();
-    }
 }

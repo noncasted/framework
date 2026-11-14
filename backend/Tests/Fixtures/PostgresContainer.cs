@@ -5,11 +5,9 @@ using Xunit;
 
 namespace Framework.Tests.Fixtures;
 
-/// <summary>
-/// The PostgreSQL container of the test process, one for the whole run: every DatabaseFixture creates its database
-/// in it. It starts when the first fixture asks for it, so a run without integration tests needs no Docker, and xUnit
-/// disposes it as an assembly fixture when the run ends.
-/// </summary>
+// The PostgreSQL container of the test process, one for the whole run: every DatabaseFixture creates its database
+// in it. It starts when the first fixture asks for it, so a run without integration tests needs no Docker, and xUnit
+// disposes it as an assembly fixture when the run ends.
 public sealed class PostgresContainer : IAsyncDisposable
 {
     private static readonly Lazy<Task<PostgreSqlContainer>> _container = new(Start);

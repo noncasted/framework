@@ -432,14 +432,14 @@ public class SessionReconnectTests
     // user alone: only a user that gets a place comes anew. A session held only by the user is the other case (its
     // connections are dropped and it closes).
     [Fact]
-    public void TryReserve_Refused_LiveConnectionStays()
+    public void Reserve_Refused_LiveConnectionStays()
     {
         var session = TestSession.Create();
         var user = session.ReserveAndEnter();
         session.ReserveAndEnter();
         session.Admission.Seal();
 
-        session.Session.TryReserve(user.BackendId).Should().BeFalse();
+        session.Session.Reserve(user.BackendId).Should().NotBe(SessionReservation.Reserved);
         session.Queue.Drain();
 
         TestSession.Connection(user).ForceDisconnects.Should().Be(0);

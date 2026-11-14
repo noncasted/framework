@@ -74,9 +74,9 @@ internal class TransactionWriteBatch
         {
             if (states.Count != 0)
             {
-                BackendMetrics.StateWriteDuration.Record(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
-                BackendMetrics.StateWriteTotal.Add(1);
-                BackendMetrics.StateWriteBatchSize.Record(states.Count);
+                StateTelemetry.WriteDuration.Record(Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+                StateTelemetry.WriteTotal.Add(1);
+                StateTelemetry.WriteBatchSize.Record(states.Count);
             }
         }
     }

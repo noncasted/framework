@@ -39,8 +39,8 @@ namespace Global.MatchMetrics
             RequireOpen();
             MatchMetricNames.RequireName(name);
 
-            if (fields.Length > MatchMetricsLimits.MaxFields)
-                throw new ArgumentException($"[MatchMetrics] The event '{name}' has {fields.Length} fields, over {MatchMetricsLimits.MaxFields}");
+            if (fields.Length > SharedMatchMetricsLimits.MaxFields)
+                throw new ArgumentException($"[MatchMetrics] The event '{name}' has {fields.Length} fields, over {SharedMatchMetricsLimits.MaxFields}");
 
             _events.Add(new MatchEventRecord(name, _clock.Seconds, _ticks.NowMs, (MatchEventField[])fields.Clone()));
         }
@@ -99,8 +99,8 @@ namespace Global.MatchMetrics
                 return existing;
             }
 
-            if (_buckets.Count == MatchMetricsLimits.MaxSeries)
-                throw new InvalidOperationException($"[MatchMetrics] Over {MatchMetricsLimits.MaxSeries} series: '{key}'");
+            if (_buckets.Count == SharedMatchMetricsLimits.MaxSeries)
+                throw new InvalidOperationException($"[MatchMetrics] Over {SharedMatchMetricsLimits.MaxSeries} series: '{key}'");
 
             var slot = _buckets.Declare(kind);
             object handle = kind == SharedMatchMetrics.MatchSeriesKind.Counter ? new MatchCounter(this, slot) : new MatchGauge(this, slot);

@@ -7,10 +7,8 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// F2.37: the value-returning Run&lt;T&gt; (and InTransaction) throw TransactionFailedException with the original
-/// error when the transaction does not commit, instead of returning the value of an uncommitted action.
-/// </summary>
+// the value-returning Run<T> (and InTransaction) throw TransactionFailedException with the original
+// error when the transaction does not commit, instead of returning the value of an uncommitted action.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class TransactionRunResultTests(OrleansTestClusterFixture fixture)
     : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

@@ -9,7 +9,7 @@ public interface ISessionAdmission
 {
     bool IsClosed { get; }
 
-    // No new reservations (TryReserve is refused, a live reservation is not refreshed either); the users that
+    // No new reservations (Reserve is refused, a live reservation is not refreshed either); the users that
     // hold a reservation still enter. A lobby that has started its match.
     bool IsSealed { get; }
 
@@ -25,18 +25,14 @@ public interface ISessionAdmission
     // Search, lobby: reserves a place for SessionCreateOptions.JoinTimeout. A repeated call from the same user refreshes the reservation.
     // A user that reserves a place is not connected any more: its joined connections are stale (the client was lost
     // without a close; the session drops them, see ISession.DropConnections). They don't take a place, and a session
-    // held only by them is refused - it is closed as soon as they are dropped.
-    bool TryReserve(Guid userId, int maxUsers, DateTime now);
+    // held only by them is refused (HeldOnlyByOwnStale) - it is closed as soon as they are dropped.
+    SessionReservation Reserve(Guid userId, int maxUsers, DateTime now);
 
-    // The joined connections of the user are all that holds the session (they are stale for a user that reserves
-    // anew, see TryReserve).
-    bool IsHeldOnlyBy(Guid userId);
-
-    // Not closed, not sealed and the user would get a place now (TryReserve would succeed).
+    // Not closed, not sealed and the user would get a place now (Reserve would succeed).
     bool HasFreePlace(Guid userId, int maxUsers, DateTime now);
 
     // Gateway, on connect: the live reservation of the user turns into a joining user that keeps holding the
-    // session (no entry without one - the limit and the seal are checked by TryReserve). False when the session is
+    // session (no entry without one - the limit and the seal are checked by Reserve). False when the session is
     // closed or the user has no live reservation (never made, expired, already used by another connection).
     // allowsReturn (a session with a reconnect window): the user may also return to its seat without a reservation - a seat away
     // (OnUserAway, within its window) or a seat whose connection is still joined (the client has seen the loss before
@@ -126,26 +122,24 @@ public class SessionAdmission : ISessionAdmission
             _isClosed = true;
     }
 
-    public bool IsHeldOnlyBy(Guid userId)
-    {
-        lock (_lock)
-            return _holders.IsHeldOnlyBy(userId);
-    }
-
-    public bool TryReserve(Guid userId, int maxUsers, DateTime now)
+    public SessionReservation Reserve(Guid userId, int maxUsers, DateTime now)
     {
         lock (_lock)
         {
-            if (_isClosed == true || _isSealed == true)
-                return false;
+            if (_isSealed == true)
+                return SessionReservation.Sealed;
+
+            if (_isClosed == true)
+                return SessionReservation.Closed;
 
             _holders.RemoveExpired(now);
 
-            if (_holders.CanReserve(userId, maxUsers) == false)
-                return false;
+            var reservation = _holders.CheckReserve(userId, maxUsers);
 
-            _holders.Reserve(userId, now);
-            return true;
+            if (reservation == SessionReservation.Reserved)
+                _holders.Reserve(userId, now);
+
+            return reservation;
         }
     }
 
@@ -158,7 +152,7 @@ public class SessionAdmission : ISessionAdmission
 
             _holders.RemoveExpired(now);
 
-            return _holders.CanReserve(userId, maxUsers);
+            return _holders.CheckReserve(userId, maxUsers) == SessionReservation.Reserved;
         }
     }
 

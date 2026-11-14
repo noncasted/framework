@@ -1,7 +1,6 @@
 using Common.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using Orleans.GrainReferences;
 
 namespace Infrastructure.State;
@@ -13,30 +12,6 @@ public interface IStateSerializer
     T Deserialize<T>(string value);
     T? TryDeserialize<T>(string value);
     object? Deserialize(string value, Type type);
-}
-
-public static class JsonStateSettings
-{
-    public static JsonSerializerSettings CreateBase()
-    {
-        return new JsonSerializerSettings
-        {
-            TypeNameHandling = TypeNameHandling.All,
-            MetadataPropertyHandling = MetadataPropertyHandling.ReadAhead,
-            PreserveReferencesHandling = PreserveReferencesHandling.None,
-            DateFormatHandling = DateFormatHandling.IsoDateFormat,
-            // Include, not Ignore: with Ignore any value equal to the type default (0, false)
-            // was dropped from the JSON on write and replaced by the property initializer on read.
-            // Because of that a setting could not be set to 0 - it silently fell back to the class default.
-            DefaultValueHandling = DefaultValueHandling.Include,
-            MissingMemberHandling = MissingMemberHandling.Ignore,
-            NullValueHandling = NullValueHandling.Ignore,
-            ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor,
-            TypeNameAssemblyFormatHandling = TypeNameAssemblyFormatHandling.Simple,
-            Formatting = Formatting.None,
-            SerializationBinder = new MovedTypesBinder(),
-        };
-    }
 }
 
 public class StateSerializer : IStateSerializer
@@ -74,86 +49,5 @@ public class StateSerializer : IStateSerializer
     public object? Deserialize(string value, Type type)
     {
         return JsonConvert.DeserializeObject(value, type, _settings);
-    }
-}
-
-public class GrainIdConverter : JsonConverter
-{
-    public override bool CanConvert(Type objectType) => objectType == typeof(GrainId);
-
-    public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
-    {
-        var id = (GrainId)value!;
-        writer.WriteStartObject();
-        writer.WritePropertyName("key");
-        var key = $"{id.Type}:{id.Key}";
-        writer.WriteValue(key);
-        writer.WriteEndObject();
-    }
-
-    public override object ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
-    {
-        var json = JObject.Load(reader);
-        var raw = json["key"]!.ToObject<string>()!;
-        var split = raw.Split(':', count: 2);
-
-        if (split.Length != 2)
-            throw new JsonSerializationException($"[GrainIdConverter] Invalid GrainId format: '{raw}'");
-
-        var grainId = GrainId.Create(split[0], split[1]);
-        return grainId;
-    }
-}
-
-public class GrainReferenceJsonConverter : JsonConverter
-{
-    public GrainReferenceJsonConverter(GrainReferenceActivator activator)
-    {
-        _activator = activator;
-    }
-
-    private static readonly Type AddressableType = typeof(IAddressable);
-    private readonly GrainReferenceActivator _activator;
-
-    public override bool CanConvert(Type objectType)
-    {
-        return AddressableType.IsAssignableFrom(objectType);
-    }
-
-    public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
-    {
-
-        GrainReference context = value switch
-        {
-            GrainReference reference => reference,
-            Grain grain => grain.GrainContext.GrainReference,
-            IGrainBase grainBase => grainBase.GrainContext.GrainReference,
-            _ => throw new InvalidOperationException($"Unsupported type {value?.GetType()} for grain reference")
-        };
-
-        var id = context.GrainId;
-        var raw = $"{context.InterfaceType.ToString()}:{id.Type.ToString()}:{id.Key.ToString()}";
-
-        writer.WriteValue(raw);
-    }
-
-    public override object ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer)
-    {
-        var json = JToken.Load(reader);
-        var raw = json.Value<string>()!;
-        var split = raw.Split(':', count: 3);
-
-        if (split.Length != 3)
-            throw new JsonSerializationException(
-                $"[GrainReferenceJsonConverter] Invalid GrainReference format: '{raw}'");
-
-        var encodedInterface = split[0];
-
-        var interfaceType = string.IsNullOrWhiteSpace(encodedInterface)
-            ? default
-            : GrainInterfaceType.Create(encodedInterface);
-
-        var grainId = GrainId.Create(split[1], split[2]);
-        return _activator.CreateReference(grainId, interfaceType);
     }
 }

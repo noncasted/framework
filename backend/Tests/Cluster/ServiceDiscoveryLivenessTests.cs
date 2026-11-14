@@ -18,11 +18,9 @@ using Xunit;
 
 namespace Framework.Tests.Cluster;
 
-/// <summary>
-/// The liveness of the members of the service discovery: a stopping service stays unregistered, the staleness is
-/// measured by one clock, a game server that stopped refreshing is not picked, the wait for the cluster does not
-/// flood the log.
-/// </summary>
+// The liveness of the members of the service discovery: a stopping service stays unregistered, the staleness is
+// measured by one clock, a game server that stopped refreshing is not picked, the wait for the cluster does not
+// flood the log.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class ServiceDiscoveryLivenessTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)
@@ -43,7 +41,7 @@ public class ServiceDiscoveryLivenessTests
         deployContext.DeployId.Returns(Guid.NewGuid());
 
         var discovery = new ServiceDiscovery(orleans, deployContext,
-            new ServiceEnvironment { IsDevelopment = true, Tag = TestRoles.Meta },
+            new ServiceEnvironment { Tag = TestRoles.Meta },
             Options.Create(new ServiceDiscoveryOptions()), NullLogger<ServiceDiscovery>.Instance);
 
         // ApplicationStopping unregisters; the refresh loop still runs until the host stops it.
@@ -87,7 +85,7 @@ public class ServiceDiscoveryLivenessTests
         });
 
         var data = new LiveSessionsData();
-        data.Slices[alive.Id] = [new LiveSessionEntry { Id = Guid.NewGuid() }];
+        data.SetSlice(alive.Id, [new LiveSessionEntry { Id = Guid.NewGuid() }]);
 
         var balancer = GameServerBalancerTests.Create(discovery, data);
 

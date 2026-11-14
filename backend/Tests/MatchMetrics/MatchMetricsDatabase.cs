@@ -21,18 +21,20 @@ public sealed class MatchMetricsDatabase : IAsyncLifetime, IDbSource
     public TestMatchAdmission Admission { get; } = new();
     public MatchMetricsOptions Options { get; } = new() { AdmissionRecheck = TimeSpan.FromSeconds(60), CloseGrace = TimeSpan.FromMinutes(2) };
 
-    public MatchMetricStreamStore Streams { get; private set; } = null!;
-    public MatchMetricBatchWriter Writer { get; private set; } = null!;
+    internal MatchMetricStreamStore Streams { get; private set; } = null!;
+    internal MatchMetricBatchWriter Writer { get; private set; } = null!;
+    internal MatchMetricSeriesDictionary Dictionary { get; private set; } = null!;
 
     public async ValueTask InitializeAsync()
     {
-        await _database.InitializeAsync();
+        await _database.Initialize();
 
         await using var connection = await Value.OpenConnectionAsync();
         await MatchMetricsSchema.Create(connection);
 
         Streams = new MatchMetricStreamStore(this);
-        Writer = new MatchMetricBatchWriter(this, new MatchMetricSeriesDictionary(this));
+        Dictionary = new MatchMetricSeriesDictionary(this);
+        Writer = new MatchMetricBatchWriter(this, Dictionary);
     }
 
     public MatchMetricsConnection Connect(Guid userId, ILifetime? lifetime = null)
@@ -43,7 +45,7 @@ public sealed class MatchMetricsDatabase : IAsyncLifetime, IDbSource
 
     public IMatchMetricsWriter ServerWriter(MatchMetricsOptions options)
     {
-        return new MatchMetricsWriter(Streams, Writer, options, TimeProvider.System, NullLogger<MatchMetricsServerStream>.Instance);
+        return new MatchMetricsWriter(Streams, Writer, Dictionary, options, TimeProvider.System, NullLogger<MatchMetricsServerStream>.Instance);
     }
 
     public async Task<T> Scalar<T>(string sql, params (string Name, object Value)[] parameters)

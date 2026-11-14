@@ -70,6 +70,14 @@ internal sealed class ClientTelemetryReader : IClientTelemetryReader
             log => TelemetryRows.Page(log.Marks, afterSeq, limit, mark => mark.Seq));
     }
 
+    public Task<IReadOnlyList<TelemetryStoredSample>> GetSampleWindow(Guid session, long from, long to)
+    {
+        return ReadPage(
+            session,
+            grain => grain.GetSampleWindow(from, to),
+            log => TelemetryRows.Window(log.Samples, from, to));
+    }
+
     public Task<IReadOnlyList<TelemetryStartupInfo>> GetStartups(int limit)
     {
         return Task.FromResult(_startups.List(limit));

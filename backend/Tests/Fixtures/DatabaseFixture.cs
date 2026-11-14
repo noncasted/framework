@@ -4,10 +4,8 @@ using Shared;
 
 namespace Framework.Tests.Fixtures;
 
-/// <summary>
-/// A test database of its own in the container of the run (PostgresContainer).
-/// Creates the state tables of TestStates and the side effects tables.
-/// </summary>
+// A test database of its own in the container of the run (PostgresContainer).
+// Creates the state tables of TestStates and the side effects tables.
 public class DatabaseFixture : IAsyncDisposable
 {
     private string _databaseName = string.Empty;
@@ -16,7 +14,7 @@ public class DatabaseFixture : IAsyncDisposable
     public string ConnectionString => _connectionString;
     public NpgsqlDataSource DataSource { get; private set; } = null!;
 
-    public async Task InitializeAsync()
+    public async Task Initialize()
     {
         _databaseName = $"test_db_{Guid.NewGuid():N}";
 
@@ -115,10 +113,7 @@ public class DatabaseFixture : IAsyncDisposable
         await seCmd.ExecuteNonQueryAsync();
     }
 
-    /// <summary>
-    /// Truncate all state and side effects tables for per-test isolation.
-    /// </summary>
-    public async Task ResetDatabaseAsync()
+    public async Task ResetDatabase()
     {
         await using var connection = await DataSource.OpenConnectionAsync();
         await using var command = connection.CreateCommand();
@@ -138,36 +133,6 @@ public class DatabaseFixture : IAsyncDisposable
                               $$;
                               """;
         await command.ExecuteNonQueryAsync();
-    }
-
-    /// <summary>
-    /// Delete specific state records by table name and key.
-    /// </summary>
-    public async Task DeleteStateAsync(string tableName, string key)
-    {
-        await using var connection = await DataSource.OpenConnectionAsync();
-        await using var command = connection.CreateCommand();
-        command.CommandText = $"""DELETE FROM "{tableName}" WHERE key = @key""";
-        command.Parameters.AddWithValue("key", key);
-        await command.ExecuteNonQueryAsync();
-    }
-
-    /// <summary>
-    /// Check if there are pending side effects.
-    /// </summary>
-    public async Task<bool> HasPendingSideEffectsAsync()
-    {
-        await using var connection = await DataSource.OpenConnectionAsync();
-        await using var command = connection.CreateCommand();
-
-        command.CommandText = """
-                              SELECT (SELECT count(*) FROM side_effects_queue) +
-                                     (SELECT count(*) FROM side_effects_processing) +
-                                     (SELECT count(*) FROM side_effects_retry_queue)
-                              """;
-
-        var result = await command.ExecuteScalarAsync();
-        return result is long count && count > 0;
     }
 
     public async ValueTask DisposeAsync()

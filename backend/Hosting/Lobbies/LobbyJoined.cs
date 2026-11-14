@@ -1,5 +1,3 @@
-using Game.Hosting;
-
 namespace Game.Lobbies;
 
 public class LobbyJoined

@@ -9,10 +9,8 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// A state that fails inside a transaction before it reaches the handler must still be rolled back by it: otherwise
-/// the state keeps the id of a dead transaction and every later transaction of the grain fails.
-/// </summary>
+// A state that fails inside a transaction before it reaches the handler must still be rolled back by it: otherwise
+// the state keeps the id of a dead transaction and every later transaction of the grain fails.
 public class TransactionParticipantFailureTests : IDisposable
 {
     public TransactionParticipantFailureTests()

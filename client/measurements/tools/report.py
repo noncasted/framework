@@ -2,7 +2,8 @@
 """Rebuilds RESULTS.md from results/<version>/<variant>.json (written by measure.py). Run alone after editing a
 result by hand; measure.py runs it after every measurement.
 
-The download is what a player loads: the wasm, the data, the framework and the loader, compressed as served
+The download is what a player loads: the wasm, the data, the framework, the loader and StreamingAssets (the catalog
+and the bundles of Addressables), compressed as served
 (the symbols file is not loaded by the page and is listed apart). Sizes are KiB (1024 bytes)."""
 import glob
 import json
@@ -10,7 +11,7 @@ import os
 import re
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DOWNLOADED = ('wasm', 'data', 'framework', 'loader')
+DOWNLOADED = ('wasm', 'data', 'framework', 'loader', 'streaming')
 BASELINE_VARIANT = 'base'
 
 
@@ -86,8 +87,8 @@ def smoke_text(result):
 
 def summary_table(versions, variants, by_key):
     lines = ['## Sizes', '',
-             '| Unity | Variant | Download | wasm | data | framework.js | wasm raw | wasm before submodule stripping | Smoke |',
-             '|---|---|---:|---:|---:|---:|---:|---:|---|']
+             '| Unity | Variant | Download | wasm | data | framework.js | StreamingAssets | wasm raw | wasm before submodule stripping | Smoke |',
+             '|---|---|---:|---:|---:|---:|---:|---:|---:|---|']
     for version in versions:
         for variant in variants:
             r = by_key.get((version, variant))
@@ -95,7 +96,7 @@ def summary_table(versions, variants, by_key):
                 continue
             before = r['wasmBeforeStripping']['compressed']
             lines.append(f'| {version} | {variant} | **{kib(download(r))}** | {kib(size(r, "wasm"))} | {kib(size(r, "data"))} | '
-                         f'{kib(size(r, "framework"))} | {kib(size(r, "wasm", "raw"))} | {kib(before)} '
+                         f'{kib(size(r, "framework"))} | {kib(size(r, "streaming"))} | {kib(size(r, "wasm", "raw"))} | {kib(before)} '
                          f'({signed_kib(size(r, "wasm") - before)}) | {smoke_text(r)} |')
     return lines + ['']
 

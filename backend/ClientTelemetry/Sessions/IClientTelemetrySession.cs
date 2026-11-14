@@ -23,6 +23,9 @@ public interface IClientTelemetrySession : IGrainWithGuidKey
     Task<IReadOnlyList<TelemetryStoredError>?> GetErrors(long afterSeq, int limit);
     Task<IReadOnlyList<TelemetryStoredMark>?> GetMarks(long afterSeq, int limit);
 
+    // From the memory, the samples with the time from from to to, inclusive. Null: the session is not live.
+    Task<IReadOnlyList<TelemetryStoredSample>?> GetSampleWindow(long from, long to);
+
     // The pass of ClientTelemetrySweep: the activation itself closes what a crash left open, an expired session is deleted.
     Task Sweep();
 }

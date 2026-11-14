@@ -15,14 +15,21 @@ public class BotConnection : IConnection, IConnectionWriter, IConnectionReader
     public IViewableDelegate<RequestMessageFromClient> Requests { get; } =
         new ViewableDelegate<RequestMessageFromClient>();
 
-    public IViewableDelegate<ResponseMessageFromClient> Responses { get; } =
-        new ViewableDelegate<ResponseMessageFromClient>();
+    private TaskCompletionSource? _closed;
+
+    // A bot has no socket: it is closed when its lifetime ends.
+    public Task Closed => (_closed ??= ListenEnd()).Task;
 
     public Task Run()
     {
+        return Closed;
+    }
+
+    private TaskCompletionSource ListenEnd()
+    {
         var completion = new TaskCompletionSource();
-        Lifetime.Listen(() => completion.SetResult());
-        return completion.Task;
+        Lifetime.Listen(() => completion.TrySetResult());
+        return completion;
     }
 
     public void ForceDisconnect()
@@ -34,18 +41,7 @@ public class BotConnection : IConnection, IConnectionWriter, IConnectionReader
     {
     }
 
-    // A bot has no client: nothing would ever answer the request.
-    public Task<T> WriteRequest<T>(INetworkContext context) where T : INetworkContext
-    {
-        return Task.FromException<T>(new InvalidOperationException(
-            $"Request {ErrorResponse.Describe(context)} to a bot: a bot has no client to answer it"));
-    }
-
     public void WriteResponse(INetworkContext context, int requestId)
-    {
-    }
-
-    public void OnRequestHandled(INetworkContext context, int requestId)
     {
     }
 }

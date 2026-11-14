@@ -31,18 +31,13 @@ public class DeploymentState<T> : ViewableProperty<T>, IDeploymentState<T>, IDep
     // Values are applied from the loading epoch, own writes and channel deliveries, on different threads.
     // Set is not thread-safe (the listeners and value lifetimes are plain lists): concurrent Sets threw
     // "Collection was modified" and the watermark check-then-set let an older value overwrite a newer one.
-    // Taken only around the synchronous apply (watermark + Set + listeners), never across an await.
+    // Taken only around the synchronous apply (epoch check + watermark + Set + listeners), never across an await.
     private readonly object _applyLock = new();
-    private StateIdentity? _identity;
-    private DeploymentStateChannelId<T>? _channelId;
-    private volatile bool _isInitialized;
 
-    // UpdateDate of the last state applied to Value (from load, SetValue, or a channel
-    // update). Channel updates include our own publishes echoed back with messaging
-    // latency — without this watermark an old echo rolls Value back and the next
-    // read-modify-write (ClusterFeatures.Apply) publishes a state computed from the
-    // stale base, clobbering newer flags cluster-wide.
-    private DateTime _lastAppliedUpdate;
+    // The deploy epoch the value belongs to, replaced under _applyLock by OnDeployChanged. A write or a read started
+    // in one epoch applies its result only while that epoch is still the current one.
+    private Epoch? _epoch;
+    private volatile bool _isInitialized;
 
     protected readonly IOrleans _orleans;
     protected readonly ILogger _logger;
@@ -74,42 +69,40 @@ public class DeploymentState<T> : ViewableProperty<T>, IDeploymentState<T>, IDep
         // DeployContext, which ends the epoch and crashes the caller.
         _isInitialized = false;
 
-        _deployId = newDeployId;
-
-        _identity = CreateStateIdentity(newDeployId);
-        _channelId = new DeploymentStateChannelId<T>(newDeployId);
+        var epoch = new Epoch(newDeployId, CreateStateIdentity(newDeployId), new DeploymentStateChannelId<T>(newDeployId));
 
         lock (_applyLock)
-            _lastAppliedUpdate = default;
+        {
+            _epoch = epoch;
+            _deployId = newDeployId;
+        }
 
         // Listening before the read: an update published while the read runs is not lost, the watermark keeps the
         // newer of the two. A gap of the channel (missed updates) reloads the value from the database.
-        var identity = _identity;
+        await _messaging.ListenChannel<AddressableStateValue>(deployLifetime, epoch.ChannelId, OnUpdate,
+            () => Load(epoch).NoAwait());
 
-        await _messaging.ListenChannel<AddressableStateValue>(deployLifetime, _channelId, OnUpdate,
-            () => Load(identity).NoAwait());
-
-        await Load(identity);
+        await Load(epoch);
         _isInitialized = true;
     }
 
-    private async Task Load(StateIdentity identity)
+    private async Task Load(Epoch epoch)
     {
-        var state = await _orleans.StateStorage.Read<AddressableStateValue>(identity);
+        var state = await _orleans.StateStorage.Read<AddressableStateValue>(epoch.Identity);
 
-        if (identity != _identity)
-            return;
-
-        if (state.IsInitialized == true)
-        {
-            TryApplyUpdate(state);
-            return;
-        }
-
-        // Nothing stored for this epoch and nothing came on its channel: the value of the previous epoch goes.
         lock (_applyLock)
         {
-            if (_lastAppliedUpdate == default)
+            if (_epoch != epoch)
+                return;
+
+            if (state.IsInitialized == true)
+            {
+                ApplyLocked(epoch, state);
+                return;
+            }
+
+            // Nothing stored for this epoch and nothing came on its channel: the value of the previous epoch goes.
+            if (epoch.LastApplied == default)
                 Set(new T());
         }
     }
@@ -120,39 +113,31 @@ public class DeploymentState<T> : ViewableProperty<T>, IDeploymentState<T>, IDep
 
         try
         {
-            if (_deployId == Guid.Empty || _identity == null || _channelId == null)
-                throw new InvalidOperationException("DeploymentState is not initialized with a valid deploy ID.");
-
-            // Later than every value this host has seen, whatever the clock of the host that wrote it: the readers
-            // order the values by this date, a write must never lose to the one it replaces.
-            var updateDate = DateTime.UtcNow;
+            Epoch epoch;
+            DateTime previous;
 
             lock (_applyLock)
             {
-                if (updateDate <= _lastAppliedUpdate)
-                    updateDate = _lastAppliedUpdate.AddTicks(1);
+                epoch = _epoch ?? throw new InvalidOperationException("DeploymentState is not initialized with a deploy yet.");
+                previous = epoch.LastApplied;
             }
 
-            var state = new AddressableStateValue
-            {
-                IsInitialized = true,
-                UpdateDate = updateDate,
-                Value = _orleans.Serializer.Serialize(value)
-            };
+            // Later than every value this host has seen, whatever the clock of the host that wrote it.
+            var state = DeploymentStateRow.Create(_orleans.Serializer, value, previous);
 
             // The value becomes visible only once it is in the database: a failed write leaves the old one.
-            await _orleans.StateStorage.Write(_identity, state);
+            await _orleans.StateStorage.Write(epoch.Identity, state);
 
             lock (_applyLock)
             {
-                if (state.UpdateDate > _lastAppliedUpdate)
+                if (_epoch == epoch && state.UpdateDate > epoch.LastApplied)
                 {
-                    _lastAppliedUpdate = state.UpdateDate;
+                    epoch.MarkApplied(state.UpdateDate);
                     Set(value);
                 }
             }
 
-            await _messaging.PublishChannel(_channelId, state);
+            await _messaging.PublishChannel(epoch.ChannelId, state);
         }
         catch (Exception e)
         {
@@ -170,38 +155,82 @@ public class DeploymentState<T> : ViewableProperty<T>, IDeploymentState<T>, IDep
         TryApplyUpdate(state);
     }
 
+    // A state of the current epoch (a delivery of its channel).
     protected bool TryApplyUpdate(AddressableStateValue state)
+    {
+        lock (_applyLock)
+        {
+            var epoch = _epoch ?? throw new InvalidOperationException("DeploymentState is not initialized with a deploy yet.");
+            return ApplyLocked(epoch, state);
+        }
+    }
+
+    // A state written to the row of the given deploy: dropped when the epoch has changed since the write started.
+    protected bool TryApplyUpdate(Guid deployId, AddressableStateValue state)
+    {
+        lock (_applyLock)
+        {
+            if (_epoch == null || _epoch.DeployId != deployId)
+                return false;
+
+            return ApplyLocked(_epoch, state);
+        }
+    }
+
+    private bool ApplyLocked(Epoch epoch, AddressableStateValue state)
     {
         if (state.IsInitialized == false)
             return false;
 
-        lock (_applyLock)
+        if (state.UpdateDate <= epoch.LastApplied)
         {
-            if (state.UpdateDate <= _lastAppliedUpdate)
-            {
-                _logger.LogDebug(
-                    "[DeploymentState] Skipped stale update for {Type}: sent {Sent:O}, last applied {Applied:O}",
-                    typeof(T).Name, state.UpdateDate, _lastAppliedUpdate);
-                return false;
-            }
+            _logger.LogDebug(
+                "[DeploymentState] Skipped stale update for {Type}: sent {Sent:O}, last applied {Applied:O}",
+                typeof(T).Name, state.UpdateDate, epoch.LastApplied);
+            return false;
+        }
 
-            // A value that does not deserialize is a schema mismatch between services: fail the delivery loudly
-            // instead of keeping a silently stale value.
-            T value;
+        // A value that does not deserialize is a schema mismatch between services: fail the delivery loudly
+        // instead of keeping a silently stale value.
+        T value;
 
-            try
-            {
-                value = _orleans.Serializer.Deserialize<T>(state.Value);
-            }
-            catch (Exception e)
-            {
-                throw new InvalidOperationException(
-                    $"[DeploymentState] Failed to deserialize update for {typeof(T).Name} (deploy {_deployId})", e);
-            }
+        try
+        {
+            value = _orleans.Serializer.Deserialize<T>(state.Value);
+        }
+        catch (Exception e)
+        {
+            throw new InvalidOperationException(
+                $"[DeploymentState] Failed to deserialize update for {typeof(T).Name} (deploy {epoch.DeployId})", e);
+        }
 
-            _lastAppliedUpdate = state.UpdateDate;
-            Set(value);
-            return true;
+        epoch.MarkApplied(state.UpdateDate);
+        Set(value);
+        return true;
+    }
+
+    private class Epoch
+    {
+        public Epoch(Guid deployId, StateIdentity identity, DeploymentStateChannelId<T> channelId)
+        {
+            DeployId = deployId;
+            Identity = identity;
+            ChannelId = channelId;
+        }
+
+        public Guid DeployId { get; }
+        public StateIdentity Identity { get; }
+        public DeploymentStateChannelId<T> ChannelId { get; }
+
+        // UpdateDate of the last state applied to Value in this epoch (from the load, SetValue, or a channel
+        // update). Channel updates include our own publishes echoed back with messaging latency: without this
+        // watermark an old echo rolls Value back and the next read-modify-write (ClusterFeatures.Apply) publishes a
+        // state computed from the stale base, clobbering newer flags cluster-wide. Changed under _applyLock.
+        public DateTime LastApplied { get; private set; }
+
+        public void MarkApplied(DateTime updateDate)
+        {
+            LastApplied = updateDate;
         }
     }
 }
