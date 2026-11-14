@@ -2,14 +2,14 @@
 
 Console project: `backend/Console` (Blazor Server, BlazorBlueprint components `Bb*`, Lucide icons via `LucideIcon`,
 `ToastService`). Pages live in feature folders: `backend/Console/Home/`, `backend/Console/Infrastructure/<Feature>/`,
-shared pieces in `backend/Console/Common/` (`UiComponent.cs`, `PageHeader.razor`, `OperationView.razor`).
+shared pieces in `backend/Console/Common/` (`UiComponent.cs`, `PageHeader.razor`, `PayloadForm.razor`).
 The `app.css` of a game is committed and built by hand: a page of the framework uses only the classes in the `app.css` of every game.
 
 Reference pages:
 - `backend/Console/Infrastructure/AuditLog/AuditLog.razor` — early return loading spinner, `ToastService`, `OnInitializedAsync`
 - `backend/Console/Infrastructure/Debug/StateExplorer.razor` — `BbAlert` early return
 - `backend/Console/Infrastructure/Features/Features.razor` — `UiComponent` + reactive subscription
-- `backend/Console/Infrastructure/Benchmark/Benchmarks.razor` — collection rendered via extracted `BenchmarkEntry`
+- `backend/Console/Infrastructure/SideEffects/SideEffectsMonitor.razor` — repeated blocks rendered via extracted `SideEffectsCountTile`
 
 ## Rule 1: Early Return for State Guards (CRITICAL)
 
