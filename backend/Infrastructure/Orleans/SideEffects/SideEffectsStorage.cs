@@ -35,12 +35,8 @@ public interface ISideEffectsStorage
     // Move entries from side_effects_retry_queue → side_effects_queue where retry_after <= now
     Task RequeueReady();
 
-    // An action of an operator (the console): moves everything from side_effects_processing back to the queue, the
-    // entries a live worker is executing right now too, so they run twice. Never on a start: every worker requeues the
-    // entries of a gone worker itself at its first scan and then every StuckCheckIntervalSeconds (RequeueStuckOlderThan).
-    Task RequeueStuck();
-
-    // Periodically: move entries stuck in processing longer than `age` back to queue
+    // Move entries stuck in processing longer than `age` back to queue: every worker at its stuck check, and the
+    // console on an action of an operator, both with StuckThresholdMinutes, so an entry a live worker touches stays.
     Task RequeueStuckOlderThan(TimeSpan age);
 
     // Marks the entries a worker is still executing as alive (processing_started_at = now), so RequeueStuckOlderThan
@@ -103,8 +99,6 @@ public class SideEffectsStorage : ISideEffectsStorage
     }
 
     public Task TouchProcessing(IReadOnlyCollection<Guid> ids) => _processing.TouchProcessing(ids);
-
-    public Task RequeueStuck() => _requeue.RequeueStuck();
 
     public Task RequeueStuckOlderThan(TimeSpan age) => _requeue.RequeueStuckOlderThan(age);
 

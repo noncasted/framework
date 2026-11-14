@@ -15,23 +15,6 @@ internal class SideEffectsRequeue
     private readonly IDbSource _dbSource;
     private readonly ILogger _logger;
 
-    public async Task RequeueStuck()
-    {
-        await using var connection = await _dbSource.Value.OpenConnectionAsync();
-        await using var command = connection.CreateCommand();
-
-        command.CommandText = @"
-            WITH stuck AS (
-                DELETE FROM side_effects_processing
-                RETURNING id, payload, retry_count, created_at
-            )
-            INSERT INTO side_effects_queue (id, payload, retry_count, created_at)
-            SELECT id, payload, retry_count, created_at FROM stuck
-            ON CONFLICT (id) DO NOTHING
-        ";
-        await command.ExecuteNonQueryAsync();
-    }
-
     public async Task RequeueStuckOlderThan(TimeSpan age)
     {
         await using var connection = await _dbSource.Value.OpenConnectionAsync();

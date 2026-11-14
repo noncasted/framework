@@ -111,9 +111,6 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         // Wait for retry delay to expire, then requeue and pump again
         // IncrementalRetryDelay from config * (retryCount+1) — we need to wait or manipulate time.
         // Since test config has IncrementalRetryDelay=30s, we can't wait that long.
-        // Instead, directly call RequeueStuck to simulate time passage — move processing→queue
-        // Actually FailProcessing already moved it to retry_queue. We need RequeueReady but retry_after is in the future.
-        // Workaround: pump multiple times with RequeueStuck between to force reprocessing.
 
         // The entry is now in retry_queue with retry_after in the future.
         // We'll use direct DB access to force-expire the retry_after.
@@ -159,7 +156,7 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
     }
 
     [Fact]
-    public async Task SideEffect_RequeueStuck_RecoversCrashedEntries()
+    public async Task SideEffect_RequeueStuckOlderThan_RecoversCrashedEntries()
     {
         var targetId = Guid.NewGuid();
         var storage = GetSiloService<ISideEffectsStorage>();
@@ -174,8 +171,8 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         var emptyRead = await storage.Read(1);
         emptyRead.Should().BeEmpty();
 
-        // Simulate crash recovery — move processing → queue
-        await storage.RequeueStuck();
+        // Simulate crash recovery — move processing → queue; a zero age takes every entry already in processing
+        await storage.RequeueStuckOlderThan(TimeSpan.Zero);
 
         // Now the entry should be back in the queue
         var result = await DrainSideEffectsAsync();
