@@ -1,6 +1,5 @@
 using Common.Extensions;
 using Internal;
-using Marten;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 
@@ -84,7 +83,6 @@ public class StateStorage : IStateStorage
 	public StateStorage(
 		DirectStorage directStorage,
 		IEventStorage eventStorage,
-		IDocumentStore documentStore,
 		IGrainStatesRegistry statesRegistry,
 		IStateSerializer stateSerializer,
 		IDbSource dbSource,
@@ -92,7 +90,6 @@ public class StateStorage : IStateStorage
 	{
 		_directStorage = directStorage;
 		_eventStorage = eventStorage;
-		_documentStore = documentStore;
 		_stateSerializer = stateSerializer;
 		_dbSource = dbSource;
 		_logger = logger;
@@ -101,7 +98,6 @@ public class StateStorage : IStateStorage
 
 	private readonly DirectStorage _directStorage;
 	private readonly IEventStorage _eventStorage;
-	private readonly IDocumentStore _documentStore;
 	private readonly IStateSerializer _stateSerializer;
 	private readonly IDbSource _dbSource;
 	private readonly ILogger<StateStorage> _logger;

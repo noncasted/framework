@@ -38,10 +38,4 @@ public static class LoopExtensions
 
         return builder;
     }
-
-    public static ContainerExtensions.Registration AsSetupLoopStage(this ContainerExtensions.Registration registration)
-    {
-        return registration
-            .As<ILocalSetupCompleted>();
-    }
 }

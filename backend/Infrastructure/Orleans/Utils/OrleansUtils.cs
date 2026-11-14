@@ -86,13 +86,6 @@ public static class OrleansUtilsExtensions
         return builder;
     }
 
-    public static Task Iterate<T>(this IReadOnlyList<T> grains, Func<T, Task> action)
-        where T : IGrainWithGuidKey
-    {
-        var tasks = grains.Select(action);
-        return Task.WhenAll(tasks);
-    }
-
     extension(IOrleans orleans)
     {
         public IGrainFactory Grains => orleans.Client;
