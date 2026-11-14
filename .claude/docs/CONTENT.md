@@ -90,7 +90,11 @@ in the background: the root and the scopes after it do not wait for its requests
 
 ```csharp
 builder.AddContentDirectory(options.Stream);                       // ContentOptions with _name "Stream"; returns at once
+builder.AddContentDirectory(options.Battle, ContentRegistration.OnFirstWait); // nothing fetched before the first Wait of "Battle"
 ```
+
+`OnFirstWait` is for a directory needed well after the start: its index is fetched and parsed (on the main thread, ~0.1 s on a
+Mali phone for a few hundred files) only when the game first asks for it, not in the middle of the start.
 
 ```csharp
 var stream = await _directories.Wait(lifetime, "Stream");          // [Inject] IContentDirectories; once registered

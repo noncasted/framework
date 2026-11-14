@@ -134,6 +134,53 @@ namespace Internal.Tests
         }
 #endif
 
+        // OnFirstWait: the directory is not created (nothing fetched) until its first Wait, then it is as a background one.
+        [UnityTest]
+        public IEnumerator AddContentDirectory_OnFirstWait_RegistersAtTheFirstWait() => UniTask.ToCoroutine(async () =>
+        {
+            var main = await Register(ContentTestPaths.Index, ContentTestPaths.Folder);
+            var extra = await Register(ContentTestPaths.ExtraIndex, ContentTestPaths.ExtraFolder);
+            var created = 0;
+            var previous = EditorContentDirectories.Install(name =>
+            {
+                if (name == ContentTestPaths.ExtraName)
+                {
+                    created++;
+                    return extra;
+                }
+
+                return name == ContentTestPaths.Name ? main : throw new InvalidOperationException($"No test directory {name}");
+            });
+
+            try
+            {
+                var options = new[] { new ContentOptions(ContentTestPaths.Name), new ContentOptions(ContentTestPaths.ExtraName) };
+                var root = await new ServiceScopeLoader().Load(ScopeLoadOptions.Create(null, ContentScopeRoots.Deferred.Construct, options));
+                var directories = root.Resolve<IContentDirectories>();
+                await UniTask.DelayFrame(2);
+
+                Assert.AreEqual(0, created, "Nothing before the first Wait");
+                Assert.Throws<InvalidOperationException>(() => directories.Get(ContentTestPaths.ExtraName));
+
+                var loader = await directories.Wait(root.Lifetime, ContentTestPaths.ExtraName);
+                var again = await directories.Wait(root.Lifetime, ContentTestPaths.ExtraName);
+                var target = await loader.Load(root.Lifetime, loader.RootAssets<ContentTestReferences>().Single().Target);
+
+                Assert.AreEqual(1, created, "One registration");
+                Assert.AreSame(loader, again);
+                Assert.AreEqual("ExtraTarget", target.name);
+
+                await root.Dispose();
+            }
+            finally
+            {
+                EditorContentDirectories.Install(previous);
+            }
+
+            await UniTask.DelayFrame(ReleaseFrames);
+            LogAssert.NoUnexpectedReceived();
+        });
+
         [UnityTest]
         public IEnumerator AddContentDirectory_WithoutAddContent_Throws() => UniTask.ToCoroutine(async () =>
         {

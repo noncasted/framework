@@ -42,6 +42,15 @@ namespace Internal.Tests
             }
         }
 
+        public static class Deferred
+        {
+            public static async UniTask Construct(IScopeBuilder builder, ContentOptions[] options)
+            {
+                await builder.AddContent(options[0]);
+                builder.AddContentDirectory(options[1], ContentRegistration.OnFirstWait);
+            }
+        }
+
         public static class ExtraOnly
         {
             public static UniTask Construct(IScopeBuilder builder, ContentOptions options)

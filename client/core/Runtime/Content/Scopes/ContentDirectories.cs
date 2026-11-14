@@ -11,6 +11,9 @@ namespace Internal
     {
         private readonly Dictionary<string, UniTaskCompletionSource<IContentLoader>> _loaders = new(StringComparer.OrdinalIgnoreCase);
 
+        // The registrations of ContentRegistration.OnFirstWait not started yet: the first Wait of the name starts one.
+        private readonly Dictionary<string, Action> _deferred = new(StringComparer.OrdinalIgnoreCase);
+
         public IContentLoader Get(string name)
         {
             var task = Find(name).Task;
@@ -23,7 +26,12 @@ namespace Internal
 
         public UniTask<IContentLoader> Wait(IReadOnlyLifetime lifetime, string name)
         {
-            return Find(name).Task.AttachExternalCancellation(lifetime.Token);
+            var source = Find(name);
+
+            if (_deferred.Remove(name, out var start) == true)
+                start();
+
+            return source.Task.AttachExternalCancellation(lifetime.Token);
         }
 
         internal void Add(string name, IContentLoader loader)
@@ -39,6 +47,14 @@ namespace Internal
 
             var source = new UniTaskCompletionSource<IContentLoader>();
             _loaders.Add(name, source);
+            return source;
+        }
+
+        // A directory whose registration starts at the first Wait of its name.
+        internal UniTaskCompletionSource<IContentLoader> Defer(string name, Action<UniTaskCompletionSource<IContentLoader>> start)
+        {
+            var source = Begin(name);
+            _deferred.Add(name, () => start(source));
             return source;
         }
 

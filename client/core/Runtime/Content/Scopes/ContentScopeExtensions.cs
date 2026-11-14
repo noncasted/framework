@@ -32,12 +32,23 @@ namespace Internal
         // root and the scopes after it do not wait for its requests; IContentDirectories.Wait(lifetime, options.Name) gives
         // the loader once it is registered. The directory lives as long as the root. The catalogues know nothing of it: its
         // objects are loaded from the references of its roots (IContentLoader.RootAssets).
-        public static void AddContentDirectory(this IScopeBuilder builder, ContentOptions options)
+        // OnFirstWait: nothing is fetched until the first Wait of the name (a directory needed only well after the start: its
+        // index is parsed on the main thread, ~0.1 s on a Mali phone for a few hundred files).
+        public static void AddContentDirectory(this IScopeBuilder builder, ContentOptions options,
+            ContentRegistration registration = ContentRegistration.Background)
         {
             options.Validate();
 
-            var registration = builder.Content.Directories.Begin(options.Name);
-            RegisterInBackground(builder.Lifetime, options, registration).NoAwait();
+            var directories = builder.Content.Directories;
+            var lifetime = builder.Lifetime;
+
+            if (registration == ContentRegistration.OnFirstWait)
+            {
+                directories.Defer(options.Name, source => RegisterInBackground(lifetime, options, source).NoAwait());
+                return;
+            }
+
+            RegisterInBackground(lifetime, options, directories.Begin(options.Name)).NoAwait();
         }
 
         // Construct runs before the build events, so an object used while registering is loaded right away. It is
