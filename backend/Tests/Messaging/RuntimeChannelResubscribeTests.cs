@@ -80,7 +80,7 @@ public class RuntimeChannelResubscribeTests
 
         // A new activation numbers its messages from 1 again: the listener has seen up to 3.
         await channel.Cast<IGrainManagementExtension>().DeactivateOnIdle();
-        await Task.Delay(500, TestContext.Current.CancellationToken);
+        await TestWait.Until(async () => (await channel.CatchUp(0)).CurrentSequence == 0);
 
         for (var i = 1; i <= 3; i++)
             await messaging.PublishChannel(channelId, new TestMessage { Text = $"new-{i}" });

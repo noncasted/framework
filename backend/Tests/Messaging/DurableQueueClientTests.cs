@@ -15,7 +15,7 @@ namespace Framework.Tests.Messaging;
 /// The client side of a durable queue without a cluster: one listener of a queue with its local handlers, the
 /// failures of the transport, the resubscribe loop and the push without a transaction.
 /// </summary>
-public class DurableQueueClientTests
+public class DurableQueueClientTests : LifetimeTest
 {
     private readonly IDurableQueue _queue = Substitute.For<IDurableQueue>();
     private readonly ISideEffectsStorage _sideEffects = Substitute.For<ISideEffectsStorage>();
@@ -40,7 +40,7 @@ public class DurableQueueClientTests
     [Fact]
     public async Task Listen_TerminatedLifetime_DoesNothing()
     {
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         lifetime.Terminate();
 
         await CreateClient().Listen<string>(lifetime, _id, _ => Task.CompletedTask);
@@ -56,12 +56,12 @@ public class DurableQueueClientTests
         var first = new List<string>();
         var second = new List<string>();
 
-        await client.Listen<string>(new Lifetime(), _id, message => {
+        await client.Listen<string>(TestLifetime, _id, message => {
             first.Add(message);
             return Task.CompletedTask;
         });
 
-        await client.Listen<string>(new Lifetime(), _id, message => {
+        await client.Listen<string>(TestLifetime, _id, message => {
             second.Add(message);
             return Task.CompletedTask;
         });
@@ -81,7 +81,7 @@ public class DurableQueueClientTests
         var client = CreateClient();
 
         await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => Task.Run(() =>
-            client.Listen<string>(new Lifetime(), _id, _ => Task.CompletedTask))));
+            client.Listen<string>(TestLifetime, _id, _ => Task.CompletedTask))));
 
         _observers.Should().HaveCount(1);
     }
@@ -90,8 +90,8 @@ public class DurableQueueClientTests
     public async Task LifetimeEnd_OfLastHandler_RemovesTheObserver_ThenANewListenerBinds()
     {
         var client = CreateClient();
-        var firstLifetime = new Lifetime();
-        var secondLifetime = new Lifetime();
+        var firstLifetime = TestLifetime.Child();
+        var secondLifetime = TestLifetime.Child();
 
         await client.Listen<string>(firstLifetime, _id, _ => Task.CompletedTask);
         await client.Listen<string>(secondLifetime, _id, _ => Task.CompletedTask);
@@ -106,7 +106,7 @@ public class DurableQueueClientTests
 
         await _queue.Received(1).RemoveObserver(((DurableQueueObserver)_observers[0]).Id);
 
-        await client.Listen<string>(new Lifetime(), _id, _ => Task.CompletedTask);
+        await client.Listen<string>(TestLifetime, _id, _ => Task.CompletedTask);
 
         _observers.Should().HaveCount(2);
     }
@@ -115,7 +115,7 @@ public class DurableQueueClientTests
     public async Task Listen_BindFails_LogsRemovesListenerAndRethrows()
     {
         var client = CreateClient();
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
 
         _queue.AddObserver(default, default!).ThrowsAsyncForAnyArgs(new InvalidOperationException("bind failed"));
 
@@ -131,7 +131,7 @@ public class DurableQueueClientTests
         await _queue.ReceivedWithAnyArgs(1).RemoveObserver(default);
 
         _queue.AddObserver(default, default!).ReturnsForAnyArgs(Task.CompletedTask);
-        await client.Listen<string>(new Lifetime(), _id, _ => Task.CompletedTask);
+        await client.Listen<string>(TestLifetime, _id, _ => Task.CompletedTask);
 
         _observers.Should().HaveCount(2);
     }
@@ -139,7 +139,7 @@ public class DurableQueueClientTests
     [Fact]
     public async Task Listen_MessageOfAnotherType_FailsTheDelivery()
     {
-        await CreateClient().Listen<string>(new Lifetime(), _id, _ => Task.CompletedTask);
+        await CreateClient().Listen<string>(TestLifetime, _id, _ => Task.CompletedTask);
 
         var act = () => ((DurableQueueObserver)_observers.Single()).Send(42);
 
@@ -298,7 +298,7 @@ public class DurableQueueClientTests
     [Fact]
     public async Task Loop_BindFails_LogsAndBindsAgainAfterAboutASecond()
     {
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         var client = CreateClient();
         var calls = 0;
 
@@ -341,8 +341,8 @@ public class DurableQueueClientTests
 
         for (var i = 0; i < 3_000; i++)
         {
-            var leaving = new Lifetime();
-            var staying = new Lifetime();
+            var leaving = TestLifetime.Child();
+            var staying = TestLifetime.Child();
             var received = 0;
 
             await client.Listen<string>(leaving, _id, _ => Task.CompletedTask);

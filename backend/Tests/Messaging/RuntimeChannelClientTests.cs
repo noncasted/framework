@@ -15,7 +15,7 @@ namespace Framework.Tests.Messaging;
 /// The client side of a channel without a cluster: what a resubscribe does with a catch-up, the local handlers of an
 /// observer, the failures of the transport and the resubscribe loop.
 /// </summary>
-public class RuntimeChannelClientTests
+public class RuntimeChannelClientTests : LifetimeTest
 {
     private readonly IRuntimeChannel _channel = Substitute.For<IRuntimeChannel>();
     private readonly RecordingLogger<RuntimeChannelClient> _logger = new();
@@ -393,7 +393,7 @@ public class RuntimeChannelClientTests
     [Fact]
     public async Task Listen_TerminatedLifetime_DoesNothing()
     {
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         lifetime.Terminate();
 
         await CreateClient().Listen<string>(lifetime, new RuntimeChannelId("channel"), _ => Task.CompletedTask);
@@ -405,7 +405,7 @@ public class RuntimeChannelClientTests
     [Fact]
     public async Task Listen_BindFails_LogsRemovesListenerAndRethrows()
     {
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         var client = CreateClient();
 
         _channel.AddObserver(default, default!).ThrowsAsyncForAnyArgs(new InvalidOperationException("bind failed"));
@@ -425,7 +425,7 @@ public class RuntimeChannelClientTests
     [Fact]
     public async Task Listen_MessageOfAnotherType_FailsTheDelivery()
     {
-        await CreateClient().Listen<string>(new Lifetime(), new RuntimeChannelId("channel"), _ => Task.CompletedTask);
+        await CreateClient().Listen<string>(TestLifetime, new RuntimeChannelId("channel"), _ => Task.CompletedTask);
 
         var act = () => ((RuntimeChannelObserver)_observers.Single()).Send(42);
 
@@ -437,11 +437,11 @@ public class RuntimeChannelClientTests
     public async Task Listen_EveryCallHasItsOwnObserver_LifetimeRemovesOnlyItsOwn()
     {
         var client = CreateClient();
-        var firstLifetime = new Lifetime();
+        var firstLifetime = TestLifetime.Child();
         var id = new RuntimeChannelId("channel");
 
         await client.Listen<string>(firstLifetime, id, _ => Task.CompletedTask);
-        await client.Listen<string>(new Lifetime(), id, _ => Task.CompletedTask);
+        await client.Listen<string>(TestLifetime, id, _ => Task.CompletedTask);
 
         _observers.Should().HaveCount(2);
 
@@ -472,7 +472,7 @@ public class RuntimeChannelClientTests
     [Fact]
     public async Task Loop_NoListeners_SleepsTheMinInterval_PicksUpNewOne()
     {
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         var client = CreateClient(new RuntimeChannelOptions { ResubscribeMinIntervalMs = 10, ResubscribeMaxIntervalMs = 10 });
 
         await client.Start(lifetime);
@@ -486,7 +486,7 @@ public class RuntimeChannelClientTests
     [Fact]
     public async Task Loop_OneListenerFails_OtherGoesOn_LifetimeEndsIt()
     {
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         var client = CreateClient(new RuntimeChannelOptions { ResubscribeMinIntervalMs = 10, ResubscribeMaxIntervalMs = 10 });
         var failing = new List<Guid>();
         var healthyCalls = 0;
@@ -546,7 +546,7 @@ public class RuntimeChannelClientTests
     [Fact]
     public async Task Loop_OneListenerHangs_OthersGoOn_TheHungOneIsNotCalledAgain()
     {
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         var client = CreateClient(new RuntimeChannelOptions
         {
             ResubscribeMinIntervalMs = 10,

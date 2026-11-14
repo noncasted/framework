@@ -15,7 +15,7 @@ namespace Framework.Tests.Messaging;
 /// The client side of a pipe without a cluster: the repeats of a send, the binding of a handler, the failures of the
 /// transport and the resubscribe loop.
 /// </summary>
-public class RuntimePipeClientTests
+public class RuntimePipeClientTests : LifetimeTest
 {
     private readonly IRuntimePipe _pipe = Substitute.For<IRuntimePipe>();
     private readonly RecordingLogger<RuntimePipeClient> _logger = new();
@@ -135,7 +135,7 @@ public class RuntimePipeClientTests
     [Fact]
     public async Task AddHandler_TerminatedLifetime_DoesNothing()
     {
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         lifetime.Terminate();
 
         await CreateClient().AddHandler<string, string>(lifetime, _id, Task.FromResult);
@@ -147,7 +147,7 @@ public class RuntimePipeClientTests
     [Fact]
     public async Task AddHandler_RequestOfAnotherType_FailsWithCast()
     {
-        await CreateClient().AddHandler<string, string>(new Lifetime(), _id, Task.FromResult);
+        await CreateClient().AddHandler<string, string>(TestLifetime, _id, Task.FromResult);
 
         var act = () => ((RuntimePipeObserver)_observers.Single()).Send<string>(42);
 
@@ -157,7 +157,7 @@ public class RuntimePipeClientTests
     [Fact]
     public async Task AddHandler_NullResponse_FailsWithCast()
     {
-        await CreateClient().AddHandler<string, string>(new Lifetime(), _id, _ => Task.FromResult<string>(null!));
+        await CreateClient().AddHandler<string, string>(TestLifetime, _id, _ => Task.FromResult<string>(null!));
 
         var act = () => ((RuntimePipeObserver)_observers.Single()).Send<string>("request");
 
@@ -175,8 +175,8 @@ public class RuntimePipeClientTests
             return Task.CompletedTask;
         });
 
-        await client.AddHandler<string, string>(new Lifetime(), _id, Task.FromResult);
-        await client.AddHandler<string, string>(new Lifetime(), _id, Task.FromResult);
+        await client.AddHandler<string, string>(TestLifetime, _id, Task.FromResult);
+        await client.AddHandler<string, string>(TestLifetime, _id, Task.FromResult);
 
         bound.Should().HaveCount(2);
         CountLogged(_logger, LogLevel.Warning, "Removing duplicate observer").Should().Be(1);
@@ -195,8 +195,8 @@ public class RuntimePipeClientTests
     {
         var client = CreateClient();
 
-        await client.AddHandler<string, string>(new Lifetime(), _id, Task.FromResult);
-        await client.AddHandler<string, string>(new Lifetime(), new TestPipeId("other"), Task.FromResult);
+        await client.AddHandler<string, string>(TestLifetime, _id, Task.FromResult);
+        await client.AddHandler<string, string>(TestLifetime, new TestPipeId("other"), Task.FromResult);
 
         CountLogged(_logger, LogLevel.Warning, "Removing duplicate observer").Should().Be(0);
         await _pipe.DidNotReceiveWithAnyArgs().UnbindObserver(default);
@@ -206,7 +206,7 @@ public class RuntimePipeClientTests
     public async Task AddHandler_BindFails_LogsRemovesListenerAndRethrows()
     {
         var client = CreateClient();
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
 
         _pipe.BindObserver(default, default!).ThrowsAsyncForAnyArgs(new InvalidOperationException("bind failed"));
 
@@ -222,14 +222,14 @@ public class RuntimePipeClientTests
         await _pipe.ReceivedWithAnyArgs(1).UnbindObserver(default);
 
         _pipe.BindObserver(default, default!).ReturnsForAnyArgs(Task.CompletedTask);
-        await client.AddHandler<string, string>(new Lifetime(), _id, Task.FromResult);
+        await client.AddHandler<string, string>(TestLifetime, _id, Task.FromResult);
         CountLogged(_logger, LogLevel.Warning, "Removing duplicate observer").Should().Be(0);
     }
 
     [Fact]
     public async Task LifetimeEnd_UnbindsClearsHandlerAndDeletesReference()
     {
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
 
         await CreateClient().AddHandler<string, string>(lifetime, _id, Task.FromResult);
 
@@ -249,7 +249,7 @@ public class RuntimePipeClientTests
     [Fact]
     public async Task LifetimeEnd_TransportFails_LogsAndStillDeletesReference()
     {
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
 
         _pipe.UnbindObserver(default).ThrowsAsyncForAnyArgs(new InvalidOperationException("unbind failed"));
 
@@ -295,7 +295,7 @@ public class RuntimePipeClientTests
     [Fact]
     public async Task Loop_BindFails_LogsAndBindsAgainAfterAboutASecond()
     {
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         var client = CreateClient();
         var calls = 0;
 
@@ -319,11 +319,11 @@ public class RuntimePipeClientTests
     {
         var client = CreateClient();
 
-        await client.AddHandler<string, string>(new Lifetime(), _id, Task.FromResult);
+        await client.AddHandler<string, string>(TestLifetime, _id, Task.FromResult);
 
         _pipe.BindObserver(default, default!).ThrowsAsyncForAnyArgs(new InvalidOperationException("bind failed"));
 
-        var act = () => client.AddHandler<string, string>(new Lifetime(), _id, Task.FromResult);
+        var act = () => client.AddHandler<string, string>(TestLifetime, _id, Task.FromResult);
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("bind failed");
 
@@ -338,16 +338,16 @@ public class RuntimePipeClientTests
     {
         var pipe = new BindsOfAGrain(_pipe);
         var client = CreateClient();
-        var loop = new Lifetime();
+        var loop = TestLifetime.Child();
 
-        await client.AddHandler<string, string>(new Lifetime(), _id, Task.FromResult);
+        await client.AddHandler<string, string>(TestLifetime, _id, Task.FromResult);
         var old = pipe.Bound;
 
         pipe.HoldNextBind();
         await client.Start(loop);
         await TestWait.Until(() => pipe.HasHeldBind);
 
-        var adding = client.AddHandler<string, string>(new Lifetime(), _id, Task.FromResult);
+        var adding = client.AddHandler<string, string>(TestLifetime, _id, Task.FromResult);
         pipe.ReleaseHeldBind();
         await adding;
 
@@ -365,8 +365,8 @@ public class RuntimePipeClientTests
     {
         var pipe = new BindsOfAGrain(_pipe);
         var client = CreateClient();
-        var lifetime = new Lifetime();
-        var loop = new Lifetime();
+        var lifetime = TestLifetime.Child();
+        var loop = TestLifetime.Child();
 
         await client.AddHandler<string, string>(lifetime, _id, Task.FromResult);
         var bound = pipe.Bound;

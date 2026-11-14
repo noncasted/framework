@@ -19,7 +19,7 @@ public class RuntimePipeTimeoutTests
     {
         var pipeId = new TestPipeId(Guid.NewGuid().ToString());
         var messaging = GetSiloService<IMessaging>();
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         var calls = 0;
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -53,7 +53,7 @@ public class RuntimePipeTimeoutTests
     {
         var pipeId = new TestPipeId(Guid.NewGuid().ToString());
         var messaging = GetSiloService<IMessaging>();
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 

@@ -4,6 +4,7 @@ using Framework.Tests.Common;
 using Framework.Tests.Fixtures;
 using Infrastructure.Execution;
 using Internal;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
@@ -14,7 +15,7 @@ namespace Framework.Tests.Execution;
 /// The failure paths of the TaskBalancer: the penalty of a failing task and the drain at the end of the lifetime.
 /// </summary>
 [Collection(nameof(NoAwaitCollection))]
-public class TaskBalancerFailureTests : IDisposable
+public class TaskBalancerFailureTests : LifetimeTest
 {
     public TaskBalancerFailureTests()
     {
@@ -28,8 +29,9 @@ public class TaskBalancerFailureTests : IDisposable
     private readonly Action<Exception>? _previous;
     private readonly List<Exception> _reported = [];
 
-    public void Dispose()
+    public override void Dispose()
     {
+        base.Dispose();
         NoAwaitExceptions.SetHandler(_previous);
     }
 
@@ -56,7 +58,7 @@ public class TaskBalancerFailureTests : IDisposable
             }));
         }
 
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         await balancer.Run(lifetime);
         await TestWait.Until(() => Volatile.Read(ref lowDone) == 10);
         var runs = Volatile.Read(ref criticalRuns);
@@ -70,30 +72,39 @@ public class TaskBalancerFailureTests : IDisposable
     public async Task LifetimeEnds_DrainCompletesWithoutError()
     {
         var queue = new TaskQueue(NullLogger<TaskQueue>.Instance);
-        var balancer = CreateBalancer(queue, concurrentTasks: 4);
+        var logger = new DrainLogger();
+        var balancer = CreateBalancer(queue, concurrentTasks: 4, logger);
+        var started = 0;
         var finished = 0;
 
         for (var i = 0; i < 4; i++)
         {
             queue.Enqueue(new LambdaTask($"task-{i}", TaskPriority.Medium, () => {
+                Interlocked.Increment(ref started);
                 Thread.Sleep(100);
                 Interlocked.Increment(ref finished);
             }));
         }
 
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         await balancer.Run(lifetime);
-        await Task.Delay(50, TestContext.Current.CancellationToken);
+        await TestWait.Until(() => Volatile.Read(ref started) >= 1);
 
         lifetime.Terminate();
-        await TestWait.Until(() => Volatile.Read(ref finished) == 4);
-        await Task.Delay(200, TestContext.Current.CancellationToken);
+        await logger.Drained.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+        Volatile.Read(ref finished).Should().Be(Volatile.Read(ref started), "the drain waits for every running task");
 
         lock (_reported)
             _reported.Should().BeEmpty("the drain of the execute loop must not fail");
     }
 
     private static TaskBalancer CreateBalancer(ITaskQueue queue, int concurrentTasks)
+    {
+        return CreateBalancer(queue, concurrentTasks, NullLogger<TaskBalancer>.Instance);
+    }
+
+    private static TaskBalancer CreateBalancer(ITaskQueue queue, int concurrentTasks, ILogger<TaskBalancer> logger)
     {
         var config = Substitute.For<ITaskBalancerConfig>();
 
@@ -106,7 +117,7 @@ public class TaskBalancerFailureTests : IDisposable
             ConcurrentTasks = concurrentTasks
         });
 
-        return new TaskBalancer(queue, NullLogger<TaskBalancer>.Instance, config);
+        return new TaskBalancer(queue, logger, config);
     }
 
     private class LambdaTask(string id, TaskPriority priority, Action action) : IPriorityTask
@@ -119,6 +130,35 @@ public class TaskBalancerFailureTests : IDisposable
         {
             action();
             return Task.CompletedTask;
+        }
+    }
+
+    // The end of the drain of the execute loop is seen only in its log.
+    private class DrainLogger : ILogger<TaskBalancer>
+    {
+        private readonly TaskCompletionSource _drained = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task Drained => _drained.Task;
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull
+        {
+            return null;
+        }
+
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return true;
+        }
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (formatter(state, exception) == "[TaskBalancer] Drained")
+                _drained.TrySetResult();
         }
     }
 }

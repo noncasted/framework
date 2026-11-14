@@ -20,7 +20,7 @@ public class RuntimeChannelDeliveryTimeoutTests(OrleansTestClusterFixture fixtur
         var completion = new TaskCompletionSource();
 
         // Fast listener
-        await messaging.ListenChannel<TestMessage>(new Lifetime(), channelId, _ => {
+        await messaging.ListenChannel<TestMessage>(TestLifetime, channelId, _ => {
             var count = Interlocked.Increment(ref receivedCount);
             if (count >= totalMessages)
                 completion.TrySetResult();
@@ -29,7 +29,7 @@ public class RuntimeChannelDeliveryTimeoutTests(OrleansTestClusterFixture fixtur
         // Slow listeners
         for (var i = 0; i < 3; i++)
         {
-            var slowLifetime = new Lifetime();
+            var slowLifetime = TestLifetime.Child();
             await messaging.ListenChannel<TestMessage>(slowLifetime, channelId, async _ => {
                 await Task.Delay(TimeSpan.FromSeconds(10));
             });

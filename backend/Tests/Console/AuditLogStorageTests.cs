@@ -32,7 +32,7 @@ public class AuditLogStorageTests
     public async Task GetPage_WithoutTheTable_Throws()
     {
         await using var database = new DatabaseFixture();
-        await database.InitializeAsync();
+        await database.Initialize();
         var storage = StorageOf(database.DataSource);
 
         await Assert.ThrowsAsync<PostgresException>(() => storage.GetPage(0, 10));
@@ -42,7 +42,7 @@ public class AuditLogStorageTests
     public async Task Write_AfterTheTableIsCreated_IsRead()
     {
         await using var database = new DatabaseFixture();
-        await database.InitializeAsync();
+        await database.Initialize();
 
         await using (var connection = await database.DataSource.OpenConnectionAsync())
         {

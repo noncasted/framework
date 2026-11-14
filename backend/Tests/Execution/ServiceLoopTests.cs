@@ -1,11 +1,12 @@
 using Internal;
 using FluentAssertions;
 using Infrastructure;
+using Framework.Tests.Fixtures;
 using Xunit;
 
 namespace Framework.Tests.Execution;
 
-public class ServiceLoopTests
+public class ServiceLoopTests : LifetimeTest
 {
     [Fact]
     public async Task OnOrleansStarted_CallsAllParticipants()
@@ -18,7 +19,7 @@ public class ServiceLoopTests
             Array.Empty<ICoordinatorSetupCompleted>(),
             Array.Empty<IServiceStarted>());
 
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         await loop.OnOrleansStarted(lifetime);
 
         p1.WasCalled.Should().BeTrue();
@@ -36,7 +37,7 @@ public class ServiceLoopTests
             Array.Empty<ICoordinatorSetupCompleted>(),
             Array.Empty<IServiceStarted>());
 
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         await loop.OnLocalSetupCompleted(lifetime);
 
         p1.WasCalled.Should().BeTrue();
@@ -54,7 +55,7 @@ public class ServiceLoopTests
             new ICoordinatorSetupCompleted[] { p1, p2 },
             Array.Empty<IServiceStarted>());
 
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         await loop.OnCoordinatorSetupCompleted(lifetime);
 
         p1.WasCalled.Should().BeTrue();
@@ -71,7 +72,7 @@ public class ServiceLoopTests
             Array.Empty<ICoordinatorSetupCompleted>(),
             Array.Empty<IServiceStarted>());
 
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         await loop.OnOrleansStarted(lifetime);
 
         participant.ReceivedLifetime.Should().BeSameAs(lifetime);
@@ -90,7 +91,7 @@ public class ServiceLoopTests
             Array.Empty<ICoordinatorSetupCompleted>(),
             Array.Empty<IServiceStarted>());
 
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         var act = () => loop.OnOrleansStarted(lifetime);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
@@ -111,7 +112,7 @@ public class ServiceLoopTests
             new ICoordinatorSetupCompleted[] { coordinator },
             Array.Empty<IServiceStarted>());
 
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
 
         // Only call OnOrleansStarted
         await loop.OnOrleansStarted(lifetime);

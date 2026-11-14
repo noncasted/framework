@@ -135,7 +135,7 @@ public class RuntimeChannelCatchUpTests
         var received = new TaskCompletionSource<TestMessage>();
         var messaging = GetSiloService<IMessaging>();
 
-        await messaging.ListenChannel<TestMessage>(new Lifetime(), channelId,
+        await messaging.ListenChannel<TestMessage>(TestLifetime, channelId,
             msg => received.TrySetResult(msg));
 
         await messaging.PublishChannel(channelId, new TestMessage { Text = "unwrapped", Sequence = 7 });
@@ -155,7 +155,7 @@ public class RuntimeChannelCatchUpTests
         var client = CreateClient();
         var received = new List<int>();
         var failedOnce = 0;
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
 
         await client.Listen<TestMessage>(lifetime, channelId, message => {
             if (message.Sequence == 3 && Interlocked.Exchange(ref failedOnce, 1) == 0)
@@ -198,7 +198,7 @@ public class RuntimeChannelCatchUpTests
         var client = CreateClient();
         var seen = 0;
         var attempts = 0;
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
 
         // Before the first listener: the loop sleeps the interval of the options with no listeners too.
         var stopwatch = Stopwatch.StartNew();
@@ -238,8 +238,8 @@ public class RuntimeChannelCatchUpTests
         var messaging = GetSiloService<IMessaging>();
         var first = new List<int>();
         var second = new List<int>();
-        var firstLifetime = new Lifetime();
-        var secondLifetime = new Lifetime();
+        var firstLifetime = TestLifetime.Child();
+        var secondLifetime = TestLifetime.Child();
 
         await messaging.ListenChannel<TestMessage>(firstLifetime, channelId, message => {
             lock (first)

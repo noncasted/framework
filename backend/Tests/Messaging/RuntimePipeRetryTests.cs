@@ -18,7 +18,7 @@ public class RuntimePipeRetryTests
     {
         var pipeId = new TestPipeId(Guid.NewGuid().ToString());
         var messaging = GetSiloService<IMessaging>();
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         var callCount = 0;
 
         await messaging.AddPipeRequestHandler<TestRequest, TestResponse>(lifetime, pipeId, _ => {

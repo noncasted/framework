@@ -20,12 +20,12 @@ public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestB
         var received = new TaskCompletionSource<TestMessage>();
         var messaging = GetSiloService<IMessaging>();
 
-        await messaging.ListenDurableQueue<TestMessage>(new Lifetime(),
+        await messaging.ListenDurableQueue<TestMessage>(TestLifetime,
             queueId,
             msg => received.TrySetResult(msg));
 
         await messaging.PushDirectQueue(queueId, new TestMessage { Text = "hello", Sequence = 1 });
-        await DrainSideEffectsAsync();
+        await DrainSideEffects();
 
         var result = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         result.Text.Should().Be("hello");
@@ -40,7 +40,7 @@ public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestB
         var allReceived = new TaskCompletionSource();
         var messaging = GetSiloService<IMessaging>();
 
-        await messaging.ListenDurableQueue<TestMessage>(new Lifetime(),
+        await messaging.ListenDurableQueue<TestMessage>(TestLifetime,
             queueId,
             msg => {
                 lock (received)
@@ -55,7 +55,7 @@ public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestB
         for (var i = 0; i < 5; i++)
             await messaging.PushDirectQueue(queueId, new TestMessage { Text = $"msg-{i}", Sequence = i });
 
-        await DrainSideEffectsAsync();
+        await DrainSideEffects();
         await allReceived.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
         received.Should().HaveCount(5);
@@ -70,11 +70,11 @@ public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestB
         var received2 = new TaskCompletionSource<TestMessage>();
         var messaging = GetSiloService<IMessaging>();
 
-        await messaging.ListenDurableQueue<TestMessage>(new Lifetime(), queueId, msg => received1.TrySetResult(msg));
-        await messaging.ListenDurableQueue<TestMessage>(new Lifetime(), queueId, msg => received2.TrySetResult(msg));
+        await messaging.ListenDurableQueue<TestMessage>(TestLifetime, queueId, msg => received1.TrySetResult(msg));
+        await messaging.ListenDurableQueue<TestMessage>(TestLifetime, queueId, msg => received2.TrySetResult(msg));
 
         await messaging.PushDirectQueue(queueId, new TestMessage { Text = "broadcast", Sequence = 42 });
-        await DrainSideEffectsAsync();
+        await DrainSideEffects();
 
         var r1 = await received1.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         var r2 = await received2.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
@@ -88,7 +88,7 @@ public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestB
     {
         var queueId = new TestQueueId(Guid.NewGuid().ToString());
         var received = new List<TestMessage>();
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         var messaging = GetSiloService<IMessaging>();
 
         await messaging.ListenDurableQueue<TestMessage>(lifetime, queueId, msg => {
@@ -100,10 +100,10 @@ public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestB
         lifetime.Terminate();
 
         await messaging.PushDirectQueue(queueId, new TestMessage { Text = "ghost" });
-        await DrainSideEffectsAsync();
+        var drain = await DrainSideEffectsWithFailures();
 
-        // Small delay to ensure no late delivery
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+        // The side effect delivers to the listeners while it runs, so nothing can come after the drain.
+        drain.AllSucceeded.Should().BeFalse("nobody is left to acknowledge the message");
         received.Should().BeEmpty();
     }
 
@@ -111,7 +111,7 @@ public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestB
     public async Task PushDirect_TerminatedListener_DoesNotAckSideEffect()
     {
         var queueId = new TestQueueId(Guid.NewGuid().ToString());
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         var messaging = GetSiloService<IMessaging>();
 
         await messaging.ListenDurableQueue<TestMessage>(lifetime, queueId, _ => {
@@ -120,7 +120,7 @@ public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestB
         lifetime.Terminate();
 
         await messaging.PushDirectQueue(queueId, new TestMessage { Text = "must-not-ack" });
-        var drain = await DrainSideEffectsAsync();
+        var drain = await DrainSideEffectsWithFailures();
 
         drain.AllSucceeded.Should().BeFalse();
         drain.ExecutionTrace.Should().Contain(e =>
@@ -135,18 +135,18 @@ public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestB
     {
         var queueId = new TestQueueId(Guid.NewGuid().ToString());
         var messaging = GetSiloService<IMessaging>();
-        var completed = false;
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        await messaging.ListenDurableQueue<TestMessage>(new Lifetime(), queueId, async _ => {
+        await messaging.ListenDurableQueue<TestMessage>(TestLifetime, queueId, async _ => {
             await Task.Delay(50);
-            completed = true;
+            completed.TrySetResult();
         });
 
         await messaging.PushDirectQueue(queueId, new TestMessage { Text = "async" });
-        var drain = await DrainSideEffectsAsync();
+        var drain = await DrainSideEffects();
 
         drain.AssertDrainedWithWork();
-        completed.Should().BeTrue();
+        completed.Task.IsCompleted.Should().BeTrue();
     }
 
     [Fact]
@@ -156,14 +156,14 @@ public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestB
         var received = new TaskCompletionSource<TestMessage>();
         var messaging = GetSiloService<IMessaging>();
 
-        await messaging.ListenDurableQueue<TestMessage>(new Lifetime(), queueId, msg => received.TrySetResult(msg));
+        await messaging.ListenDurableQueue<TestMessage>(TestLifetime, queueId, msg => received.TrySetResult(msg));
 
         await RunTransaction(() => {
             messaging.PushTransactionalQueue(queueId, new TestMessage { Text = "tx-msg", Sequence = 99 });
             return Task.CompletedTask;
         });
 
-        await DrainSideEffectsAsync();
+        await DrainSideEffects();
 
         var result = await received.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         result.Text.Should().Be("tx-msg");
@@ -177,7 +177,7 @@ public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestB
         var received = new List<TestMessage>();
         var messaging = GetSiloService<IMessaging>();
 
-        await messaging.ListenDurableQueue<TestMessage>(new Lifetime(), queueId, msg => {
+        await messaging.ListenDurableQueue<TestMessage>(TestLifetime, queueId, msg => {
             lock (received)
                 received.Add(msg);
         });
@@ -192,7 +192,7 @@ public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestB
         result.IsSuccess.Should().BeFalse();
 
         // Drain — should find nothing because transaction rolled back
-        var drain = await Pipeline!.DrainUntilQuietAsync();
+        var drain = await Pipeline!.DrainUntilQuiet();
         drain.TotalTasks.Should().Be(0);
 
         await Task.Delay(200, TestContext.Current.CancellationToken);
@@ -207,7 +207,7 @@ public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestB
         var allReceived = new TaskCompletionSource();
         var messaging = GetSiloService<IMessaging>();
 
-        await messaging.ListenDurableQueue<TestMessage>(new Lifetime(), queueId, msg => {
+        await messaging.ListenDurableQueue<TestMessage>(TestLifetime, queueId, msg => {
             lock (received)
             {
                 received.Add(msg);
@@ -224,7 +224,7 @@ public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestB
             return Task.CompletedTask;
         });
 
-        await DrainSideEffectsAsync();
+        await DrainSideEffects();
         await allReceived.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
         received.Should().HaveCount(3);
@@ -239,27 +239,21 @@ public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestB
 
         // Push to a queue nobody is listening to
         await messaging.PushDirectQueue(queueId, new TestMessage { Text = "old" });
-        await DrainSideEffectsAsync();
+        var drain = await DrainSideEffectsWithFailures();
+        drain.AllSucceeded.Should().BeFalse("nobody acknowledges a message pushed with no listeners");
 
-        // Subscribe after the push — should NOT receive the old message
+        // Subscribe after the push: the drain delivers the new message while it runs, the old one would come first.
         var received = new List<TestMessage>();
 
-        await messaging.ListenDurableQueue<TestMessage>(new Lifetime(), queueId, msg => {
+        await messaging.ListenDurableQueue<TestMessage>(TestLifetime, queueId, msg => {
             lock (received)
                 received.Add(msg);
         });
 
-        await Task.Delay(200, TestContext.Current.CancellationToken);
-        received.Should().BeEmpty("messages pushed with no listeners should not be buffered");
-
-        // Verify queue is still functional — new message should arrive
-        var done = new TaskCompletionSource<TestMessage>();
-        await messaging.ListenDurableQueue<TestMessage>(new Lifetime(), queueId, msg => done.TrySetResult(msg));
-
         await messaging.PushDirectQueue(queueId, new TestMessage { Text = "new", Sequence = 1 });
-        await DrainSideEffectsAsync();
+        await DrainSideEffects();
 
-        var result = await done.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
-        result.Text.Should().Be("new");
+        lock (received)
+            received.Select(message => message.Text).Should().Equal("new");
     }
 }

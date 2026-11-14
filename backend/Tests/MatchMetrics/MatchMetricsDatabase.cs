@@ -27,7 +27,7 @@ public sealed class MatchMetricsDatabase : IAsyncLifetime, IDbSource
 
     public async ValueTask InitializeAsync()
     {
-        await _database.InitializeAsync();
+        await _database.Initialize();
 
         await using var connection = await Value.OpenConnectionAsync();
         await MatchMetricsSchema.Create(connection);

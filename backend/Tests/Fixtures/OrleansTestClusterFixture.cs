@@ -49,7 +49,7 @@ public class OrleansTestClusterFixture : IAsyncLifetime
 
     public virtual async ValueTask InitializeAsync()
     {
-        await Database.InitializeAsync();
+        await Database.Initialize();
 
         var builder = new InProcessTestClusterBuilder((short)SiloCount);
 
