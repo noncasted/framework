@@ -20,13 +20,6 @@ public interface IServiceDiscovery
     Task Unregister();
 }
 
-public class ServiceDiscoveryOptions
-{
-    // The service is a game server: it publishes its public url (GAME_SERVER_URL), matchmaking hands it to clients.
-    // Set by the composition root for the game server role (PublishGameServerUrl).
-    public bool PublishGameServerUrl { get; init; }
-}
-
 public class ServiceDiscovery : IServiceDiscovery
 {
     public ServiceDiscovery(
@@ -67,24 +60,18 @@ public class ServiceDiscovery : IServiceDiscovery
         return Task.CompletedTask;
     }
 
+    // A failed push throws: the callers react (the refresh loop retries, the startup and the health check log).
     public async Task Push()
     {
-        try
-        {
-            _self = CreateOverview();
+        _self = CreateOverview();
 
-            if (_deployContext.DeployId == Guid.Empty || _isUnregistered == true)
-                return;
+        if (_deployContext.DeployId == Guid.Empty || _isUnregistered == true)
+            return;
 
-            var grain = _orleans.GetGrain<IServiceDiscoveryStorage>(_deployContext.DeployId);
-            var members = await grain.Update(_self);
+        var grain = _orleans.GetGrain<IServiceDiscoveryStorage>(_deployContext.DeployId);
+        var members = await grain.Update(_self);
 
-            ApplyMembers(members);
-        }
-        catch (Exception e)
-        {
-            _logger.LogError(e, "[ServiceDiscovery] Push failed");
-        }
+        ApplyMembers(members);
     }
 
     public async Task Unregister()
@@ -110,22 +97,29 @@ public class ServiceDiscovery : IServiceDiscovery
     {
         while (lifetime.IsTerminated == false)
         {
+            var delay = TimeSpan.FromSeconds(2);
+
             try
             {
                 await Push();
-                await Task.Delay(TimeSpan.FromSeconds(2), lifetime.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                await Unregister();
-                break;
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "[ServiceDiscovery] RefreshLoop iteration failed");
-                await Task.Delay(TimeSpan.FromSeconds(5), lifetime.Token);
+                _logger.LogError(e, "[ServiceDiscovery] Push failed, retrying in 5 s");
+                delay = TimeSpan.FromSeconds(5);
+            }
+
+            try
+            {
+                await Task.Delay(delay, lifetime.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
         }
+
+        await Unregister();
     }
 
     private void ApplyMembers(Dictionary<Guid, IServiceOverview> members)
@@ -170,23 +164,5 @@ public class ServiceDiscovery : IServiceDiscovery
 
             return url;
         }
-    }
-}
-
-public static class ServiceDiscoveryExtensions
-{
-    public static IHostApplicationBuilder AddServiceDiscovery(this IHostApplicationBuilder builder)
-    {
-        builder.Add<ServiceDiscovery>()
-               .As<IServiceDiscovery>();
-
-        return builder;
-    }
-
-    // Marks the host as a game server (ServiceDiscoveryOptions.PublishGameServerUrl).
-    public static IHostApplicationBuilder PublishGameServerUrl(this IHostApplicationBuilder builder)
-    {
-        builder.Services.AddSingleton(Options.Create(new ServiceDiscoveryOptions { PublishGameServerUrl = true }));
-        return builder;
     }
 }

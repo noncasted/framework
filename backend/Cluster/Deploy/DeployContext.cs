@@ -10,6 +10,10 @@ public interface IDeployContext
     IReadOnlyLifetime DeployLifetime { get; }
 
     Task Set(Guid deployId, IReadOnlyLifetime parentLifetime);
+
+    // This host was replaced in its deploy (the coordinator of a newer deploy answers the deploy id): the epoch ends
+    // and what runs on its lifetime stops, the deploy id stays.
+    void Leave();
 }
 
 public class DeployContext : IDeployContext
@@ -65,5 +69,17 @@ public class DeployContext : IDeployContext
                 throw;
             }
         }
+    }
+
+    public void Leave()
+    {
+        if (_deployLifetime == null)
+            throw new InvalidOperationException("Deploy not initialized");
+
+        if (_deployLifetime.IsTerminated == true)
+            return;
+
+        _logger.LogWarning("[DeployContext] Left deploy {DeployId}", _deployId);
+        _deployLifetime.Terminate();
     }
 }

@@ -29,16 +29,24 @@ public class OpenLobbiesWatcher : IOpenLobbiesWatcher, IDeployAware
     private readonly ViewableProperty<OpenLobbies> _lobbies = new(Empty());
     private readonly Lock _lock = new();
 
+    // The deploy whose snapshots are applied, changed under _lock: a reload of the previous deploy still in flight
+    // after the switch is dropped (the registry of the new deploy counts its versions from 0 again).
+    private Guid _deployId;
+
     public IViewableProperty<OpenLobbies> Lobbies => _lobbies;
 
     public async Task OnDeployChanged(Guid newDeployId, IReadOnlyLifetime deployLifetime)
     {
         lock (_lock)
+        {
+            _deployId = newDeployId;
             _lobbies.Set(Empty());
+        }
 
         // Listened before the read: a change made in between comes by the channel, the read never hides it. A gap of
         // the channel (missed pushes) reads the registry again; the version keeps the newer snapshot.
-        await _messaging.ListenChannel<OpenLobbies>(deployLifetime, new OpenLobbiesChannelId(newDeployId), Apply,
+        await _messaging.ListenChannel<OpenLobbies>(deployLifetime, new OpenLobbiesChannelId(newDeployId),
+            lobbies => Apply(newDeployId, lobbies),
             () => Reload(newDeployId).NoAwait());
 
         var current = await Reload(newDeployId);
@@ -49,15 +57,15 @@ public class OpenLobbiesWatcher : IOpenLobbiesWatcher, IDeployAware
     private async Task<OpenLobbies> Reload(Guid deployId)
     {
         var current = await _orleans.GetGrain<ILobbyRegistry>(deployId).GetOpenLobbies();
-        Apply(current);
+        Apply(deployId, current);
         return current;
     }
 
-    private void Apply(OpenLobbies lobbies)
+    private void Apply(Guid deployId, OpenLobbies lobbies)
     {
         lock (_lock)
         {
-            if (lobbies.Version <= _lobbies.Value.Version)
+            if (deployId != _deployId || lobbies.Version <= _lobbies.Value.Version)
                 return;
 
             _lobbies.Set(lobbies);

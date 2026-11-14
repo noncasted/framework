@@ -1,6 +1,7 @@
 using Cluster.Deploy;
 using Common;
 using Infrastructure.State;
+using Newtonsoft.Json;
 using Shared;
 
 namespace Cluster.Monitoring;
@@ -12,18 +13,25 @@ namespace Cluster.Monitoring;
 [GrainState(Table = "cluster", State = "deployment_state_ConnectedUsersLiveData", Lookup = "ConnectedUsersLive", Key = GrainKeyType.Guid)]
 public class ConnectedUsersLiveData : IServiceSlices<List<ConnectedUserEntry>>, IDirectStateValue, IDeployScopedState
 {
-    [Id(2)] public Dictionary<Guid, List<ConnectedUserEntry>> Slices { get; init; } = new();
+    // Id 0, 1 removed, kept for stored values.
+    [Id(2)] [JsonProperty(nameof(Slices))] private Dictionary<Guid, List<ConnectedUserEntry>> _slices = new();
+
+    [JsonIgnore] public IReadOnlyDictionary<Guid, List<ConnectedUserEntry>> Slices => _slices;
 
     public int Version => 0;
+
+    public void SetSlice(Guid serviceId, List<ConnectedUserEntry> slice)
+    {
+        _slices[serviceId] = slice;
+    }
+
+    public void RemoveSlice(Guid serviceId)
+    {
+        _slices.Remove(serviceId);
+    }
 
     public List<ConnectedUserEntry> AllUsers()
     {
         return Slices.Values.SelectMany(slice => slice).ToList();
     }
-}
-
-[GenerateSerializer]
-public class ConnectedUserEntry
-{
-    [Id(0)] public Guid UserId { get; init; }
 }

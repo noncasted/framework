@@ -105,7 +105,7 @@ public class ServiceSlicedStateTests(OrleansTestClusterFixture fixture)
 
     private async Task<Attached> Attach(Guid deployId, IReadOnlyLifetime lifetime)
     {
-        var environment = new ServiceEnvironment { IsDevelopment = true, Tag = TestRoles.Meta };
+        var environment = new ServiceEnvironment { Tag = TestRoles.Meta };
 
         var state = new ServiceSlicedState<ConnectedUsersLiveData, List<ConnectedUserEntry>>(
             GetSiloService<IOrleans>(),
