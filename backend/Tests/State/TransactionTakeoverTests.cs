@@ -6,10 +6,8 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// The stuck-transaction takeover of GrainTransactionOwner.Join: a transaction taken over must not commit its old
-/// snapshot over the one of the transaction that took the grain.
-/// </summary>
+// The stuck-transaction takeover of GrainTransactionOwner.Join: a transaction taken over must not commit its old
+// snapshot over the one of the transaction that took the grain.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class TransactionTakeoverTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

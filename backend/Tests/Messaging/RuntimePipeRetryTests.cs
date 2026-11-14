@@ -6,9 +6,7 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// Tests RuntimePipe retry boundaries: transport-style failures may retry, handler failures do not.
-/// </summary>
+// Transport-style failures may retry, handler failures do not.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class RuntimePipeRetryTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)
@@ -18,7 +16,7 @@ public class RuntimePipeRetryTests
     {
         var pipeId = new TestPipeId(Guid.NewGuid().ToString());
         var messaging = GetSiloService<IMessaging>();
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         var callCount = 0;
 
         await messaging.AddPipeRequestHandler<TestRequest, TestResponse>(lifetime, pipeId, _ => {

@@ -5,10 +5,6 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// Tests RuntimeChannel circular buffer overflow and gap detection edge cases.
-/// Covers scenarios where published messages exceed CatchUpBufferSize.
-/// </summary>
 [Collection(nameof(OrleansIntegrationCollection))]
 public class RuntimeChannelBufferOverflowTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)
@@ -125,10 +121,12 @@ public class RuntimeChannelBufferOverflowTests
     {
         var channel = GetGrain<IRuntimeChannel>(Guid.NewGuid().ToString());
         var bufferSize = GetSiloService<IRuntimeChannelConfig>().Value.CatchUpBufferSize;
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource();
         var received = new List<int>();
 
         var observer = new RuntimeChannelObserver(async message => {
+            entered.TrySetResult();
             await release.Task;
 
             lock (received)
@@ -137,43 +135,33 @@ public class RuntimeChannelBufferOverflowTests
 
         await channel.AddObserver(observer.Id, GrainFactory.CreateObjectReference<IRuntimeChannelObserver>(observer));
 
-        // One message on its way, the whole queue behind it and one more than fits.
-        var overflowing = bufferSize + 2;
+        // The first message is on its way and its queue is empty: the next bufferSize fill the queue, one more overflows.
+        await channel.Publish(new TestMessage { Sequence = 1 });
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
-        await Task.WhenAll(Enumerable.Range(1, overflowing)
-            .Select(i => channel.Publish(new TestMessage { Sequence = i })));
+        var delivered = bufferSize + 1;
+        var overflowing = delivered + 1;
 
-        release.SetResult();
+        for (var i = 2; i <= overflowing; i++)
+            await channel.Publish(new TestMessage { Sequence = i });
 
         await channel.Publish(new TestMessage { Sequence = overflowing + 1 });
 
-        await WaitForStableCount(received);
+        release.SetResult();
+
+        // The queue is delivered in order, so a message queued after the drop would come after the last one of it.
+        await TestWait.Until(() => Count(received) == delivered);
 
         lock (received)
-        {
-            received.Count.Should().BeInRange(bufferSize, bufferSize + 1);
-            received.Should().NotContain(overflowing + 1);
-        }
+            received.Should().Equal(Enumerable.Range(1, delivered));
 
         var result = await channel.CatchUp(overflowing);
         result.Messages.Select(message => ((TestMessage)message.Payload).Sequence).Should().Equal(overflowing + 1);
     }
 
-    private static async Task WaitForStableCount(List<int> received)
+    private static int Count(List<int> received)
     {
-        var last = -1;
-
-        while (true)
-        {
-            await Task.Delay(500, TestContext.Current.CancellationToken);
-
-            lock (received)
-            {
-                if (received.Count == last)
-                    return;
-
-                last = received.Count;
-            }
-        }
+        lock (received)
+            return received.Count;
     }
 }

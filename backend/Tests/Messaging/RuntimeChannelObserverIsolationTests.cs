@@ -20,7 +20,7 @@ public class RuntimeChannelObserverIsolationTests(OrleansTestClusterFixture fixt
         const int totalMessages = 20;
         var received = 0;
         var completion = new TaskCompletionSource();
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
 
         await messaging.ListenChannel<TestMessage>(lifetime, channelId, _ => {
             if (Interlocked.Increment(ref received) == totalMessages)

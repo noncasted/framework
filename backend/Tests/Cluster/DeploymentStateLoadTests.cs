@@ -11,10 +11,8 @@ using Xunit;
 
 namespace Framework.Tests.Cluster;
 
-/// <summary>
-/// DeploymentState over a substituted storage and an in-memory channel: the load of an epoch, the updates of the
-/// channel around it, the order of the writes of hosts with different clocks and the persisting write.
-/// </summary>
+// DeploymentState over a substituted storage and an in-memory channel: the load of an epoch, the updates of the
+// channel around it, the order of the writes of hosts with different clocks and the persisting write.
 public class DeploymentStateLoadTests
 {
     public class Marker

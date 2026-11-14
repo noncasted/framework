@@ -6,9 +6,6 @@ using Xunit;
 
 namespace Framework.Tests.Telemetry;
 
-/// <summary>
-/// The file logger is configured through FileLoggerOptions.
-/// </summary>
 public class FileLoggerProviderTests : IDisposable
 {
     private readonly string _directory = Path.Combine(Path.GetTempPath(), $"file-logger-{Guid.NewGuid():N}");

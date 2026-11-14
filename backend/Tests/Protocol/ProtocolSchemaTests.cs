@@ -5,12 +5,10 @@ using Xunit;
 
 namespace Framework.Tests.Protocol;
 
-/// <summary>
-/// The wire schema of shared (union tags, members of [MemoryPackable] types, enum values) is pinned in
-/// protocol_schema.golden.txt. A changed tag or member shows up as a diff of the golden file in review.
-/// Run with UPDATE_PROTOCOL_GOLDEN=1 to rewrite the golden file after an intended protocol change.
-/// The hash of the schema is ProtocolHash.Value of a project: the project pins it in its own tests.
-/// </summary>
+// The wire schema of shared (union tags, members of [MemoryPackable] types, enum values) is pinned in
+// protocol_schema.golden.txt. A changed tag or member shows up as a diff of the golden file in review.
+// Run with UPDATE_PROTOCOL_GOLDEN=1 to rewrite the golden file after an intended protocol change.
+// The hash of the schema is ProtocolHash.Value of a project: the project pins it in its own tests.
 public class ProtocolSchemaTests
 {
     private const string UpdateVariable = "UPDATE_PROTOCOL_GOLDEN";

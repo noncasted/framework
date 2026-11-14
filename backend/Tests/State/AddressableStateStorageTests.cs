@@ -22,11 +22,9 @@ public class AddressableStorageTestOptions
 public class AddressableStorageTestState(AddressableStateUtils utils)
     : AddressableState<AddressableStorageTestOptions>(utils);
 
-/// <summary>
-/// The real AddressableState over the database: the stored value survives a restart of the service.
-/// Regression: a value loaded from the database was reported as not initialized, so the coordinator overwrote the
-/// stored configs with the seed (ConfigsInitializer.Init) on every start.
-/// </summary>
+// The real AddressableState over the database: the stored value survives a restart of the service.
+// Regression: a value loaded from the database was reported as not initialized, so the coordinator overwrote the
+// stored configs with the seed (ConfigsInitializer.Init) on every start.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class AddressableStateStorageTests(OrleansTestClusterFixture fixture)
     : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

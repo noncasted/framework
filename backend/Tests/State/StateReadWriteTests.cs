@@ -7,9 +7,6 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Tests basic grain state read/write operations via the real Orleans TestCluster.
-/// </summary>
 [Collection(nameof(OrleansIntegrationCollection))]
 public class StateReadWriteTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

@@ -15,11 +15,9 @@ using ErrorCode = Shared.ErrorCode;
 
 namespace Framework.Tests.Network;
 
-/// <summary>
-/// Every request is answered over the wire. A command that throws and a request without a command are
-/// answered with ErrorResponse (the session dispatcher), the client side never hangs.
-/// A real websocket pair: the server side is the real Connection (reader, writer, MemoryPack framing).
-/// </summary>
+// Every request is answered over the wire. A command that throws and a request without a command are
+// answered with ErrorResponse (the session dispatcher), the client side never hangs.
+// A real websocket pair: the server side is the real Connection (reader, writer, MemoryPack framing).
 public class CommandErrorResponseTests
 {
     private static readonly TimeSpan Wait = TimeSpan.FromSeconds(5);

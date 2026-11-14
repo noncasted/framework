@@ -5,10 +5,6 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Tests ViewableProperty subscription behavior through AddressableState:
-/// View vs Advise semantics, lifetime-based cleanup, subscriber notifications.
-/// </summary>
 public class AddressableStateTests
 {
     public class TestConfig

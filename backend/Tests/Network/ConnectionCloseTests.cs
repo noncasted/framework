@@ -13,10 +13,8 @@ using Xunit;
 
 namespace Framework.Tests.Network;
 
-/// <summary>
-/// A Connection over a real Kestrel socket: a forced disconnect sends a close frame, and a failure of the read loop
-/// still ends the connection.
-/// </summary>
+// A Connection over a real Kestrel socket: a forced disconnect sends a close frame, and a failure of the read loop
+// still ends the connection.
 public class ConnectionCloseTests
 {
     // No send and receive buffers of a loopback socket hold it: a send of it waits for the client to read.

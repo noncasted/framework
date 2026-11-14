@@ -16,7 +16,7 @@ public class ClusterFeaturesWriterTests(OrleansTestClusterFixture fixture)
     public async Task ConcurrentPatches_FromServicesWithStaleCopies_KeepEveryFlag()
     {
         var deployId = Guid.NewGuid();
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
 
         // Two services of one deploy, each with its own local copy of the row.
         var coordinator = await Attach(deployId, lifetime);
@@ -46,7 +46,7 @@ public class ClusterFeaturesWriterTests(OrleansTestClusterFixture fixture)
     public async Task SequentialPatches_FromDifferentServices_AllApplied()
     {
         var deployId = Guid.NewGuid();
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
 
         var first = await Attach(deployId, lifetime);
         var second = await Attach(deployId, lifetime);
@@ -69,7 +69,7 @@ public class ClusterFeaturesWriterTests(OrleansTestClusterFixture fixture)
     [Fact]
     public async Task SetValue_IsRejected()
     {
-        var features = await Attach(Guid.NewGuid(), new Lifetime());
+        var features = await Attach(Guid.NewGuid(), TestLifetime);
 
         var act = () => features.SetValue(new ClusterFeaturesState());
 

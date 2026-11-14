@@ -7,11 +7,9 @@ using Xunit;
 
 namespace Framework.Tests.Telemetry;
 
-/// <summary>
-/// F2.39: dev-only file telemetry (metrics snapshots, session logs) fails without a repository root
-/// instead of silently writing nothing.
-/// F2.40: a git worktree (.git is a "gitdir:" file) is a repository root too.
-/// </summary>
+// dev-only file telemetry (metrics snapshots, session logs) fails without a repository root
+// instead of silently writing nothing.
+// a git worktree (.git is a "gitdir:" file) is a repository root too.
 public class TelemetryPathsTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), $"telemetry-paths-{Guid.NewGuid():N}");

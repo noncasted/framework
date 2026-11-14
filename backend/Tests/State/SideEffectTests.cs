@@ -6,9 +6,6 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Tests side effect registration, execution, and pipeline drain.
-/// </summary>
 [Collection(nameof(SideEffectIntegrationCollection))]
 public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBase<SideEffectTestFixture>(fixture)
 {
@@ -23,7 +20,7 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         await sourceGrain.RegisterSideEffect(targetId);
 
         // Drain side effects
-        var result = await DrainSideEffectsAsync();
+        var result = await DrainSideEffects();
         result.AssertDrainedWithWork();
 
         // Verify target grain was incremented
@@ -45,7 +42,7 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         }
 
         // Drain all
-        var result = await DrainSideEffectsAsync();
+        var result = await DrainSideEffects();
         result.AssertDrainedSuccessfully();
 
         // Verify target was incremented 3 times
@@ -62,7 +59,7 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
 
         await storage.Write(new TransactionalTestSideEffect { TargetGrainId = targetId });
 
-        var result = await DrainSideEffectsAsync();
+        var result = await DrainSideEffects();
         result.AssertDrainedWithWork();
 
         var targetGrain = GetGrain<ITxTestGrain>(targetId);
@@ -80,7 +77,7 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         foreach (var targetId in targetIds)
             await storage.Write(new TransactionalTestSideEffect { TargetGrainId = targetId });
 
-        var result = await DrainSideEffectsAsync();
+        var result = await DrainSideEffects();
         result.AssertDrainedSuccessfully();
 
         // Verify each target was incremented exactly once (atomic per-effect)
@@ -105,7 +102,7 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         await storage.Write(new FailingTestSideEffect { TargetGrainId = targetId, FailCount = 2 });
 
         // First pump — fails, goes to retry queue
-        var pump1 = await Pipeline!.PumpOnceAsync();
+        var pump1 = await Pipeline!.PumpOnce();
         pump1.AllSucceeded.Should().BeFalse();
 
         // Wait for retry delay to expire, then requeue and pump again
@@ -117,13 +114,13 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         await ForceExpireRetryQueue();
 
         // Second pump — fails again (attempt 2)
-        var pump2 = await Pipeline.PumpOnceAsync();
+        var pump2 = await Pipeline.PumpOnce();
         pump2.AllSucceeded.Should().BeFalse();
 
         await ForceExpireRetryQueue();
 
         // Third pump — succeeds (attempt 3)
-        var pump3 = await Pipeline.PumpOnceAsync();
+        var pump3 = await Pipeline.PumpOnce();
         pump3.AllSucceeded.Should().BeTrue();
 
         var targetGrain = GetGrain<ITxTestGrain>(targetId);
@@ -146,12 +143,12 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         // Pump + force-expire retry for each attempt
         for (var i = 0; i < maxRetries + 1; i++)
         {
-            await Pipeline!.PumpOnceAsync();
+            await Pipeline!.PumpOnce();
             await ForceExpireRetryQueue();
         }
 
         // After max retries, the entry should be deleted — no more work
-        var finalPump = await Pipeline!.PumpOnceAsync();
+        var finalPump = await Pipeline!.PumpOnce();
         finalPump.IsEmpty.Should().BeTrue();
     }
 
@@ -175,7 +172,7 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         await storage.RequeueStuckOlderThan(TimeSpan.Zero);
 
         // Now the entry should be back in the queue
-        var result = await DrainSideEffectsAsync();
+        var result = await DrainSideEffects();
         result.AssertDrainedWithWork();
 
         var targetGrain = GetGrain<ITxTestGrain>(targetId);
@@ -194,7 +191,7 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         await storage.Write(new TestSideEffect { TargetGrainId = goodTargetId });
 
         // Pump once — both should be picked up, one fails, one succeeds
-        var result = await Pipeline!.PumpOnceAsync();
+        var result = await Pipeline!.PumpOnce();
         result.TotalTasks.Should().Be(2);
         result.AllSucceeded.Should().BeFalse();
 
@@ -208,7 +205,7 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
     public async Task SideEffect_EmptyQueue_DrainReturnsQuiet()
     {
         // No side effects registered — drain should return quietly
-        var result = await Pipeline!.DrainUntilQuietAsync();
+        var result = await Pipeline!.DrainUntilQuiet();
         result.ReachedQuiescence.Should().BeTrue();
         result.TotalTasks.Should().Be(0);
     }
@@ -228,7 +225,7 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         sourceValue.Should().Be(1);
 
         // Drain side effects
-        var result = await DrainSideEffectsAsync();
+        var result = await DrainSideEffects();
         result.AssertDrainedWithWork();
 
         // Target grain should have been incremented by the side effect
@@ -247,7 +244,7 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
 
         await RunTransaction(() => grain.RegisterMultipleSideEffects(targetIds));
 
-        var result = await DrainSideEffectsAsync();
+        var result = await DrainSideEffects();
         result.AssertDrainedSuccessfully();
 
         foreach (var targetId in targetIds)
@@ -277,7 +274,7 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         txResult.IsSuccess.Should().BeFalse();
 
         // Drain — should find nothing because the transaction was rolled back
-        var drainResult = await Pipeline!.DrainUntilQuietAsync();
+        var drainResult = await Pipeline!.DrainUntilQuiet();
         drainResult.TotalTasks.Should().Be(0);
 
         // Target grain should not have been touched
@@ -297,13 +294,13 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         await storage.Write(new FailingTransactionalTestSideEffect { TargetGrainId = targetId, FailCount = 1 });
 
         // First pump — fails
-        var pump1 = await Pipeline!.PumpOnceAsync();
+        var pump1 = await Pipeline!.PumpOnce();
         pump1.AllSucceeded.Should().BeFalse();
 
         await ForceExpireRetryQueue();
 
         // Second pump — succeeds
-        var pump2 = await Pipeline.PumpOnceAsync();
+        var pump2 = await Pipeline.PumpOnce();
         pump2.AllSucceeded.Should().BeTrue();
 
         var targetGrain = GetGrain<ITxTestGrain>(targetId);
@@ -325,7 +322,7 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         await storage.Write(new TransactionalTestSideEffect { TargetGrainId = targetTx });
         await storage.Write(new TestSideEffect { TargetGrainId = targetNonTx2 });
 
-        var result = await DrainSideEffectsAsync();
+        var result = await DrainSideEffects();
         result.AssertDrainedSuccessfully();
 
         // Verify each target grain received exactly one increment
@@ -338,10 +335,8 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         valueNonTx2.Should().Be(1, "second non-transactional side effect should increment its target");
     }
 
-    /// <summary>
-    /// Force-expire all entries in retry queue by setting retry_after to past.
-    /// Then call RequeueReady to move them back to main queue.
-    /// </summary>
+    // Force-expire all entries in retry queue by setting retry_after to past.
+    // Then call RequeueReady to move them back to main queue.
     private async Task ForceExpireRetryQueue()
     {
         await using var connection = await Database.DataSource.OpenConnectionAsync();

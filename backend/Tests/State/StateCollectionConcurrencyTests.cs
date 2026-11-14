@@ -8,10 +8,6 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Tests StateCollection concurrent updates and edge cases not covered by existing tests.
-/// Covers: parallel grain writes, large batch loading, delete-then-reload, key overwrite, incremental load.
-/// </summary>
 [Collection(nameof(OrleansIntegrationCollection))]
 public class StateCollectionConcurrencyTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

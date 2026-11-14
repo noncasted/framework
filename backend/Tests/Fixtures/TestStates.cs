@@ -10,11 +10,9 @@ using Shared;
 
 namespace Framework.Tests.Fixtures;
 
-/// <summary>
-/// The grain states of the test cluster: every [GrainState] / [GrainEventState] type of the framework assemblies and
-/// of this one, as the generator of a project (Tools/Generators) collects them into the registry of its hosts. An
-/// event state has no state table: it is a Marten stream with an inline snapshot document (mt_doc_*).
-/// </summary>
+// The grain states of the test cluster: every [GrainState] / [GrainEventState] type of the framework assemblies and
+// of this one, as the generator of a project (Tools/Generators) collects them into the registry of its hosts. An
+// event state has no state table: it is a Marten stream with an inline snapshot document (mt_doc_*).
 public static class TestStates
 {
     private static readonly Assembly[] _assemblies =

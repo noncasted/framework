@@ -6,10 +6,6 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// Tests RuntimeChannel: pub/sub broadcast, multiple subscribers, listener isolation.
-/// RuntimeChannel is in-memory (no side effects needed).
-/// </summary>
 [Collection(nameof(OrleansIntegrationCollection))]
 public class RuntimeChannelTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)
@@ -21,7 +17,7 @@ public class RuntimeChannelTests
         var received = new TaskCompletionSource<TestMessage>();
         var messaging = GetSiloService<IMessaging>();
 
-        await messaging.ListenChannel<TestMessage>(new Lifetime(), channelId, msg => received.TrySetResult(msg));
+        await messaging.ListenChannel<TestMessage>(TestLifetime, channelId, msg => received.TrySetResult(msg));
 
         await messaging.PublishChannel(channelId, new TestMessage { Text = "broadcast", Sequence = 1 });
 
@@ -39,9 +35,9 @@ public class RuntimeChannelTests
         var received3 = new TaskCompletionSource<TestMessage>();
         var messaging = GetSiloService<IMessaging>();
 
-        await messaging.ListenChannel<TestMessage>(new Lifetime(), channelId, msg => received1.TrySetResult(msg));
-        await messaging.ListenChannel<TestMessage>(new Lifetime(), channelId, msg => received2.TrySetResult(msg));
-        await messaging.ListenChannel<TestMessage>(new Lifetime(), channelId, msg => received3.TrySetResult(msg));
+        await messaging.ListenChannel<TestMessage>(TestLifetime, channelId, msg => received1.TrySetResult(msg));
+        await messaging.ListenChannel<TestMessage>(TestLifetime, channelId, msg => received2.TrySetResult(msg));
+        await messaging.ListenChannel<TestMessage>(TestLifetime, channelId, msg => received3.TrySetResult(msg));
 
         await messaging.PublishChannel(channelId, new TestMessage { Text = "all", Sequence = 7 });
 
@@ -59,20 +55,22 @@ public class RuntimeChannelTests
     {
         var channelId = new TestChannelId(Guid.NewGuid().ToString());
         var messaging = GetSiloService<IMessaging>();
-        var completed = false;
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        await messaging.ListenChannel<TestMessage>(new Lifetime(), channelId, async _ => {
-            await Task.Delay(50);
-            completed = true;
+        await messaging.ListenChannel<TestMessage>(TestLifetime, channelId, async _ => {
+            await release.Task;
+            completed.TrySetResult();
         });
 
-        await messaging.PublishChannel(channelId, new TestMessage { Text = "async" });
+        // The listener cannot finish before the release, so a publish that waited for it would time out here.
+        await messaging.PublishChannel(channelId, new TestMessage { Text = "async" })
+                       .WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
-        // Publish should return immediately, before the async listener completes
-        completed.Should().BeFalse();
+        completed.Task.IsCompleted.Should().BeFalse();
 
-        await Task.Delay(200, TestContext.Current.CancellationToken);
-        completed.Should().BeTrue();
+        release.TrySetResult();
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -83,7 +81,7 @@ public class RuntimeChannelTests
         var allReceived = new TaskCompletionSource();
         var messaging = GetSiloService<IMessaging>();
 
-        await messaging.ListenChannel<TestMessage>(new Lifetime(), channelId, msg => {
+        await messaging.ListenChannel<TestMessage>(TestLifetime, channelId, msg => {
             lock (received)
             {
                 received.Add(msg.Sequence);
@@ -172,7 +170,7 @@ public class RuntimeChannelTests
         var doneB = new TaskCompletionSource();
         var messaging = GetSiloService<IMessaging>();
 
-        await messaging.ListenChannel<TestMessage>(new Lifetime(), channelA, msg => {
+        await messaging.ListenChannel<TestMessage>(TestLifetime, channelA, msg => {
             lock (receivedA)
             {
                 receivedA.Add(msg.Text);
@@ -180,7 +178,7 @@ public class RuntimeChannelTests
             }
         });
 
-        await messaging.ListenChannel<TestMessage>(new Lifetime(), channelB, msg => {
+        await messaging.ListenChannel<TestMessage>(TestLifetime, channelB, msg => {
             lock (receivedB)
             {
                 receivedB.Add(msg.Text);
@@ -203,7 +201,7 @@ public class RuntimeChannelTests
     {
         var channelId = new TestChannelId(Guid.NewGuid().ToString());
         var received = new List<string>();
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         var messaging = GetSiloService<IMessaging>();
 
         await messaging.ListenChannel<TestMessage>(lifetime, channelId, msg => {
@@ -231,7 +229,7 @@ public class RuntimeChannelTests
 
         // Channel should still work: subscribe and publish a new message
         var received = new TaskCompletionSource<TestMessage>();
-        await messaging.ListenChannel<TestMessage>(new Lifetime(), channelId, msg => received.TrySetResult(msg));
+        await messaging.ListenChannel<TestMessage>(TestLifetime, channelId, msg => received.TrySetResult(msg));
 
         await messaging.PublishChannel(channelId, new TestMessage { Text = "after-empty", Sequence = 42 });
 
@@ -252,7 +250,7 @@ public class RuntimeChannelTests
         // Now subscribe
         var received = new List<string>();
 
-        await messaging.ListenChannel<TestMessage>(new Lifetime(), channelId, msg => {
+        await messaging.ListenChannel<TestMessage>(TestLifetime, channelId, msg => {
             lock (received)
                 received.Add(msg.Text);
         });
@@ -264,7 +262,7 @@ public class RuntimeChannelTests
         // New message should arrive
         var done = new TaskCompletionSource();
 
-        await messaging.ListenChannel<TestMessage>(new Lifetime(), channelId, msg => {
+        await messaging.ListenChannel<TestMessage>(TestLifetime, channelId, msg => {
             if (msg.Text == "new")
                 done.TrySetResult();
         });
@@ -282,7 +280,7 @@ public class RuntimeChannelTests
         var messaging = GetSiloService<IMessaging>();
         const int messageCount = 20;
 
-        await messaging.ListenChannel<TestMessage>(new Lifetime(), channelId, msg => {
+        await messaging.ListenChannel<TestMessage>(TestLifetime, channelId, msg => {
             lock (received)
             {
                 received.Add(msg.Sequence);
@@ -307,7 +305,7 @@ public class RuntimeChannelTests
     public async Task Publish_PartialTermination_RemainingListenersStillReceive()
     {
         var channelId = new TestChannelId(Guid.NewGuid().ToString());
-        var lifetime1 = new Lifetime();
+        var lifetime1 = TestLifetime.Child();
         var received1 = new List<string>();
         var received2 = new List<string>();
         var done2 = new TaskCompletionSource();
@@ -318,7 +316,7 @@ public class RuntimeChannelTests
                 received1.Add(msg.Text);
         });
 
-        await messaging.ListenChannel<TestMessage>(new Lifetime(), channelId, msg => {
+        await messaging.ListenChannel<TestMessage>(TestLifetime, channelId, msg => {
             lock (received2)
             {
                 received2.Add(msg.Text);

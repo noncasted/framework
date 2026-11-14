@@ -1,14 +1,13 @@
 using Infrastructure;
+using Internal;
 using Microsoft.Extensions.DependencyInjection;
 using Orleans.TestingHost;
 using Xunit;
 
 namespace Framework.Tests.Fixtures;
 
-/// <summary>
-/// Base class for all integration tests.
-/// Provides per-test lifecycle management, cleanup, and helper methods.
-/// </summary>
+// Base of the tests against a shared silo: a clean database per test, and a lifetime of the test ended in DisposeAsync,
+// so no subscription of a test stays in the silo after it.
 public abstract class IntegrationTestBase<TFixture> : IAsyncLifetime
     where TFixture : OrleansTestClusterFixture
 {
@@ -17,7 +16,10 @@ public abstract class IntegrationTestBase<TFixture> : IAsyncLifetime
         Fixture = fixture;
     }
 
+    private readonly Lifetime _lifetime = new();
+
     protected TFixture Fixture { get; }
+    protected ILifetime TestLifetime => _lifetime;
 
     // --- Convenience proxies ---
 
@@ -25,9 +27,6 @@ public abstract class IntegrationTestBase<TFixture> : IAsyncLifetime
     protected IGrainFactory GrainFactory => Fixture.GrainFactory;
     protected DatabaseFixture Database => Fixture.Database;
 
-    /// <summary>
-    /// Pipeline proxy — only available if fixture is SideEffectTestFixture.
-    /// </summary>
     protected SideEffectTestPipeline? Pipeline =>
         Fixture is SideEffectTestFixture seFixture ? seFixture.Pipeline : null;
 
@@ -35,19 +34,17 @@ public abstract class IntegrationTestBase<TFixture> : IAsyncLifetime
 
     public virtual async ValueTask InitializeAsync()
     {
-        await Database.ResetDatabaseAsync();
+        await Database.ResetDatabase();
     }
 
     public virtual ValueTask DisposeAsync()
     {
+        _lifetime.Terminate();
         return ValueTask.CompletedTask;
     }
 
     // --- Transaction helpers ---
 
-    /// <summary>
-    /// Run an action inside the project's custom transaction system.
-    /// </summary>
     protected async Task RunTransaction(Func<Task> action)
     {
         var transactions = GetSiloService<ITransactions>();
@@ -57,9 +54,6 @@ public abstract class IntegrationTestBase<TFixture> : IAsyncLifetime
             throw new Exception($"Transaction failed: {result}");
     }
 
-    /// <summary>
-    /// Get a grain reference from the test cluster.
-    /// </summary>
     protected T GetGrain<T>(Guid key) where T : IGrainWithGuidKey
     {
         return GrainFactory.GetGrain<T>(key);
@@ -70,17 +64,12 @@ public abstract class IntegrationTestBase<TFixture> : IAsyncLifetime
         return GrainFactory.GetGrain<T>(key);
     }
 
-    /// <summary>
-    /// Resolve a service from the first silo's DI container.
-    /// </summary>
     protected T GetSiloService<T>() where T : notnull
     {
         return Cluster.Silos[0].ServiceProvider.GetRequiredService<T>();
     }
 
-    /// <summary>
-    /// Other options of a config of the first silo until the result is disposed.
-    /// </summary>
+    // Other options of a config of the first silo until the result is disposed.
     protected ConfigOverride<TOptions> OverrideConfig<TConfig, TOptions>(TOptions options)
         where TConfig : IAddressableState<TOptions>
         where TOptions : class, new()
@@ -88,13 +77,20 @@ public abstract class IntegrationTestBase<TFixture> : IAsyncLifetime
         return new ConfigOverride<TOptions>(GetSiloService<TConfig>(), options);
     }
 
-    /// <summary>
-    /// Settle and drain all side effects (requires SideEffectTestFixture).
-    /// </summary>
-    protected async Task<DrainResult> DrainSideEffectsAsync()
+    // Settles and drains the side effects and throws if any of them failed.
+    protected async Task<DrainResult> DrainSideEffects()
+    {
+        var result = await DrainSideEffectsWithFailures();
+        result.AssertDrainedSuccessfully();
+        return result;
+    }
+
+    // For a test that expects a side effect to fail: the result is checked by the test.
+    protected async Task<DrainResult> DrainSideEffectsWithFailures()
     {
         if (Pipeline == null)
             throw new InvalidOperationException("Pipeline not available. Use SideEffectTestFixture.");
-        return await Pipeline.SettleAndDrainAsync();
+
+        return await Pipeline.SettleAndDrain();
     }
 }

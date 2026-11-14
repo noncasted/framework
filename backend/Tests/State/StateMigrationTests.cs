@@ -6,9 +6,6 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// Tests state version migration: write V0, read V1/V2, verify migration applies.
-/// </summary>
 [Collection(nameof(OrleansIntegrationCollection))]
 public class StateMigrationTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)

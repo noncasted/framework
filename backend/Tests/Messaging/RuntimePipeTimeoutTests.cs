@@ -6,10 +6,8 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// A slow handler is not a dead observer: a timed-out request is not sent again (the handler may have run) and the
-/// observer stays bound for the next requests.
-/// </summary>
+// A slow handler is not a dead observer: a timed-out request is not sent again (the handler may have run) and the
+// observer stays bound for the next requests.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class RuntimePipeTimeoutTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)
@@ -19,7 +17,7 @@ public class RuntimePipeTimeoutTests
     {
         var pipeId = new TestPipeId(Guid.NewGuid().ToString());
         var messaging = GetSiloService<IMessaging>();
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         var calls = 0;
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -53,7 +51,7 @@ public class RuntimePipeTimeoutTests
     {
         var pipeId = new TestPipeId(Guid.NewGuid().ToString());
         var messaging = GetSiloService<IMessaging>();
-        var lifetime = new Lifetime();
+        var lifetime = TestLifetime.Child();
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 

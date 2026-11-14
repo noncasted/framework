@@ -9,9 +9,7 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-/// <summary>
-/// The writes of a State outside a transaction (StateExtensions.Write): the memory of the grain follows the database.
-/// </summary>
+// The writes of a State outside a transaction (StateExtensions.Write): the memory of the grain follows the database.
 public class StateDirectWriteTests
 {
     public StateDirectWriteTests()

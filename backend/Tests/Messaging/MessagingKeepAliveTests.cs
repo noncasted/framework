@@ -6,11 +6,9 @@ using Xunit;
 
 namespace Framework.Tests.Messaging;
 
-/// <summary>
-/// F2.39: DurableQueue and RuntimePipe keep their in-memory observers across idle activation collection.
-/// The keep-alive is requested when the observer is added: DelayDeactivation from OnDeactivateAsync
-/// does not stop a deactivation that has already started.
-/// </summary>
+// DurableQueue and RuntimePipe keep their in-memory observers across idle activation collection.
+// The keep-alive is requested when the observer is added: DelayDeactivation from OnDeactivateAsync
+// does not stop a deactivation that has already started.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class MessagingKeepAliveTests(OrleansTestClusterFixture fixture)
     : IntegrationTestBase<OrleansTestClusterFixture>(fixture)
