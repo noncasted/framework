@@ -22,8 +22,10 @@
   <ItemGroup>
     <InternalsVisibleTo Include="ContainerGenerator.Verify" />
   </ItemGroup>
-  <!-- Only a Release build replaces the committed analyzer: building the solution (Debug) leaves it alone. -->
-  <Target Name="CopyToAnalyzers" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+  <!-- Only a Release build replaces the committed analyzer: building the solution (Debug) leaves it alone.
+       -p:SkipAnalyzersCopy=true builds and verifies without the copy: a check next to a running Unity on the same tree
+       (run-tests.sh of a game) must not change its analyzer, Unity would request a compilation in the middle of the run. -->
+  <Target Name="CopyToAnalyzers" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(SkipAnalyzersCopy)' != 'true'">
     <PropertyGroup>
       <UnityPluginsDir>$(MSBuildProjectDirectory)/../../Analyzers</UnityPluginsDir>
     </PropertyGroup>
