@@ -1,15 +1,9 @@
 namespace Game.MatchMetrics;
 
-// What a client may send: the names, tags and fields are the limits of the client module (Global.MatchMetrics), the sizes
-// are a wide margin over a batch of 30 s with a buffer of ten minutes.
-public static class MatchMetricsLimits
+// The sizes of a batch a client may send, the server's alone (the names, tags and fields: SharedMatchMetricsLimits): a wide
+// margin over a batch of 30 s with a buffer of ten minutes.
+internal static class MatchMetricsLimits
 {
-    public const int MaxNameLength = 64;
-    public const int MaxTagLength = 32;
-    public const int MaxTags = 4;
-    public const int MaxFields = 8;
-    public const int MaxSeries = 256;
-
     public const int MaxChunks = 4096;
     public const int MaxValues = 65536;
     public const int MaxEvents = 1024;

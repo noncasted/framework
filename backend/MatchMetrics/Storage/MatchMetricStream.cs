@@ -4,7 +4,7 @@ namespace Game.MatchMetrics;
 
 // A stream as its writer sees it: the last batch stored and the slots of its series. Changed only by the writes of its
 // batches, one at a time (one batch in flight per stream).
-public sealed class MatchMetricStream
+internal sealed class MatchMetricStream
 {
     public MatchMetricStream(Guid id, Guid matchId, int lastSeq, IReadOnlyDictionary<int, MatchMetricSlot> slots)
     {
@@ -40,9 +40,15 @@ public sealed class MatchMetricStream
         }
     }
 
-    // A copy stored before: the server is at least at seq.
-    public void OnDuplicate(int lastSeq)
+    // A copy stored before: the server is at least at seq, and the slots that copy declared are the stream's.
+    public void OnDuplicate(int lastSeq, IReadOnlyDictionary<int, MatchMetricSlot> stored)
     {
         LastSeq = Math.Max(LastSeq, lastSeq);
+
+        foreach (var (slot, value) in stored)
+        {
+            if (_slots.TryAdd(slot, value))
+                _kinds.Add(slot, value.Kind);
+        }
     }
 }

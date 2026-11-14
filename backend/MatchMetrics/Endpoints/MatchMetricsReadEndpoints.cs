@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -25,7 +26,8 @@ public static class MatchMetricsReadEndpoints
         return group;
     }
 
-    // A bad query - 400 with its message; the database could not answer - 503, the reader may repeat.
+    // A bad query - 400 with its message; the database could not answer (Npgsql throws DbException) or timed out - 503, the
+    // reader may repeat. Anything else is a bug of the server: it goes on to the host, 500.
     private static async ValueTask<object?> AnswerErrors(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         try
@@ -36,7 +38,7 @@ public static class MatchMetricsReadEndpoints
         {
             return Results.BadRequest(exception.Message);
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        catch (Exception exception) when (exception is DbException or TimeoutException)
         {
             var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(MatchMetricsReadEndpoints));
             logger.LogWarning(exception, "[MatchMetrics] A reading failed");

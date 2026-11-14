@@ -1,4 +1,5 @@
 using System;
+using Shared;
 
 namespace Global.MatchMetrics
 {
@@ -56,7 +57,7 @@ namespace Global.MatchMetrics
                 1 => new MatchTags(2, _key0, _value0, key, value, null, null, null, null),
                 2 => new MatchTags(3, _key0, _value0, _key1, _value1, key, value, null, null),
                 3 => new MatchTags(4, _key0, _value0, _key1, _value1, _key2, _value2, key, value),
-                _ => throw new ArgumentException($"[MatchMetrics] Over {MatchMetricsLimits.MaxTags} tags: '{key}'")
+                _ => throw new ArgumentException($"[MatchMetrics] Over {SharedMatchMetricsLimits.MaxTags} tags: '{key}'")
             };
         }
 

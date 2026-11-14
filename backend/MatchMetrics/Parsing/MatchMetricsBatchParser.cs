@@ -5,9 +5,9 @@ using Shared;
 namespace Game.MatchMetrics;
 
 // The client is not trusted: every rule of the contract is checked here, a batch that breaks one throws
-// MatchMetricsRejectedException. Names, keys and texts pass only the closed charset of MatchMetricNames, so the json built
+// MatchMetricsRejectedException. Names, keys and texts pass only the closed charset of SharedMatchMetricNames, so the json built
 // from them needs no escaping.
-public static class MatchMetricsBatchParser
+internal static class MatchMetricsBatchParser
 {
     // Slots: the series of the stream known before this batch and their kinds.
     public static ParsedMatchBatch Parse(SharedMatchMetrics.Batch batch, IReadOnlyDictionary<int, SharedMatchMetrics.MatchSeriesKind> slots)
@@ -26,27 +26,32 @@ public static class MatchMetricsBatchParser
         SharedMatchMetrics.MatchSeriesDecl[] declarations,
         IReadOnlyDictionary<int, SharedMatchMetrics.MatchSeriesKind> slots)
     {
-        if (declarations.Length > MatchMetricsLimits.MaxSeries)
-            throw Reject($"{declarations.Length} series over {MatchMetricsLimits.MaxSeries}");
+        if (declarations.Length > SharedMatchMetricsLimits.MaxSeries)
+            throw Reject($"{declarations.Length} series over {SharedMatchMetricsLimits.MaxSeries}");
 
         var result = new List<ParsedMatchSeries>(declarations.Length);
         var taken = new HashSet<int>();
+        var keys = new HashSet<MatchSeriesKey>();
 
         foreach (var declaration in declarations)
         {
-            if (declaration.Slot is < 0 or >= MatchMetricsLimits.MaxSeries)
-                throw Reject($"The slot {declaration.Slot} out of 0..{MatchMetricsLimits.MaxSeries - 1}");
+            if (declaration.Slot is < 0 or >= SharedMatchMetricsLimits.MaxSeries)
+                throw Reject($"The slot {declaration.Slot} out of 0..{SharedMatchMetricsLimits.MaxSeries - 1}");
 
             if (slots.ContainsKey(declaration.Slot) || taken.Add(declaration.Slot) == false)
                 throw Reject($"The slot {declaration.Slot} is declared again");
 
-            if (MatchMetricNames.IsName(declaration.Name) == false)
+            if (SharedMatchMetricNames.IsName(declaration.Name) == false)
                 throw Reject("A series name breaks the rule of names");
 
             if (Enum.IsDefined(declaration.Kind) == false)
                 throw Reject($"The kind {declaration.Kind} of a series");
 
             var key = new MatchSeriesKey(declaration.Name, ParseTags(declaration.TagKeys, declaration.TagValues));
+
+            if (keys.Add(key) == false)
+                throw Reject($"The series {key.Name} {key.Tags} in two slots");
+
             result.Add(new ParsedMatchSeries(declaration.Slot, key, declaration.Kind));
         }
 
@@ -58,14 +63,14 @@ public static class MatchMetricsBatchParser
         keys ??= Array.Empty<string>();
         values ??= Array.Empty<string>();
 
-        if (keys.Length != values.Length || keys.Length > MatchMetricsLimits.MaxTags)
-            throw Reject($"Tags {keys.Length} keys, {values.Length} values, at most {MatchMetricsLimits.MaxTags}");
+        if (keys.Length != values.Length || keys.Length > SharedMatchMetricsLimits.MaxTags)
+            throw Reject($"Tags {keys.Length} keys, {values.Length} values, at most {SharedMatchMetricsLimits.MaxTags}");
 
         var tags = new SortedDictionary<string, string>(StringComparer.Ordinal);
 
         for (var i = 0; i < keys.Length; i++)
         {
-            if (MatchMetricNames.IsKey(keys[i]) == false || MatchMetricNames.IsValue(values[i]) == false)
+            if (SharedMatchMetricNames.IsKey(keys[i]) == false || SharedMatchMetricNames.IsValue(values[i]) == false)
                 throw Reject("A tag breaks the rule of names");
 
             if (tags.TryAdd(keys[i], values[i]) == false)
@@ -122,7 +127,25 @@ public static class MatchMetricsBatchParser
             result.Add(new ParsedMatchChunk(chunk.Slot, chunk.Start, chunk.AgeMs, chunk.Values));
         }
 
+        RequireDisjoint(result);
+
         return result;
+    }
+
+    // A bucket of a series once a batch: two chunks with one start would break the key of the table, overlapping ones would
+    // count their common buckets twice.
+    private static void RequireDisjoint(List<ParsedMatchChunk> chunks)
+    {
+        var ordered = chunks.OrderBy(chunk => chunk.Slot).ThenBy(chunk => chunk.Start).ToList();
+
+        for (var i = 1; i < ordered.Count; i++)
+        {
+            var previous = ordered[i - 1];
+            var chunk = ordered[i];
+
+            if (chunk.Slot == previous.Slot && chunk.Start < previous.Start + previous.Values.Length)
+                throw Reject($"The chunks of the slot {chunk.Slot} from {previous.Start} and {chunk.Start} overlap");
+        }
     }
 
     private static SharedMatchMetrics.MatchSeriesKind KindOf(
@@ -151,7 +174,7 @@ public static class MatchMetricsBatchParser
 
         foreach (var entry in events)
         {
-            if (MatchMetricNames.IsName(entry.Name) == false)
+            if (SharedMatchMetricNames.IsName(entry.Name) == false)
                 throw Reject("An event name breaks the rule of names");
 
             if (float.IsFinite(entry.Time) == false || entry.Time < 0f || entry.Time > MatchMetricsLimits.MaxBucket)
@@ -169,15 +192,15 @@ public static class MatchMetricsBatchParser
     {
         fields ??= Array.Empty<SharedMatchMetrics.MatchEventField>();
 
-        if (fields.Length > MatchMetricsLimits.MaxFields)
-            throw Reject($"{fields.Length} fields over {MatchMetricsLimits.MaxFields}");
+        if (fields.Length > SharedMatchMetricsLimits.MaxFields)
+            throw Reject($"{fields.Length} fields over {SharedMatchMetricsLimits.MaxFields}");
 
         var keys = new HashSet<string>(StringComparer.Ordinal);
         var json = new StringBuilder("{");
 
         foreach (var field in fields)
         {
-            if (MatchMetricNames.IsKey(field.Key) == false || keys.Add(field.Key) == false)
+            if (SharedMatchMetricNames.IsKey(field.Key) == false || keys.Add(field.Key) == false)
                 throw Reject("A field key breaks the rule of names or comes twice");
 
             if (json.Length > 1)
@@ -187,7 +210,7 @@ public static class MatchMetricsBatchParser
 
             if (field.Text != null)
             {
-                if (MatchMetricNames.IsValue(field.Text) == false)
+                if (SharedMatchMetricNames.IsValue(field.Text) == false)
                     throw Reject($"The text of the field '{field.Key}' breaks the rule of names");
 
                 json.Append('"').Append(field.Text).Append('"');

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Npgsql;
 using NpgsqlTypes;
+using Shared;
 
 namespace Game.MatchMetrics;
 
@@ -67,7 +68,7 @@ internal static class MatchMetricQuerySql
 
     public static void CheckName(string? name)
     {
-        if (name != null && MatchMetricNames.IsName(name) == false)
+        if (name != null && SharedMatchMetricNames.IsName(name) == false)
             throw new MatchMetricsQueryException($"The name '{name}' breaks the rule of names [a-z0-9._]");
     }
 
@@ -77,16 +78,16 @@ internal static class MatchMetricQuerySql
 
         foreach (var (key, value) in filter.Tags)
         {
-            if (MatchMetricNames.IsKey(key) == false || MatchMetricNames.IsValue(value) == false)
+            if (SharedMatchMetricNames.IsKey(key) == false || SharedMatchMetricNames.IsValue(value) == false)
                 throw new MatchMetricsQueryException($"The tag '{key}={value}' breaks the rule of names");
         }
 
-        if (filter.GroupBy.Count > MatchMetricsLimits.MaxTags + 1 || filter.GroupBy.Distinct().Count() != filter.GroupBy.Count)
-            throw new MatchMetricsQueryException($"groupBy: distinct keys, at most {MatchMetricsLimits.MaxTags + 1}");
+        if (filter.GroupBy.Count > SharedMatchMetricsLimits.MaxTags + 1 || filter.GroupBy.Distinct().Count() != filter.GroupBy.Count)
+            throw new MatchMetricsQueryException($"groupBy: distinct keys, at most {SharedMatchMetricsLimits.MaxTags + 1}");
 
         foreach (var key in filter.GroupBy)
         {
-            if (MatchMetricNames.IsKey(key) == false)
+            if (SharedMatchMetricNames.IsKey(key) == false)
                 throw new MatchMetricsQueryException($"The group key '{key}' breaks the rule of names");
         }
     }

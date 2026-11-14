@@ -7,7 +7,7 @@ namespace Game.MatchMetrics;
 // One batch - one transaction: the last seq of the stream moves only from seq - 1 (a copy is Duplicate, a hole is Gap, both
 // write nothing), then the slots, the chunks and the events are added and the totals moved. The time of a chunk or an event
 // on the server is its receive time minus its age.
-public sealed class MatchMetricBatchWriter
+internal sealed class MatchMetricBatchWriter
 {
     public MatchMetricBatchWriter(IDbSource db, MatchMetricSeriesDictionary dictionary)
     {
@@ -28,6 +28,8 @@ public sealed class MatchMetricBatchWriter
         foreach (var series in batch.Series)
             added.Add(series.Slot, await _dictionary.Resolve(series.Key, series.Kind));
 
+        RequireNewSeries(stream, batch, added);
+
         await using var connection = await _db.OpenConnection();
         await using var transaction = await connection.BeginTransactionAsync();
 
@@ -39,7 +41,7 @@ public sealed class MatchMetricBatchWriter
             if (lastSeq < batch.Seq)
                 return MatchMetricWrite.Gap;
 
-            stream.OnDuplicate(lastSeq);
+            stream.OnDuplicate(lastSeq, await MatchMetricSlots.Read(connection, stream.Id));
             return MatchMetricWrite.Duplicate;
         }
 
@@ -52,6 +54,18 @@ public sealed class MatchMetricBatchWriter
         stream.OnStored(batch.Seq, added);
 
         return MatchMetricWrite.Stored;
+    }
+
+    // A series in one slot of a stream: the parser sees the keys of a batch only, the ids of the earlier slots are here.
+    private static void RequireNewSeries(MatchMetricStream stream, ParsedMatchBatch batch, Dictionary<int, MatchMetricSlot> added)
+    {
+        foreach (var series in batch.Series)
+        {
+            var id = added[series.Slot].SeriesId;
+
+            if (stream.Slots.Values.Any(slot => slot.SeriesId == id))
+                throw new MatchMetricsRejectedException($"The series {series.Key.Name} {series.Key.Tags} is declared again in the slot {series.Slot}");
+        }
     }
 
     private static async Task<bool> MoveSeq(NpgsqlConnection connection, Guid streamId, int seq, DateTime now)

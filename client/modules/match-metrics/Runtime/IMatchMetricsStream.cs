@@ -2,7 +2,7 @@ namespace Global.MatchMetrics
 {
     // One writer in one match. A series is declared once (the same name and tags give the same handle) and written every
     // frame if needed: the handles do not allocate. Names: [a-z0-9._] up to 64; tags: MatchTags. A wrong name or a series
-    // over the limit throws (MatchMetricsLimits). Writing after the end of the stream throws.
+    // over the limit throws (SharedMatchMetricsLimits). Writing after the end of the stream throws.
     public interface IMatchMetricsStream
     {
         IMatchCounter Counter(string name, MatchTags tags = default);

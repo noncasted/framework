@@ -2,7 +2,7 @@ using Shared;
 
 namespace Game.MatchMetrics;
 
-// Names and fields follow MatchMetricNames: a wrong one is a mistake of the code and throws. Any thread.
+// Names and fields follow SharedMatchMetricNames: a wrong one is a mistake of the code and throws. Any thread.
 public interface IMatchMetricsServerStream
 {
     void Event(string name, params SharedMatchMetrics.MatchEventField[] fields);

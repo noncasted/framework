@@ -7,20 +7,24 @@ namespace Game.MatchMetrics;
 
 // The stream of the server: the values wait in memory and go as batches of the same storage path as a client's. A periodic
 // write takes the seconds already over only (a gauge may still change in the current one); the last write at the end of
-// the lifetime takes everything. A failed write keeps the values for the next one: the loop is the top of a task nobody
-// awaits, so it logs the failure.
-public sealed class MatchMetricsServerStream : IMatchMetricsServerStream
+// the lifetime takes everything, a write after it throws. A failed write keeps its batch and sends the same one again first
+// (a commit that threw may have gone through: then it is a Duplicate). A series the dictionary refuses (the name is a
+// counter of the game) is dropped with its values, and a later write of it throws. The loop is the top of a task nobody
+// awaits, so it logs the failures.
+internal sealed class MatchMetricsServerStream : IMatchMetricsServerStream
 {
     public MatchMetricsServerStream(
         Guid matchId,
         MatchMetricStreamStore streams,
         MatchMetricBatchWriter writer,
+        MatchMetricSeriesDictionary dictionary,
         TimeProvider time,
         ILogger<MatchMetricsServerStream> logger)
     {
         _matchId = matchId;
         _streams = streams;
         _writer = writer;
+        _dictionary = dictionary;
         _time = time;
         _logger = logger;
         _openedAt = Now;
@@ -30,6 +34,7 @@ public sealed class MatchMetricsServerStream : IMatchMetricsServerStream
     private readonly Guid _writerId = Guid.NewGuid();
     private readonly MatchMetricStreamStore _streams;
     private readonly MatchMetricBatchWriter _writer;
+    private readonly MatchMetricSeriesDictionary _dictionary;
     private readonly TimeProvider _time;
     private readonly ILogger<MatchMetricsServerStream> _logger;
     private readonly DateTime _openedAt;
@@ -38,9 +43,13 @@ public sealed class MatchMetricsServerStream : IMatchMetricsServerStream
     private readonly object _lock = new();
     private readonly Dictionary<string, int> _slots = new();
     private readonly Dictionary<int, SortedDictionary<int, float>> _gauges = new();
+    private readonly Dictionary<string, string> _rejected = new();
     private readonly List<(string Name, float Time, string Fields)> _events = new();
 
     private MatchMetricStream? _stream;
+    private Pending? _pending;
+    private int _nextSlot;
+    private bool _isEnded;
 
     private DateTime Now => _time.GetUtcNow().UtcDateTime;
     private double Seconds => (Now - _openedAt).TotalSeconds;
@@ -56,7 +65,10 @@ public sealed class MatchMetricsServerStream : IMatchMetricsServerStream
         var json = MatchMetricsBatchParser.ParseFields(fields);
 
         lock (_lock)
+        {
+            RequireOpen();
             _events.Add((name, (float)Seconds, json));
+        }
     }
 
     public void Gauge(string name, float value)
@@ -68,12 +80,17 @@ public sealed class MatchMetricsServerStream : IMatchMetricsServerStream
 
         lock (_lock)
         {
+            RequireOpen();
+
+            if (_rejected.TryGetValue(name, out var reason))
+                throw new ArgumentException($"[MatchMetrics] The gauge {name} of the server is rejected: {reason}");
+
             if (_slots.TryGetValue(name, out var slot) == false)
             {
-                if (_slots.Count >= MatchMetricsLimits.MaxSeries)
-                    throw new ArgumentException($"[MatchMetrics] Over {MatchMetricsLimits.MaxSeries} series in the stream of the server");
+                if (_nextSlot >= SharedMatchMetricsLimits.MaxSeries)
+                    throw new ArgumentException($"[MatchMetrics] Over {SharedMatchMetricsLimits.MaxSeries} series in the stream of the server");
 
-                slot = _slots.Count;
+                slot = _nextSlot++;
                 _slots.Add(name, slot);
                 _gauges.Add(slot, new SortedDictionary<int, float>());
             }
@@ -93,6 +110,7 @@ public sealed class MatchMetricsServerStream : IMatchMetricsServerStream
         }
         catch (OperationCanceledException)
         {
+            // The lifetime ended: the last write below takes everything.
         }
 
         await Flush(true);
@@ -104,7 +122,18 @@ public sealed class MatchMetricsServerStream : IMatchMetricsServerStream
 
         try
         {
+            if (isLast)
+            {
+                lock (_lock)
+                    _isEnded = true;
+            }
+
             _stream ??= await _streams.Open(_matchId, Guid.Empty, _writerId, SharedMatchMetrics.MatchStreamKind.Server, _openedAt);
+
+            if (_pending != null)
+                await Send(_stream, _pending);
+
+            await ResolveNewSeries(_stream);
 
             var now = Now;
             var until = isLast ? int.MaxValue : (int)Seconds;
@@ -113,12 +142,8 @@ public sealed class MatchMetricsServerStream : IMatchMetricsServerStream
             if (batch.Chunks.Count == 0 && batch.Events.Count == 0)
                 return;
 
-            var result = await _writer.Write(_stream, batch, now);
-
-            if (result != MatchMetricWrite.Stored)
-                throw new InvalidOperationException($"[MatchMetrics] The batch {batch.Seq} of the server is {result}: the server is its only writer");
-
-            Remove(until, events);
+            _pending = new Pending(batch, until, events);
+            await Send(_stream, _pending);
         }
         catch (Exception exception)
         {
@@ -127,6 +152,50 @@ public sealed class MatchMetricsServerStream : IMatchMetricsServerStream
         finally
         {
             _writes.Release();
+        }
+    }
+
+    // Duplicate: an earlier send of this batch was stored, its answer lost.
+    private async Task Send(MatchMetricStream stream, Pending pending)
+    {
+        var result = await _writer.Write(stream, pending.Batch, Now);
+
+        if (result == MatchMetricWrite.Gap)
+            throw new InvalidOperationException($"[MatchMetrics] The batch {pending.Batch.Seq} of the server is a Gap: the server is its only writer");
+
+        Remove(pending.Until, pending.Events);
+        _pending = null;
+    }
+
+    // The kind of a name is the dictionary's: a refusal is the same on every write, so the series is dropped, not sent again.
+    private async Task ResolveNewSeries(MatchMetricStream stream)
+    {
+        List<string> names;
+
+        lock (_lock)
+            names = _slots.Where(entry => stream.Slots.ContainsKey(entry.Value) == false).Select(entry => entry.Key).ToList();
+
+        foreach (var name in names)
+        {
+            try
+            {
+                await _dictionary.Resolve(new MatchSeriesKey(name, "{}"), SharedMatchMetrics.MatchSeriesKind.Gauge);
+            }
+            catch (MatchMetricsRejectedException exception)
+            {
+                _logger.LogError("[MatchMetrics] The gauge {Name} of the server of the match {Match} is dropped: {Reason}", name, _matchId, exception.Message);
+                Drop(name, exception.Message);
+            }
+        }
+    }
+
+    private void Drop(string name, string reason)
+    {
+        lock (_lock)
+        {
+            _gauges.Remove(_slots[name]);
+            _slots.Remove(name);
+            _rejected.Add(name, reason);
         }
     }
 
@@ -184,9 +253,17 @@ public sealed class MatchMetricsServerStream : IMatchMetricsServerStream
         return Math.Max(0, (long)(now - _openedAt.AddSeconds(seconds)).TotalMilliseconds);
     }
 
+    private void RequireOpen()
+    {
+        if (_isEnded)
+            throw new InvalidOperationException($"[MatchMetrics] The stream of the server of the match {_matchId} is ended");
+    }
+
     private static void RequireName(string name)
     {
-        if (MatchMetricNames.IsName(name) == false)
-            throw new ArgumentException($"[MatchMetrics] The name '{name}': only [a-z0-9._] up to {MatchMetricsLimits.MaxNameLength}");
+        if (SharedMatchMetricNames.IsName(name) == false)
+            throw new ArgumentException($"[MatchMetrics] The name '{name}': only [a-z0-9._] up to {SharedMatchMetricsLimits.MaxNameLength}");
     }
+
+    private sealed record Pending(ParsedMatchBatch Batch, int Until, int Events);
 }

@@ -8,7 +8,7 @@ namespace Game.MatchMetrics;
 // Rejected; a failure of the database or of the admission throws, the request fails and the client sends the batch again.
 public sealed class MatchMetricsConnection
 {
-    public MatchMetricsConnection(
+    internal MatchMetricsConnection(
         Guid userId,
         IMatchMetricsAdmission admission,
         MatchMetricStreamStore streams,
