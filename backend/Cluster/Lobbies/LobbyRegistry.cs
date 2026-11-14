@@ -1,3 +1,4 @@
+using Cluster.Discovery;
 using Infrastructure;
 using Infrastructure.State;
 using Microsoft.Extensions.Logging;
@@ -33,22 +34,6 @@ public interface ILobbyRegistry : IGrainWithGuidKey
     Task<OpenLobbies> GetOpenLobbies();
 }
 
-// Snapshots of the open lobbies of a deploy (OpenLobbies), the full list on every change.
-public class OpenLobbiesChannelId : IRuntimeChannelId
-{
-    public OpenLobbiesChannelId(Guid deployId)
-    {
-        _deployId = deployId;
-    }
-
-    private readonly Guid _deployId;
-
-    public string ToRaw()
-    {
-        return $"open-lobbies-{_deployId:N}";
-    }
-}
-
 public class LobbyRegistry : Grain, ILobbyRegistry
 {
     public LobbyRegistry(
@@ -72,7 +57,7 @@ public class LobbyRegistry : Grain, ILobbyRegistry
         await _state.Write(state => {
             code = LobbyCodeGenerator.GenerateUnique(state.Entries.ContainsKey);
 
-            state.Entries.Add(code, new LobbyRegistryEntry
+            state.Add(code, new LobbyRegistryEntry
             {
                 ServerId = serverId,
                 SessionId = sessionId
@@ -127,7 +112,7 @@ public class LobbyRegistry : Grain, ILobbyRegistry
         var wasListed = entry.Listing.IsListed;
 
         await _state.Write(value => {
-            value.Entries.Remove(code);
+            value.Remove(code);
 
             if (wasListed == true)
                 value.AdvanceListingVersion();
@@ -160,22 +145,27 @@ public class LobbyRegistry : Grain, ILobbyRegistry
             await PublishOpenLobbies();
     }
 
-    public async Task<OpenLobbies> GetOpenLobbies()
+    public Task<OpenLobbies> GetOpenLobbies()
     {
-        var state = await _state.ReadValue();
-        return CreateOpenLobbies(state);
+        return CreateOpenLobbies();
     }
 
     private async Task PublishOpenLobbies()
     {
-        var state = await _state.ReadValue();
-        var lobbies = CreateOpenLobbies(state);
+        var lobbies = await CreateOpenLobbies();
 
         await _messaging.PublishChannel(new OpenLobbiesChannelId(this.GetPrimaryKey()), lobbies);
     }
 
-    private static OpenLobbies CreateOpenLobbies(LobbyRegistryState state)
+    private async Task<OpenLobbies> CreateOpenLobbies()
     {
+        var state = await _state.ReadValue();
+
+        // The entries of a game server that stopped without releasing them (a crash) stay until the end of the
+        // deploy: a lobby is listed only while its server is alive in the discovery of the deploy.
+        var members = await GrainFactory.GetGrain<IServiceDiscoveryStorage>(this.GetPrimaryKey()).Get();
+        var aliveSince = DateTime.UtcNow - ServiceDiscoveryStorage.StaleThreshold;
+
         var lobbies = new OpenLobbies
         {
             Version = state.ListingVersion
@@ -184,6 +174,9 @@ public class LobbyRegistry : Grain, ILobbyRegistry
         foreach (var (code, entry) in state.Entries)
         {
             if (entry.Listing.IsListed == false)
+                continue;
+
+            if (members.TryGetValue(entry.ServerId, out var server) == false || server.UpdateTime < aliveSince)
                 continue;
 
             lobbies.Entries.Add(new OpenLobby

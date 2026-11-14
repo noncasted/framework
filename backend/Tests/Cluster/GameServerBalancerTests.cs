@@ -110,9 +110,9 @@ public class GameServerBalancerTests
 
         foreach (var (server, sessions) in slices)
         {
-            data.Slices[server.Id] = Enumerable.Range(0, sessions)
+            data.SetSlice(server.Id, Enumerable.Range(0, sessions)
                                                .Select(_ => new LiveSessionEntry { Id = Guid.NewGuid() })
-                                               .ToList();
+                                               .ToList());
         }
 
         return data;

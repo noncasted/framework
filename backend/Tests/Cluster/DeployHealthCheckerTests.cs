@@ -125,6 +125,21 @@ public class DeployHealthCheckerTests
         await _clusterFeatures.DidNotReceive().SetAcceptingConnections(Arg.Any<bool>());
     }
 
+    [Fact]
+    public async Task CoordinatorReplaced_LeavesItsDeploy()
+    {
+        _lastHeartbeat = DateTime.UtcNow;
+
+        _messaging.RuntimePipe.Send<DeployIdResponse>(Arg.Any<IRuntimePipeId>(), Arg.Any<object>())
+                  .Returns(_ => new DeployIdResponse { DeployId = Guid.NewGuid() });
+
+        await CreateChecker(ServiceTag.Coordinator).Poll(new Lifetime());
+
+        await _clusterFeatures.Received(1).SetAcceptingConnections(false);
+        _deployContext.Received(1).Leave();
+        await _deployContext.DidNotReceive().Set(Arg.Any<Guid>(), Arg.Any<IReadOnlyLifetime>());
+    }
+
     private DeployHealthChecker CreateChecker(ServiceTag tag)
     {
         var self = Substitute.For<IServiceOverview>();

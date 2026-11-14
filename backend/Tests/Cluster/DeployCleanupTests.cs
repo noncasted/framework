@@ -144,13 +144,9 @@ public class DeployCleanupTests(OrleansTestClusterFixture fixture) : Integration
         var memberId = Guid.NewGuid();
 
         await WriteAllScopedStates(storage, current);
-        await Write(storage, stale, new ServiceDiscoveryStorageState
-        {
-            Members = new Dictionary<Guid, IServiceOverview>
-            {
-                [memberId] = new ServiceOverview { Id = memberId, Tag = TestRoles.Meta, UpdateTime = DateTime.UtcNow }
-            }
-        });
+        var discovery = new ServiceDiscoveryStorageState();
+        discovery.Set(new ServiceOverview { Id = memberId, Tag = TestRoles.Meta, UpdateTime = DateTime.UtcNow });
+        await Write(storage, stale, discovery);
 
         await using (var connection = new NpgsqlConnection(Database.ConnectionString))
         {
@@ -195,13 +191,9 @@ public class DeployCleanupTests(OrleansTestClusterFixture fixture) : Integration
         var deployState = new DeployState();
         deployState.Init(deployId, DateTime.UtcNow);
         await Write(storage, deployId, deployState);
-        await Write(storage, deployId, new ServiceDiscoveryStorageState
-        {
-            Members = new Dictionary<Guid, IServiceOverview>
-            {
-                [memberId] = new ServiceOverview { Id = memberId, Tag = TestRoles.Silo, UpdateTime = DateTime.UtcNow }
-            }
-        });
+        var discovery = new ServiceDiscoveryStorageState();
+        discovery.Set(new ServiceOverview { Id = memberId, Tag = TestRoles.Silo, UpdateTime = DateTime.UtcNow });
+        await Write(storage, deployId, discovery);
         var lobbies = new LobbyRegistryState();
         lobbies.AdvanceListingVersion();
         await Write(storage, deployId, lobbies);
@@ -211,14 +203,13 @@ public class DeployCleanupTests(OrleansTestClusterFixture fixture) : Integration
         var features = new ClusterFeaturesState();
         features.SetAcceptingConnections(true);
         await WriteAddressable(storage, deployId, features);
-        await WriteAddressable(storage, deployId, new LiveSessionsData
-        {
-            Slices = { [Guid.NewGuid()] = [new LiveSessionEntry { Id = Guid.NewGuid(), CreatedAt = DateTime.UtcNow }] }
-        });
-        await WriteAddressable(storage, deployId, new ConnectedUsersLiveData
-        {
-            Slices = { [Guid.NewGuid()] = [new ConnectedUserEntry { UserId = Guid.NewGuid() }] }
-        });
+        var sessions = new LiveSessionsData();
+        sessions.SetSlice(Guid.NewGuid(), [new LiveSessionEntry { Id = Guid.NewGuid(), CreatedAt = DateTime.UtcNow }]);
+        await WriteAddressable(storage, deployId, sessions);
+
+        var users = new ConnectedUsersLiveData();
+        users.SetSlice(Guid.NewGuid(), [new ConnectedUserEntry { UserId = Guid.NewGuid() }]);
+        await WriteAddressable(storage, deployId, users);
         await WriteAddressable(storage, deployId, new OnlineStatsLiveData
         {
             Current = 1,

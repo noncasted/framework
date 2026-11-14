@@ -1,6 +1,7 @@
 using Cluster.Deploy;
 using Common;
 using Infrastructure.State;
+using Newtonsoft.Json;
 using Shared;
 
 namespace Cluster.Monitoring;
@@ -12,15 +13,20 @@ namespace Cluster.Monitoring;
 [GrainState(Table = "cluster", State = "deployment_state_LiveSessionsData", Lookup = "LiveSessions", Key = GrainKeyType.Guid)]
 public class LiveSessionsData : IServiceSlices<List<LiveSessionEntry>>, IDirectStateValue, IDeployScopedState
 {
-    [Id(1)] public Dictionary<Guid, List<LiveSessionEntry>> Slices { get; init; } = new();
+    // Id 0 removed, kept for stored values.
+    [Id(1)] [JsonProperty(nameof(Slices))] private Dictionary<Guid, List<LiveSessionEntry>> _slices = new();
+
+    [JsonIgnore] public IReadOnlyDictionary<Guid, List<LiveSessionEntry>> Slices => _slices;
 
     public int Version => 0;
-}
 
-[GenerateSerializer]
-public class LiveSessionEntry
-{
-    [Id(0)] public Guid Id { get; init; }
-    [Id(1)] public List<Guid> UserIds { get; init; } = [];
-    [Id(2)] public DateTime CreatedAt { get; init; }
+    public void SetSlice(Guid serviceId, List<LiveSessionEntry> slice)
+    {
+        _slices[serviceId] = slice;
+    }
+
+    public void RemoveSlice(Guid serviceId)
+    {
+        _slices.Remove(serviceId);
+    }
 }

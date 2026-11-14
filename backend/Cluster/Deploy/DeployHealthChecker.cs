@@ -113,6 +113,8 @@ public class DeployHealthChecker : BackgroundService
                 _logger.LogWarning(e, "[Health] Replaced coordinator failed to close its deploy for connections");
             }
 
+            // What runs on the epoch of this coordinator (the online tracker) stops writing over the new coordinator.
+            _deployContext.Leave();
             return;
         }
 
