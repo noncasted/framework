@@ -1,4 +1,4 @@
-﻿using System.Net.WebSockets;
+using System.Net.WebSockets;
 using System.Threading.Channels;
 using Internal;
 using MemoryPack;
@@ -17,16 +17,6 @@ public interface IConnectionWriter
     // Same delivery as WriteOneWay.
     void WriteResponse(INetworkContext context, int requestId);
 }
-
-public class ConnectionWriterOptions
-{
-    // Messages waiting for the socket. A client that lets this many pile up is too slow and gets disconnected:
-    // producers (session ticks, messaging callbacks) never wait for a socket.
-    public int QueueCapacity { get; init; } = 4096;
-}
-
-public class ConnectionOverflowException(int capacity)
-    : Exception($"Connection send queue overflow: {capacity} messages are waiting for a slow client");
 
 // Thread safe: Write* are called from any thread; Run is the single reader that owns the socket.
 public class ConnectionWriter : IConnectionWriter

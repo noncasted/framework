@@ -2,13 +2,6 @@ using System.Net.WebSockets;
 
 namespace Common.Network;
 
-public enum WebSocketReadStatus
-{
-    Message,
-    Close,
-    TooBig
-}
-
 // Reads one whole WebSocket message: ReceiveAsync returns what arrived in one read from the stream, so a
 // message comes in several parts (frames or partial TCP reads) and must be accumulated up to EndOfMessage.
 // The buffer grows from InitialBytes up to the limit (MaxMessageBytes by default); a longer message is TooBig.
