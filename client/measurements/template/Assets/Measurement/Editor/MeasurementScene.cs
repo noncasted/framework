@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Measurement
 {
@@ -39,6 +40,10 @@ namespace Measurement
             audio.Init(assets.Clip);
             run.AddPart(audio);
 
+            // Saved before the steps too: a step that makes a scene of its own opens it additively, which Unity refuses
+            // next to an untitled scene.
+            Save(scene);
+
             var context = new MeasurementSceneContext(run, camera, assets, MeasurementAssets.Folder);
 
             foreach (var type in TypeCache.GetTypesDerivedFrom<IMeasurementSceneStep>().OrderBy(type => type.FullName))
@@ -47,10 +52,14 @@ namespace Measurement
                 ((IMeasurementSceneStep)Activator.CreateInstance(type)).Build(context);
             }
 
+            Save(scene);
+            return Path;
+        }
+
+        private static void Save(Scene scene)
+        {
             if (EditorSceneManager.SaveScene(scene, Path) == false)
                 throw new InvalidOperationException($"The scene was not saved to {Path}");
-
-            return Path;
         }
     }
 }

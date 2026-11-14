@@ -44,6 +44,7 @@ FRAMEWORK_PREFIX = 'framework:'
 # The version of the package the editor ships (BuiltInPackages): one override for every editor of a major version.
 BUILTIN = 'builtin'
 OPTIONAL_PREFIX = '?'
+PROFILE = 'Assets/Measurement/Profile/Web.asset'
 
 
 def main():
@@ -151,7 +152,7 @@ def measure(editor, version, variant, skip_build, skip_smoke, trace_missing):
         'build': record,
         'strippingSkipped': skipped,
         'overrides': config['applied'],
-        'files': measure_files(os.path.join(output, 'Build')),
+        'files': measure_files(os.path.join(output, 'Build')) + streaming_files(os.path.join(output, 'StreamingAssets')),
         'wasmBeforeStripping': wasm_before_stripping(project),
         'managed': managed_assemblies(project),
         'smoke': None if skip_smoke else smoke(output, project),
@@ -250,6 +251,7 @@ def assemble(editor, project, config, strip, version):
     sources = [os.path.join(ROOT, 'template')] + [os.path.join(ROOT, 'parts', part) for part in config['parts']]
     for source in sources:
         shutil.copytree(os.path.join(source, 'Assets'), os.path.join(project, 'Assets'), dirs_exist_ok=True)
+    apply_profile(os.path.join(project, PROFILE), config.get('profile', {}))
 
     manifest = read_json(os.path.join(ROOT, 'template', 'Packages', 'manifest.json'))
     manifest['dependencies'].update(config['packages'])
@@ -268,6 +270,21 @@ def assemble(editor, project, config, strip, version):
         file.write('\n'.join(strip) + '\n')
 
     return manifest
+
+
+def apply_profile(path, settings):
+    """A variant may change player settings of the web profile per platform ("profile": {"il2cppCodeGeneration": 1}):
+    the WebGL entry of each named map of the profile copied into the project is replaced."""
+    if not settings:
+        return
+    with open(path) as file:
+        content = file.read()
+    for key, value in settings.items():
+        content, count = re.subn(rf'(\n  {key}:\n(?:    \w+: [^\n]*\n)*?    WebGL: )[^\n]*', rf'\g<1>{value}', content)
+        if count != 1:
+            raise MeasurementError(f'{PROFILE}: no WebGL entry of {key}')
+    with open(path, 'w') as file:
+        file.write(content)
 
 
 def bootstrap(editor, project, manifest):
@@ -447,6 +464,18 @@ def measure_files(build_dir):
         files.append(entry)
     if not files:
         raise MeasurementError(f'no files in {build_dir}')
+    return files
+
+
+def streaming_files(folder):
+    """The files of StreamingAssets the page loads after the start (the catalog and the bundles of Addressables): served
+    as they are, so compressed is the size of the file (the bundles carry their own LZ4)."""
+    files = []
+    for path in sorted(glob.glob(os.path.join(folder, '**', '*'), recursive=True)):
+        # AddressablesLink/link.xml is an input of the IL2CPP linker the page never loads.
+        if os.path.isfile(path) and os.path.basename(os.path.dirname(path)) != 'AddressablesLink':
+            size = os.path.getsize(path)
+            files.append({'name': os.path.relpath(path, folder), 'kind': 'streaming', 'compressed': size, 'raw': size})
     return files
 
 

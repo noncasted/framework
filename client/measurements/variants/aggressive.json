@@ -27,7 +27,8 @@
   },
   "strip": [
     "base.txt",
-    "aggressive.txt"
+    "aggressive.txt",
+    "physics2d.txt"
   ],
   "overrides": [
     {

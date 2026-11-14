@@ -18,6 +18,9 @@ BASE_REF = "refs/control/base"
 WIP_REF = "refs/control/wip"
 HOOK_START = "# >>> control copy"
 HOOK_END = "# <<< control copy"
+# Where the hooks of a copy go when the project keeps its own in its tree, and the key that remembers that folder.
+OWN_HOOKS = "control-hooks"
+PROJECT_HOOKS_KEY = "control.projectHooksPath"
 HOOK_BLOCK = HOOK_START + """: every commit reaches the project at once
 branch=$(git symbolic-ref -q --short HEAD || echo detached)
 git push -q --no-verify {source} "+HEAD:refs/heads/copy/{name}/$branch" || echo "control: the commit did not reach the project, the next save retries" >&2
@@ -134,33 +137,66 @@ def _ensure_exclude(git_dir):
 
 
 def _hooks_dir(repo, git_dir, target):
-    configured = subprocess.run(["git", "-C", str(repo), "config", "--local", "core.hooksPath"], capture_output=True, text=True).stdout.strip()
+    # The folder git runs the hooks of the copy from, and what its post-commit runs before ours.
+    configured = _config(repo, "core.hooksPath")
     if not configured:
-        return git_dir / "hooks"
+        return git_dir / "hooks", None
     target_dir = Path(git(target, "rev-parse", "--absolute-git-dir"))
     resolved = (Path(repo) / configured).resolve()
     if resolved == (target_dir / "hooks").resolve():
         # An absolute path copied with .git: the hooks of the project would run here, and ours would be written into the project.
         git(repo, "config", "--local", "--unset", "core.hooksPath")
-        return git_dir / "hooks"
+        return git_dir / "hooks", None
+    own = git_dir / OWN_HOOKS
+    if resolved == own.resolve():
+        return own, _mirror(own, Path(repo) / _config(repo, PROJECT_HOOKS_KEY))
     if resolved.is_relative_to(git_dir):
-        return resolved
-    raise ControlError(f"core.hooksPath of {repo} is {configured}: the post-commit hook of the copy has no place to go")
+        return resolved, None
+    # The hooks of the project are files of its tree (tools/githooks): ours would be work of the agent there, so they go
+    # into .git and call the ones of the tree.
+    git(repo, "config", "--local", PROJECT_HOOKS_KEY, configured)
+    git(repo, "config", "--local", "core.hooksPath", str(own))
+    return own, _mirror(own, Path(repo) / configured)
+
+
+def _config(repo, key):
+    return subprocess.run(["git", "-C", str(repo), "config", "--local", key], capture_output=True, text=True).stdout.strip()
+
+
+def _mirror(own, project_hooks):
+    # A stub per hook of the project, the hooks added or removed since the last save included; post-commit is left to the caller.
+    own.mkdir(exist_ok=True)
+    hooks = {path.name: path for path in project_hooks.iterdir() if path.is_file() and os.access(path, os.X_OK)} if project_hooks.is_dir() else {}
+    for stub in own.iterdir():
+        if stub.name != "post-commit" and stub.name not in hooks:
+            stub.unlink()
+    for name, path in hooks.items():
+        if name == "post-commit":
+            continue
+        text = f"#!/bin/sh\nexec {_shell_quote(str(path))} \"$@\"\n"
+        stub = own / name
+        if not stub.exists() or stub.read_text() != text:
+            stub.write_text(text)
+            stub.chmod(0o755)
+    return f"#!/bin/sh\n{_shell_quote(str(hooks['post-commit']))} \"$@\"\n" if "post-commit" in hooks else "#!/bin/sh\n"
 
 
 def _ensure_hook(repo, git_dir, target, name):
-    hooks = _hooks_dir(repo, git_dir, target)
+    hooks, head = _hooks_dir(repo, git_dir, target)
     hooks.mkdir(exist_ok=True)
     hook = hooks / "post-commit"
     block = HOOK_BLOCK.format(source=_shell_quote(str(target)), name=name)
-    text = hook.read_text() if hook.exists() else "#!/bin/sh\n"
+    text = head if head is not None else hook.read_text() if hook.exists() else "#!/bin/sh\n"
+    current = hook.read_text() if hook.exists() else None
     if HOOK_START in text:
         if block in text:
             return
         text = text[:text.index(HOOK_START)]
     # After the hook of the project, git-lfs for one: that one stays.
-    hook.write_text(text.rstrip("\n") + "\n" + block)
-    hook.chmod(0o755)
+    text = text.rstrip("\n") + "\n" + block
+    if text != current:
+        hook.write_text(text)
+        hook.chmod(0o755)
 
 
 def _shell_quote(text):

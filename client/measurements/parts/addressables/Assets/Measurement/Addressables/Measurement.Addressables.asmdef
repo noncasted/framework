@@ -1,0 +1,11 @@
+{
+    "name": "Measurement.Addressables",
+    "rootNamespace": "Measurement",
+    "references": [
+        "Measurement.Runtime",
+        "UniTask",
+        "Unity.Addressables",
+        "Unity.ResourceManager"
+    ],
+    "autoReferenced": true
+}

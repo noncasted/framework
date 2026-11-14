@@ -1,0 +1,15 @@
+{
+    "name": "Measurement.Addressables.Editor",
+    "rootNamespace": "Measurement",
+    "references": [
+        "Measurement.Runtime",
+        "Measurement.Addressables",
+        "Measurement.Editor",
+        "Unity.Addressables",
+        "Unity.Addressables.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "autoReferenced": true
+}
