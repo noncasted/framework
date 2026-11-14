@@ -57,10 +57,11 @@ def find_agent(agent_id):
 
 
 def find_marker(marker):
-    # The prompt of a subagent is in the parent transcript too: search only the subagent transcripts.
+    # The prompt of a subagent is in the parent transcript too, and the parent may itself be a subagent (an orchestrator
+    # run as an agent): match only the first message of a transcript, which is the prompt of that subagent.
     for path in transcripts("*/*/subagents/*.jsonl"):
         with open(path, encoding="utf-8") as f:
-            if marker in f.read():
+            if marker in f.readline():
                 return path
     raise SystemExit(f"no subagent transcript contains marker {marker!r}")
 
