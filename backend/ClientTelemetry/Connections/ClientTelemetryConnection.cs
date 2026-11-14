@@ -43,14 +43,14 @@ public sealed class ClientTelemetryConnection
 
             var id = Guid.NewGuid();
 
-            var tags = TelemetryBatchParser.ParseTags(request.Tags);
+            var tags = TelemetryTagsParser.Parse(request.Tags);
             var startup = _startups.Link(request.StartupId);
 
-            var previous = TelemetryBatchParser.ParsePrevious(request.Previous);
+            var previous = TelemetryPreviousParser.Parse(request.Previous);
 
             tags = tags with { Rejected = tags.Rejected + (startup.IsRejected ? 1 : 0) + previous.Rejected };
 
-            await _orleans.GetGrain<IClientTelemetrySession>(id).Start(TelemetryBatchParser.ParseDevice(request.Device), tags, startup.Id, previous.Session);
+            await _orleans.GetGrain<IClientTelemetrySession>(id).Start(TelemetryDeviceParser.Parse(request.Device), tags, startup.Id, previous.Session);
             _current = id;
 
             return new SharedClientTelemetry.SessionStarted { Enabled = true, SessionId = id };

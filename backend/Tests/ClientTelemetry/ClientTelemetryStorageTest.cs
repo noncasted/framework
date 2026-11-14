@@ -87,8 +87,8 @@ public abstract class ClientTelemetryStorageTest : IAsyncLifetime
             session,
             seq == 1,
             ended,
-            TelemetryBatchParser.ParseDevice(new SharedClientTelemetry.Device { Platform = platform }),
-            TelemetryBatchParser.ParseTags(tags),
+            TelemetryDeviceParser.Parse(new SharedClientTelemetry.Device { Platform = platform }),
+            TelemetryTagsParser.Parse(tags),
             TelemetryBatchParser.Parse(batch));
     }
 
