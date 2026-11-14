@@ -225,12 +225,15 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
     hold the axes `Gamepad Axis 1..10` (type: joystick axis, axis N-1): `GamepadReader` throws at build without them.
     A platform without a gamepad layout (macOS, Android, iOS) gets `NoGamepadReader`.
   - `ui` (`AddUI`, `AddLoadingScreen(prefab)`, `AddScreenSafeArea`, `AddClientOutdatedNotice(style)`): UI state
-    machine and input constraints, design elements and layouts (+ editors), gamepad navigation (the event system
+    machine and input constraints, design elements (+ editors), gamepad navigation (the event system
     prefab needs a `StandaloneInputModule`), safe area, loading screen, the notice of an outdated client
     (`IClientOutdatedNotice` of the core, shown by the network on close code 4001; built from code, the game gives
     the font, texts and colors in `ClientOutdatedNoticeStyle`; needs `IUINavigation`, so `AddUINavigation` too). `AddUI` = `AddUIStateMachine` + `AddUINavigation`: a game on `InputSystemUIInputModule` without a gamepad
     registers `AddUIStateMachine` only. Kinds of input constraints are instances of `InputConstraints` (`Game` in the
-    framework, the project declares its own). Depends on `inputs`.
+    framework, the project declares its own). Depends on `inputs` and `layout`.
+  - `layout` (`Internal.Layout`, `Internal.Layout.Editor`, namespace `Global.UI`): design layouts of `RectTransform`s
+    (`DesignContainer`, `DesignGrid`, `DesignItem`) and their inspectors, without uGUI / TMP / inputs, so a game without
+    `ui` (sprites only) uses them too.
   - `publish`: platform abstractions (`ISaves`, `IPlatformAuth`, back button, inventory, invites, achievements). The project
     composes its publisher from the platforms; registrations under a runtime `if` around another installer are all
     built by the generator, so a platform choice is made with `#if` or inside one installer.
@@ -238,8 +241,9 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   - `network` (`Internal.Network`, namespace `Internal`): see Network client below.
   - `localization` (`AddLocalization(LocalizationOptions)`): texts in several languages from the table asset of the
     game (`Localization.json`, a column per `Language`), `TextKey` declared in code, `LocalizedText` with format
-    arguments, the static `Localizer` (current language, `FromSystem`, `Next`), `LocalizedLabel` keeps a TMP text in
-    the current language. Depends on TextMeshPro.
+    arguments, the static `Localizer` (current language, `FromSystem`, `Next`), no uGUI / TMP. `LocalizedLabel` (keeps a
+    TMP text in the current language) is the separate assembly `Internal.Localization.Tmp`, compiled only when the project has
+    `com.unity.ugui` 2.x (`versionDefines` -> `FRAMEWORK_TMP`).
   - `settings` (`AddSettings(SettingsOptions)`, `AddSettings<TSettings, TSave, TService>(SettingsOptions<TSave>)`):
     the settings of the player in the saves (`ISaves`): the volumes as the `IAudioVolume` of `audio`, the defaults from the options asset of the game; a game with settings of its own derives
     `SettingsSave`, `Settings<TSave>` (`OnPush`) and `SettingsOptions<TSave>` and injects its own interface over

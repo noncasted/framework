@@ -1,0 +1,35 @@
+{
+    "name": "Internal.Localization.Tmp.Tests",
+    "rootNamespace": "",
+    "references": [
+        "GUID:f039cb8c565843dba6da5b3c1ccde7d6",
+        "GUID:3ea5c3f1172040daa713d5ad71728b78",
+        "GUID:6d0f926ab5a1409b83c91333d26edf80",
+        "GUID:efc5f5618d014be4a2157ab8e084fdae",
+        "GUID:6055be8ebefd69e48b49212b09b47b2f",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS",
+        "FRAMEWORK_TMP"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.ugui",
+            "expression": "2.0.0",
+            "define": "FRAMEWORK_TMP"
+        }
+    ],
+    "noEngineReferences": false
+}

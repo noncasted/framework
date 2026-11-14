@@ -1,0 +1,8 @@
+{
+  "name": "com.noncasted.framework.layout",
+  "displayName": "Framework Layout",
+  "version": "0.1.0",
+  "unity": "7000.0",
+  "description": "Design layouts of RectTransforms without uGUI: container, grid, per child item settings, their inspectors (namespace Global.UI).",
+  "dependencies": {}
+}

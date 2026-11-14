@@ -158,6 +158,44 @@ client/Packages/manifest.json`).
 Проверка: `grep -rn ": IContentLoader\|ContentBuild\.\(Prepare\|Current\)" client/Assets --include=*.cs` - своя реализация добавляет
 `RootAssets<T>()`, вызовы `ContentBuild` берут список.
 
+### Лейауты в пакете `com.noncasted.framework.layout` (сборка `Internal.Layout`)
+
+Кого касается: клиент, `BREAKING` для сборок, которые используют лейаут из кода (в том числе сгенерированные `*Bindings.g.cs`):
+mines-leader (`GamePlay`, `Menu`), peace-data-reborn (`GamePlay`). Сцены и префабы не трогать: GUID скриптов, namespace
+(`Global.UI`) и имена классов прежние.
+
+`DesignContainer`, `DesignGrid`, `DesignItem`, `DesignLayoutBase` и их перечисления (`DesignAxis`, `DesignMainAxisMode`, ...) перенесены
+из `Internal.UI` в сборку `Internal.Layout` нового пакета `client/modules/layout` (GUID `632dc5ed7f974d89b8b5e2acd4a1bbda`, без ссылок на
+uGUI / TMP / inputs), инспекторы - в `Internal.Layout.Editor`, тесты - в `Internal.Layout.Tests`. Сборка `Internal.UI.Editor` удалена
+(в ней были только инспекторы лейаута). Пакет `ui` зависит от `layout`, игре без `ui` (только спрайты) лейаут доступен отдельно.
+
+Сделать:
+- `client/Packages/manifest.json`: `"com.noncasted.framework.layout": "file:../../tools/framework/client/modules/layout"` рядом с
+  `com.noncasted.framework.ui` (зависимость `file:` не подтягивается сама).
+- `grep -rln "DesignContainer\|DesignGrid\|DesignItem\|DesignLayoutBase\|DesignAxis\|DesignMainAxisMode\|DesignCrossAxisMode\|DesignContainerFit\|DesignHorizontalPivot\|DesignVerticalPivot\|DesignItemSizing\|DesignRefreshMode\|DesignGridConstraint\|DesignGridCellSizing\|DesignGridFlow" client/Assets --include=*.cs`
+  - asmdef каждой такой сборки добавляет `"GUID:632dc5ed7f974d89b8b5e2acd4a1bbda"` в `references`; без этого CS0246
+  `The type or namespace name 'DesignContainer' could not be found`.
+- Ссылка на `Internal.UI.Editor` (GUID `221aaddb19c647fab6fe86dcb68ac643`) в asmdef игры, если есть, удаляется
+  (`grep -rln "221aaddb19c647fab6fe86dcb68ac643\|\"Internal.UI.Editor\"" client/Assets --include=*.asmdef`).
+
+### Локализация без TMP (`LocalizedLabel` в сборке `Internal.Localization.Tmp`)
+
+Кого касается: клиент, `BREAKING` для сборок игры, которые используют `LocalizedLabel` фреймворка. Сейчас ни одна игра пакет
+`com.noncasted.framework.localization` не подключает (у pixel-swarm и peace-data-reborn свои `LocalizedLabel` в `client/Assets`,
+их это не касается); шаг для игры, которая подключила пакет до этого релиза.
+
+`Internal.Localization` больше не ссылается на TextMeshPro и собирается в игре без uGUI / TMP. `LocalizedLabel` (namespace
+`Global.Localization`, GUID скрипта прежний) перенесён в сборку `Internal.Localization.Tmp` того же пакета
+(`client/modules/localization/Tmp`, GUID `efc5f5618d014be4a2157ab8e084fdae`): она компилируется только при `com.unity.ugui` 2.x в
+проекте (`versionDefines` -> `FRAMEWORK_TMP`, `defineConstraints`). Тест метки - в `Internal.Localization.Tmp.Tests`.
+
+Сделать:
+- `grep -rln "LocalizedLabel" client/Assets --include=*.cs` - asmdef каждой такой сборки добавляет
+  `"GUID:efc5f5618d014be4a2157ab8e084fdae"` в `references`; без этого CS0246 `The type or namespace name 'LocalizedLabel' could not
+  be found`. Своя копия `LocalizedLabel` в `client/Assets` (pixel-swarm, peace-data-reborn) не трогается.
+- Игре без `com.unity.ugui` пакет теперь доступен: `"com.noncasted.framework.localization": "file:../../tools/framework/client/modules/localization"`
+  в `client/Packages/manifest.json` (core и common уже должны там быть).
+
 ### Content: доп. каталог регистрируется в фоне, индекс предзагруженного - в Resources
 
 Кого касается: клиент, `BREAKING` для игр с `AddContentDirectory` (gamejam-autobattler); всех игр с WebGL и `IsPreloaded` - без
