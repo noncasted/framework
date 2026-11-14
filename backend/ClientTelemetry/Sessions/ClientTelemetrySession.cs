@@ -34,6 +34,9 @@ public class ClientTelemetrySession : Grain, IClientTelemetrySession
     private IGrainTimer? _timer;
     private DateTime _lastBatchAt;
 
+    // The status of a close asked for and not stored yet: the timer and the deactivation repeat this one, not a loss.
+    private TelemetrySessionStatus? _closing;
+
     private Guid Id => this.GetPrimaryKey();
     private DateTime Now => _time.UtcNow;
 
@@ -56,7 +59,7 @@ public class ClientTelemetrySession : Grain, IClientTelemetrySession
         var wasLive = _buffer != null;
 
         if (wasLive)
-            await CloseLive(TelemetrySessionStatus.Lost);
+            await CloseLive(_closing ?? TelemetrySessionStatus.Lost);
 
         _logger.LogInformation("[ClientTelemetry] Session {Session} deactivated: {Reason}, closed here: {WasLive}", Id, reason.ReasonCode, wasLive);
     }
@@ -103,6 +106,8 @@ public class ClientTelemetrySession : Grain, IClientTelemetrySession
             return;
         }
 
+        _closing = status;
+
         // A failed write dropped the value of the state.
         await _session.Read();
         await CloseLive(status);
@@ -147,6 +152,17 @@ public class ClientTelemetrySession : Grain, IClientTelemetrySession
         return Page(buffer => buffer.Marks.Items, afterSeq, limit, mark => mark.Seq);
     }
 
+    public Task<IReadOnlyList<TelemetryStoredSample>?> GetSampleWindow(long from, long to)
+    {
+        if (_buffer is not { } buffer)
+        {
+            DeactivateOnIdle();
+            return Task.FromResult<IReadOnlyList<TelemetryStoredSample>?>(null);
+        }
+
+        return Task.FromResult<IReadOnlyList<TelemetryStoredSample>?>(TelemetryRows.Window(buffer.Samples.Items, from, to));
+    }
+
     public async Task Sweep()
     {
         if (_buffer != null)
@@ -158,19 +174,36 @@ public class ClientTelemetrySession : Grain, IClientTelemetrySession
 
         var session = _session.Value;
 
-        if (!session.IsStarted || session.ClosedAt > Now - TimeSpan.FromDays(_options.RetentionDays))
+        if (!session.IsStarted)
             return;
 
-        await _storage.Delete(new StateDeleteRequest { Identities = [Identity<TelemetrySessionState>(), Identity<TelemetrySessionLogState>()] });
+        // Open without the memory: a start stored its row and failed after it. Closed like a row a crash left, never deleted.
+        if (!session.Closed)
+        {
+            session.CloseWithoutData(Now);
+            await _session.Write();
+            await Notify();
+            return;
+        }
+
+        if (session.ClosedAt > Now - TimeSpan.FromDays(_options.RetentionDays))
+            return;
+
+        await _storage.Delete(new StateDeleteRequest { Identities = [_storage.IdentityOf<TelemetrySessionState>(Id), _storage.IdentityOf<TelemetrySessionLogState>(Id)] });
 
         // A notification only names the key: every host re-reads the row, finds none and drops the entry.
         await Notify();
     }
 
-    // A failed close throws to the runtime, which logs it; the next tick tries again.
+    // A failed close throws to the runtime, which logs it; the next tick tries again, with the status asked for if there was one.
     private async Task CloseWhenLost(CancellationToken cancellation)
     {
-        if (_buffer != null && Now - _lastBatchAt >= _options.LostAfter)
+        if (_buffer == null)
+            return;
+
+        if (_closing is { } status)
+            await CloseLive(status);
+        else if (Now - _lastBatchAt >= _options.LostAfter)
             await CloseLive(TelemetrySessionStatus.Lost);
     }
 
@@ -186,8 +219,8 @@ public class ClientTelemetrySession : Grain, IClientTelemetrySession
         {
             Records = new Dictionary<StateIdentity, IStateValue>
             {
-                [Identity<TelemetrySessionState>()] = session,
-                [Identity<TelemetrySessionLogState>()] = TelemetrySessionLogState.Of(buffer)
+                [_storage.IdentityOf<TelemetrySessionState>(Id)] = session,
+                [_storage.IdentityOf<TelemetrySessionLogState>(Id)] = TelemetrySessionLogState.Of(buffer)
             }
         });
 
@@ -214,10 +247,5 @@ public class ClientTelemetrySession : Grain, IClientTelemetrySession
         }
 
         return Task.FromResult<IReadOnlyList<T>?>(TelemetryRows.Page(rows(buffer), afterSeq, limit, seq));
-    }
-
-    private StateIdentity Identity<T>() where T : IStateValue
-    {
-        return GrainContext.GrainId.ToIdentity(_storage.Registry.Get<T>());
     }
 }

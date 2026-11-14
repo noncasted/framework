@@ -2,6 +2,8 @@ using System.Net.WebSockets;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Framework.ClientTelemetry.TestHost;
 
@@ -17,13 +19,14 @@ public static class TelemetryHostMuteSocket
                 return Results.BadRequest();
 
             using var socket = await context.WebSockets.AcceptWebSocketAsync();
-            await Listen(socket, context.RequestAborted);
+            var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(TelemetryHostMuteSocket));
+            await Listen(socket, logger, context.RequestAborted);
 
             return Results.Empty;
         });
     }
 
-    private static async Task Listen(WebSocket socket, CancellationToken cancellation)
+    private static async Task Listen(WebSocket socket, ILogger logger, CancellationToken cancellation)
     {
         var buffer = new byte[64 * 1024];
 
@@ -34,7 +37,8 @@ public static class TelemetryHostMuteSocket
         }
         catch (Exception exception) when (exception is WebSocketException or OperationCanceledException)
         {
-            // The client went away without a close: the end of this socket either way.
+            // The client went away without a close: the end of this socket either way, only noted.
+            logger.LogDebug("[TestHost] The mute socket ended without a close: {Failure}", exception.GetType().Name);
         }
     }
 }

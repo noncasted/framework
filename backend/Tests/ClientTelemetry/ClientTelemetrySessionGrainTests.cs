@@ -346,7 +346,7 @@ public class ClientTelemetrySessionGrainTests : ClientTelemetryStorageTest
     {
         var id = Guid.NewGuid();
 
-        var device = TelemetryBatchParser.ParseDevice(new SharedClientTelemetry.Device { Platform = "web", Gpu = "Adreno (TM) 640" });
+        var device = TelemetryDeviceParser.Parse(new SharedClientTelemetry.Device { Platform = "web", Gpu = "Adreno (TM) 640" });
         var batch = TelemetryWire.Batch(id, ["a"], [(1, [1e300], false), (2, [5e-324], false), (3, [null], false)], [TelemetryWire.Error(1, SharedClientTelemetry.ErrorLevel.Error, "bad\0text", "at\0A.B", 3)]);
         await Store(Step(id, 1, true, batch) with { Device = device });
 

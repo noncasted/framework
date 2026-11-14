@@ -24,51 +24,8 @@ public static class TelemetryBatchParser
             NameSlots = slots,
             Samples = (batch.Samples ?? []).Select(ReadSample).ToArray(),
             Errors = (batch.Errors ?? []).Select(ReadError).OfType<TelemetryError>().ToArray(),
-            Marks = (batch.Marks ?? []).Where(mark => mark.Name != null && TelemetryNames.IsValidName(mark.Name)).Select(ReadMark).ToArray()
+            Marks = (batch.Marks ?? []).Where(mark => mark.Name != null && TelemetryNames.IsValidName(mark.Name)).Select(TelemetryMarkParser.Read).ToArray()
         };
-    }
-
-    public static TelemetryDevice ParseDevice(SharedClientTelemetry.Device? device)
-    {
-        return TelemetryDeviceParser.Parse(device);
-    }
-
-    public static TelemetrySessionTags ParseTags(string[]? tags)
-    {
-        var valid = (tags ?? []).Where(tag => tag != null && TelemetryNames.IsValidName(tag)).Distinct().ToArray();
-        var accepted = valid.Take(ClientTelemetryLimits.MaxTagsPerSession).ToArray();
-
-        return new TelemetrySessionTags(accepted, (tags?.Length ?? 0) - accepted.Length);
-    }
-
-    // A wrong id drops the whole: it is the only thing that ties it to a session. Anything else of a wrong form is dropped alone.
-    public static TelemetryPreviousParsing ParsePrevious(SharedClientTelemetry.PreviousSession? previous)
-    {
-        if (previous == null)
-            return new TelemetryPreviousParsing(null, 0);
-
-        if (previous.SessionId == Guid.Empty)
-            return new TelemetryPreviousParsing(null, 1);
-
-        var tags = ParseTags(previous.Tags);
-        var marks = previous.Marks ?? [];
-        var valid = marks.Where(mark => mark != null && mark.Time >= 0 && mark.Time <= ClientTelemetryLimits.MaxPreviousMs && mark.DurationMs is null or >= 0
-                                        && mark.Name != null && TelemetryNames.IsValidName(mark.Name))
-                         .Select(ReadMark)
-                         .ToArray();
-        var kept = valid.Skip(Math.Max(0, valid.Length - ClientTelemetryLimits.MaxPreviousMarks)).ToArray();
-        var lastSample = PreviousTime(previous.LastSampleTime);
-        var since = PreviousTime(previous.SinceMs);
-        var samples = TelemetryPreviousSamplesParser.Parse(previous.SampleNames, previous.Samples);
-        var rejected = tags.Rejected + (marks.Length - kept.Length) + samples.Rejected
-                       + (lastSample == null && previous.LastSampleTime != -1 ? 1 : 0) + (since == null && previous.SinceMs != -1 ? 1 : 0);
-
-        return new TelemetryPreviousParsing(new TelemetryPreviousSession(previous.SessionId, tags.Accepted, lastSample, since, kept) { Samples = samples.Accepted }, rejected);
-    }
-
-    private static long? PreviousTime(long time)
-    {
-        return time >= 0 && time <= ClientTelemetryLimits.MaxPreviousMs ? time : null;
     }
 
     private static ClientTelemetryRejection? Check(SharedClientTelemetry.Batch batch)
@@ -134,21 +91,6 @@ public static class TelemetryBatchParser
         var values = (sample.Values ?? []).Select(value => double.IsNaN(value) ? (double?)null : value).ToArray();
 
         return new TelemetrySample(sample.Time, values, sample.Hidden);
-    }
-
-    // A detail that is not a text is dropped alone. Cut before the scrubbing, so its cost does not depend on the client, and after it.
-    private static TelemetryMark ReadMark(SharedClientTelemetry.Mark mark)
-    {
-        var detail = string.IsNullOrWhiteSpace(mark.Detail) || mark.Detail.Any(char.IsControl)
-            ? null
-            : CutDetail(Scrubber.Scrub(CutDetail(mark.Detail)));
-
-        return new TelemetryMark(mark.Time, mark.Name, detail, mark.DurationMs);
-    }
-
-    private static string CutDetail(string detail)
-    {
-        return detail.Length <= ClientTelemetryLimits.MaxMarkDetailLength ? detail : detail[..ClientTelemetryLimits.MaxMarkDetailLength];
     }
 
     // Plain logs are not sent: a level outside the closed list has no way into the storage.

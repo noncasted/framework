@@ -18,6 +18,11 @@ internal static class TelemetryRows
         return rows.Skip(start).Take((int)end - start).ToArray();
     }
 
+    public static IReadOnlyList<TelemetryStoredSample> Window(IReadOnlyList<TelemetryStoredSample> samples, long from, long to)
+    {
+        return samples.Where(sample => sample.Time >= from && sample.Time <= to).ToArray();
+    }
+
     private static int FirstAfter<T>(IReadOnlyList<T> rows, long afterSeq, Func<T, long> seq)
     {
         var low = 0;

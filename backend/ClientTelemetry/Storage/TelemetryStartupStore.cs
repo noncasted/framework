@@ -24,14 +24,10 @@ internal sealed class TelemetryStartupStore
                         .ToArray();
     }
 
-    // Null: no such record. As TelemetrySessionStore: a record this host has not heard about yet is looked for in its row.
-    public async Task<TelemetryStartupState?> Find(Guid id)
+    // Null: no such record.
+    public Task<TelemetryStartupState?> Find(Guid id)
     {
-        if (_startups.TryGetValue(id, out var known))
-            return known;
-
-        var stored = await _storage.Read<TelemetryStartupState>(_storage.IdentityOf<TelemetryStartupState>(id));
-        return stored.IsStored ? stored : null;
+        return _startups.Find(_storage, id, startup => startup.IsStored);
     }
 
     public async Task<IReadOnlyList<TelemetryStartupSpan>> ReadSpans(Guid id)

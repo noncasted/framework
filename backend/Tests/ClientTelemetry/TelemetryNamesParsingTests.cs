@@ -112,10 +112,10 @@ public class TelemetryNamesParsingTests
     public void Tags_GoByTheRulesOfTheNames_AndTheRestIsCounted()
     {
         var over = Enumerable.Range(0, ClientTelemetryLimits.MaxTagsPerSession + 2).Select(index => $"t{index}");
-        var tags = TelemetryBatchParser.ParseTags(["menu", "Ivan Petrov", null!, .. over]);
+        var tags = TelemetryTagsParser.Parse(["menu", "Ivan Petrov", null!, .. over]);
 
         tags.Accepted.Should().HaveCount(ClientTelemetryLimits.MaxTagsPerSession).And.StartWith("menu");
         tags.Rejected.Should().Be(5);
-        TelemetryBatchParser.ParseTags(null).Should().BeEquivalentTo(new TelemetrySessionTags([], 0));
+        TelemetryTagsParser.Parse(null).Should().BeEquivalentTo(new TelemetrySessionTags([], 0));
     }
 }

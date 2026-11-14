@@ -50,7 +50,7 @@ public static class ClientTelemetryReadEndpoints
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<TelemetrySessionFilter>>();
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(ClientTelemetryReadEndpoints));
             logger.LogWarning(exception, "[ClientTelemetry] A reading failed");
 
             return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
@@ -114,7 +114,7 @@ public static class ClientTelemetryReadEndpoints
         if (from == null && to == null && started.Digest != null)
             return Json(started.Digest.Summary);
 
-        var samples = await ReadWindow(reader, id, from ?? 0, to ?? long.MaxValue);
+        var samples = await reader.GetSampleWindow(id, from ?? 0, to ?? long.MaxValue);
 
         // After the rows: the names of the rows are written with them, this list holds them all.
         var session = await reader.GetSession(id) ?? throw new InvalidOperationException($"The session {id} is gone");
@@ -199,23 +199,6 @@ public static class ClientTelemetryReadEndpoints
         var rows = await read(id, afterSeq, limit ?? _defaultRows);
 
         return Json(new TelemetryReadPage<T>(session.Status, rows.Count > 0 ? seq(rows[^1]) : afterSeq, rows));
-    }
-
-    private static async Task<IReadOnlyList<TelemetryStoredSample>> ReadWindow(IClientTelemetryReader reader, Guid id, long from, long to)
-    {
-        var window = new List<TelemetryStoredSample>();
-        var after = 0L;
-
-        while (true)
-        {
-            var page = await reader.GetSamples(id, after, _maxLimit);
-
-            if (page.Count == 0)
-                return window;
-
-            window.AddRange(page.Where(sample => sample.Time >= from && sample.Time <= to));
-            after = page[^1].Seq;
-        }
     }
 
     private static bool IsLimit(int? limit)

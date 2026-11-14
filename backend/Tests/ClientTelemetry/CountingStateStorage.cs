@@ -21,6 +21,7 @@ public sealed class CountingStateStorage : IStateStorage
     private int _failures;
     private int _readsOfTheSwitch;
     private volatile bool _failWrites;
+    private volatile bool _failAfterStoring;
 
     public int ReadsOf(Guid session) => _reads.GetValueOrDefault(session);
     public int WritesOf(Guid session) => _writes.GetValueOrDefault(session);
@@ -30,7 +31,17 @@ public sealed class CountingStateStorage : IStateStorage
 
     public void ResetFailures() => Interlocked.Exchange(ref _failures, 0);
 
-    public void FailWrites(bool fail) => _failWrites = fail;
+    // Off also ends FailAfterStoring: the end of a test clears both.
+    public void FailWrites(bool fail)
+    {
+        _failWrites = fail;
+
+        if (!fail)
+            _failAfterStoring = false;
+    }
+
+    // A write that reaches the database and still throws to the caller: a timeout after the commit.
+    public void FailAfterStoring() => _failAfterStoring = true;
 
     public Task<T> Read<T>(StateIdentity identity) where T : IStateValue, new()
     {
@@ -58,7 +69,14 @@ public sealed class CountingStateStorage : IStateStorage
         if (!IsTheSwitch(telemetry))
             Count(_writes, telemetry);
 
-        return _inner.Write(request);
+        return _failAfterStoring ? WriteThenFail(request) : _inner.Write(request);
+    }
+
+    private async Task WriteThenFail(StateWriteRequest request)
+    {
+        await _inner.Write(request);
+        Interlocked.Increment(ref _failures);
+        throw new InvalidOperationException("The write of the test is stored, the answer failed");
     }
 
     public Task<IReadOnlyDictionary<TKey, TValue>> ReadBatch<TKey, TValue>(IReadOnlyList<StateIdentity> identities)

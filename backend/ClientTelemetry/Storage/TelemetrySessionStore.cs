@@ -15,15 +15,10 @@ internal sealed class TelemetrySessionStore
     private readonly ITelemetrySessionCollection _sessions;
     private readonly IStateStorage _storage;
 
-    // Null: no such session. The collection answers first; a session it has not heard about yet is looked for in its row, which
-    // is written before the start is answered. So the database is asked only for garbage and in this short moment.
-    public async Task<TelemetrySessionState?> Find(Guid id)
+    // Null: no such session.
+    public Task<TelemetrySessionState?> Find(Guid id)
     {
-        if (_sessions.TryGetValue(id, out var known))
-            return known;
-
-        var stored = await _storage.Read<TelemetrySessionState>(_storage.IdentityOf<TelemetrySessionState>(id));
-        return stored.IsStarted ? stored : null;
+        return _sessions.Find(_storage, id, session => session.IsStarted);
     }
 
     public Task<TelemetrySessionLogState> ReadLog(Guid id)

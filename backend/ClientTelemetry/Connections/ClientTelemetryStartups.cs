@@ -24,6 +24,13 @@ internal sealed class ClientTelemetryStartups
     private readonly HashSet<Guid> _issued = [];
 
     private int _writes;
+    private volatile bool _isClosed;
+
+    // The end of the socket: a trace still in flight finishes, the next ones are not taken.
+    public void Close()
+    {
+        _isClosed = true;
+    }
 
     public async Task<SharedClientTelemetry.StartupTraceResult> Accept(SharedClientTelemetry.StartupTrace trace)
     {
@@ -34,6 +41,9 @@ internal sealed class ClientTelemetryStartups
 
         try
         {
+            if (_isClosed)
+                return _off;
+
             var isNew = trace.StartupId == Guid.Empty;
 
             if ((!isNew && !IsIssued(trace.StartupId)) || _writes >= ClientTelemetryLimits.MaxStartupWritesPerSocket)

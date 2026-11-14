@@ -43,21 +43,21 @@ public sealed class ClientTelemetryConnection
 
             var id = Guid.NewGuid();
 
-            var tags = TelemetryBatchParser.ParseTags(request.Tags);
+            var tags = TelemetryTagsParser.Parse(request.Tags);
             var startup = _startups.Link(request.StartupId);
 
-            var previous = TelemetryBatchParser.ParsePrevious(request.Previous);
+            var previous = TelemetryPreviousParser.Parse(request.Previous);
 
             tags = tags with { Rejected = tags.Rejected + (startup.IsRejected ? 1 : 0) + previous.Rejected };
 
-            await _orleans.GetGrain<IClientTelemetrySession>(id).Start(TelemetryBatchParser.ParseDevice(request.Device), tags, startup.Id, previous.Session);
+            await _orleans.GetGrain<IClientTelemetrySession>(id).Start(TelemetryDeviceParser.Parse(request.Device), tags, startup.Id, previous.Session);
             _current = id;
 
             return new SharedClientTelemetry.SessionStarted { Enabled = true, SessionId = id };
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "[ClientTelemetry] A session is not started");
+            _logger.LogWarning("[ClientTelemetry] A session is not started: {Failure}", exception.GetType().Name);
             return _notStarted;
         }
         finally
@@ -132,6 +132,7 @@ public sealed class ClientTelemetryConnection
         try
         {
             _isDisconnected = true;
+            _startups.Close();
             await CloseCurrent(TelemetrySessionStatus.Lost);
         }
         finally
@@ -140,7 +141,7 @@ public sealed class ClientTelemetryConnection
         }
     }
 
-    // A failed write stays with the grain: its buffer is still live, so the timer repeats the close.
+    // A failed write stays with the grain: its buffer is still live, so the timer repeats the close with this status.
     private async Task CloseCurrent(TelemetrySessionStatus status)
     {
         if (_current is not { } id)
@@ -154,7 +155,7 @@ public sealed class ClientTelemetryConnection
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "[ClientTelemetry] The close of the session {Session} failed", id);
+            _logger.LogWarning("[ClientTelemetry] The close of the session {Session} failed: {Failure}", id, exception.GetType().Name);
         }
     }
 }
