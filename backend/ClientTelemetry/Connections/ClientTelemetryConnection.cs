@@ -57,7 +57,7 @@ public sealed class ClientTelemetryConnection
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "[ClientTelemetry] A session is not started");
+            _logger.LogWarning("[ClientTelemetry] A session is not started: {Failure}", exception.GetType().Name);
             return _notStarted;
         }
         finally
@@ -132,6 +132,7 @@ public sealed class ClientTelemetryConnection
         try
         {
             _isDisconnected = true;
+            _startups.Close();
             await CloseCurrent(TelemetrySessionStatus.Lost);
         }
         finally
@@ -140,7 +141,7 @@ public sealed class ClientTelemetryConnection
         }
     }
 
-    // A failed write stays with the grain: its buffer is still live, so the timer repeats the close.
+    // A failed write stays with the grain: its buffer is still live, so the timer repeats the close with this status.
     private async Task CloseCurrent(TelemetrySessionStatus status)
     {
         if (_current is not { } id)
@@ -154,7 +155,7 @@ public sealed class ClientTelemetryConnection
         }
         catch (Exception exception)
         {
-            _logger.LogWarning(exception, "[ClientTelemetry] The close of the session {Session} failed", id);
+            _logger.LogWarning("[ClientTelemetry] The close of the session {Session} failed: {Failure}", id, exception.GetType().Name);
         }
     }
 }

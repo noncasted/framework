@@ -17,6 +17,9 @@ public interface IClientTelemetryReader
     Task<IReadOnlyList<TelemetryStoredError>> GetErrors(Guid session, long afterSeq, int limit);
     Task<IReadOnlyList<TelemetryStoredMark>> GetMarks(Guid session, long afterSeq, int limit);
 
+    // The samples with the time of the session from from to to, inclusive, in the order of seq: a closed session reads its log once.
+    Task<IReadOnlyList<TelemetryStoredSample>> GetSampleWindow(Guid session, long from, long to);
+
     // The startup traces: the newest first over the compact states in memory; null or empty for no such record.
     Task<IReadOnlyList<TelemetryStartupInfo>> GetStartups(int limit);
     Task<TelemetryStartupInfo?> GetStartup(Guid id);
