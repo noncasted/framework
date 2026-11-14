@@ -1,16 +1,9 @@
 using System.Text;
-using Common;
 using Common.Extensions;
 using Npgsql;
 using Shared;
 
 namespace Infrastructure.State;
-
-public class StatePageResult<TKey, TValue>
-{
-    public required IReadOnlyList<(TKey Key, TValue Value)> Entries { get; init; }
-    public required int TotalCount { get; init; }
-}
 
 public interface IStateStorageReader
 {

@@ -1,28 +1,8 @@
-﻿using Common.Extensions;
+using Common.Extensions;
 using Internal;
 using Microsoft.Extensions.Hosting;
 
 namespace Infrastructure;
-
-public interface ILocalSetupCompleted
-{
-    Task OnLocalSetupCompleted(IReadOnlyLifetime lifetime);
-}
-
-public interface IOrleansStarted
-{
-    Task OnOrleansStarted(IReadOnlyLifetime lifetime);
-}
-
-public interface ICoordinatorSetupCompleted
-{
-    Task OnCoordinatorSetupCompleted(IReadOnlyLifetime lifetime);
-}
-
-public interface IServiceStarted
-{
-    Task OnServiceStarted(IReadOnlyLifetime lifetime);
-}
 
 public static class LoopExtensions
 {

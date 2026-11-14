@@ -5,36 +5,11 @@ using Microsoft.Extensions.Logging;
 
 namespace Infrastructure;
 
-[GenerateSerializer]
-public class AddressableStateValue : IDirectStateValue
-{
-    [Id(0)]
-    public string Value { get; init; } = string.Empty;
-
-    [Id(1)]
-    public bool IsInitialized { get; init; }
-
-    [Id(2)]
-    public DateTime UpdateDate { get; init; }
-
-    public int Version => 0;
-}
-
 public interface IAddressableState<T> : IViewableProperty<T> where T : class, new()
 {
     bool IsInitialized { get; }
 
     Task SetValue(T value);
-}
-
-public class AddressableStateChannelId<T> : IRuntimeChannelId
-{
-    public required string Name { get; init; }
-
-    public string ToRaw()
-    {
-        return $"addressable-state-{Name}";
-    }
 }
 
 public class AddressableState<T> : ViewableProperty<T>, IOrleansStarted, IAddressableState<T>
