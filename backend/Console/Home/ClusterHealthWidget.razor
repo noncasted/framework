@@ -1,6 +1,5 @@
 @using Cluster.Coordination
 @using Cluster.Discovery
-@using Microsoft.Extensions.Options
 @using global::Common.Extensions
 @using global::Internal
 @inherits UiComponent
@@ -14,16 +13,8 @@
     <div class="grid grid-cols-5 gap-2">
         @foreach (var tag in StartupConfig.RequiredServices)
         {
-            var count = _grouped.GetValueOrDefault(tag, 0);
-            var status = GetTagStatus(tag);
-
-            <div class="rounded-lg border p-3 flex flex-col items-center gap-1">
-                <div class="rounded-md @(StatusBg(status)) p-1.5">
-                    <LucideIcon Name="@RoleIcons.Value.Icon(tag)" Size="14" class="@(StatusText(status))"/>
-                </div>
-                <span class="text-xs font-medium">@tag</span>
-                <span class="text-lg font-bold">@count</span>
-            </div>
+            var ofRole = _byRole.GetValueOrDefault(tag, []);
+            <ClusterRoleTile Tag="tag" Count="ofRole.Count" Health="ServiceHealthRules.OfRole(ofRole, _refreshedAt)"/>
         }
     </div>
 
@@ -38,11 +29,11 @@
 @code {
     [Inject] private IServiceDiscovery ServiceDiscovery { get; set; } = null!;
     [Inject] private IClusterStartupConfig StartupConfig { get; set; } = null!;
-    [Inject] private IOptions<ServiceRoleIcons> RoleIcons { get; set; } = null!;
 
     private IReadOnlyList<IServiceOverview> _services = [];
-    private Dictionary<ServiceTag, int> _grouped = new();
+    private Dictionary<ServiceTag, IReadOnlyList<IServiceOverview>> _byRole = new();
     private List<IServiceOverview> _staleServices = new();
+    private DateTime _refreshedAt;
 
     protected override Task OnSetup(IReadOnlyLifetime lifetime)
     {
@@ -50,6 +41,7 @@
         return Task.CompletedTask;
     }
 
+    // IServiceDiscovery has no observable of its entries, so the page reads them every 5 s.
     private async Task RefreshLoop(IReadOnlyLifetime lifetime)
     {
         while (lifetime.IsTerminated == false)
@@ -62,27 +54,9 @@
 
     private void Refresh()
     {
+        _refreshedAt = DateTime.UtcNow;
         _services = ServiceDiscovery.Entries.Values.ToList();
-        _grouped = _services.GroupBy(s => s.Tag).ToDictionary(g => g.Key, g => g.Count());
-        _staleServices = _services.Where(s => DateTime.UtcNow - s.UpdateTime > TimeSpan.FromSeconds(20)).ToList();
+        _byRole = _services.GroupBy(s => s.Tag).ToDictionary(g => g.Key, g => (IReadOnlyList<IServiceOverview>)g.ToList());
+        _staleServices = _services.Where(s => ServiceHealthRules.Of(s, _refreshedAt) != ServiceHealth.Healthy).ToList();
     }
-
-    private string GetTagStatus(ServiceTag tag)
-    {
-        if (!_grouped.ContainsKey(tag) || _grouped[tag] == 0) return "inactive";
-        if (_services.Any(s => s.Tag == tag && DateTime.UtcNow - s.UpdateTime > TimeSpan.FromSeconds(20))) return "warning";
-        return "healthy";
-    }
-
-    private static string StatusBg(string status) => status switch {
-        "healthy" => "bg-green-500/15",
-        "warning" => "bg-amber-500/15",
-        _ => "bg-muted"
-    };
-
-    private static string StatusText(string status) => status switch {
-        "healthy" => "text-green-400",
-        "warning" => "text-amber-400",
-        _ => "text-muted-foreground"
-    };
 }
