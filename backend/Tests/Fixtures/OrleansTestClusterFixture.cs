@@ -119,7 +119,6 @@ public class OrleansTestClusterFixture : IAsyncLifetime
                 // Service environment
                 services.AddSingleton<IServiceEnvironment>(new ServiceEnvironment
                 {
-                    IsDevelopment = true,
                     Tag = TestRoles.Silo
                 });
 

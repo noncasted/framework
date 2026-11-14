@@ -124,8 +124,8 @@ public class ClusterParticipantStartup : BackgroundService
         _context.SetStage(stageDiscovery);
         _logger.LogInformation("[Startup] {Service} starting service discovery", serviceName);
 
+        // The refresh loop pushes at once, the wait for the cluster pushes on every poll.
         await _discovery.Start(lifetime);
-        await _discovery.Push();
 
         _logger.LogInformation("[Startup] {Service} service discovery started", serviceName);
 
