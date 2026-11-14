@@ -4,23 +4,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Console.Monitoring;
 
-public class HeapReport
-{
-    public required string FileName { get; init; }
-    public required string FilePath { get; init; }
-    public required DateTime Timestamp { get; init; }
-    public required long SizeBytes { get; init; }
-}
-
-public interface IHeapReportStorage
-{
-    string Directory { get; }
-    IReadOnlyList<HeapReport> List();
-    HeapReport Save(IReadOnlyList<HeapSnapshotResponse> snapshots, DateTime timestamp, bool deep);
-    byte[] ReadBytes(string fileName);
-    bool TryGet(string fileName, out HeapReport? report);
-}
-
 public class HeapReportStorage : IHeapReportStorage
 {
     private const string FilePrefix = "heap-report-";
@@ -96,34 +79,6 @@ public class HeapReportStorage : IHeapReportStorage
         {
             return File.ReadAllBytes(filePath);
         }
-    }
-
-    public bool TryGet(string fileName, out HeapReport? report)
-    {
-        report = null;
-
-        string filePath;
-        try
-        {
-            filePath = ResolveSafePath(fileName);
-        }
-        catch
-        {
-            return false;
-        }
-
-        if (!File.Exists(filePath))
-            return false;
-
-        var info = new FileInfo(filePath);
-        report = new HeapReport
-        {
-            FileName = info.Name,
-            FilePath = info.FullName,
-            Timestamp = info.LastWriteTimeUtc,
-            SizeBytes = info.Length,
-        };
-        return true;
     }
 
     private string ResolveSafePath(string fileName)

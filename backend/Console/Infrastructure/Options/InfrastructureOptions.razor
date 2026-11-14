@@ -16,10 +16,13 @@
             <LucideIcon Name="save" Size="16" class="mr-2"/>
             Save
         </BbButton>
-        <BbButton Variant="ButtonVariant.Outline" @onclick="UpdateJson" Disabled="_isUpdatingJson">
-            <LucideIcon Name="file-json" Size="16" class="mr-2"/>
-            Write JSON
-        </BbButton>
+        @if (Options.CoordinatorConfigFolder != null)
+        {
+            <BbButton Variant="ButtonVariant.Outline" @onclick="UpdateJson" Disabled="_isUpdatingJson">
+                <LucideIcon Name="file-json" Size="16" class="mr-2"/>
+                Write JSON
+            </BbButton>
+        }
     </div>
 
     <SideEffectsOptionsEditor @bind-Value="_sideEffectsValue"/>
@@ -35,6 +38,7 @@
     [Inject] private ITransactionConfig TransactionConfig { get; set; } = null!;
     [Inject] private ToastService ToastService { get; set; } = null!;
     [Inject] private IAuditLogStorage AuditLog { get; set; } = null!;
+    [Inject] private ConsoleInfrastructureOptions Options { get; set; } = null!;
 
     private SideEffectsOptions _sideEffectsValue = new();
     private DurableQueueOptions _durableQueueValue = new();
@@ -54,24 +58,32 @@
         _durableQueueValue = DurableQueueConfig.Value;
         _taskBalancerValue = TaskBalancerConfig.Value;
         _transactionValue = TransactionConfig.Value;
-        InvokeAsync(StateHasChanged);
     }
 
     private async Task Save()
     {
-        await SideEffectsConfig.SetValue(_sideEffectsValue);
-        await DurableQueueConfig.SetValue(_durableQueueValue);
-        await TaskBalancerConfig.SetValue(_taskBalancerValue);
-        await TransactionConfig.SetValue(_transactionValue);
-        await AuditLog.Write("InfrastructureOptionsSaved", "Infrastructure options updated");
-        ToastService.Success("Infrastructure options saved", "Saved");
+        try
+        {
+            await SideEffectsConfig.SetValue(_sideEffectsValue);
+            await DurableQueueConfig.SetValue(_durableQueueValue);
+            await TaskBalancerConfig.SetValue(_taskBalancerValue);
+            await TransactionConfig.SetValue(_transactionValue);
+        }
+        catch (Exception ex)
+        {
+            // The configs before the failed one are saved already: Reload shows what the cluster holds now.
+            ToastService.Error($"[InfrastructureOptions] Failed to save: {ex.Message}", "Error");
+            return;
+        }
+
+        await AuditLog.Report(ToastService, "InfrastructureOptionsSaved", "Infrastructure options updated", "Infrastructure options saved");
     }
 
     private async Task UpdateJson()
     {
         _isUpdatingJson = true;
 
-        var coordinatorFolder = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Coordinator");
+        var coordinatorFolder = Options.CoordinatorConfigFolder.ThrowIfNull();
 
         try
         {

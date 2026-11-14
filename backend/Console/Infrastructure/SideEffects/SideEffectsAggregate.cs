@@ -13,10 +13,3 @@ public class SideEffectsAggregate
     public IReadOnlyList<SideEffectsRetryEntry> RetryEntries { get; init; } = [];
     public DateTime UpdatedAt { get; init; }
 }
-
-public class PerServiceSideEffects
-{
-    public string ServiceTag { get; init; } = "";
-    public Guid ServiceId { get; init; }
-    public SideEffectsLiveData Data { get; init; } = new();
-}

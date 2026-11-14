@@ -1,17 +1,13 @@
 using Cluster.Coordination;
 using Cluster.Discovery;
 using Cluster.Monitoring;
+using Common.Extensions;
 using Internal;
 using Infrastructure;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Console;
-
-public interface ISideEffectsAggregator
-{
-    IViewableProperty<SideEffectsAggregate> Aggregate { get; }
-}
 
 public class SideEffectsAggregatorService : IHostedService, ISideEffectsAggregator
 {
@@ -30,24 +26,25 @@ public class SideEffectsAggregatorService : IHostedService, ISideEffectsAggregat
     private readonly ILogger<SideEffectsAggregatorService> _logger;
 
     private readonly ViewableProperty<SideEffectsAggregate> _aggregate = new(new SideEffectsAggregate());
-    private CancellationTokenSource? _cts;
+    private readonly CancellationTokenSource _cts = new();
+    private Task? _loop;
 
     public IViewableProperty<SideEffectsAggregate> Aggregate => _aggregate;
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        Loop(_cts.Token);
+        _loop = Loop(_cts.Token);
         return Task.CompletedTask;
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    public async Task StopAsync(CancellationToken cancellationToken)
     {
-        _cts?.Cancel();
-        return Task.CompletedTask;
+        _cts.Cancel();
+        await _loop.ThrowIfNull().WaitAsync(cancellationToken);
+        _cts.Dispose();
     }
 
-    private async void Loop(CancellationToken token)
+    private async Task Loop(CancellationToken token)
     {
         while (token.IsCancellationRequested == false)
         {
@@ -55,12 +52,9 @@ public class SideEffectsAggregatorService : IHostedService, ISideEffectsAggregat
             {
                 await CollectAndAggregate();
             }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
             catch (Exception e)
             {
+                // The top of the loop: the next pass tries again in 5 s.
                 _logger.LogError(e, "[SideEffectsAggregator] Unexpected error in loop");
             }
 
@@ -70,7 +64,7 @@ public class SideEffectsAggregatorService : IHostedService, ISideEffectsAggregat
             }
             catch (OperationCanceledException)
             {
-                break;
+                return;
             }
         }
     }
@@ -83,25 +77,28 @@ public class SideEffectsAggregatorService : IHostedService, ISideEffectsAggregat
             try
             {
                 var pipeId = new MessagePipeServiceRequestId(svc, typeof(SideEffectsSnapshotRequest));
-                return await _messaging.SendPipe<SideEffectsSnapshotResponse>(pipeId, new SideEffectsSnapshotRequest());
+                var response = await _messaging.SendPipe<SideEffectsSnapshotResponse>(pipeId, new SideEffectsSnapshotRequest());
+
+                return new PerServiceSideEffects {
+                    ServiceTag = response.ServiceTag,
+                    ServiceId = response.ServiceId,
+                    Data = response.Data,
+                };
             }
             catch (Exception e)
             {
+                // A service that does not answer stays on the page as failed: its counts are unknown, not zero.
                 _logger.LogError(e, "[SideEffectsAggregator] Failed to collect snapshot from {Service}", svc.Tag);
-                return null;
+
+                return new PerServiceSideEffects {
+                    ServiceTag = svc.Tag.ToString(),
+                    ServiceId = svc.Id,
+                    Failure = e.Message,
+                };
             }
         }).ToList();
 
-        var responses = await Task.WhenAll(tasks);
-
-        var perService = responses
-            .Where(r => r != null)
-            .Select(r => new PerServiceSideEffects {
-                ServiceTag = r!.ServiceTag,
-                ServiceId = r.ServiceId,
-                Data = r.Data,
-            })
-            .ToList();
+        var perService = (await Task.WhenAll(tasks)).ToList();
 
         _aggregate.Set(BuildAggregate(perService));
     }

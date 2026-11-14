@@ -26,9 +26,10 @@ public class ClipboardService : IClipboard
             await _js.InvokeVoidAsync("navigator.clipboard.writeText", text);
             _toast.Success("Copied to clipboard", "Done");
         }
-        catch
+        catch (JSException exception)
         {
-            _toast.Error("Failed to copy", "Error");
+            // The browser refuses the clipboard (no permission, an insecure page): the user is told, nothing else depends on it.
+            _toast.Error($"Failed to copy: {exception.Message}", "Error");
         }
     }
 }

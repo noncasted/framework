@@ -7,12 +7,8 @@
         <h2 class="text-sm font-semibold">Durable Queue</h2>
     </div>
     <div class="flex flex-col">
-        <div class="flex items-center gap-3 py-1.5">
-            <LucideIcon Name="clock" Size="12" class="text-muted-foreground shrink-0" />
-            <span class="text-sm flex-1">Observer Keep-Alive (minutes)</span>
-            <input type="number" @bind:get="Value.ObserverKeepAliveMinutes" @bind:set="v => ValueChanged.InvokeAsync(Value with { ObserverKeepAliveMinutes = v })"
-                   class="w-24 h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm" />
-        </div>
+        <OptionNumberRow Icon="clock" Label="Observer Keep-Alive (minutes)" Value="Value.ObserverKeepAliveMinutes"
+                         Changed="v => ValueChanged.InvokeAsync(Value with { ObserverKeepAliveMinutes = v })"/>
     </div>
 </div>
 
