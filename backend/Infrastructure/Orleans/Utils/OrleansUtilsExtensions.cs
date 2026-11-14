@@ -46,6 +46,11 @@ public static class OrleansUtilsExtensions
         builder.Add<OrleansUtils>()
                .As<IOrleans>();
 
+        // Side effects are written by the transactions, so their source comes with them.
+        builder.AddBackendMeter()
+               .AddTraceSource(TransactionTelemetry.Source)
+               .AddTraceSource(SideEffectTelemetry.Source);
+
         return builder;
     }
 

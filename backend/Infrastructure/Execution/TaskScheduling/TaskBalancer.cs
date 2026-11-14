@@ -130,14 +130,14 @@ public class TaskBalancer : ITaskBalancer
                 {
                     executionLock.Release();
                     acquired = false;
-                    BackendMetrics.TaskQueueDepth.Record(0);
+                    TaskBalancerTelemetry.QueueDepth.Record(0);
                     await Task.Delay(options.EmptyDelayMs, lifetime.Token);
                     continue;
                 }
 
                 lock (_scheduledLock)
                 {
-                    BackendMetrics.TaskQueueDepth.Record(_scheduled.Count);
+                    TaskBalancerTelemetry.QueueDepth.Record(_scheduled.Count);
                 }
 
                 acquired = false;
@@ -172,11 +172,11 @@ public class TaskBalancer : ITaskBalancer
 
         async Task Execute(TaskEntry entry)
         {
-            using var activity = TraceExtensions.TaskBalancer.StartActivity("TaskBalancer.Execute");
+            using var activity = TaskBalancerTelemetry.Source.StartActivity("TaskBalancer.Execute");
             activity?.SetTag("task.priority", entry.Task.Priority.ToString());
             activity?.SetTag("task.score", entry.Score);
 
-            using var watch = MetricWatch.Start(BackendMetrics.TaskDuration);
+            using var watch = MetricWatch.Start(TaskBalancerTelemetry.Duration);
             var stopwatch = Stopwatch.StartNew();
             var success = false;
 
@@ -210,12 +210,12 @@ public class TaskBalancer : ITaskBalancer
             finally
             {
                 executionLock.Release();
-                BackendMetrics.TaskExecuted.Add(1);
+                TaskBalancerTelemetry.Executed.Add(1);
 
                 if (success)
-                    BackendMetrics.TaskSuccess.Add(1);
+                    TaskBalancerTelemetry.Success.Add(1);
                 else
-                    BackendMetrics.TaskFailure.Add(1);
+                    TaskBalancerTelemetry.Failure.Add(1);
             }
 
             if (success)

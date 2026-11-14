@@ -106,7 +106,7 @@ public class SideEffectsWorker : IHostedService
 
             var entries = await _storage.Read(freeSlots);
             foundWork = entries.Count > 0;
-            BackendMetrics.SideEffectQueueDepth.Record(entries.Count);
+            SideEffectTelemetry.QueueDepth.Record(entries.Count);
 
             // The read moved the entries to processing: they run even when the stop came meanwhile, otherwise they
             // hang there until the stuck check of another worker. StopAsync waits for them.
@@ -128,7 +128,7 @@ public class SideEffectsWorker : IHostedService
 
     private async Task ExecuteEntry(SideEffectEntry entry)
     {
-        using var activity = TraceExtensions.SideEffects.StartActivity("SideEffect.Execute");
+        using var activity = SideEffectTelemetry.Source.StartActivity("SideEffect.Execute");
         activity?.SetTag("side_effect.retry_count", entry.RetryCount);
 
         if (entry.Effect is ICorrelatedSideEffect correlated)
@@ -136,8 +136,8 @@ public class SideEffectsWorker : IHostedService
 
         Interlocked.Increment(ref _inProgress);
         _executing[entry.Id] = 0;
-        BackendMetrics.SideEffectInProgress.Add(1);
-        using var watch = MetricWatch.Start(BackendMetrics.SideEffectDuration);
+        SideEffectTelemetry.InProgress.Add(1);
+        using var watch = MetricWatch.Start(SideEffectTelemetry.Duration);
 
         try
         {
@@ -157,7 +157,7 @@ public class SideEffectsWorker : IHostedService
                 await _storage.CompleteProcessing(entry.Id);
             }
 
-            BackendMetrics.SideEffectProcessed.Add(1);
+            SideEffectTelemetry.Processed.Add(1);
         }
         catch (Exception e)
         {
@@ -168,9 +168,9 @@ public class SideEffectsWorker : IHostedService
                 entry.Id, entry.RetryCount + 1, options.MaxRetryCount);
 
             if (entry.RetryCount > 0)
-                BackendMetrics.SideEffectRetry.Add(1);
+                SideEffectTelemetry.Retry.Add(1);
 
-            BackendMetrics.SideEffectFailed.Add(1);
+            SideEffectTelemetry.Failed.Add(1);
 
             try
             {
@@ -188,7 +188,7 @@ public class SideEffectsWorker : IHostedService
         finally
         {
             _executing.TryRemove(entry.Id, out _);
-            BackendMetrics.SideEffectInProgress.Add(-1);
+            SideEffectTelemetry.InProgress.Add(-1);
             Interlocked.Decrement(ref _inProgress);
         }
     }

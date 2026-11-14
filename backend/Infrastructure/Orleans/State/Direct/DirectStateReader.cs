@@ -35,7 +35,7 @@ internal class DirectStateReader
 
     public async Task<T> Read<T>(StateIdentity identity) where T : IStateValue, new()
     {
-        using var watch = MetricWatch.Start(BackendMetrics.StateReadDuration);
+        using var watch = MetricWatch.Start(StateTelemetry.ReadDuration);
 
         try
         {
@@ -60,7 +60,7 @@ internal class DirectStateReader
         }
         finally
         {
-            BackendMetrics.StateReadTotal.Add(1);
+            StateTelemetry.ReadTotal.Add(1);
         }
     }
 

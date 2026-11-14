@@ -60,7 +60,7 @@ internal class RuntimeChannelDelivery
 
             if (await Task.WhenAny(deliveryTask, Task.Delay(timeout, timer.Token)) != deliveryTask)
             {
-                BackendMetrics.ChannelDeliveryTimeout.Add(1);
+                RuntimeChannelTelemetry.DeliveryTimeout.Add(1);
                 ObserveLate(data, deliveryTask);
 
                 _logger.LogWarning(
@@ -75,7 +75,7 @@ internal class RuntimeChannelDelivery
         }
         catch (Exception e)
         {
-            BackendMetrics.ChannelDeliveryFailure.Add(1);
+            RuntimeChannelTelemetry.DeliveryFailure.Add(1);
 
             _logger.LogError(e,
                 "[Messaging] [Channel] Delivering message from {ChannelName} to observer {ObserverId} failed at sequence {Sequence}",

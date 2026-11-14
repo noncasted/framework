@@ -39,7 +39,7 @@ public class SideEffectsMonitorService : ILocalSetupCompleted
         var listener = new MeterListener();
 
         listener.InstrumentPublished = (instrument, meterListener) => {
-            if (instrument.Meter.Name == "Backend" &&
+            if (instrument.Meter.Name == BackendMeter.Name &&
                 instrument.Name is "backend.side_effects.processed" or "backend.side_effects.failed")
                 meterListener.EnableMeasurementEvents(instrument);
         };
