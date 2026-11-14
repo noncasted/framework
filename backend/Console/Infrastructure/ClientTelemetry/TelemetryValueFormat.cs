@@ -53,7 +53,8 @@ public static class TelemetryValueFormat
 
     public static string Timestamp(DateTime time)
     {
-        return time.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        // The times of the telemetry are UTC times of the server.
+        return $"{time.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)} UTC";
     }
 
     private static string Bytes(double value)
