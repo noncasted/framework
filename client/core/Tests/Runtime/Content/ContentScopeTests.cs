@@ -98,11 +98,12 @@ namespace Internal.Tests
                 var options = new[] { new ContentOptions(ContentTestPaths.Name), new ContentOptions(ContentTestPaths.ExtraName) };
                 var root = await new ServiceScopeLoader().Load(ScopeLoadOptions.Create(null, ContentScopeRoots.TwoDirectories.Construct, options));
                 var directories = root.Resolve<IContentDirectories>();
-                var loader = directories.Get(ContentTestPaths.ExtraName);
+                var loader = await directories.Wait(root.Lifetime, ContentTestPaths.ExtraName);
                 var references = loader.RootAssets<ContentTestReferences>().Single();
 
                 Assert.AreSame(root.Resolve<IContentLoader>(), directories.Get(ContentTestPaths.Name), "The loader of AddContent");
                 Assert.AreNotSame(root.Resolve<IContentLoader>(), loader);
+                Assert.AreSame(loader, directories.Get(ContentTestPaths.ExtraName), "Get once registered");
                 Assert.IsEmpty(root.Resolve<IContentLoader>().RootAssets<ContentTestReferences>().Where(asset => asset.name == "ExtraReferences"));
 
                 var target = await loader.Load(root.Lifetime, references.Target);
@@ -110,6 +111,7 @@ namespace Internal.Tests
                 Assert.AreEqual("ExtraTarget", target.name);
                 Assert.AreEqual(loader.Progress(references.Target).Value.Total, loader.Progress(references.Target).Value.Loaded, "Its files are real");
                 Assert.Throws<InvalidOperationException>(() => directories.Get("Missing"));
+                Assert.Throws<InvalidOperationException>(() => directories.Wait(root.Lifetime, "Missing"));
 
                 var scene = await loader.LoadScene(root.Lifetime, references.Scene);
                 Assert.IsTrue(scene.Scene.isLoaded, "A scene of the second directory");

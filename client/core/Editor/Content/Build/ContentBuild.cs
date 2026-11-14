@@ -89,6 +89,10 @@ namespace Internal
             var shipped = ContentShipment.Write(index, archive, fetched, brotli);
             var stamp = new ContentStamp(index.ManifestHash, preloaded, brotli);
             ContentBuildLog.Write(manifest, index, shipped);
+
+            if (preloaded)
+                ContentBuildFiles.WriteIndex(index);
+
             ContentBuildFiles.WriteStamp(index.Name, stamp);
 
             Debug.Log($"[ContentBuild] {index.Name} for {target}: StreamingAssets/{ContentPaths.Directory(index.Name)} from {shipped}" +

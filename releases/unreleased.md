@@ -157,3 +157,17 @@ client/Packages/manifest.json`).
 
 Проверка: `grep -rn ": IContentLoader\|ContentBuild\.\(Prepare\|Current\)" client/Assets --include=*.cs` - своя реализация добавляет
 `RootAssets<T>()`, вызовы `ContentBuild` берут список.
+
+### Content: доп. каталог регистрируется в фоне, индекс предзагруженного - в Resources
+
+Кого касается: клиент, `BREAKING` для игр с `AddContentDirectory` (gamejam-autobattler); всех игр с WebGL и `IsPreloaded` - без
+действий.
+
+- `builder.AddContentDirectory(options)` теперь `void` и не ждёт регистрации: индекс, заголовок и корни доп. каталога грузятся в
+  фоне, скоупы после корня не ждут его запросов. Загрузчик - `await IContentDirectories.Wait(lifetime, name)`; `Get(name)` бросает,
+  пока каталог регистрируется. Ошибка регистрации - в лог и в каждый `Wait`.
+- Индекс каталога с `IsPreloaded` в WebGL-сборке лежит TextAsset'ом `Resources/Content/<name>.index` рядом со штампом (в `.data`),
+  без запроса на старте; индекс пишется без отступов (было 60% байт). Спаны `Content: index`, `Content: register <name>`.
+
+Сделать: `grep -rn "AddContentDirectory\|IContentDirectories" client/Assets --include=*.cs` - убрать `await` перед
+`AddContentDirectory`, `_directories.Get(name)` в коде после старта заменить на `await _directories.Wait(lifetime, name)`.

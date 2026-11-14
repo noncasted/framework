@@ -7,8 +7,8 @@ namespace Internal
 {
     // The files a player build gets from the content build for its time only, removed after it, also a failed one:
     // the stamp (ContentStamp) of each directory as a json TextAsset in Resources (an asset folder of its own) and, for the
-    // preloaded directories of a WebGL build, the preload manifest that puts their archives into the .data file (the index stays a file
-    // of StreamingAssets, fetched at the start).
+    // preloaded directories of a WebGL build, the index as a json TextAsset next to the stamp and the preload manifest that puts
+    // their archives into the .data file (no request for either at the start).
     public static class ContentBuildFiles
     {
         // An asset folder owned by the build alone: removed whole after it, and before it when a killed editor left it.
@@ -20,6 +20,20 @@ namespace Internal
         public static string StampAsset(string name)
         {
             return $"{StampFolder}/Resources/{ContentPaths.StampResource(name)}.json";
+        }
+
+        public static string IndexAsset(string name)
+        {
+            return $"{StampFolder}/Resources/{ContentPaths.IndexResource(name)}.json";
+        }
+
+        // Before WriteStamp, which imports the folder.
+        public static void WriteIndex(ContentIndex index)
+        {
+            var path = IndexAsset(index.Name);
+
+            Directory.CreateDirectory(Path.GetDirectoryName(path) ?? throw new IOException(path));
+            File.WriteAllText(path, index.ToJson());
         }
 
         public static void WriteStamp(string name, ContentStamp stamp)

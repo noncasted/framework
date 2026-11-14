@@ -17,19 +17,17 @@ namespace Internal
 #if UNITY_WEBGL && !UNITY_EDITOR
             WebContentFetch.Limit(options.MaxFetches);
 
-            var cache = $"{Application.temporaryCachePath}/{ContentPaths.Directory(options.Name)}";
-
-            // A preloaded archive is in the .data file; its index stays a file of StreamingAssets on the server.
-            var folder = stamp.IsPreloaded ? local : $"{options.RemoteUrl ?? Application.streamingAssetsPath}/{ContentPaths.Directory(options.Name)}";
-            var indexUrl = $"{folder}/{stamp.ShippedIndex}";
-            var index = stamp.Check(await WebContentIndex.Load(lifetime, indexUrl, $"{cache}.index.json"));
-
+            // A preloaded archive is in the .data file, and its index is a TextAsset of Resources there: no request.
             if (stamp.IsPreloaded)
             {
-                WebContentFetch.KeepOnly(options.Name, indexUrl);
-                return (index, new LocalContentStore(local));
+                WebContentFetch.KeepOnly(options.Name);
+                return (stamp.Check(ContentIndex.FromResource(options.Name)), new LocalContentStore(local));
             }
 
+            var cache = $"{Application.temporaryCachePath}/{ContentPaths.Directory(options.Name)}";
+            var folder = $"{options.RemoteUrl ?? Application.streamingAssetsPath}/{ContentPaths.Directory(options.Name)}";
+            var indexUrl = $"{folder}/{stamp.ShippedIndex}";
+            var index = stamp.Check(await WebContentIndex.Load(lifetime, indexUrl, $"{cache}.index.json"));
             var archive = new WebContentArchive(folder, stamp.ManifestHash);
             WebContentFetch.KeepOnly(options.Name, indexUrl, archive.Url);
             return (index, new FetchedContentStore(archive, cache, options.RangeGap));

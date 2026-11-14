@@ -79,8 +79,23 @@ namespace Internal
         // What the registration opens: the closure of the dependencies of the root files, without the manifest.
         public IReadOnlyList<ContentFile> RootFiles => Resolve(_rootFiles);
 
+        // The index of a directory preloaded into the .data file of a WebGL build: a TextAsset of Resources next to the stamp,
+        // read without a request.
+        public static ContentIndex FromResource(string name)
+        {
+            var asset = Resources.Load<TextAsset>(ContentPaths.IndexResource(name));
+
+            if (asset == null)
+                throw new InvalidOperationException($"[Content] No index of the preloaded content directory {name} in Resources/{ContentPaths.IndexResource(name)}");
+
+            var index = FromJson(asset.text);
+            Resources.UnloadAsset(asset);
+            return index;
+        }
+
         public static ContentIndex FromJson(string json)
         {
+            using var span = GameProfiler.Scope("Content: index");
             var index = JsonUtility.FromJson<ContentIndex>(json);
 
             if (index == null)
@@ -90,9 +105,11 @@ namespace Internal
             return index;
         }
 
+        // Without indentation: the index of a game has thousands of entries (every file and object of the directory), and the
+        // indentation was 60% of its bytes, read at every start.
         public string ToJson()
         {
-            return JsonUtility.ToJson(this, true);
+            return JsonUtility.ToJson(this);
         }
 
         // An object of an imported asset has a file of its own; any other object is in the file of its whole asset.

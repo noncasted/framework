@@ -85,14 +85,16 @@ new ScopeLoadOptions(parent, Construct).WithAssetScene(Scenes.Game);
 ```
 
 An extra directory (an entry of `ExtraContent`), root scope, after `AddContent`: its own loader, never bound to the catalogues
-(`Scenes`, groups and `CatalogContent` stay on the main one). The registration fetches the index, the header and the roots only:
+(`Scenes`, groups and `CatalogContent` stay on the main one). The registration fetches the index, the header and the roots only,
+in the background: the root and the scopes after it do not wait for its requests (a failure is logged and thrown to `Wait`):
 
 ```csharp
-await builder.AddContentDirectory(options.Stream);                 // ContentOptions with _name "Stream"; IContentDirectories.Get("Stream")
+builder.AddContentDirectory(options.Stream);                       // ContentOptions with _name "Stream"; returns at once
 ```
 
 ```csharp
-var stream = _directories.Get("Stream");                           // [Inject] IContentDirectories; Get of the main name = IContentLoader
+var stream = await _directories.Wait(lifetime, "Stream");          // [Inject] IContentDirectories; once registered
+// _directories.Get("Stream") is the same loader after that and throws before; Get of the main name = IContentLoader
 var root = stream.RootAssets<StreamRoot>().Single();               // a root of the directory, loaded with the registration
 var music = await stream.Load(lifetime, root.MenuMusic);           // ContentReference<AudioClip> inside Stream: fetched now
 stream.Progress(root.MenuMusic).Advise(lifetime, p => _bar.Set(p.Loaded, p.Total));
@@ -149,8 +151,8 @@ var icon = _content.LoadNow(lifetime, reference);                         // onl
 6. adds the shipped folder (`ContentShipment`) to `StreamingAssets/Content/<name>` of the player (`AddAdditionalPathToStreamingAssets`,
    nothing in `Assets`): read in place (standalone, `IsPreloaded` on WebGL) - the archive folder with `<hash>.index.json` in it, the
    preloaded archive into the `.data` file (`Library/PlayerDataCache/WebGLPreloadedStreamingAssets/framework-content.manifest`, the archives
-   of every preloaded directory, nothing of the others; the index
-   stays a file fetched at the start, not verified on a game: none preloads); fetched by WebGL - `Library/ContentShipped/<name>` with
+   of every preloaded directory, nothing of the others; the index of a preloaded directory is a json TextAsset of Resources next to
+   the stamp, `Resources/Content/<name>.index`, read without a request); fetched by WebGL - `Library/ContentShipped/<name>` with
    `<hash>.archive` (the archive as it is) and `<hash>.index.json`, `.br` with brotli compression (`ContentBrotli`). Brotli with the
    decompression fallback fails the build (the loader would decode its own files, the fetch of the index would get raw `.br` bytes).
 
@@ -171,7 +173,7 @@ load with its reason in the console. Both names are of one build: `Cache-Control
 
 | Player | Store | Behaviour |
 |---|---|---|
-| Standalone, WebGL with `IsPreloaded` | `LocalContentStore` | registers `StreamingAssets/Content/<name>` as is, fetch does nothing |
+| Standalone, WebGL with `IsPreloaded` | `LocalContentStore` | registers `StreamingAssets/Content/<name>` as is, fetch does nothing; WebGL reads the index from `Resources/Content/<name>.index` (no request) |
 | WebGL | `FetchedContentStore` over `WebContentArchive` | the index from `<remoteUrl or StreamingAssets>/Content/<name>/<hash>.index.json[.br]` (`WebContentIndex`, its hash checked against the stamp); `content0.archive` of zeros + `BuildManifestHash.txt` in `temporaryCachePath/Content/<name>`, ranges of `<hash>.archive` written at their offsets; the Cache API (`caches.open('content')`) keeps the index by URL and every file of a range by `<url>?offset=<n>` (the Cache API ignores a fragment), a range comes from it when it holds all its files; at its registration every cached entry of the directory (a URL with
 `/Content/<name>/`, on any host: the builds before at another URL too) of another URL is deleted, the other directories keep theirs;
 `MaxFetches` is one limit of the page, the options of the last registered directory set it; without Cache API (plain http) only `fetch` and one log line |
@@ -179,6 +181,7 @@ load with its reason in the console. Both names are of one build: `Cache-Control
 
 ## Telemetry and problems
 
+- The startup trace has the spans `Content: index` (the parse of an index) and `Content: register <name>` (the mount by the engine).
 - Every load is `AssetLoads.Begin("Content: <guid>")` -> `Finish("Content: <name>")` (scenes `Content: scene ...`) and a span
   `GameProfiler.Concurrent("Content: <type>")`: the marks `load.*` of the client telemetry and the startup trace.
 - The build log (`[ContentBuild]`): `<name>: N files, raw, archive (header), shipped in <folder>; root files, objects, scenes` (shipped:

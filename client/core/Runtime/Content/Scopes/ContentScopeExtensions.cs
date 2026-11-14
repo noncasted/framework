@@ -1,4 +1,6 @@
+using System;
 using Cysharp.Threading.Tasks;
+using UnityEngine;
 using Object = UnityEngine.Object;
 
 namespace Internal
@@ -24,19 +26,16 @@ namespace Internal
 
         // The root scope, after AddContent: one more directory of the build (an entry of ExtraContent of
         // ProjectSettings/Framework.json, usually not preloaded: a WebGL player fetches its files when they are loaded),
-        // with a loader of its own, IContentDirectories.Get(options.Name). The registration fetches its index and its roots only;
-        // the objects come with their loads. The directory lives as long as the root. The catalogues know nothing of it:
-        // its objects are loaded from the references of its roots (IContentLoader.RootAssets).
-        public static async UniTask<IContentLoader> AddContentDirectory(this IScopeBuilder builder, ContentOptions options)
+        // with a loader of its own. The registration fetches its index and its roots only, and runs in the background: the
+        // root and the scopes after it do not wait for its requests; IContentDirectories.Wait(lifetime, options.Name) gives
+        // the loader once it is registered. The directory lives as long as the root. The catalogues know nothing of it: its
+        // objects are loaded from the references of its roots (IContentLoader.RootAssets).
+        public static void AddContentDirectory(this IScopeBuilder builder, ContentOptions options)
         {
             options.Validate();
 
-            var directories = builder.Content.Directories;
-            directories.ThrowIfRegistered(options.Name);
-
-            var loader = await CreateLoader(builder.Lifetime, options);
-            directories.Add(options.Name, loader);
-            return loader;
+            var registration = builder.Content.Directories.Begin(options.Name);
+            RegisterInBackground(builder.Lifetime, options, registration).NoAwait();
         }
 
         // Construct runs before the build events, so an object used while registering is loaded right away. It is
@@ -58,6 +57,25 @@ namespace Internal
             builder.Events.AddBeforeBuild(async () => target.Fill(await builder.LoadContent(reference)));
             slot = target;
             return builder;
+        }
+
+        // The top of a task nobody awaits: a failure goes to the log and to every Wait of the directory.
+        private static async UniTask RegisterInBackground(IReadOnlyLifetime lifetime, ContentOptions options,
+            UniTaskCompletionSource<IContentLoader> registration)
+        {
+            try
+            {
+                registration.TrySetResult(await CreateLoader(lifetime, options));
+            }
+            catch (OperationCanceledException) when (lifetime.IsTerminated == true)
+            {
+                registration.TrySetCanceled();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+                registration.TrySetException(exception);
+            }
         }
 
         private static async UniTask<ContentLoader> CreateLoader(IReadOnlyLifetime lifetime, ContentOptions options)

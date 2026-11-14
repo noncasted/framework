@@ -231,8 +231,14 @@ namespace Internal.EditorTests
             ContentBuild.Prepare(BuildTarget.WebGL);
             var expected = new[] { $"Content/{Name}/{ContentPaths.ArchiveFile}", $"Content/{Name}/{ContentManifest.HashFile}" };
 
-            Assert.That(File.ReadAllLines(ContentBuildFiles.PreloadManifest), Is.EquivalentTo(expected), "The index stays a file to fetch");
+            Assert.That(File.ReadAllLines(ContentBuildFiles.PreloadManifest), Is.EquivalentTo(expected), "The archive into the .data file");
             Assert.That(Stamp().IsPreloaded, Is.True);
+
+            // The index is a TextAsset of Resources next to the stamp, read without a request; the json has no indentation.
+            var asset = AssetDatabase.LoadAssetAtPath<TextAsset>(ContentBuildFiles.IndexAsset(Name));
+            Assert.That(asset, Is.Not.Null, ContentBuildFiles.IndexAsset(Name));
+            Assert.That(asset.text, Does.Not.Contain("\n"));
+            Assert.That(ContentIndex.FromJson(asset.text).ManifestHash, Is.EqualTo(Stamp().ManifestHash));
         }
 
         [Test]

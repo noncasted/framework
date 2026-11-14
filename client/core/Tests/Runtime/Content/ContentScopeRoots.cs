@@ -38,15 +38,16 @@ namespace Internal.Tests
             public static async UniTask Construct(IScopeBuilder builder, ContentOptions[] options)
             {
                 await builder.AddContent(options[0]);
-                await builder.AddContentDirectory(options[1]);
+                builder.AddContentDirectory(options[1]);
             }
         }
 
         public static class ExtraOnly
         {
-            public static async UniTask Construct(IScopeBuilder builder, ContentOptions options)
+            public static UniTask Construct(IScopeBuilder builder, ContentOptions options)
             {
-                await builder.AddContentDirectory(options);
+                builder.AddContentDirectory(options);
+                return UniTask.CompletedTask;
             }
         }
 

@@ -31,7 +31,10 @@ namespace Internal
             await store.Prepare(lifetime, index);
             lifetime.Token.ThrowIfCancellationRequested();
 
-            var handle = ContentLoadManager.RegisterContentDirectory(store.LocalPath);
+            ContentDirectoryHandle handle;
+
+            using (GameProfiler.Scope($"Content: register {index.Name}"))
+                handle = ContentLoadManager.RegisterContentDirectory(store.LocalPath);
 
             if (handle.IsValid == false)
                 throw new InvalidOperationException($"[Content] The engine did not register the content directory {index.Name} at {store.LocalPath}");
