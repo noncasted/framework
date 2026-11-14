@@ -10,86 +10,17 @@
 <div class="container mx-auto max-w-5xl px-4 py-4 flex flex-col gap-6">
 
     <div class="grid grid-cols-4 gap-4">
-        <div class="rounded-lg border bg-card p-5 flex flex-col items-center gap-2">
-            <div class="flex items-center gap-2">
-                <div class="rounded-md bg-blue-500/15 p-1.5">
-                    <LucideIcon Name="inbox" Size="14" class="text-blue-400"/>
-                </div>
-                <span class="text-sm font-medium text-muted-foreground">Queue</span>
-            </div>
-            <span class="text-3xl font-bold">@_aggregate.QueueCount</span>
-            <span class="text-xs text-muted-foreground">Pending effects</span>
-        </div>
-
-        <div class="rounded-lg border bg-card p-5 flex flex-col items-center gap-2">
-            <div class="flex items-center gap-2">
-                <div class="rounded-md bg-orange-500/15 p-1.5">
-                    <LucideIcon Name="loader" Size="14" class="text-orange-400"/>
-                </div>
-                <span class="text-sm font-medium text-muted-foreground">Processing</span>
-            </div>
-            <span class="text-3xl font-bold">@_aggregate.ProcessingCount</span>
-            <span class="text-xs text-muted-foreground">In-flight effects</span>
-        </div>
-
-        <div class="rounded-lg border bg-card p-5 flex flex-col items-center gap-2">
-            <div class="flex items-center gap-2">
-                <div class="rounded-md bg-red-500/15 p-1.5">
-                    <LucideIcon Name="alert-triangle" Size="14" class="text-red-400"/>
-                </div>
-                <span class="text-sm font-medium text-muted-foreground">Retry</span>
-            </div>
-            <span class="text-3xl font-bold">@_aggregate.RetryCount</span>
-            <span class="text-xs text-muted-foreground">Failed effects awaiting retry</span>
-        </div>
-
-        <div class="rounded-lg border bg-card p-5 flex flex-col items-center gap-2">
-            <div class="flex items-center gap-2">
-                <div class="rounded-md bg-purple-500/15 p-1.5">
-                    <LucideIcon Name="skull" Size="14" class="text-purple-400"/>
-                </div>
-                <span class="text-sm font-medium text-muted-foreground">Dead Letter</span>
-            </div>
-            <span class="text-3xl font-bold @(_aggregate.DeadLetterCount > 0 ? "text-destructive" : "")">@_aggregate.DeadLetterCount</span>
-            <span class="text-xs text-muted-foreground">Permanently failed effects</span>
-        </div>
+        <SideEffectsCountTile Icon="inbox" IconBackground="bg-blue-500/15" IconColor="text-blue-400" Title="Queue"
+                              Caption="Pending effects" Value="_aggregate.QueueCount"/>
+        <SideEffectsCountTile Icon="loader" IconBackground="bg-orange-500/15" IconColor="text-orange-400" Title="Processing"
+                              Caption="In-flight effects" Value="_aggregate.ProcessingCount"/>
+        <SideEffectsCountTile Icon="alert-triangle" IconBackground="bg-red-500/15" IconColor="text-red-400" Title="Retry"
+                              Caption="Failed effects awaiting retry" Value="_aggregate.RetryCount"/>
+        <SideEffectsCountTile Icon="skull" IconBackground="bg-purple-500/15" IconColor="text-purple-400" Title="Dead Letter"
+                              Caption="Permanently failed effects" Value="_aggregate.DeadLetterCount" Alarming="true"/>
     </div>
 
-    <div class="rounded-lg border bg-card p-5 flex flex-col gap-3">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <div class="rounded-md bg-green-500/15 p-1.5">
-                    <LucideIcon Name="activity" Size="14" class="text-green-400"/>
-                </div>
-                <span class="text-sm font-medium text-muted-foreground">Throughput</span>
-            </div>
-            <div class="flex items-center gap-4 text-xs text-muted-foreground">
-                @if (_aggregate.AggregatedHistory.Count > 0)
-                {
-                    var last = _aggregate.AggregatedHistory[^1];
-                    var peakVal = _aggregate.AggregatedHistory.Max(d => d.Processed);
-                    <span>
-                        <span class="text-green-400 font-medium">@last.Processed</span>/s processed
-                    </span>
-                    @if (last.Failed > 0)
-                    {
-                        <span>
-                            <span class="text-red-400 font-medium">@last.Failed</span>/s failed
-                        </span>
-                    }
-                    <span>peak @peakVal/s</span>
-                }
-            </div>
-        </div>
-
-        <BbAreaChart Data="@_chartData" Height="200px">
-            <BbXAxis DataKey="key"/>
-            <BbYAxis ShowGrid="false"/>
-            <BbChartTooltip/>
-            <BbArea DataKey="processed" Name="Processed" Color="var(--chart-2)" Curve="CurveType.Smooth"/>
-            <BbArea DataKey="failed" Name="Failed" Color="var(--chart-5)" Curve="CurveType.Smooth"/>
-        </BbAreaChart>
-    </div>
+    <SideEffectsThroughputCard History="_aggregate.AggregatedHistory"/>
 
     @if (_aggregate.Services.Count > 0)
     {
@@ -111,13 +42,7 @@
                     <tbody>
                     @foreach (var svc in _aggregate.Services)
                     {
-                        <tr class="border-b last:border-b-0 hover:bg-muted/30">
-                            <td class="px-4 py-2.5 text-xs font-medium">@svc.ServiceTag</td>
-                            <td class="px-4 py-2.5 text-xs text-right">@svc.Data.QueueCount</td>
-                            <td class="px-4 py-2.5 text-xs text-right">@svc.Data.ProcessingCount</td>
-                            <td class="px-4 py-2.5 text-xs text-right">@svc.Data.RetryCount</td>
-                            <td class="px-4 py-2.5 text-xs text-right @(svc.Data.DeadLetterCount > 0 ? "text-destructive" : "")">@svc.Data.DeadLetterCount</td>
-                        </tr>
+                        <SideEffectsServiceRow Service="svc"/>
                     }
                     </tbody>
                 </table>
@@ -126,11 +51,11 @@
     }
 
     <div class="flex gap-2">
-        <BbButton Variant="ButtonVariant.Secondary" @onclick="OnRequeueReady" Disabled="_isOperating">
+        <BbButton Variant="ButtonVariant.Secondary" @onclick="RequeueReady" Disabled="_isOperating">
             <LucideIcon Name="refresh-cw" Size="16" class="mr-2"/>
             Requeue Ready
         </BbButton>
-        <BbButton Variant="ButtonVariant.Secondary" @onclick="OnRequeueStuck" Disabled="_isOperating">
+        <BbButton Variant="ButtonVariant.Secondary" @onclick="RequeueStuck" Disabled="_isOperating">
             <LucideIcon Name="rotate-ccw" Size="16" class="mr-2"/>
             Requeue Stuck
         </BbButton>
@@ -152,35 +77,17 @@
                     <th class="h-10 px-4 text-left font-medium text-muted-foreground">ID</th>
                     <th class="h-10 px-4 text-left font-medium text-muted-foreground">Type</th>
                     <th class="h-10 px-4 text-left font-medium text-muted-foreground">Retries</th>
-                    <th class="h-10 px-4 text-left font-medium text-muted-foreground">Retry After</th>
-                    <th class="h-10 px-4 text-left font-medium text-muted-foreground">Created</th>
+                    <th class="h-10 px-4 text-left font-medium text-muted-foreground">Retry After (UTC)</th>
+                    <th class="h-10 px-4 text-left font-medium text-muted-foreground">Created (UTC)</th>
                     <th class="h-10 px-4 w-24"></th>
                 </tr>
                 </thead>
                 <tbody>
                 @foreach (var entry in _aggregate.RetryEntries)
                 {
-                    <tr class="border-b last:border-b-0 hover:bg-muted/30">
-                        <td class="px-4 py-2.5 font-mono text-xs text-muted-foreground">@(entry.Id.ToString()[..8])&hellip;</td>
-                        <td class="px-4 py-2.5 text-xs">@entry.TypeName</td>
-                        <td class="px-4 py-2.5 text-xs">@entry.RetryCount</td>
-                        <td class="px-4 py-2.5 text-xs text-muted-foreground">@entry.RetryAfter.ToString("HH:mm:ss")</td>
-                        <td class="px-4 py-2.5 text-xs text-muted-foreground">@entry.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
-                        <td class="px-4 py-2.5">
-                            <div class="flex gap-1 justify-end">
-                                <BbButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Icon"
-                                          @onclick="@(() => OnRequeueEntry(entry.Id))" Disabled="_isOperating"
-                                          title="Requeue">
-                                    <LucideIcon Name="rotate-ccw" Size="14"/>
-                                </BbButton>
-                                <BbButton Variant="ButtonVariant.Ghost" Size="ButtonSize.Icon"
-                                          @onclick="@(() => OnDropEntry(entry.Id))" Disabled="_isOperating"
-                                          title="Drop">
-                                    <LucideIcon Name="trash-2" Size="14" class="text-destructive"/>
-                                </BbButton>
-                            </div>
-                        </td>
-                    </tr>
+                    <SideEffectsRetryRow Entry="entry" Disabled="_isOperating"
+                                         OnRequeue="() => RequeueEntry(entry.Id)"
+                                         OnDrop="() => DropEntry(entry.Id)"/>
                 }
                 @if (_aggregate.RetryEntries.Count == 0)
                 {
@@ -201,108 +108,43 @@
     [Inject] private ToastService ToastService { get; set; } = null!;
 
     private SideEffectsAggregate _aggregate = new();
-    private List<ThroughputRow> _chartData = [];
     private bool _isOperating;
 
     protected override Task OnSetup(IReadOnlyLifetime lifetime)
     {
-        Aggregator.Aggregate.Advise(lifetime, value => {
+        // View: the page shows the last aggregate at once, not after the next collect.
+        Aggregator.Aggregate.View(lifetime, value => {
             _aggregate = value;
-            BuildChartData();
             InvokeAsync(StateHasChanged).NoAwait();
         });
 
         return Task.CompletedTask;
     }
 
-    private async Task OnRequeueReady()
+    private Task RequeueReady() => Operate(() => Storage.RequeueReady(), "Ready entries requeued", "Requeue ready");
+
+    private Task RequeueStuck() => Operate(() => Storage.RequeueStuck(), "Stuck entries requeued", "Requeue stuck");
+
+    private Task RequeueEntry(Guid id) => Operate(() => Storage.RequeueRetryEntry(id), "Entry requeued", "Requeue entry");
+
+    private Task DropEntry(Guid id) => Operate(() => Storage.DropRetryEntry(id), "Entry dropped", "Drop entry");
+
+    private async Task Operate(Func<Task> operation, string done, string name)
     {
         _isOperating = true;
 
         try
         {
-            await Storage.RequeueReady();
-            ToastService.Success("Ready entries requeued", "Done");
+            await operation();
+            ToastService.Success(done, "Done");
         }
         catch (Exception ex)
         {
-            ToastService.Error($"Requeue ready failed: {ex.Message}", "Error");
+            ToastService.Error($"{name} failed: {ex.Message}", "Error");
         }
         finally
         {
             _isOperating = false;
         }
-    }
-
-    private async Task OnRequeueStuck()
-    {
-        _isOperating = true;
-
-        try
-        {
-            await Storage.RequeueStuck();
-            ToastService.Success("Stuck entries requeued", "Done");
-        }
-        catch (Exception ex)
-        {
-            ToastService.Error($"Requeue stuck failed: {ex.Message}", "Error");
-        }
-        finally
-        {
-            _isOperating = false;
-        }
-    }
-
-    private async Task OnRequeueEntry(Guid id)
-    {
-        _isOperating = true;
-
-        try
-        {
-            await Storage.RequeueRetryEntry(id);
-            ToastService.Success("Entry requeued", "Done");
-        }
-        catch (Exception ex)
-        {
-            ToastService.Error($"Requeue entry failed: {ex.Message}", "Error");
-        }
-        finally
-        {
-            _isOperating = false;
-        }
-    }
-
-    private async Task OnDropEntry(Guid id)
-    {
-        _isOperating = true;
-
-        try
-        {
-            await Storage.DropRetryEntry(id);
-            ToastService.Success("Entry dropped", "Done");
-        }
-        catch (Exception ex)
-        {
-            ToastService.Error($"Drop entry failed: {ex.Message}", "Error");
-        }
-        finally
-        {
-            _isOperating = false;
-        }
-    }
-
-    private void BuildChartData()
-    {
-        _chartData = _aggregate.AggregatedHistory.Select(e => new ThroughputRow {
-            key = e.Timestamp.ToString("HH:mm:ss"),
-            processed = (int)e.Processed,
-            failed = (int)e.Failed
-        }).ToList();
-    }
-
-    private class ThroughputRow {
-        public string key { get; set; } = "";
-        public int processed { get; set; }
-        public int failed { get; set; }
     }
 }
