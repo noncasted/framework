@@ -70,8 +70,8 @@ public sealed class MatchMetricsServerStream : IMatchMetricsServerStream
         {
             if (_slots.TryGetValue(name, out var slot) == false)
             {
-                if (_slots.Count >= MatchMetricsLimits.MaxSeries)
-                    throw new ArgumentException($"[MatchMetrics] Over {MatchMetricsLimits.MaxSeries} series in the stream of the server");
+                if (_slots.Count >= SharedMatchMetricsLimits.MaxSeries)
+                    throw new ArgumentException($"[MatchMetrics] Over {SharedMatchMetricsLimits.MaxSeries} series in the stream of the server");
 
                 slot = _slots.Count;
                 _slots.Add(name, slot);
@@ -186,7 +186,7 @@ public sealed class MatchMetricsServerStream : IMatchMetricsServerStream
 
     private static void RequireName(string name)
     {
-        if (MatchMetricNames.IsName(name) == false)
-            throw new ArgumentException($"[MatchMetrics] The name '{name}': only [a-z0-9._] up to {MatchMetricsLimits.MaxNameLength}");
+        if (SharedMatchMetricNames.IsName(name) == false)
+            throw new ArgumentException($"[MatchMetrics] The name '{name}': only [a-z0-9._] up to {SharedMatchMetricsLimits.MaxNameLength}");
     }
 }
