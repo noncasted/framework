@@ -5,6 +5,16 @@ using UnityEngine;
 
 namespace Internal
 {
+    // The files each load of a content directory needs: what a store fetches before the load and the bytes of its progress.
+    // A directory preloaded into the .data file of a WebGL build has nothing to fetch and reads no index (PreloadedContentFiles).
+    internal interface IContentFiles
+    {
+        string Name { get; }
+
+        IReadOnlyList<ContentFile> ObjectFiles(string guid, long localId);
+        IReadOnlyList<ContentFile> SceneFiles(string guid);
+    }
+
     // The archive of a built content directory and the files each of its loads needs, computed by the build from the
     // manifest and shipped next to the archive as <hash>.index.json (ContentPaths.IndexFile), read once at the start.
     // A fetching store writes the archive as zeros of its length, fetches the header, the manifest and the root files
@@ -13,7 +23,7 @@ namespace Internal
     // Objects are keyed by the GUID of their asset and their local id, not by LoadableObjectId: its fields are internal
     // at runtime, and a LoadableObjectId baked into an asset of the player is rewritten by the build.
     [Serializable]
-    public sealed class ContentIndex
+    public sealed class ContentIndex : IContentFiles
     {
         // The name of the header among the files a store fetches; no file of a directory is named so.
         public const string HeaderName = "header";
@@ -79,20 +89,6 @@ namespace Internal
         // What the registration opens: the closure of the dependencies of the root files, without the manifest.
         public IReadOnlyList<ContentFile> RootFiles => Resolve(_rootFiles);
 
-        // The index of a directory preloaded into the .data file of a WebGL build: a TextAsset of Resources next to the stamp,
-        // read without a request.
-        public static ContentIndex FromResource(string name)
-        {
-            var asset = Resources.Load<TextAsset>(ContentPaths.IndexResource(name));
-
-            if (asset == null)
-                throw new InvalidOperationException($"[Content] No index of the preloaded content directory {name} in Resources/{ContentPaths.IndexResource(name)}");
-
-            var index = FromJson(asset.text);
-            Resources.UnloadAsset(asset);
-            return index;
-        }
-
         public static ContentIndex FromJson(string json)
         {
             using var span = GameProfiler.Scope("Content: index");
@@ -101,7 +97,9 @@ namespace Internal
             if (index == null)
                 throw new InvalidDataException("The json of the content index is empty");
 
-            index.Validate();
+            using (GameProfiler.Scope("Content: index validate"))
+                index.Validate();
+
             return index;
         }
 

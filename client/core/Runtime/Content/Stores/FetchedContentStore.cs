@@ -11,24 +11,28 @@ namespace Internal
     // blocks of a file only when it opens the file, so the zeros are never read.
     internal sealed class FetchedContentStore : IContentStore
     {
-        // gap: ContentOptions.RangeGap.
-        public FetchedContentStore(IContentRangeSource source, string localPath, long gap)
+        // gap: ContentOptions.RangeGap; index: the files of the archive and their spans.
+        public FetchedContentStore(IContentRangeSource source, string localPath, long gap, ContentIndex index)
         {
             LocalPath = localPath;
             _source = source;
             _gap = gap;
+            _index = index;
         }
 
         private readonly IContentRangeSource _source;
         private readonly long _gap;
+        private readonly ContentIndex _index;
         private ContentFileFetches _fetches;
 
         public string LocalPath { get; }
 
         private string Archive => Path.Combine(LocalPath, ContentPaths.ArchiveFile);
 
-        public async UniTask Prepare(IReadOnlyLifetime lifetime, ContentIndex index)
+        public async UniTask Prepare(IReadOnlyLifetime lifetime)
         {
+            var index = _index;
+
             if (_fetches != null)
                 throw new InvalidOperationException($"[Content] The store of {index.Name} at {LocalPath} is prepared already");
 

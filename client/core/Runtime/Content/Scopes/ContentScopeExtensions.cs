@@ -19,7 +19,9 @@ namespace Internal
             directories.Add(options.Name, loader);
 
             builder.Content.Use(loader, directories);
-            await CatalogContent.Bind(builder.Lifetime, loader, loader.RootAssets<ContentRoot>());
+
+            using (GameProfiler.Scope("Content: bind catalogues"))
+                await CatalogContent.Bind(builder.Lifetime, loader, loader.RootAssets<ContentRoot>());
             builder.RegisterInstance(loader).As<IContentLoader>();
             builder.RegisterInstance(directories).As<IContentDirectories>();
         }

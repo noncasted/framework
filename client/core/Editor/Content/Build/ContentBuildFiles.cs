@@ -22,20 +22,6 @@ namespace Internal
             return $"{StampFolder}/Resources/{ContentPaths.StampResource(name)}.json";
         }
 
-        public static string IndexAsset(string name)
-        {
-            return $"{StampFolder}/Resources/{ContentPaths.IndexResource(name)}.json";
-        }
-
-        // Before WriteStamp, which imports the folder.
-        public static void WriteIndex(ContentIndex index)
-        {
-            var path = IndexAsset(index.Name);
-
-            Directory.CreateDirectory(Path.GetDirectoryName(path) ?? throw new IOException(path));
-            File.WriteAllText(path, index.ToJson());
-        }
-
         public static void WriteStamp(string name, ContentStamp stamp)
         {
             var path = StampAsset(name);

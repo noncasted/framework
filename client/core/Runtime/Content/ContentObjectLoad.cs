@@ -52,7 +52,10 @@ namespace Internal
 
             var load = AssetLoads.Begin($"Content: {_reference.Guid}");
             _phase = ContentLoadPhase.Loading;
-            var target = _reference.Loadable.Load();
+            T target;
+
+            using (GameProfiler.Scope($"Content: load {typeof(T).Name}"))
+                target = _reference.Loadable.Load();
 
             if (target == null)
             {

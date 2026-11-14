@@ -29,7 +29,11 @@ namespace Internal
         // it is destroyed. The options name the directory and, for a WebGL player, where and how its archive is fetched.
         public static async UniTask<ContentLoader> Register(IReadOnlyLifetime lifetime, ContentOptions options)
         {
-            var stamp = ContentStamp.Load(options.Name);
+            ContentStamp stamp;
+
+            using (GameProfiler.Scope("Content: stamp"))
+                stamp = ContentStamp.Load(options.Name);
+
             var (index, store) = await ContentStores.Open(lifetime, stamp, options);
             var directory = await ContentDirectory.Register(lifetime, index, store);
             return new ContentLoader(directory);

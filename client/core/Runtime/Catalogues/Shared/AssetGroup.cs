@@ -87,7 +87,8 @@ namespace Internal
             if (IsPreloaded == false)
                 throw new InvalidOperationException($"{Name} is not loaded");
 
-            LoadImmediately();
+            using (GameProfiler.Scope($"Group: {Name}"))
+                LoadImmediately();
             IsLoaded = true;
         }
 

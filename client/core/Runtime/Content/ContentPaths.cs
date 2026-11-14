@@ -30,12 +30,6 @@ namespace Internal
             return $"{Folder}/{name}";
         }
 
-        // The path of Resources.Load<TextAsset> of the index of a directory preloaded into the .data file of a WebGL build.
-        public static string IndexResource(string name)
-        {
-            return $"{Folder}/{name}.index";
-        }
-
         // The index of the build with this manifest hash (ContentIndex.ManifestHash), in the folder of the directory.
         public static string IndexFile(string manifestHash)
         {

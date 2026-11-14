@@ -93,7 +93,7 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator Preloaded_FetchedByBinding_EnsureLoadedWithoutRetain() => UniTask.ToCoroutine(async () =>
         {
-            var store = new FetchedContentStore(new CopyContentRangeSource(ContentTestPaths.Archive), Path.GetFullPath(FetchedFolder), ContentOptions.DefaultRangeGap);
+            var store = new FetchedContentStore(new CopyContentRangeSource(ContentTestPaths.Archive), Path.GetFullPath(FetchedFolder), ContentOptions.DefaultRangeGap, _index);
             var directory = await ContentDirectory.Register(_lifetime, _index, store);
             var loader = new ContentLoader(directory);
             var root = directory.RootAssets<ContentRoot>().Single();

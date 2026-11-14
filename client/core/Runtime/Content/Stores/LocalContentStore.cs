@@ -15,7 +15,7 @@ namespace Internal
 
         public string LocalPath { get; }
 
-        public UniTask Prepare(IReadOnlyLifetime lifetime, ContentIndex index)
+        public UniTask Prepare(IReadOnlyLifetime lifetime)
         {
             // No check of the folder here: on WebGL a preloaded directory is read through the URL of StreamingAssets,
             // which System.IO does not see; a missing folder fails the registration.

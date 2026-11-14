@@ -224,7 +224,7 @@ namespace Internal.Tests
 
         private async UniTask<(ContentLoader, ContentTestReferences)> RegisterFetched()
         {
-            var store = new FetchedContentStore(new CopyContentRangeSource(ContentTestPaths.Archive), Path.GetFullPath(FetchedFolder), ContentOptions.DefaultRangeGap);
+            var store = new FetchedContentStore(new CopyContentRangeSource(ContentTestPaths.Archive), Path.GetFullPath(FetchedFolder), ContentOptions.DefaultRangeGap, _index);
             var directory = await ContentDirectory.Register(_lifetime, _index, store);
             return (new ContentLoader(directory), directory.RootAssets<ContentTestReferences>().Single());
         }

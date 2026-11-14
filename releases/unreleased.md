@@ -171,3 +171,22 @@ client/Packages/manifest.json`).
 
 Сделать: `grep -rn "AddContentDirectory\|IContentDirectories" client/Assets --include=*.cs` - убрать `await` перед
 `AddContentDirectory`, `_directories.Get(name)` в коде после старта заменить на `await _directories.Wait(lifetime, name)`.
+
+### Контент: предзагруженный каталог WebGL без индекса
+
+Кого касается: клиент, игры с `"IsPreloaded": true` каталога (`Content` / `ExtraContent` в `ProjectSettings/Framework.json`) на WebGL.
+`BREAKING` только для кода, который читает `IContentLoader.Progress(...)` предзагруженного контента или собирает `ContentDirectory` /
+`FetchedContentStore` сам (тесты).
+
+Индекс предзагруженного каталога больше не кладётся в `.data` (`Resources/Content/<name>.index` удалён, `ContentIndex.FromResource`,
+`ContentPaths.IndexResource`, `ContentBuildFiles.IndexAsset` / `WriteIndex` удалены): все файлы реальны с начала, загрузке нечего
+скачивать, а разбор JSON индекса стоил ~120 мс старта на Mali-телефоне (`.data` меньше на размер индекса, у autobattler -83 КБ gzip).
+Плеер берёт `PreloadedContentFiles`: пустые списки файлов, поэтому `Progress(...)` предзагруженного объекта / сцены теперь
+`Total` 0 (как у контента на диске standalone и в Play Mode). Ссылка другого каталога, загруженная лоадером предзагруженного,
+падает теперь в движке (`The engine did not load ...`), а не `KeyNotFoundException` индекса. `IContentStore.Prepare(lifetime)` без
+индекса, `FetchedContentStore` получает индекс в конструкторе (`new FetchedContentStore(source, folder, gap, index)`).
+
+Сделать: ничего, если игра не показывает прогресс предзагруженного контента. Проверка:
+`grep -rn "\.Progress(" client/Assets --include=*.cs` - полоса загрузки по предзагруженному объекту или сцене должна принимать
+`Total == 0` (`IsDone` сразу true). Новые спаны стартового трейса: `Content: stamp`, `Content: index validate`, `Content: bind catalogues`,
+`Group: <name>` (синхронный первый доступ к предзагруженной группе), `Content: load <type>` (`LoadNow`).

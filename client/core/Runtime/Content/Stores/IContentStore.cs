@@ -14,7 +14,7 @@ namespace Internal
 
         // Makes the folder registrable: the archive with its header, the manifest and the root files real, BuildManifestHash.txt;
         // every other file of the index is zeros of its span until it is fetched. The engine mounts the archive at the registration.
-        UniTask Prepare(IReadOnlyLifetime lifetime, ContentIndex index);
+        UniTask Prepare(IReadOnlyLifetime lifetime);
 
         // Makes the files real, each fetched once for all callers. Progress: the bytes of the files real so far.
         // Throws OperationCanceledException when the lifetime ends first; a file nobody else waits for stays zeros.

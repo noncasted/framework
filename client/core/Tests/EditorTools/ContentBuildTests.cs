@@ -234,11 +234,9 @@ namespace Internal.EditorTests
             Assert.That(File.ReadAllLines(ContentBuildFiles.PreloadManifest), Is.EquivalentTo(expected), "The archive into the .data file");
             Assert.That(Stamp().IsPreloaded, Is.True);
 
-            // The index is a TextAsset of Resources next to the stamp, read without a request; the json has no indentation.
-            var asset = AssetDatabase.LoadAssetAtPath<TextAsset>(ContentBuildFiles.IndexAsset(Name));
-            Assert.That(asset, Is.Not.Null, ContentBuildFiles.IndexAsset(Name));
-            Assert.That(asset.text, Does.Not.Contain("\n"));
-            Assert.That(ContentIndex.FromJson(asset.text).ManifestHash, Is.EqualTo(Stamp().ManifestHash));
+            // A preloaded directory has nothing to fetch: the player reads no index of it, only the stamp is in Resources.
+            Assert.That(AssetDatabase.FindAssets("t:TextAsset", new[] { ContentBuildFiles.StampFolder }).Select(AssetDatabase.GUIDToAssetPath),
+                Is.EquivalentTo(new[] { ContentBuildFiles.StampAsset(Name) }));
         }
 
         [Test]
