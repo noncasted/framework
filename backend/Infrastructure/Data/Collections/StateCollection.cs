@@ -16,24 +16,6 @@ public interface IStateCollection<TKey, TValue> : IReadOnlyDictionary<TKey, TVal
     Task OnUpdatedTransactional(TKey key, TValue value);
 }
 
-public class StateCollectionDurableQueueId<TKey, TValue> : IDurableQueueId
-{
-    public string ToRaw()
-    {
-        return $"state-collection-{typeof(TKey).FullName}-{typeof(TValue).FullName}";
-    }
-}
-
-// An update is a change notification: the receiver re-reads the record from storage (StateCollection.Refresh),
-// so Value and UpdatedAt are not used for ordering. Kept in the message for compatibility with queued side effects.
-[GenerateSerializer]
-public class StateCollectionUpdate<TKey, TValue>
-{
-    [Id(0)] public required TKey Key { get; init; }
-    [Id(1)] public required TValue Value { get; init; }
-    [Id(2)] public DateTime UpdatedAt { get; init; }
-}
-
 // In-memory copy of all records of one state type, kept in sync through a durable queue.
 //
 // Ordering: the database is the source of truth. A notification only names the key; the collection re-reads the

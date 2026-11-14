@@ -28,15 +28,15 @@ A channel observer has one handler; a queue observer has as many as the `Listen`
 
 ## DurableQueue
 
-Push path: `PushTransactional` (inside a transaction) / `PushDirect` writes a `DurableQueueSideEffect` into the side-effects tables. The side-effects worker executes it: `IDurableQueue.Push` sends the message to every current observer, **sequentially**.
+Push path: `PushTransactional` (inside a transaction) / `PushDirect` writes a `DurableQueueSideEffect` into the side-effects tables. The side-effects worker executes it: `IDurableQueue.Push` sends the message to every current observer, **in parallel** (an observer on a dead silo holds the grain for one call timeout).
 
 | Outcome of `Push` | Side effect |
 |-------------------|-------------|
 | Every current observer accepted | completed, removed from the queue |
-| No observers, or one of them failed | `Push` throws, side effect goes to the retry queue (`IncrementalRetryDelay`), after `MaxRetryCount` - dead letter table. The retry goes only to the observers that have not got the message (remembered in the activation for an hour) |
+| No observers, or one of them failed | `Push` throws, side effect goes to the retry queue (`IncrementalRetryDelay`), after `MaxRetryCount` - dead letter table. The retry goes only to the observers that have not got the message (remembered in the activation for an hour) and keeps failing while an observer that failed has not resubscribed or removed itself |
 
 Consequences:
-- **Delivered = received by the observers attached at the time.** A failed observer is removed and gets the message on a retry after it resubscribes; an observer attached after the push completed never gets it. Do not use a durable queue as a guaranteed broadcast to several processes.
+- **Delivered = received by the observers attached at the time.** A failed observer is removed and gets the message on a retry after it resubscribes (the retries fail until then, an observer that never comes back sends the message to the dead letter table); an observer attached after the push completed never gets it. Do not use a durable queue as a guaranteed broadcast to several processes.
 - **At least once.** A worker crash after `Push` and before completion re-queues the side effect (`RequeueStuck` on coordinator start), and a reactivation between retries delivers to everyone again: handlers must be idempotent.
 - **No ordering** between messages: side effects run concurrently (`ConcurrentExecutions`) and retries reorder them.
 - Observers of one message are called in parallel; a slow observer holds the push and its side-effect execution slot.

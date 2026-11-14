@@ -56,9 +56,9 @@ public class DurableQueuePartialDeliveryTests
                 await sideEffect.Execute(orleans);
                 break;
             }
-            catch (Exception)
+            catch (InvalidOperationException)
             {
-                // Retried as the worker would.
+                // A partial delivery: retried as the worker would.
             }
         }
 

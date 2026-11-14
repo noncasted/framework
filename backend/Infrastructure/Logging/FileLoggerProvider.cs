@@ -6,21 +6,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Logging;
 
-// Dev-only: registered by ServiceDefaultsExtensions.AddFileLogging in the Development environment.
-// The properties are init, not private set: ConfigurationBinder writes init and silently skips a private setter.
-public class FileLoggerOptions
-{
-    public const string SectionName = "FileLogging";
-
-    public bool Enabled { get; init; } = true;
-
-    // Directory for {service}.log. Empty: backend/.telemetry/logs of the repository the service runs from.
-    public string? Directory { get; init; }
-
-    // Applied on top of the Logging configuration filters.
-    public LogLevel MinLevel { get; init; } = LogLevel.Trace;
-}
-
 // Log calls only enqueue a line; one background writer appends to the file and flushes once the queue is drained,
 // so concurrent loggers never wait on the file or on each other.
 public sealed class FileLoggerProvider : ILoggerProvider
@@ -134,35 +119,5 @@ public sealed class FileLoggerProvider : ILoggerProvider
 
             await _writer.FlushAsync();
         }
-    }
-}
-
-internal sealed class FileLogger : ILogger
-{
-    public FileLogger(string categoryName, FileLoggerProvider provider)
-    {
-        _categoryName = categoryName;
-        _provider = provider;
-    }
-
-    private readonly string _categoryName;
-    private readonly FileLoggerProvider _provider;
-
-    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-    public bool IsEnabled(LogLevel logLevel) => _provider.IsEnabled(logLevel);
-
-    public void Log<TState>(
-        LogLevel logLevel,
-        EventId eventId,
-        TState state,
-        Exception? exception,
-        Func<TState, Exception?, string> formatter)
-    {
-        if (IsEnabled(logLevel) == false)
-            return;
-
-        var message = formatter(state, exception);
-        _provider.WriteEntry(_categoryName, logLevel, message, exception);
     }
 }

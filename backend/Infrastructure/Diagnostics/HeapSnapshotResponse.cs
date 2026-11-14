@@ -1,12 +1,6 @@
 namespace Infrastructure.Diagnostics;
 
 [GenerateSerializer]
-public class HeapSnapshotRequest
-{
-    [Id(0)] public bool Deep { get; init; }
-}
-
-[GenerateSerializer]
 public class HeapSnapshotResponse
 {
     [Id(0)] public string ServiceName { get; init; } = "";
@@ -49,12 +43,4 @@ public class HeapSnapshotResponse
     {
         CollectDurationMs = milliseconds;
     }
-}
-
-[GenerateSerializer]
-public class HeapTypeEntry
-{
-    [Id(0)] public string TypeName { get; init; } = "";
-    [Id(1)] public long Count { get; init; }
-    [Id(2)] public long TotalBytes { get; init; }
 }

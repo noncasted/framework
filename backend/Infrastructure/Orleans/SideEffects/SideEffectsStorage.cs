@@ -35,7 +35,9 @@ public interface ISideEffectsStorage
     // Move entries from side_effects_retry_queue → side_effects_queue where retry_after <= now
     Task RequeueReady();
 
-    // At startup: move everything from side_effects_processing back to side_effects_queue
+    // An action of an operator (the console): moves everything from side_effects_processing back to the queue, the
+    // entries a live worker is executing right now too, so they run twice. Never on a start: every worker requeues the
+    // entries of a gone worker itself at its first scan and then every StuckCheckIntervalSeconds (RequeueStuckOlderThan).
     Task RequeueStuck();
 
     // Periodically: move entries stuck in processing longer than `age` back to queue

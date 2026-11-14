@@ -1,0 +1,142 @@
+using System.Collections.Concurrent;
+using Common;
+using FluentAssertions;
+using Framework.Tests.Fixtures;
+using Infrastructure;
+using Infrastructure.Startup;
+using Internal;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using Xunit;
+
+namespace Framework.Tests.State;
+
+// The dead letter of a failed transactional effect keeps its cause; the entries a worker took before its stop are
+// executed, not left in processing until the stuck check of another worker.
+[Collection(nameof(OrleansIntegrationCollection))]
+public class SideEffectsWorkerFailureTests
+    (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)
+{
+    [Fact]
+    public async Task TransactionalEffectFails_DeadLetterKeepsCause()
+    {
+        var marker = $"cause-{Guid.NewGuid():N}";
+        var storage = GetSiloService<ISideEffectsStorage>();
+        await storage.Write(new FailingTransactionalSideEffect { Marker = marker });
+
+        var worker = CreateWorker(storage, new SideEffectsOptions
+        {
+            ScanDelay = 50,
+            EmptyScanDelay = 50,
+            MaxRetryCount = 0
+        });
+
+        await worker.StartAsync(TestContext.Current.CancellationToken);
+        var hasCause = await WaitDeadLetter(marker);
+        await worker.StopAsync(TestContext.Current.CancellationToken);
+
+        hasCause.Should().BeTrue("the dead letter must keep the error of the effect");
+    }
+
+    [Fact]
+    public async Task Stop_WhileReading_TakenEntriesExecuted()
+    {
+        var storage = Substitute.For<ISideEffectsStorage>();
+        var read = new TaskCompletionSource<IReadOnlyList<SideEffectEntry>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var reads = 0;
+
+        storage.Read(Arg.Any<int>()).Returns(_ => Interlocked.Increment(ref reads) == 1
+            ? read.Task
+            : Task.FromResult<IReadOnlyList<SideEffectEntry>>(Array.Empty<SideEffectEntry>()));
+
+        var trackingId = Guid.NewGuid();
+        var entryId = Guid.NewGuid();
+
+        var worker = CreateWorker(storage, new SideEffectsOptions { ScanDelay = 50, EmptyScanDelay = 50 });
+        await worker.StartAsync(TestContext.Current.CancellationToken);
+        await TestWait.Until(() => Volatile.Read(ref reads) >= 1);
+
+        var stop = worker.StopAsync(TestContext.Current.CancellationToken);
+
+        // The entries are already moved to processing by the read: nobody else takes them before the stuck threshold.
+        read.SetResult(new[]
+        {
+            new SideEffectEntry { Id = entryId, Effect = new RecordingSideEffect { TrackingId = trackingId }, RetryCount = 0 }
+        });
+
+        await stop;
+
+        RecordingSideEffect.Executions.ContainsKey(trackingId).Should().BeTrue("a taken entry must not hang in processing");
+        await storage.Received(1).CompleteProcessing(entryId);
+    }
+
+    private async Task<bool> WaitDeadLetter(string marker)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+
+        while (DateTime.UtcNow < deadline)
+        {
+            await using var connection = await Database.DataSource.OpenConnectionAsync(TestContext.Current.CancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT error_message FROM side_effects_dead_letter WHERE payload::text LIKE @marker";
+            command.Parameters.AddWithValue("marker", $"%{marker}%");
+
+            if (await command.ExecuteScalarAsync(TestContext.Current.CancellationToken) is string message)
+                return message.Contains(marker);
+
+            await Task.Delay(50, TestContext.Current.CancellationToken);
+        }
+
+        throw new TimeoutException("No dead letter entry");
+    }
+
+    private SideEffectsWorker CreateWorker(ISideEffectsStorage storage, SideEffectsOptions options)
+    {
+        var flags = Substitute.For<IClusterFlags>();
+        flags.SideEffectsEnabled.Returns(true);
+
+        var config = Substitute.For<ISideEffectsConfig>();
+        config.Value.Returns(options);
+
+        var loopObserver = Substitute.For<IServiceLoopObserver>();
+        loopObserver.IsOrleansStarted.Returns(new ViewableProperty<bool>(true));
+
+        var participant = Substitute.For<IClusterParticipantContext>();
+        participant.IsInitialized.Returns(new ViewableProperty<bool>(true));
+
+        return new SideEffectsWorker(
+            storage,
+            GetSiloService<ITransactions>(),
+            GetSiloService<IOrleans>(),
+            loopObserver,
+            config,
+            flags,
+            participant,
+            NullLogger<SideEffectsWorker>.Instance);
+    }
+}
+
+[GenerateSerializer]
+public class FailingTransactionalSideEffect : ITransactionalSideEffect
+{
+    [Id(0)] public required string Marker { get; init; }
+
+    public Task Execute(IOrleans orleans)
+    {
+        throw new InvalidOperationException(Marker);
+    }
+}
+
+[GenerateSerializer]
+public class RecordingSideEffect : ISideEffect
+{
+    public static readonly ConcurrentDictionary<Guid, bool> Executions = new();
+
+    [Id(0)] public Guid TrackingId { get; init; }
+
+    public Task Execute(IOrleans orleans)
+    {
+        Executions[TrackingId] = true;
+        return Task.CompletedTask;
+    }
+}
