@@ -9,11 +9,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Console;
 
-public interface ISideEffectsAggregator
-{
-    IViewableProperty<SideEffectsAggregate> Aggregate { get; }
-}
-
 public class SideEffectsAggregatorService : IHostedService, ISideEffectsAggregator
 {
     public SideEffectsAggregatorService(
