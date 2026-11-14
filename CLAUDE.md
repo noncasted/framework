@@ -118,13 +118,17 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
 - **Cluster.** Service roles are strings: the project declares its `ServiceTag`s and the required set
   (`ConfigureRequiredServices`); a game server calls `PublishGameServerUrl`. Game configs: `AddAddressableState` +
   an `ICoordinatorSetupCompleted` with `ConfigsInitializer.Init`. Game switches: `IClusterFeatures.SetGameFlag` /
-  `IsGameFlagEnabled`.
+  `IsGameFlagEnabled`. A replaced coordinator leaves its deploy (`IDeployContext.Leave()`): what runs on `DeployLifetime`
+  stops there (`OnlineTracker`, channel listeners); the rows of a deploy are written through `DeploymentStateRow.Change`.
+  A feature registers its own meter and trace source (`AddBackendMeter`, `AddTraceSource`) in its `Add*`.
 - **Console.** A Razor class library: the project keeps its home page and game pages in its own assembly (add both
   assemblies to the router), sets role icons (`ServiceRoleIcons`), registers game flags (`AddConsoleGameFlag`) and
   extra infrastructure cards (`AddConsoleInfrastructureCard`, shown on `/infrastructure`), puts `HomeClusterSection` (Features,
   Client Telemetry) and `OnlineWidget` (online of the coordinator's `AddOnlineTracker`, page `/online`) on its home, and adds `tools/framework/backend/Console` to the
   Tailwind content paths. The `app.css` of a game is committed and built by hand, so no build of the framework refreshes it: a page
-  of the framework uses only the classes that are in the `app.css` of every game.
+  of the framework uses only the classes that are in the `app.css` of every game. The infrastructure pages need
+  `AddConsoleInfrastructure(ConsoleInfrastructureOptions)` (`CoordinatorConfigFolder`: the folder of the coordinator configs, no
+  Write JSON button without it) and the table of the audit log, created by the deploy setup with `AuditLogTable.Create(connection)`.
 - **Client telemetry.** `backend/ClientTelemetry`, off until the switch on the Features page of the console. The game calls
   `AddClientTelemetrySessions` on the silo, `AddClientTelemetry` on the meta gateway and `AddClientTelemetryReader` on the console (the
   panel appears from it, no other registration), maps `MapClientTelemetryRead().RequireConsoleToken()` and keeps the commands of its
@@ -288,7 +292,11 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   (`SessionCore` with `isReconnectable`, `SeatAway`, `ExpireAway`; the window is counted by the host in real time). `IUser.Id` is the id of the user in this session (sent to the clients),
   `IUser.BackendId` the meta id (never sent). Bots: `IUserFactory.CreateBot`. Entities built by the backend:
   `IEntityFactory.Create(seat)`. Users and seats are created in the execution queue of the session only. The factory
-  of the sessions, the gateway and the search stay in the game.
+  of the sessions, the gateway and the search stay in the game. `ISession.Reserve(userId)` returns `SessionReservation`, the
+  reason of a refusal (`HeldOnlyByOwnStale`: only a stale connection of the same user holds it, the session is closing). The
+  owner of a `Connection` subscribes its `Reader` before `Run` (`Run` without a handler throws) and returns only after
+  `Closed`: a socket that ends with the handler takes the close frame with it. The server sends no requests to a client; a
+  message it cannot take closes the connection; a handshake is limited to 16 KiB.
 - **Hosting.** `backend/Hosting`. A game server calls `AddSessionHosting(LobbyOptions)`: the sessions collection
   (`ISessionsCollection`, feeds `LiveSessionsData`), the lobby sessions (`ILobbySessions`: create, join by a code,
   the lobby of the late players of a running match), the leases of the lobby codes (`ILobbyCodeLeases`,
@@ -321,7 +329,7 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1565, common 96, Verify 168, control 23, telemetry 84, EditMode 1185 (4 of them skipped, the
+Release build replaces it. The expected numbers: backend 1694, common 96, Verify 168, control 23, telemetry 84, EditMode 1203 (4 of them skipped, the
 benchmarks of `ContainerBenchmarkTests`), PlayMode 120 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 
