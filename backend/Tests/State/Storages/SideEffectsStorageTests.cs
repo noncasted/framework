@@ -206,19 +206,6 @@ public class SideEffectsStorageTests(SideEffectTestFixture fixture)
     }
 
     [Fact]
-    public async Task RequeueStuck_MovesEverythingBackWithTheirCounts()
-    {
-        var entry = await WriteAndRead();
-
-        await Storage.RequeueStuck();
-
-        var stats = await Storage.GetStats();
-        stats.ProcessingCount.Should().Be(0);
-        stats.QueueCount.Should().Be(1);
-        (await Storage.Read(1)).Single().Id.Should().Be(entry.Id);
-    }
-
-    [Fact]
     public async Task RequeueStuckOlderThan_OldEntry_MovedAndLogged()
     {
         var entry = await WriteAndRead();

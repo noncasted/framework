@@ -96,6 +96,11 @@ public static class MessagingExtensions
         builder.Add<RuntimeChannelClient>()
                .As<IRuntimeChannelClient>();
 
+        builder.AddBackendMeter()
+               .AddTraceSource(DurableQueueTelemetry.Source)
+               .AddTraceSource(RuntimePipeTelemetry.Source)
+               .AddTraceSource(RuntimeChannelTelemetry.Source);
+
         return builder;
     }
 }

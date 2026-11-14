@@ -105,6 +105,7 @@
 @code {
     [Inject] private ISideEffectsAggregator Aggregator { get; set; } = null!;
     [Inject] private ISideEffectsStorage Storage { get; set; } = null!;
+    [Inject] private ISideEffectsConfig Config { get; set; } = null!;
     [Inject] private ToastService ToastService { get; set; } = null!;
 
     private SideEffectsAggregate _aggregate = new();
@@ -123,7 +124,11 @@
 
     private Task RequeueReady() => Operate(() => Storage.RequeueReady(), "Ready entries requeued", "Requeue ready");
 
-    private Task RequeueStuck() => Operate(() => Storage.RequeueStuck(), "Stuck entries requeued", "Requeue stuck");
+    // The same threshold as the workers: an entry its live worker still touches is not taken away from it.
+    private Task RequeueStuck() => Operate(
+        () => Storage.RequeueStuckOlderThan(TimeSpan.FromMinutes(Config.Value.StuckThresholdMinutes)),
+        "Stuck entries requeued",
+        "Requeue stuck");
 
     private Task RequeueEntry(Guid id) => Operate(() => Storage.RequeueRetryEntry(id), "Entry requeued", "Requeue entry");
 

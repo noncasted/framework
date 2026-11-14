@@ -39,7 +39,7 @@ internal class RuntimeChannelCatchUpBuffer
     {
         if (lastSeenSequence > _sequenceNumber)
         {
-            BackendMetrics.ChannelGapDetected.Add(1);
+            RuntimeChannelTelemetry.GapDetected.Add(1);
 
             _logger.LogWarning(
                 "[Messaging] [Channel] Sequence reset/gap detected on {ChannelName}: requested seq {RequestedSeq}, current seq {CurrentSeq}",
@@ -82,13 +82,13 @@ internal class RuntimeChannelCatchUpBuffer
 
         if (messages.Count > 0)
         {
-            BackendMetrics.ChannelCatchUpExecuted.Add(1);
-            BackendMetrics.ChannelCatchUpMessages.Record(messages.Count);
+            RuntimeChannelTelemetry.CatchUpExecuted.Add(1);
+            RuntimeChannelTelemetry.CatchUpMessages.Record(messages.Count);
         }
 
         if (gapDetected)
         {
-            BackendMetrics.ChannelGapDetected.Add(1);
+            RuntimeChannelTelemetry.GapDetected.Add(1);
 
             _logger.LogWarning(
                 "[Messaging] [Channel] Gap detected on {ChannelName}: requested seq {RequestedSeq}, oldest available {OldestSeq}, current seq {CurrentSeq}",

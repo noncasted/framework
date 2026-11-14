@@ -16,6 +16,9 @@ public static class TaskSchedulingExtensions
         builder.Add<TaskBalancer>()
                .As<ITaskBalancer>();
 
+        builder.AddBackendMeter()
+               .AddTraceSource(TaskBalancerTelemetry.Source);
+
         return builder;
     }
 }

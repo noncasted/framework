@@ -66,7 +66,7 @@ public class DurableQueue : Grain, IDurableQueue
     public async Task Push(object message, Guid correlationId = default, Guid messageId = default)
     {
         var queueName = this.GetPrimaryKeyString();
-        using var activity = TraceExtensions.MessagingDurableQueue.StartActivity("DurableQueue.Push");
+        using var activity = DurableQueueTelemetry.Source.StartActivity("DurableQueue.Push");
         activity?.SetTag("messaging.queue", queueName);
         activity?.SetTag("message.type", message.GetType().Name);
         activity?.SetTag("observer.count", _observers.Count);
@@ -74,12 +74,12 @@ public class DurableQueue : Grain, IDurableQueue
         if (correlationId != Guid.Empty)
             activity?.SetTag("messaging.correlation_id", correlationId);
 
-        BackendMetrics.DurableQueuePushed.Add(1);
-        BackendMetrics.DurableQueueObserverCount.Record(_observers.Count);
+        DurableQueueTelemetry.Pushed.Add(1);
+        DurableQueueTelemetry.ObserverCount.Record(_observers.Count);
 
         if (_observers.Count == 0)
         {
-            BackendMetrics.DurableQueueNoSubscribers.Add(1);
+            DurableQueueTelemetry.NoSubscribers.Add(1);
 
             _logger.LogWarning(
                 "[Messaging] [DurableQueue] No active subscribers for queue '{QueueName}' (correlation {CorrelationId})",
@@ -126,7 +126,7 @@ public class DurableQueue : Grain, IDurableQueue
             failedCount++;
             data.Failed.Add(observer.Id);
             _observers.Remove(observer.Id);
-            BackendMetrics.DurableQueueDeliveryFailure.Add(1);
+            DurableQueueTelemetry.DeliveryFailure.Add(1);
 
             _logger.LogError(error,
                 "[Messaging] [DurableQueue] Delivering message from {QueueName} to observer {ObserverId} failed (correlation {CorrelationId})",

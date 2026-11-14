@@ -21,7 +21,7 @@ internal class DirectStateWriter
 
     public async Task Write(StateWriteRequest request)
     {
-        using var watch = MetricWatch.Start(BackendMetrics.StateWriteDuration);
+        using var watch = MetricWatch.Start(StateTelemetry.WriteDuration);
 
         var records = request.Records;
 
@@ -37,8 +37,8 @@ internal class DirectStateWriter
         }
         finally
         {
-            BackendMetrics.StateWriteTotal.Add(1);
-            BackendMetrics.StateWriteBatchSize.Record(records.Count);
+            StateTelemetry.WriteTotal.Add(1);
+            StateTelemetry.WriteBatchSize.Record(records.Count);
         }
     }
 
@@ -49,7 +49,7 @@ internal class DirectStateWriter
         if (identities.Count == 0)
             return;
 
-        using var watch = MetricWatch.Start(BackendMetrics.StateDeleteDuration);
+        using var watch = MetricWatch.Start(StateTelemetry.DeleteDuration);
 
         try
         {
@@ -63,7 +63,7 @@ internal class DirectStateWriter
         }
         finally
         {
-            BackendMetrics.StateDeleteTotal.Add(1);
+            StateTelemetry.DeleteTotal.Add(1);
         }
     }
 
