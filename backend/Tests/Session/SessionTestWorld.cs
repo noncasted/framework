@@ -107,7 +107,7 @@ public class TestSession
     // The search / the lobby: a place reserved for the user.
     public bool Reserve(Guid backendId)
     {
-        return Session.TryReserve(backendId);
+        return Session.Reserve(backendId) == SessionReservation.Reserved;
     }
 
     // The gateway: the place check, then the user is created in the queue. Null is the refusal.

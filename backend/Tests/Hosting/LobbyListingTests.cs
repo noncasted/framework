@@ -471,8 +471,8 @@ public class LobbyListingTests
         var match = Substitute.For<ISession>();
         match.Type.Returns(SessionType.Match);
         match.HasFreePlace(Arg.Any<Guid>()).Returns(true);
-        match.TryReserve(Arg.Any<Guid>()).Returns(false);
-        match.IsClosed.Returns(false, false, false, true);
+        match.Reserve(Arg.Any<Guid>()).Returns(SessionReservation.Full, SessionReservation.Closed);
+        match.IsClosed.Returns(false);
 
         var collection = Substitute.For<ISessionsCollection>();
 
@@ -563,7 +563,7 @@ public class LobbyListingTests
         lobby.Type.Returns(SessionType.Lobby);
         lobby.Lifetime.Returns(lifetime);
         lobby.IsClosed.Returns(isClosed);
-        lobby.TryReserve(Arg.Any<Guid>()).Returns(reserves);
+        lobby.Reserve(Arg.Any<Guid>()).Returns(reserves == true ? SessionReservation.Reserved : SessionReservation.Closed);
 
         return lobby;
     }

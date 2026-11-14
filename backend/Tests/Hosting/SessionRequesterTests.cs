@@ -5,6 +5,7 @@ using Framework.Tests.Cluster;
 using Framework.Tests.Security;
 using Framework.Tests.Session;
 using Game.Hosting;
+using Game.Session;
 using Infrastructure;
 using Internal;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -418,7 +419,7 @@ public class SessionRequesterTests
         match.Session.IsPrivate.Should().BeTrue();
         match.Options.ExpectedUsers.Should().Be(1);
         match.Options.MaxUsers.Should().Be(1);
-        match.Session.TryReserve(Guid.NewGuid()).Should().BeFalse();
+        match.Session.Reserve(Guid.NewGuid()).Should().NotBe(SessionReservation.Reserved);
         meta.Game.Enter(result.SessionId, userId).Should().NotBeNull();
 
         meta.Pipe.Count<SessionPayloads.Create.Request>().Should().Be(1);

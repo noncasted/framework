@@ -28,11 +28,11 @@ public interface ISession
     // also for a wait that begins after it; cancelled when the session ends before that.
     Task AllUsersConnected { get; }
 
-    // Search, lobby: reserves a place for the user, false if the session is closed or full
-    // (SessionCreateOptions.MaxUsers). The user that gets a place comes anew: its connections still held here are
-    // stale and are dropped (DropConnections); a session held only by them is refused (ISessionAdmission.TryReserve)
-    // and they are dropped too. Any other refusal leaves a live connection of the user alone.
-    bool TryReserve(Guid userId);
+    // Search, lobby: reserves a place for the user, otherwise the reason (sealed, closed, full - SessionCreateOptions.MaxUsers).
+    // The user that gets a place comes anew: its connections still held here are stale and are dropped
+    // (DropConnections); a session held only by them is refused (HeldOnlyByOwnStale) and they are dropped too, so the
+    // session closes. Any other refusal leaves a live connection of the user alone.
+    SessionReservation Reserve(Guid userId);
 
     // Any thread: the user comes anew (a search, a reservation), so its connections still held by this session belong
     // to a client lost without a close (a domain reload in the editor, a crash) - they are dropped in the queue.
@@ -112,23 +112,23 @@ public class Session : ISession
     public IExecutionQueue ExecutionQueue { get; }
     public Task AllUsersConnected => _start.AllUsersConnected;
 
-    public bool TryReserve(Guid userId)
+    public SessionReservation Reserve(Guid userId)
     {
-        if (_admission.TryReserve(userId, _options.MaxUsers, GetNow()) == false)
-        {
-            // The stale connections of the user are all that holds the session: dropped, it closes.
-            if (_admission.IsHeldOnlyBy(userId) == true)
-                DropConnections(userId);
+        var reservation = _admission.Reserve(userId, _options.MaxUsers, GetNow());
 
-            return false;
-        }
+        // The stale connections of the user are all that holds the session: dropped, it closes.
+        if (reservation == SessionReservation.HeldOnlyByOwnStale)
+            DropConnections(userId);
+
+        if (reservation != SessionReservation.Reserved)
+            return reservation;
 
         // After the reservation, still before the user can connect with it: the drop runs before the new connection
         // in the queue (FIFO).
         DropConnections(userId);
 
         _closer.ScheduleEmptyCheck(_options.JoinTimeout);
-        return true;
+        return reservation;
     }
 
     public void DropConnections(Guid userId)

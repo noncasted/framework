@@ -106,7 +106,7 @@ public class LobbySessions : ILobbySessions
         _codeLeases.Hold(code, session);
         session.Lifetime.Listen(() => _reservations.Forget(session));
 
-        if (session.TryReserve(userId) == false)
+        if (session.Reserve(userId) != SessionReservation.Reserved)
             throw new InvalidOperationException($"Created lobby session {sessionId} rejected the reservation");
 
         _reservations.OnReserved(session, userId);
@@ -131,27 +131,36 @@ public class LobbySessions : ILobbySessions
         if (_collection.TryGet(lobbySessionId, out var session) == false || session.Type != SessionType.Lobby)
             return LobbyJoined.Refused(LobbyJoinStatus.NotFound);
 
-        if (session.TryReserve(userId) == true)
+        var reservation = session.Reserve(userId);
+
+        switch (reservation)
         {
-            _reservations.OnReserved(session, userId);
+            case SessionReservation.Reserved:
+                _reservations.OnReserved(session, userId);
 
-            return new LobbyJoined
-            {
-                Status = LobbyJoinStatus.Ok,
-                SessionId = session.Id
-            };
+                return new LobbyJoined
+                {
+                    Status = LobbyJoinStatus.Ok,
+                    SessionId = session.Id
+                };
+
+            // Sealed at zero of the countdown: the match exists, but the registry has not been told yet - the next
+            // join by the code gets to the match. Also for a sealed lobby its users have already left.
+            case SessionReservation.Sealed:
+                return LobbyJoined.Refused(LobbyJoinStatus.Started);
+
+            // A closed session keeps its code until its lifetime is terminated from the session queue. A lobby held
+            // only by the stale connection of this user closes once it is dropped: the room is gone, not full.
+            case SessionReservation.Closed:
+            case SessionReservation.HeldOnlyByOwnStale:
+                return LobbyJoined.Refused(LobbyJoinStatus.NotFound);
+
+            case SessionReservation.Full:
+                return LobbyJoined.Refused(LobbyJoinStatus.Full);
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(reservation), reservation, null);
         }
-
-        // Sealed at zero of the countdown: the match exists, but the registry has not been told yet - the next
-        // join by the code gets to the match. Also for a sealed lobby its users have already left.
-        if (session.IsSealed == true)
-            return LobbyJoined.Refused(LobbyJoinStatus.Started);
-
-        // A closed session keeps its code until its lifetime is terminated from the session queue.
-        if (session.IsClosed == true)
-            return LobbyJoined.Refused(LobbyJoinStatus.NotFound);
-
-        return LobbyJoined.Refused(LobbyJoinStatus.Full);
     }
 
     public LobbyJoinStatus JoinMatch(Guid lobbySessionId, Guid matchSessionId, Guid userId)

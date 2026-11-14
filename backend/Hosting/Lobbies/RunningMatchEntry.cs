@@ -42,16 +42,29 @@ internal class RunningMatchEntry
         if (_entryPolicy.CanEnterMatchNow(matchSessionId) == false)
             return LobbyJoinStatus.Started;
 
-        if (match!.TryReserve(userId) == true)
+        var reservation = match!.Reserve(userId);
+
+        switch (reservation)
         {
-            _logger.LogInformation("{UserId} [Lobby] A late player takes a place in match {SessionID}",
-                userId,
-                matchSessionId);
+            case SessionReservation.Reserved:
+                _logger.LogInformation("{UserId} [Lobby] A late player takes a place in match {SessionID}",
+                    userId,
+                    matchSessionId);
 
-            return LobbyJoinStatus.Ok;
+                return LobbyJoinStatus.Ok;
+
+            // Held only by the stale connection of the player: the match closes once it is dropped.
+            case SessionReservation.Closed:
+            case SessionReservation.HeldOnlyByOwnStale:
+                return LobbyJoinStatus.NotFound;
+
+            case SessionReservation.Sealed:
+            case SessionReservation.Full:
+                return LobbyJoinStatus.Full;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(reservation), reservation, null);
         }
-
-        return match.IsClosed == true ? LobbyJoinStatus.NotFound : LobbyJoinStatus.Full;
     }
 
     // lobbySessionId empty: a public match of the search (no code).
@@ -64,24 +77,38 @@ internal class RunningMatchEntry
         if (status != LobbyJoinStatus.Ok)
             return LobbyJoined.Refused(status);
 
-        // A lobby that is being closed is replaced: the reservation is refused only by a closed session.
+        // A lobby that is being closed is replaced: closed, or held only by the stale connection of this player (closed
+        // once it is dropped).
+        ISession? closing = null;
+
         for (var attempt = 0; attempt < 2; attempt++)
         {
-            var lobby = _lobbies.GetOrCreate(lobbySessionId, matchSessionId, code);
+            var lobby = _lobbies.GetOrCreate(lobbySessionId, matchSessionId, code, closing);
+            var reservation = lobby.Reserve(userId);
 
-            if (lobby.TryReserve(userId) == true)
+            switch (reservation)
             {
-                _reservations.OnReserved(lobby, userId);
+                case SessionReservation.Reserved:
+                    _reservations.OnReserved(lobby, userId);
 
-                return new LobbyJoined
-                {
-                    Status = LobbyJoinStatus.Ok,
-                    SessionId = lobby.Id
-                };
+                    return new LobbyJoined
+                    {
+                        Status = LobbyJoinStatus.Ok,
+                        SessionId = lobby.Id
+                    };
+
+                case SessionReservation.Closed:
+                case SessionReservation.HeldOnlyByOwnStale:
+                    closing = lobby;
+                    break;
+
+                case SessionReservation.Sealed:
+                case SessionReservation.Full:
+                    return LobbyJoined.Refused(LobbyJoinStatus.Full);
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(reservation), reservation, null);
             }
-
-            if (lobby.IsClosed == false)
-                return LobbyJoined.Refused(LobbyJoinStatus.Full);
         }
 
         throw new InvalidOperationException($"The lobby of the late players of match {matchSessionId} rejected the reservation");
