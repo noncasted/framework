@@ -6,6 +6,7 @@ namespace Framework.Tests.ClientTelemetry;
 public sealed class FakeTelemetryReader : IClientTelemetryReader
 {
     private readonly Dictionary<Guid, TelemetrySessionInfo> _sessions = new();
+    private readonly Queue<Exception> _errorReadFailures = new();
 
     public List<TelemetryStoredSample> Samples { get; } = [];
     public List<TelemetryStoredMark> Marks { get; } = [];
@@ -15,6 +16,12 @@ public sealed class FakeTelemetryReader : IClientTelemetryReader
     public void Set(TelemetrySessionInfo session)
     {
         _sessions[session.Id] = session;
+    }
+
+    // The next read of the errors throws, like a database that went away in the middle of a refresh.
+    public void FailNextErrorRead(Exception exception)
+    {
+        _errorReadFailures.Enqueue(exception);
     }
 
     public Task<TelemetrySessionInfo?> GetSession(Guid id)
@@ -30,6 +37,10 @@ public sealed class FakeTelemetryReader : IClientTelemetryReader
     public Task<IReadOnlyList<TelemetryStoredError>> GetErrors(Guid session, long afterSeq, int limit)
     {
         ErrorReads.Add(session);
+
+        if (_errorReadFailures.TryDequeue(out var failure))
+            return Task.FromException<IReadOnlyList<TelemetryStoredError>>(failure);
+
         return Task.FromResult(Page(Errors.GetValueOrDefault(session) ?? [], afterSeq, limit, error => error.Seq));
     }
 
