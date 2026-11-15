@@ -134,7 +134,7 @@ namespace Internal.Tests
             public IViewableDelegate<SocketCloseInfo> Closed { get; } = new ViewableDelegate<SocketCloseInfo>();
             public IViewableDelegate<int> Incoming => _incoming;
 
-            public IWebRtcSignaling Open(IReadOnlyLifetime lifetime, int remoteIndex)
+            public IWebRtcSignaling Open(ILifetime lifetime, int remoteIndex)
             {
                 var channel = new Channel(this);
                 _channels.Add(remoteIndex, channel);
