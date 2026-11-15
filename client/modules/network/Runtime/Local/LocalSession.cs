@@ -23,7 +23,7 @@ namespace Internal
             Id = id;
 
             Core = new SessionCore(id, type, lifetime, new UnitySessionLog(), reconnectWindow > TimeSpan.Zero);
-            Core.SeatAway.Advise(lifetime, (seat, wait) => WaitReturn(seat, wait).Forget());
+            Core.SeatAway.Advise(lifetime, (seat, wait) => WaitReturn(seat, wait).NoAwait());
 
             foreach (var service in services(Core))
                 Core.AddService(service);
@@ -42,13 +42,19 @@ namespace Internal
         public SessionCore Core { get; }
         public IReadOnlyLifetime Lifetime => _lifetime;
 
-        public SessionAuthStatus GetEntryStatus()
+        // userId: the user of the ticket. A user with a seat here returns to it (a connection the host has not seen die
+        // yet is stale and is dropped by the core, an away seat waits for it): the place is its own. A new user needs a
+        // free place: every seat counts, an away one too, as in the admission of the backend.
+        public SessionAuthStatus GetEntryStatus(Guid userId)
         {
             if (_lifetime.IsTerminated == true)
                 return SessionAuthStatus.Closed;
 
+            if (Core.Seats.Entries.ContainsKey(userId) == true)
+                return SessionAuthStatus.Ok;
+
             // Every place is taken (the user of an offline session is already in it).
-            if (Core.Users.Count >= _maxUsers)
+            if (Core.Seats.Entries.Count >= _maxUsers)
                 return SessionAuthStatus.NoReservation;
 
             return SessionAuthStatus.Ok;
@@ -57,8 +63,10 @@ namespace Internal
         // backendId: the id of the user (the seat it returns to); index: the index of its seat (0 - the next one).
         public IUser Join(LocalSessionConnection connection, Guid backendId, int index)
         {
-            if (GetEntryStatus() != SessionAuthStatus.Ok)
-                throw new InvalidOperationException($"[Network] [Local] Session {Id} can't be entered: {GetEntryStatus()}");
+            var status = GetEntryStatus(backendId);
+
+            if (status != SessionAuthStatus.Ok)
+                throw new InvalidOperationException($"[Network] [Local] Session {Id} can't be entered: {status}");
 
             var user = Core.Connect(connection.Lifetime, backendId, connection, index);
 

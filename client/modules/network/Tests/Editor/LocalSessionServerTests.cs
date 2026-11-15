@@ -4,8 +4,10 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Session;
 using MemoryPack;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using Shared;
+using UnityEngine;
 using UnityEngine.TestTools;
 
 namespace Internal.Tests
@@ -75,6 +77,99 @@ namespace Internal.Tests
             }
         });
 
+        // The guest returns with its ticket before the host has seen its old connection die: the place is its own, so a
+        // full session lets it in and the stale connection is dropped.
+        [UnityTest]
+        public IEnumerator FullSession_ReturnWithStaleConnection_Accepted() => UniTask.ToCoroutine(async () =>
+        {
+            using var first = new Client();
+            var session = first.Server.Create(Guid.NewGuid(), SessionType.Match, 1, _ => Array.Empty<IService>(), TimeSpan.FromSeconds(30));
+            var ticket = first.Server.GetTicket(session.Id, Guid.NewGuid(), 0);
+
+            Assert.AreEqual(SessionAuthStatus.Ok, (await first.Authorize(ticket)).Status);
+
+            using var second = new Client(first.Server);
+            var response = await second.Authorize(ticket);
+
+            Assert.AreEqual(SessionAuthStatus.Ok, response.Status);
+            await second.WaitOneWay<SharedSessionPlayer.LocalUpdate>();
+            await first.Closed.Task.Timeout(Timeout);
+        });
+
+        [UnityTest]
+        public IEnumerator FullSession_AnotherUser_Refused() => UniTask.ToCoroutine(async () =>
+        {
+            using var first = new Client();
+            var session = first.Server.Create(SessionType.Match, 1, _ => Array.Empty<IService>());
+
+            Assert.AreEqual(SessionAuthStatus.Ok, (await first.Authorize(first.Server.GetTicket(session.Id, Guid.NewGuid(), 0))).Status);
+
+            using var second = new Client(first.Server);
+            var response = await second.Authorize(first.Server.GetTicket(session.Id, Guid.NewGuid(), 0));
+
+            Assert.AreEqual(SessionAuthStatus.NoReservation, response.Status);
+        });
+
+        // A seat that waits for its user in the reconnect window keeps its place, as the admission of the backend.
+        [UnityTest]
+        public IEnumerator AwaySeat_KeepsItsPlace() => UniTask.ToCoroutine(async () =>
+        {
+            var serverLifetime = new Lifetime();
+
+            try
+            {
+                var server = new LocalSessionServer(serverLifetime, "offline://game");
+                var session = server.Create(Guid.NewGuid(), SessionType.Match, 2, _ => Array.Empty<IService>(), TimeSpan.FromSeconds(30));
+
+                using var stays = new Client(server);
+                Assert.AreEqual(SessionAuthStatus.Ok, (await stays.Authorize(server.GetTicket(session.Id, Guid.NewGuid(), 0))).Status);
+
+                var lost = new Client(server);
+                Assert.AreEqual(SessionAuthStatus.Ok, (await lost.Authorize(server.GetTicket(session.Id, Guid.NewGuid(), 0))).Status);
+                lost.Dispose();
+
+                await UniTask.WaitUntil(() => session.Core.Users.Count == 1).Timeout(Timeout);
+
+                using var stranger = new Client(server);
+                var response = await stranger.Authorize(server.GetTicket(session.Id, Guid.NewGuid(), 0));
+
+                Assert.AreEqual(SessionAuthStatus.NoReservation, response.Status);
+            }
+            finally
+            {
+                serverLifetime.Terminate();
+            }
+        });
+
+        // A request before the authorization fails with the error that says so, not with a NullReferenceException.
+        [UnityTest]
+        public IEnumerator RequestBeforeAuthorization_FailsWithItsError() => UniTask.ToCoroutine(async () =>
+        {
+            using var client = new Client();
+            client.Server.Create(SessionType.Match, 1, _ => Array.Empty<IService>());
+            await client.Connect();
+
+            LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException.*before the session authorization"));
+
+            try
+            {
+                await client.Writer
+                            .WriteRequest<SharedSessionService.GetResponse>(new SharedSessionService.GetRequest
+                            {
+                                Key = CounterService.ServiceKey,
+                                PropertiesIds = Array.Empty<int>()
+                            })
+                            .Timeout(Timeout);
+
+                Assert.Fail("A request before the authorization was expected to fail");
+            }
+            catch (NetworkRequestException exception)
+            {
+                Assert.AreEqual(ErrorCode.Internal, exception.Code);
+                StringAssert.Contains("before the session authorization", exception.Message);
+            }
+        });
+
         // A service of the session: the client gets its values with the response, its write reaches the service and is
         // not echoed, a write of the service itself is pushed.
         [UnityTest]
@@ -135,11 +230,16 @@ namespace Internal.Tests
 
         private class Client : IDisposable
         {
-            public Client()
+            public Client() : this(null)
+            {
+            }
+
+            // server: a server of another client (two connections to one session), a new one by default.
+            public Client(LocalSessionServer server)
             {
                 var traffic = new NetworkTraffic();
 
-                Server = new LocalSessionServer(_lifetime, "offline://game");
+                Server = server ?? new LocalSessionServer(_lifetime, "offline://game");
                 Writer = new ConnectionWriter(traffic);
                 _reader = new ConnectionReader(traffic);
 
@@ -151,7 +251,7 @@ namespace Internal.Tests
                 _reader.OneWay.Advise(_lifetime, message => _received.Add(message.Context));
                 socket.Closed.Advise(_lifetime, info => Closed.TrySetResult(info));
 
-                _connect = socket.Connect();
+                _connect = socket.Connect().Preserve();
             }
 
             private readonly Lifetime _lifetime = new();
@@ -173,6 +273,11 @@ namespace Internal.Tests
                 await client.WaitOneWay<SharedSessionPlayer.LocalUpdate>();
 
                 return client;
+            }
+
+            public UniTask Connect()
+            {
+                return _connect;
             }
 
             public async UniTask<SharedSessionAuth.Response> Authorize(string ticket)

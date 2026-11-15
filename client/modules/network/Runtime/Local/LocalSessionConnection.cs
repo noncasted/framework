@@ -35,12 +35,15 @@ namespace Internal
                 return;
             }
 
-            _session.Core.OnRequest(GetUser(), context, requestId);
+            // The user first: a message before the authorization has no session either.
+            var user = GetUser();
+            _session.Core.OnRequest(user, context, requestId);
         }
 
         protected override void OnOneWay(INetworkContext context)
         {
-            _session.Core.OnOneWay(GetUser(), context);
+            var user = GetUser();
+            _session.Core.OnOneWay(user, context);
         }
 
         private void Authorize(int requestId, SharedSessionAuth.Request auth)
@@ -49,7 +52,7 @@ namespace Internal
                 throw new LocalServerRequestException(ErrorCode.InvalidRequest, "The connection is already authorized");
 
             var session = _server.FindByTicket(auth.Ticket, out var userId, out var index);
-            var status = session == null ? SessionAuthStatus.InvalidTicket : session.GetEntryStatus();
+            var status = session == null ? SessionAuthStatus.InvalidTicket : session.GetEntryStatus(userId);
 
             // The response goes before LocalUpdate, as from the game gateway.
             Respond(requestId, new SharedSessionAuth.Response { Status = status });
