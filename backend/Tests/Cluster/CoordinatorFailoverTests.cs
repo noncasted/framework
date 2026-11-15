@@ -10,16 +10,14 @@ using Xunit;
 
 namespace Framework.Tests.Cluster;
 
-[CollectionDefinition("ClusterFailover")]
-public class ClusterFailoverCollection : ICollectionFixture<OrleansTestClusterFixture> { }
-
-[Collection("ClusterFailover")]
+// The deploy management and the discovery under a coordinator failover: grains of fresh deploy ids, nothing that needs a
+// cluster of its own.
+[Collection(nameof(OrleansIntegrationCollection))]
 public class CoordinatorFailoverTests : IntegrationTestBase<OrleansTestClusterFixture>
 {
-    public CoordinatorFailoverTests(OrleansTestClusterFixture fixture) : base(fixture) { }
-
-
-
+    public CoordinatorFailoverTests(OrleansTestClusterFixture fixture) : base(fixture)
+    {
+    }
 
     [Fact]
     public async Task DeployManagement_Initialize_SetsReadyFalse()

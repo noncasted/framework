@@ -11,7 +11,7 @@ namespace Framework.Tests.Cluster;
 
 // A reload of the previous deploy still in flight after the switch must not put its snapshot over the lobbies of the
 // new deploy: the registry of the new deploy counts its versions from 0 again.
-public class OpenLobbiesWatcherEpochTests
+public class OpenLobbiesWatcherEpochTests : LifetimeTest
 {
     [Fact]
     public async Task ReloadOfThePreviousDeploy_CompletesAfterTheSwitch_IsDropped()
@@ -40,13 +40,13 @@ public class OpenLobbiesWatcherEpochTests
         messaging.RuntimeChannel.Returns(channel);
 
         var watcher = new OpenLobbiesWatcher(orleans, messaging, NullLogger<OpenLobbiesWatcher>.Instance);
-        var firstLifetime = new Lifetime();
+        var firstLifetime = new Lifetime(TestLifetime);
         await watcher.OnDeployChanged(first, firstLifetime);
 
         channel.ReportGap();
 
         firstLifetime.Terminate();
-        await watcher.OnDeployChanged(second, new Lifetime());
+        await watcher.OnDeployChanged(second, new Lifetime(TestLifetime));
 
         lateReload.SetResult(new OpenLobbies { Version = 7, Entries = [new OpenLobby { Code = "OLD" }] });
 

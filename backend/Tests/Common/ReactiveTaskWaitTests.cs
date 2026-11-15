@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Framework.Tests.Fixtures;
 using Internal;
 using Xunit;
 
@@ -6,13 +7,13 @@ namespace Framework.Tests.Common;
 
 // A completed wait leaves nothing on the long lifetime it was given, and its awaiters do not run inside the Invoke / Set
 // that completed it.
-public class ReactiveTaskWaitTests
+public class ReactiveTaskWaitTests : LifetimeTest
 {
     [Fact]
     public async Task WaitTrue_Completed_SubscriptionEnds()
     {
         var property = new RecordingProperty();
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
 
         var wait = property.WaitTrue(lifetime);
         property.Push(true);
@@ -26,7 +27,7 @@ public class ReactiveTaskWaitTests
     public async Task WaitInvoke_Completed_SubscriptionEnds()
     {
         var source = new RecordingSource();
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
 
         var wait = source.WaitInvoke(lifetime);
         source.Push(5);
@@ -45,7 +46,7 @@ public class ReactiveTaskWaitTests
         using var insideSet = new ThreadLocal<bool>();
         bool? continuationInsideSet = null;
 
-        var wait = property.WaitTrue(new Lifetime());
+        var wait = property.WaitTrue(new Lifetime(TestLifetime));
 
         var continuation = wait.ContinueWith(_ => continuationInsideSet = insideSet.Value, CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);

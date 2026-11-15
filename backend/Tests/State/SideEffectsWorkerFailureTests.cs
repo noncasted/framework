@@ -134,39 +134,3 @@ public class SideEffectsWorkerFailureTests
             NullLogger<SideEffectsWorker>.Instance);
     }
 }
-
-[GenerateSerializer]
-public class FailingTransactionalSideEffect : ITransactionalSideEffect
-{
-    [Id(0)] public required string Marker { get; init; }
-
-    public Task Execute(IOrleans orleans)
-    {
-        throw new InvalidOperationException(Marker);
-    }
-}
-
-[GenerateSerializer]
-public class GatedSideEffect : ISideEffect
-{
-    [Id(0)] public Guid GateId { get; init; }
-
-    public Task Execute(IOrleans orleans)
-    {
-        return TestGate.EnterAndWait(GateId);
-    }
-}
-
-[GenerateSerializer]
-public class RecordingSideEffect : ISideEffect
-{
-    public static readonly ConcurrentDictionary<Guid, bool> Executions = new();
-
-    [Id(0)] public Guid TrackingId { get; init; }
-
-    public Task Execute(IOrleans orleans)
-    {
-        Executions[TrackingId] = true;
-        return Task.CompletedTask;
-    }
-}

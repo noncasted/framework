@@ -65,8 +65,3 @@ public class MovedTypesBinderTests
         json.Should().Contain("\"$type\":\"Framework.Tests.Common.MovedState, Framework.Tests\"");
     }
 }
-
-public class MovedState
-{
-    public int Value { get; init; }
-}

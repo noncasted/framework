@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
 using Common.Extensions;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
@@ -23,14 +25,33 @@ public class DbConnectRetryTests
     }
 
     [Fact]
-    public async Task GetConnection_TransientFailure_RetriesThenThrowsTheLastCause()
+    public async Task GetConnection_TransientFailure_RetriesEveryAttemptThenThrowsTheLastCause()
     {
-        // Nothing listens on port 1: a refused connection is transient.
-        var configuration = Configuration("Host=127.0.0.1;Port=1;Timeout=2", attempts: 2, retryDelayMs: 10);
+        // A server that accepts and drops every connection: the client sees the end of the stream, a transient failure.
+        // Without SSL and GSS encryption an attempt is one connection (Prefer tries again without them).
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        var accepted = 0;
+        var accepting = Accept();
+        var configuration = Configuration($"Host=127.0.0.1;Port={port};Timeout=5;Pooling=false;SslMode=Disable;GssEncryptionMode=Disable", attempts: 3, retryDelayMs: 10);
 
         var failure = await FluentActions.Awaiting(() => configuration.GetConnection()).Should().ThrowAsync<NpgsqlException>();
 
         failure.Which.IsTransient.Should().BeTrue();
+        Volatile.Read(ref accepted).Should().Be(3);
+        listener.Stop();
+        await FluentActions.Awaiting(() => accepting).Should().ThrowAsync<Exception>();
+
+        async Task Accept()
+        {
+            while (true)
+            {
+                using var client = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+                // Counted before the drop, so the client throws only after its attempt is counted.
+                Interlocked.Increment(ref accepted);
+            }
+        }
     }
 
     private static ConfigurationManager Configuration(string connectionString, int attempts, int retryDelayMs)

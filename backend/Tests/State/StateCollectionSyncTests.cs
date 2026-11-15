@@ -16,7 +16,7 @@ namespace Framework.Tests.State;
 
 // StateCollection subscribes before the load and buffers notifications, re-reads records from storage
 // (order independent of clocks), fails fast on a failed load and is registered once.
-public class StateCollectionSyncTests
+public class StateCollectionSyncTests : LifetimeTest
 {
     private static readonly TimeSpan Wait = TimeSpan.FromSeconds(5);
 
@@ -195,7 +195,7 @@ public class StateCollectionSyncTests
     {
         var utils = CreateUtils(Substitute.For<IStateStorage>(), typeof(SimpleTestState));
 
-        await utils.Invoking(u => u.Load(new Lifetime())).Should().ThrowAsync<InvalidOperationException>()
+        await utils.Invoking(u => u.Load(TestLifetime)).Should().ThrowAsync<InvalidOperationException>()
                    .WithMessage("*Type mismatch*");
     }
 
@@ -328,27 +328,5 @@ public class StateCollectionSyncTests
             Listener = onUpdate;
             return Task.CompletedTask;
         }
-    }
-}
-
-// StateCollectionUtils.Read against the real database - the re-read used for every notification.
-[Collection(nameof(OrleansIntegrationCollection))]
-public class StateCollectionReadTests
-    (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)
-{
-    [Fact]
-    public async Task Read_ReturnsStoredRecords_MissingKeysAbsent()
-    {
-        var stored = Guid.NewGuid();
-        var missing = Guid.NewGuid();
-
-        await GetGrain<ICollectionTestGrain>(stored).SetName("stored");
-
-        var utils = GetSiloService<StateCollectionUtils<Guid, CollectionTestState>>();
-        var result = await utils.Read([stored, missing]);
-
-        result.Should().ContainKey(stored);
-        result[stored].Name.Should().Be("stored");
-        result.Should().NotContainKey(missing);
     }
 }

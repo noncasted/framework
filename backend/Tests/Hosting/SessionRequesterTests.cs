@@ -1,6 +1,7 @@
 using Cluster.Discovery;
 using Common.Network;
 using FluentAssertions;
+using Framework.Tests.Fixtures;
 using Framework.Tests.Cluster;
 using Framework.Tests.Security;
 using Framework.Tests.Session;
@@ -19,12 +20,12 @@ namespace Framework.Tests.Hosting;
 // The meta side of the session requests against the real handlers of one game server (SessionEndpoints over
 // HostingTestWorld): the pipe between them is a direct call, the result (the response of the meta command) is
 // returned and carries the ticket of the user.
-public class SessionRequesterTests
+public class SessionRequesterTests : LifetimeTest
 {
     [Fact]
     public async Task CreateLobby_SendsOkWithCodeSessionAndServerUrl()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
 
         var result = await meta.Create(Guid.NewGuid());
 
@@ -38,7 +39,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinLobby_ByCodeAsTyped_SendsOkWithTheSameSession()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var guest = Guid.NewGuid();
         var created = await meta.Create(Guid.NewGuid());
 
@@ -54,7 +55,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinLobby_UnknownCode_SendsNotFound()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var created = await meta.Create(Guid.NewGuid());
         var unknown = created.Code == "ZZZZZZ" ? "YYYYYY" : "ZZZZZZ";
 
@@ -74,7 +75,7 @@ public class SessionRequesterTests
     [InlineData("ABC-EF")]
     public async Task JoinLobby_NotACode_SendsNotFound(string code)
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         await meta.Create(Guid.NewGuid());
 
         var result = await meta.Join(Guid.NewGuid(), code);
@@ -86,7 +87,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinLobby_FullLobby_SendsFull()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var created = await meta.Create(Guid.NewGuid());
 
         for (var i = 0; i < 3; i++)
@@ -102,7 +103,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinLobby_ClosedLobby_SendsNotFound()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var creator = Guid.NewGuid();
         var created = await meta.Create(creator);
 
@@ -117,10 +118,10 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinLobby_ServerOfTheLobbyIsGone_SendsNotFound()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var created = await meta.Create(Guid.NewGuid());
 
-        meta.Game.Servers.Clear();
+        meta.Game.RemoveServers();
 
         var result = await meta.Join(Guid.NewGuid(), created.Code);
 
@@ -133,7 +134,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinLobby_DuringCountdown_SendsOk()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var lobby = await TestLobby.Create(meta.Game, guests: 0);
         var guest = Guid.NewGuid();
 
@@ -150,7 +151,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinLobby_CancelledCountdown_SendsOk()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var lobby = await TestLobby.Create(meta.Game, guests: 0);
 
         lobby.WriteStart(true);
@@ -167,7 +168,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinLobby_OwnCodeFromLiveLobby_SendsOkWithTheSameSession()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var lobby = await TestLobby.Create(meta.Game, guests: 1);
 
         var result = await meta.Join(lobby.Users[1].BackendId, lobby.State.Code);
@@ -179,7 +180,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinLobby_RightAfterZero_LobbyIsNotClosedYet_SendsTheLobbyOfLatePlayers()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var lobby = await TestLobby.Create(meta.Game, guests: 1);
         var code = lobby.State.Code;
 
@@ -202,7 +203,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinLobby_RightAfterZero_RegistryIsNotToldYet_GameServerSendsStarted()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var lobby = await TestLobby.Create(meta.Game, guests: 1);
 
         meta.Game.Codes.HoldMarkStarted(new TaskCompletionSource());
@@ -218,7 +219,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinLobby_MatchIsGoing_LobbyIsClosed_SendsTheLobbyOfLatePlayers_NoPlaceInTheMatchIsReserved()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var lobby = await TestLobby.Create(meta.Game, guests: 1);
         var code = lobby.State.Code;
         var stranger = Guid.NewGuid();
@@ -254,7 +255,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinLobby_MatchIsClosed_SendsNotFound_CodeIsGivenToANewLobby()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var lobby = await TestLobby.Create(meta.Game, guests: 1);
         var code = lobby.State.Code;
 
@@ -288,7 +289,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinLobby_UserWithPlaceReservedBeforeZero_StillEntersTheLobbyAndTheMatch()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var lobby = await TestLobby.Create(meta.Game, guests: 0);
         var late = Guid.NewGuid();
 
@@ -308,11 +309,11 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinLobby_StartedLobby_ServerIsGone_SendsNotFound()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var lobby = await TestLobby.Create(meta.Game, guests: 0);
 
         lobby.RunCountdown();
-        meta.Game.Servers.Clear();
+        meta.Game.RemoveServers();
 
         var result = await meta.Join(Guid.NewGuid(), lobby.State.Code);
 
@@ -324,7 +325,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinMatch_FromTheLobbyOfLatePlayers_ReservesAPlaceInTheMatch_SendsItsAddress()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var lobby = await TestLobby.Create(meta.Game, guests: 1);
         var code = lobby.State.Code;
         var late = Guid.NewGuid();
@@ -356,7 +357,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinMatch_CodeOfALobbyThatHasNotStarted_SendsNotFound()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var lobby = await TestLobby.Create(meta.Game, guests: 0);
 
         var result = await meta.JoinMatch(Guid.NewGuid(), lobby.State.Code);
@@ -368,7 +369,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task JoinLobby_FullMatch_SendsFull()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var lobby = await TestLobby.Create(meta.Game, guests: 3);
 
         lobby.RunCountdown();
@@ -383,7 +384,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task Request_SendsOkWithAPublicMatch_SecondUserGetsTheSameMatch()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var first = Guid.NewGuid();
         var second = Guid.NewGuid();
 
@@ -406,7 +407,7 @@ public class SessionRequesterTests
     [Fact]
     public async Task CreateSolo_CreatesMatchForOneAndSendsOkWithoutCode()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var userId = Guid.NewGuid();
 
         var result = await meta.CreateSolo(userId);
@@ -429,7 +430,7 @@ public class SessionRequesterTests
     [Fact]
     public void IssueTicket_IsTheTicketOfTheUserIntoTheSession()
     {
-        var meta = new MetaWorld();
+        var meta = new MetaWorld(TestLifetime);
         var userId = Guid.NewGuid();
         var sessionId = Guid.NewGuid();
 
@@ -469,13 +470,13 @@ public class SessionRequesterTests
     // SessionEndpoints through a pipe that is a direct call (FakeRuntimePipe).
     private class MetaWorld
     {
-        public MetaWorld()
+        public MetaWorld(IReadOnlyLifetime lifetime)
         {
             var messaging = Substitute.For<IMessaging>();
             messaging.RuntimePipe.Returns(Pipe);
 
             var endpoints = new SessionEndpoints(messaging, Game, Game, Game.Lobbies, Game.Discovery);
-            endpoints.OnCoordinatorSetupCompleted(new Lifetime()).GetAwaiter().GetResult();
+            endpoints.OnCoordinatorSetupCompleted(lifetime).GetAwaiter().GetResult();
 
             Requester = new SessionRequester(
                 Game.Discovery,
@@ -533,64 +534,5 @@ public class SessionRequesterTests
 
             return result;
         }
-    }
-}
-
-// The message pipes as a direct call: a handler added by its pipe id answers the send to the same id.
-public class FakeRuntimePipe : IRuntimePipeClient
-{
-    private readonly Dictionary<string, Func<object, Task<object>>> _handlers = new();
-    private readonly List<Type> _sent = new();
-
-    // How many requests of the type went through the pipe.
-    public int Count<TRequest>()
-    {
-        lock (_sent)
-            return _sent.Count(type => type == typeof(TRequest));
-    }
-
-    public Task Start(IReadOnlyLifetime lifetime)
-    {
-        return Task.CompletedTask;
-    }
-
-    public Task<bool> Exists(IRuntimePipeId id)
-    {
-        lock (_handlers)
-            return Task.FromResult(_handlers.ContainsKey(id.ToRaw()));
-    }
-
-    public Task AddHandler<TRequest, TResponse>(
-        IReadOnlyLifetime lifetime,
-        IRuntimePipeId id,
-        Func<TRequest, Task<TResponse>> listener)
-    {
-        var raw = id.ToRaw();
-
-        lock (_handlers)
-            _handlers.Add(raw, async request => (await listener((TRequest)request))!);
-
-        lifetime.Listen(() => {
-            lock (_handlers)
-                _handlers.Remove(raw);
-        });
-
-        return Task.CompletedTask;
-    }
-
-    public async Task<TResponse> Send<TResponse>(IRuntimePipeId id, object message)
-    {
-        Func<object, Task<object>>? handler;
-
-        lock (_sent)
-            _sent.Add(message.GetType());
-
-        lock (_handlers)
-        {
-            if (_handlers.TryGetValue(id.ToRaw(), out handler) == false)
-                throw new InvalidOperationException($"No handler of pipe {id.ToRaw()}");
-        }
-
-        return (TResponse)await handler(message);
     }
 }

@@ -1,6 +1,5 @@
 using Common.Extensions;
 using FluentAssertions;
-using Framework.Tests.Common;
 using Framework.Tests.Fixtures;
 using Infrastructure.Execution;
 using Internal;
@@ -13,26 +12,8 @@ namespace Framework.Tests.Execution;
 
 // The failure paths of the TaskBalancer: the penalty of a failing task and the drain at the end of the lifetime.
 [Collection(nameof(NoAwaitCollection))]
-public class TaskBalancerFailureTests : LifetimeTest
+public class TaskBalancerFailureTests : NoAwaitHandlerTest
 {
-    public TaskBalancerFailureTests()
-    {
-        _previous = NoAwaitExceptions.Handler;
-        NoAwaitExceptions.SetHandler(e => {
-            lock (_reported)
-                _reported.Add(e);
-        });
-    }
-
-    private readonly Action<Exception>? _previous;
-    private readonly List<Exception> _reported = [];
-
-    public override void Dispose()
-    {
-        base.Dispose();
-        NoAwaitExceptions.SetHandler(_previous);
-    }
-
     [Fact]
     public async Task FailingCriticalTask_PenaltyLetsLowTasksRun()
     {
@@ -93,8 +74,7 @@ public class TaskBalancerFailureTests : LifetimeTest
 
         Volatile.Read(ref finished).Should().Be(Volatile.Read(ref started), "the drain waits for every running task");
 
-        lock (_reported)
-            _reported.Should().BeEmpty("the drain of the execute loop must not fail");
+        Reported.Should().BeEmpty("the drain of the execute loop must not fail");
     }
 
     // The lifetime ends in the pause after a failed iteration of the execute loop: the loop still drains.

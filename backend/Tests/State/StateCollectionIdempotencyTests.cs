@@ -51,11 +51,3 @@ public class StateCollectionIdempotencyTests
         update.Key.Should().Be("ser-test");
     }
 }
-
-[GenerateSerializer]
-public class TestCollectionValue : IDirectStateValue
-{
-    [Id(0)] public Guid Id { get; init; } = Guid.NewGuid();
-    [Id(1)] public string Name { get; init; } = string.Empty;
-    public int Version => 0;
-}

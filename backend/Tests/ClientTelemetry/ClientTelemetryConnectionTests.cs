@@ -29,7 +29,7 @@ public class ClientTelemetryConnectionTests : ClientTelemetryStorageTest
     {
         _switch.IsEnabled.Returns(flag);
 
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
         var connections = new ClientTelemetryConnections(_switch, Cluster.Orleans, NullLogger<ClientTelemetryConnection>.Instance);
 
         return (connections.Of(lifetime), lifetime);

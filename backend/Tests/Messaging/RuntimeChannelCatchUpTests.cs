@@ -175,11 +175,11 @@ public class RuntimeChannelCatchUpTests
 
         // The first pass of the loop binds the observer again and replays from the last seen sequence.
         await client.Start(lifetime);
-        await TestWait.Until(() => Count(received) >= 6);
+        await TestWait.Until(() => received.LockedCount() >= 6);
 
         // The listener is live again after the resubscribe, the replayed messages come once.
         await messaging.PublishChannel(channelId, new TestMessage { Sequence = 7 });
-        await TestWait.Until(() => Count(received) >= 7);
+        await TestWait.Until(() => received.LockedCount() >= 7);
 
         lock (received)
             received.Should().Equal(1, 2, 3, 4, 5, 6, 7);
@@ -246,7 +246,7 @@ public class RuntimeChannelCatchUpTests
         for (var i = 1; i <= 3; i++)
             await messaging.PublishChannel(channelId, new TestMessage { Sequence = i });
 
-        await TestWait.Until(() => Count(first) == 3);
+        await TestWait.Until(() => first.LockedCount() == 3);
         firstLifetime.Terminate();
 
         await messaging.ListenChannel<TestMessage>(secondLifetime, channelId, message => {
@@ -255,12 +255,12 @@ public class RuntimeChannelCatchUpTests
         });
 
         await messaging.PublishChannel(channelId, new TestMessage { Sequence = 4 });
-        await TestWait.Until(() => Count(second) == 1);
+        await TestWait.Until(() => second.LockedCount() == 1);
 
         lock (second)
             second.Should().Equal(4);
 
-        Count(first).Should().Be(3, "a terminated listener gets nothing more");
+        first.LockedCount().Should().Be(3, "a terminated listener gets nothing more");
         secondLifetime.Terminate();
     }
 
@@ -276,11 +276,5 @@ public class RuntimeChannelCatchUpTests
 
         var services = new ServiceCollection().AddSingleton(config).BuildServiceProvider();
         return new RuntimeChannelClient(GetSiloService<IOrleans>(), services, NullLogger<RuntimeChannelClient>.Instance);
-    }
-
-    private static int Count(List<int> received)
-    {
-        lock (received)
-            return received.Count;
     }
 }

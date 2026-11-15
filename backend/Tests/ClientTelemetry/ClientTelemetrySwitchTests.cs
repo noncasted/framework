@@ -23,14 +23,6 @@ public class ClientTelemetrySwitchTests : ClientTelemetryEndpointTest
     {
     }
 
-    private readonly Lifetime _lifetime = new();
-
-    public override async ValueTask DisposeAsync()
-    {
-        _lifetime.Terminate();
-        await base.DisposeAsync();
-    }
-
     [Fact]
     public async Task NeverWritten_IsOffOnceLoaded()
     {
@@ -39,7 +31,7 @@ public class ClientTelemetrySwitchTests : ClientTelemetryEndpointTest
         var telemetry = Create();
         telemetry.IsLoaded.Should().BeFalse();
 
-        await telemetry.OnOrleansStarted(_lifetime);
+        await telemetry.OnOrleansStarted(TestLifetime);
 
         telemetry.IsLoaded.Should().BeTrue();
         telemetry.IsEnabled.Should().BeFalse();
@@ -112,11 +104,11 @@ public class ClientTelemetrySwitchTests : ClientTelemetryEndpointTest
 
         var telemetry = Create();
         var seen = new List<(bool IsLoaded, bool IsEnabled)>();
-        telemetry.View(_lifetime, () => seen.Add((telemetry.IsLoaded, telemetry.IsEnabled)));
+        telemetry.View(TestLifetime, () => seen.Add((telemetry.IsLoaded, telemetry.IsEnabled)));
 
         seen.Should().Equal((false, false));
 
-        await telemetry.OnOrleansStarted(_lifetime);
+        await telemetry.OnOrleansStarted(TestLifetime);
         seen.Should().Equal((false, false), (true, false));
 
         await telemetry.Set(true);
@@ -133,7 +125,7 @@ public class ClientTelemetrySwitchTests : ClientTelemetryEndpointTest
 
         (await connection.Start(new SharedClientTelemetry.SessionStart())).Enabled.Should().BeFalse();
 
-        await gateway.OnOrleansStarted(_lifetime);
+        await gateway.OnOrleansStarted(TestLifetime);
         (await connection.Start(new SharedClientTelemetry.SessionStart())).Enabled.Should().BeFalse();
 
         var console = await Start();
@@ -169,7 +161,7 @@ public class ClientTelemetrySwitchTests : ClientTelemetryEndpointTest
     private async Task<ClientTelemetrySwitch> Start()
     {
         var telemetry = Create();
-        await telemetry.OnOrleansStarted(_lifetime);
+        await telemetry.OnOrleansStarted(TestLifetime);
         return telemetry;
     }
 

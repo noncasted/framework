@@ -156,7 +156,7 @@ public class DirectStorageTests
     {
         await Write((Identity<DirectStringState>("all-key"), DirectStringState.Of(3)));
 
-        var result = await ToList(Storage.ReadAll<string, DirectStringState>(new Lifetime()));
+        var result = await ToList(Storage.ReadAll<string, DirectStringState>(new Lifetime(TestLifetime)));
 
         result.Should().ContainSingle();
         result[0].Item1.Should().Be("all-key");
@@ -168,7 +168,7 @@ public class DirectStorageTests
     {
         await Write((Identity<DirectIntegerState>(31L), DirectIntegerState.Of(4)));
 
-        var result = await ToList(Storage.ReadAll<long, DirectIntegerState>(new Lifetime()));
+        var result = await ToList(Storage.ReadAll<long, DirectIntegerState>(new Lifetime(TestLifetime)));
 
         result.Should().ContainSingle();
         result[0].Item1.Should().Be(31L);
@@ -187,9 +187,9 @@ public class DirectStorageTests
 
         var registry = Storage.Registry;
 
-        (await ToList(Storage.ReadAllKeys<Guid>(registry.Get<DirectGuidState>(), new Lifetime()))).Should().Equal(guid);
-        (await ToList(Storage.ReadAllKeys<string>(registry.Get<DirectStringState>(), new Lifetime()))).Should().Equal("key");
-        (await ToList(Storage.ReadAllKeys<long>(registry.Get<DirectIntegerState>(), new Lifetime()))).Should().Equal(5L);
+        (await ToList(Storage.ReadAllKeys<Guid>(registry.Get<DirectGuidState>(), new Lifetime(TestLifetime)))).Should().Equal(guid);
+        (await ToList(Storage.ReadAllKeys<string>(registry.Get<DirectStringState>(), new Lifetime(TestLifetime)))).Should().Equal("key");
+        (await ToList(Storage.ReadAllKeys<long>(registry.Get<DirectIntegerState>(), new Lifetime(TestLifetime)))).Should().Equal(5L);
     }
 
     [Fact]
@@ -205,7 +205,7 @@ public class DirectStorageTests
             Name = "direct_guid"
         };
 
-        var read = () => ToList(Storage.ReadAllKeys<Guid>(info, new Lifetime()));
+        var read = () => ToList(Storage.ReadAllKeys<Guid>(info, new Lifetime(TestLifetime)));
 
         await read.Should().ThrowAsync<InvalidOperationException>().WithMessage("?DirectStorage] Unsupported key type: 99");
     }
@@ -213,7 +213,7 @@ public class DirectStorageTests
     [Fact]
     public async Task ReadAll_LifetimeTerminated_Cancels()
     {
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
         lifetime.Terminate();
 
         var read = () => ToList(Storage.ReadAll<Guid, DirectGuidState>(lifetime));
@@ -400,7 +400,7 @@ public class DirectStorageTests
         var key = Guid.NewGuid().ToString();
         await GetGrain<IMigrationGrainV0>(key).Write(13);
 
-        var result = await ToList(Storage.ReadAll<string, MigrationTestState_1>(new Lifetime()));
+        var result = await ToList(Storage.ReadAll<string, MigrationTestState_1>(new Lifetime(TestLifetime)));
 
         result.Should().ContainSingle(entry => entry.Item1 == key && entry.Item2.Label == "migrated-13");
     }
@@ -422,7 +422,7 @@ public class DirectStorageTests
 
         try
         {
-            var read = () => ToList(Storage.ReadAll<Guid, DirectGuidState>(new Lifetime()));
+            var read = () => ToList(Storage.ReadAll<Guid, DirectGuidState>(new Lifetime(TestLifetime)));
 
             await read.Should().ThrowAsync<Exception>();
         }

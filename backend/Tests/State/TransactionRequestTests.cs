@@ -76,8 +76,7 @@ public class TransactionRequestTests
 
         result.IsSuccess.Should().BeTrue();
 
-        await grain.Deactivate();
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+        await grain.DeactivateAndWaitNewActivation();
         (await grain.Get()).Should().Be(1);
     }
 

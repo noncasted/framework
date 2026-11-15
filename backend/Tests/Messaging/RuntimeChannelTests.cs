@@ -185,6 +185,8 @@ public class RuntimeChannelTests
         // Terminate — unsubscribes
         lifetime.Terminate();
 
+        // A window, not a marker: the order holds only per observer, and the terminated listener has no observer left to
+        // carry a marker after the ghost.
         await messaging.PublishChannel(channelId, new TestMessage { Text = "ghost" });
         await Task.Delay(100, TestContext.Current.CancellationToken);
 
@@ -228,20 +230,12 @@ public class RuntimeChannelTests
                 received.Add(msg.Text);
         });
 
-        // Wait a bit to ensure no late delivery of the old message
-        await Task.Delay(200, TestContext.Current.CancellationToken);
-        received.Should().BeEmpty();
-
-        // New message should arrive
-        var done = new TaskCompletionSource();
-
-        await messaging.ListenChannel<TestMessage>(TestLifetime, channelId, msg => {
-            if (msg.Text == "new")
-                done.TrySetResult();
-        });
-
+        // The order of an observer is kept: a late delivery of the old message would come before the new one.
         await messaging.PublishChannel(channelId, new TestMessage { Text = "new" });
-        await done.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await TestWait.Until(() => received.LockedCount() >= 1);
+
+        lock (received)
+            received.Should().Equal("new");
     }
 
     [Fact]

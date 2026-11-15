@@ -1,3 +1,4 @@
+using Framework.Tests.Fixtures;
 using System.Net.WebSockets;
 using Common.Network;
 using FluentAssertions;
@@ -11,7 +12,7 @@ namespace Framework.Tests.Network;
 
 // A message the server cannot take ends the connection with a close status instead of being dropped: a dropped request
 // would leave the client waiting for a response that never comes.
-public class ConnectionProtocolErrorTests
+public class ConnectionProtocolErrorTests : LifetimeTest
 {
     [Fact]
     public async Task Reader_UnreadablePayload_ClosesWithInvalidPayload()
@@ -22,7 +23,7 @@ public class ConnectionProtocolErrorTests
         socket.Enqueue(Pack(new RequestMessageFromClient { RequestId = 7, Context = new SharedSessionLatency.Ping() }), true);
         socket.EnqueueClose();
         var reader = new ConnectionReader(socket, NullLogger.Instance);
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
         var seen = new List<int>();
         reader.Requests.Advise(lifetime, message => seen.Add(message.RequestId));
 
@@ -41,7 +42,7 @@ public class ConnectionProtocolErrorTests
         socket.Enqueue(Pack(new RequestMessageFromClient { RequestId = 7, Context = new SharedSessionLatency.Ping() }), true);
         socket.EnqueueClose();
         var reader = new ConnectionReader(socket, NullLogger.Instance);
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
         var seen = new List<int>();
         reader.Requests.Advise(lifetime, message => seen.Add(message.RequestId));
 

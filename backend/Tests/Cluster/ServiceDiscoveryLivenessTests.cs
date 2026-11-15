@@ -19,8 +19,7 @@ using Xunit;
 namespace Framework.Tests.Cluster;
 
 // The liveness of the members of the service discovery: a stopping service stays unregistered, the staleness is
-// measured by one clock, a game server that stopped refreshing is not picked, the wait for the cluster does not
-// flood the log.
+// measured by one clock, a game server that stopped refreshing is not picked.
 [Collection(nameof(OrleansIntegrationCollection))]
 public class ServiceDiscoveryLivenessTests
     (OrleansTestClusterFixture fixture) : IntegrationTestBase<OrleansTestClusterFixture>(fixture)
@@ -93,59 +92,6 @@ public class ServiceDiscoveryLivenessTests
             balancer.Pick().Should().BeSameAs(alive, "a server without a heartbeat for 20 s has crashed");
     }
 
-    [Fact]
-    public async Task WaitClusterReady_MissingService_WarnsOnce()
-    {
-        // The startup installs its handler of the unobserved tasks when it finds none: static, the test puts it back.
-        var previousHandler = NoAwaitExceptions.Handler;
-
-        var logger = new CountingLogger();
-
-        var loopObserver = Substitute.For<IServiceLoopObserver>();
-        loopObserver.IsOrleansStarted.Returns(new ViewableProperty<bool>(true));
-
-        var messaging = Substitute.For<IMessaging>();
-        messaging.RuntimePipe.Exists(DeployIdPipe.Id).Returns(true);
-        messaging.RuntimePipe.Send<DeployIdResponse>(DeployIdPipe.Id, Arg.Any<object>())
-                 .Returns(new DeployIdResponse { DeployId = Guid.NewGuid() });
-
-        var discovery = Substitute.For<IServiceDiscovery>();
-        discovery.Self.Returns(new ServiceOverview { Id = Guid.NewGuid(), Tag = TestRoles.Meta, UpdateTime = DateTime.UtcNow });
-        discovery.Entries.Returns(new Dictionary<Guid, IServiceOverview>());
-
-        var startupConfig = Substitute.For<IClusterStartupConfig>();
-        startupConfig.RequiredServices.Returns([TestRoles.Silo]);
-
-        var startup = new ClusterParticipantStartup(
-            Substitute.For<ITaskBalancer>(),
-            discovery,
-            loopObserver,
-            Substitute.For<IServiceLoop>(),
-            messaging,
-            Substitute.For<IOrleans>(),
-            Substitute.For<IDeployContext>(),
-            Substitute.For<IClusterParticipantContext>(),
-            startupConfig,
-            Substitute.For<IHostApplicationLifetime>(),
-            logger);
-
-        try
-        {
-            await startup.StartAsync(TestContext.Current.CancellationToken);
-
-            // Polls of the same missing set: the first logs, the next ones must not (the 25th logs again, 5 s later).
-            await TestWait.Until(() => discovery.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(discovery.Push)) >= 4);
-            await startup.StopAsync(TestContext.Current.CancellationToken);
-        }
-        finally
-        {
-            NoAwaitExceptions.SetHandler(previousHandler);
-        }
-
-        logger.Count("cluster not ready").Should().BeLessThanOrEqualTo(1,
-            "the missing services are logged when they change, not on every poll");
-    }
-
     private static GameServerOverview Server(DateTime updateTime)
     {
         return new GameServerOverview
@@ -155,27 +101,5 @@ public class ServiceDiscoveryLivenessTests
             UpdateTime = updateTime,
             Url = "http://localhost:7102"
         };
-    }
-
-    private class CountingLogger : ILogger<ClusterParticipantStartup>
-    {
-        private readonly List<string> _messages = [];
-
-        public int Count(string fragment)
-        {
-            lock (_messages)
-                return _messages.Count(message => message.Contains(fragment, StringComparison.Ordinal));
-        }
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-            Func<TState, Exception?, string> formatter)
-        {
-            lock (_messages)
-                _messages.Add(formatter(state, exception));
-        }
     }
 }

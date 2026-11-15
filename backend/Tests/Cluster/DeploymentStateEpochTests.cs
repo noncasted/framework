@@ -12,7 +12,7 @@ namespace Framework.Tests.Cluster;
 
 // A write of one deploy epoch that completes after the switch to the next epoch belongs to the old deploy row:
 // it must neither become the value of the new epoch nor move its watermark.
-public class DeploymentStateEpochTests
+public class DeploymentStateEpochTests : LifetimeTest
 {
     public class Marker
     {
@@ -39,13 +39,13 @@ public class DeploymentStateEpochTests
         var messaging = Substitute.For<IMessaging>();
 
         var state = new TestState(orleans, messaging);
-        var firstLifetime = new Lifetime();
+        var firstLifetime = new Lifetime(TestLifetime);
         await state.OnDeployChanged(first, firstLifetime);
 
         var pending = state.SetValue(new Marker { Value = 1 });
 
         firstLifetime.Terminate();
-        await state.OnDeployChanged(second, new Lifetime());
+        await state.OnDeployChanged(second, new Lifetime(TestLifetime));
 
         write.SetResult();
         await pending;
@@ -81,8 +81,8 @@ public class DeploymentStateEpochTests
         var messaging = Substitute.For<IMessaging>();
 
         var state = new TestState(orleans, messaging);
-        await state.OnDeployChanged(first, new Lifetime());
-        await state.OnDeployChanged(second, new Lifetime());
+        await state.OnDeployChanged(first, new Lifetime(TestLifetime));
+        await state.OnDeployChanged(second, new Lifetime(TestLifetime));
 
         await state.SetValue(new Marker { Value = 3 });
 

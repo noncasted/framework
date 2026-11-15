@@ -10,8 +10,9 @@ namespace Framework.Tests.Fixtures;
 public class InMemoryChannelClient : IRuntimeChannelClient
 {
     private readonly List<(Func<object, Task> Listener, Action? OnGap)> _listeners = [];
+    private readonly List<object> _published = [];
 
-    public List<object> Published { get; } = [];
+    public IReadOnlyList<object> Published => _published;
 
     public Task Start(IReadOnlyLifetime lifetime) => Task.CompletedTask;
 
@@ -24,7 +25,7 @@ public class InMemoryChannelClient : IRuntimeChannelClient
 
     public Task Publish(IRuntimeChannelId id, object message)
     {
-        Published.Add(message);
+        _published.Add(message);
         Deliver(message);
         return Task.CompletedTask;
     }
@@ -40,14 +41,4 @@ public class InMemoryChannelClient : IRuntimeChannelClient
         foreach (var (_, onGap) in _listeners.ToArray())
             onGap?.Invoke();
     }
-}
-
-// Plain Json.NET in place of StateSerializer, which needs the grain reference activator of a silo.
-public class JsonTestSerializer : IStateSerializer
-{
-    public string Serialize(object value) => JsonConvert.SerializeObject(value);
-    public string Serialize<T>(T value) => JsonConvert.SerializeObject(value);
-    public T Deserialize<T>(string value) => JsonConvert.DeserializeObject<T>(value)!;
-    public T? TryDeserialize<T>(string value) => JsonConvert.DeserializeObject<T>(value);
-    public object? Deserialize(string value, Type type) => JsonConvert.DeserializeObject(value, type);
 }

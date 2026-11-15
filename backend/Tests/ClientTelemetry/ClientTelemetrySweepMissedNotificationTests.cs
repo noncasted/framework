@@ -18,14 +18,6 @@ public class ClientTelemetrySweepMissedNotificationTests : ClientTelemetryStorag
     {
     }
 
-    private readonly Lifetime _lifetime = new();
-
-    public override ValueTask DisposeAsync()
-    {
-        _lifetime.Terminate();
-        return base.DisposeAsync();
-    }
-
     [Fact]
     public async Task AClosedSession_TheOtherHostMissed_IsClosedThereByItsSweep()
     {
@@ -118,7 +110,7 @@ public class ClientTelemetrySweepMissedNotificationTests : ClientTelemetryStorag
     {
         var utils = new DeafStateCollectionUtils<Guid, TelemetrySessionState>(Cluster.Storage, Cluster.Messaging);
         var collection = new TelemetrySessionCollection(utils, NullLogger<TelemetrySessionCollection>.Instance);
-        await collection.OnLocalSetupCompleted(_lifetime);
+        await collection.OnLocalSetupCompleted(TestLifetime);
         return (collection, utils);
     }
 
@@ -126,7 +118,7 @@ public class ClientTelemetrySweepMissedNotificationTests : ClientTelemetryStorag
     {
         var utils = new DeafStateCollectionUtils<Guid, TelemetryStartupState>(Cluster.Storage, Cluster.Messaging);
         var collection = new TelemetryStartupCollection(utils, NullLogger<TelemetryStartupCollection>.Instance);
-        await collection.OnLocalSetupCompleted(_lifetime);
+        await collection.OnLocalSetupCompleted(TestLifetime);
         return (collection, utils);
     }
 
@@ -140,7 +132,7 @@ public class ClientTelemetrySweepMissedNotificationTests : ClientTelemetryStorag
         var flag = Substitute.For<IClientTelemetrySwitch>();
         flag.IsEnabled.Returns(true);
 
-        return new ClientTelemetryConnections(flag, Cluster.Orleans, NullLogger<ClientTelemetryConnection>.Instance).Of(_lifetime);
+        return new ClientTelemetryConnections(flag, Cluster.Orleans, NullLogger<ClientTelemetryConnection>.Instance).Of(TestLifetime);
     }
 
     private static SharedClientTelemetry.StartupTrace Trace(bool final, Guid startupId)
