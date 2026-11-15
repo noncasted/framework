@@ -121,7 +121,7 @@ public class SessionRequesterTests : LifetimeTest
         var meta = new MetaWorld(TestLifetime);
         var created = await meta.Create(Guid.NewGuid());
 
-        meta.Game.Servers.Clear();
+        meta.Game.RemoveServers();
 
         var result = await meta.Join(Guid.NewGuid(), created.Code);
 
@@ -313,7 +313,7 @@ public class SessionRequesterTests : LifetimeTest
         var lobby = await TestLobby.Create(meta.Game, guests: 0);
 
         lobby.RunCountdown();
-        meta.Game.Servers.Clear();
+        meta.Game.RemoveServers();
 
         var result = await meta.Join(Guid.NewGuid(), lobby.State.Code);
 

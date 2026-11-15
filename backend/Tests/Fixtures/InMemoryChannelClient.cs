@@ -10,8 +10,9 @@ namespace Framework.Tests.Fixtures;
 public class InMemoryChannelClient : IRuntimeChannelClient
 {
     private readonly List<(Func<object, Task> Listener, Action? OnGap)> _listeners = [];
+    private readonly List<object> _published = [];
 
-    public List<object> Published { get; } = [];
+    public IReadOnlyList<object> Published => _published;
 
     public Task Start(IReadOnlyLifetime lifetime) => Task.CompletedTask;
 
@@ -24,7 +25,7 @@ public class InMemoryChannelClient : IRuntimeChannelClient
 
     public Task Publish(IRuntimeChannelId id, object message)
     {
-        Published.Add(message);
+        _published.Add(message);
         Deliver(message);
         return Task.CompletedTask;
     }

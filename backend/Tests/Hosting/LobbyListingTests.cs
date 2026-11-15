@@ -133,7 +133,7 @@ public class LobbyListingTests : LifetimeTest
         listed.LeaderUserId.Should().Be(players[0].BackendId);
 
         // the mark goes before every report of the match, the release is the last call
-        var calls = lobby.World.Codes.Calls;
+        var calls = lobby.World.Codes.Calls.ToList();
         calls.IndexOf($"Mark {code}").Should().BeGreaterThan(-1);
         calls.Skip(calls.IndexOf($"Mark {code}")).Should().OnlyContain(call => call == $"Listing {code}" || call == $"Mark {code}");
 
@@ -142,7 +142,7 @@ public class LobbyListingTests : LifetimeTest
 
         match.Lifetime.IsTerminated.Should().BeTrue();
         lobby.World.Codes.Entries.Should().NotContainKey(code);
-        calls.Last().Should().Be($"Release {code}");
+        lobby.World.Codes.Calls.Last().Should().Be($"Release {code}");
     }
 
     [Fact]
@@ -350,7 +350,7 @@ public class LobbyListingTests : LifetimeTest
         var (lobby, match, code) = await StartMatch(world, isOpen: true);
         var sessions = world.Sessions.Count;
 
-        world.EntryPolicy.OverMatches.Add(match.Session.Id);
+        world.EntryPolicy.MarkMatchOver(match.Session.Id);
 
         world.Lobbies.Join(lobby.Session.Session.Id, match.Session.Id, code, Guid.NewGuid()).Status
              .Should().Be(LobbyJoinStatus.NotFound);

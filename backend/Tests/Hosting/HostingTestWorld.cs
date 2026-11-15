@@ -41,11 +41,11 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
             Url = ServerUrl
         };
 
-        Servers.Add(ServerId, Self);
+        _servers.Add(ServerId, Self);
 
         Discovery = Substitute.For<IServiceDiscovery>();
         Discovery.Self.Returns(Self);
-        Discovery.Entries.Returns(Servers);
+        Discovery.Entries.Returns(_servers);
 
         Collection = new SessionsCollection(
             Substitute.For<IServiceSlicedState<LiveSessionsData, List<LiveSessionEntry>>>(),
@@ -79,8 +79,6 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     public readonly Guid ServerId = Guid.NewGuid();
     public readonly GameServerOverview Self;
 
-    // What the service discovery knows (the meta reads it): this server, until a test removes it.
-    public readonly Dictionary<Guid, IServiceOverview> Servers = new();
     public readonly IServiceDiscovery Discovery;
     public readonly LobbyOptions Options;
     public readonly SessionsCollection Collection;
@@ -88,7 +86,10 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     public readonly LobbyCodeLeases Leases;
     public readonly TestLobbyEntryPolicy EntryPolicy = new();
     public readonly LobbySessions Lobbies;
-    public readonly Dictionary<Guid, TestSession> Sessions = new();
+
+    // What the service discovery knows (the meta reads it): this server, until a test removes it.
+    private readonly Dictionary<Guid, IServiceOverview> _servers = new();
+    private readonly Dictionary<Guid, TestSession> _sessions = new();
 
     // Not null: the lobby factory of the game fails with it.
     private Exception? _lobbyCreationFailure;
@@ -98,6 +99,22 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     public Guid MatchLeaderId { get; private set; }
 
     public string WebSocketUrl => ServerUrl.ServerUrlToWebSocket();
+
+    // A copy: the sessions are added from the queues of the sessions too.
+    public IReadOnlyDictionary<Guid, TestSession> Sessions
+    {
+        get
+        {
+            lock (_sessions)
+                return new Dictionary<Guid, TestSession>(_sessions);
+        }
+    }
+
+    // The game server leaves the service discovery: the meta knows no server.
+    public void RemoveServers()
+    {
+        _servers.Clear();
+    }
 
     // The place check of the gateway path (after the ticket): null is the refusal.
     public IUser? Enter(Guid sessionId, Guid userId)
@@ -124,8 +141,8 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     {
         List<TestSession> sessions;
 
-        lock (Sessions)
-            sessions = Sessions.Values.ToList();
+        lock (_sessions)
+            sessions = _sessions.Values.ToList();
 
         foreach (var session in sessions)
             session.Queue.Drain();
@@ -298,8 +315,8 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     {
         var session = new TestSession(options, configure);
 
-        lock (Sessions)
-            Sessions.Add(session.Session.Id, session);
+        lock (_sessions)
+            _sessions.Add(session.Session.Id, session);
 
         Collection.Add(session.Session);
         var created = session.Queue.SetupServices(session.ServiceFactory);
@@ -315,7 +332,7 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
 public class TestLobbyEntryPolicy : ILobbyEntryPolicy
 {
     // The matches that have ended (NotFound for their late players).
-    public readonly HashSet<Guid> OverMatches = new();
+    private readonly HashSet<Guid> _overMatches = new();
 
     // False: no running match can be entered now (Started).
     private bool _canEnter = true;
@@ -325,10 +342,16 @@ public class TestLobbyEntryPolicy : ILobbyEntryPolicy
         _canEnter = canEnter;
     }
 
+    public void MarkMatchOver(Guid matchSessionId)
+    {
+        lock (_overMatches)
+            _overMatches.Add(matchSessionId);
+    }
+
     public bool IsMatchOver(Guid matchSessionId)
     {
-        lock (OverMatches)
-            return OverMatches.Contains(matchSessionId);
+        lock (_overMatches)
+            return _overMatches.Contains(matchSessionId);
     }
 
     public bool CanEnterMatchNow(Guid matchSessionId)
@@ -371,7 +394,10 @@ public static class HostingTestSessionExtensions
 // The registry grain without the cluster: same rules (LobbyRegistry), one dictionary.
 public class FakeLobbyCodes : ILobbyCodes
 {
-    public readonly Dictionary<string, LobbyRegistryEntry> Entries = new();
+    private readonly Dictionary<string, LobbyRegistryEntry> _entries = new();
+
+    // Every registry call in the order the registry got them: "Mark CODE", "Listing CODE", "Release CODE".
+    private readonly List<string> _calls = new();
 
     // Null: real random codes.
     private Func<string>? _generator;
@@ -379,8 +405,24 @@ public class FakeLobbyCodes : ILobbyCodes
     // Not null: the registry answers MarkStarted only when the gate is completed (a slow grain call).
     public TaskCompletionSource? MarkStartedGate { get; private set; }
 
-    // Every registry call in the order the registry got them: "Mark CODE", "Listing CODE", "Release CODE".
-    public readonly List<string> Calls = new();
+    // Copies, taken under the lock of the registry.
+    public IReadOnlyDictionary<string, LobbyRegistryEntry> Entries
+    {
+        get
+        {
+            lock (_entries)
+                return new Dictionary<string, LobbyRegistryEntry>(_entries);
+        }
+    }
+
+    public IReadOnlyList<string> Calls
+    {
+        get
+        {
+            lock (_entries)
+                return _calls.ToList();
+        }
+    }
 
     public void SetGenerator(Func<string> generator)
     {
@@ -394,24 +436,24 @@ public class FakeLobbyCodes : ILobbyCodes
 
     public Task UpdateListing(string code, Guid sessionId, LobbyListing listing)
     {
-        lock (Entries)
+        lock (_entries)
         {
-            if (Entries.TryGetValue(code, out var entry) == false || entry.SessionId != sessionId)
+            if (_entries.TryGetValue(code, out var entry) == false || entry.SessionId != sessionId)
                 throw new InvalidOperationException($"Lobby code {code} is not held by session {sessionId}");
 
             entry.UpdateListing(listing);
-            Calls.Add($"Listing {code}");
+            _calls.Add($"Listing {code}");
             return Task.CompletedTask;
         }
     }
 
     public Task<OpenLobbies> GetOpenLobbies()
     {
-        lock (Entries)
+        lock (_entries)
         {
             var lobbies = new OpenLobbies();
 
-            foreach (var (code, entry) in Entries)
+            foreach (var (code, entry) in _entries)
             {
                 if (entry.Listing.IsListed == true)
                 {
@@ -431,9 +473,9 @@ public class FakeLobbyCodes : ILobbyCodes
     // The open lobby of the code, null if it is not listed.
     public LobbyListing? FindListed(string code)
     {
-        lock (Entries)
+        lock (_entries)
         {
-            if (Entries.TryGetValue(code, out var entry) == false || entry.Listing.IsListed == false)
+            if (_entries.TryGetValue(code, out var entry) == false || entry.Listing.IsListed == false)
                 return null;
 
             return entry.Listing;
@@ -442,11 +484,11 @@ public class FakeLobbyCodes : ILobbyCodes
 
     public Task<string> Register(Guid serverId, Guid sessionId)
     {
-        lock (Entries)
+        lock (_entries)
         {
-            var code = LobbyCodeGenerator.GenerateUnique(Entries.ContainsKey, _generator ?? LobbyCodeGenerator.Generate);
+            var code = LobbyCodeGenerator.GenerateUnique(_entries.ContainsKey, _generator ?? LobbyCodeGenerator.Generate);
 
-            Entries.Add(code, new LobbyRegistryEntry
+            _entries.Add(code, new LobbyRegistryEntry
             {
                 ServerId = serverId,
                 SessionId = sessionId
@@ -458,8 +500,8 @@ public class FakeLobbyCodes : ILobbyCodes
 
     public Task<LobbyRegistryEntry?> Find(string code)
     {
-        lock (Entries)
-            return Task.FromResult(Entries.GetValueOrDefault(code));
+        lock (_entries)
+            return Task.FromResult(_entries.GetValueOrDefault(code));
     }
 
     public async Task MarkStarted(string code, Guid sessionId, Guid matchSessionId)
@@ -467,28 +509,28 @@ public class FakeLobbyCodes : ILobbyCodes
         if (MarkStartedGate != null)
             await MarkStartedGate.Task;
 
-        lock (Entries)
+        lock (_entries)
         {
-            if (Entries.TryGetValue(code, out var entry) == false || entry.SessionId != sessionId)
+            if (_entries.TryGetValue(code, out var entry) == false || entry.SessionId != sessionId)
                 throw new InvalidOperationException($"Lobby code {code} is not held by session {sessionId}");
 
             if (entry.MatchSessionId != Guid.Empty)
                 throw new InvalidOperationException($"Lobby code {code} is already marked as started");
 
             entry.MarkStarted(matchSessionId);
-            Calls.Add($"Mark {code}");
+            _calls.Add($"Mark {code}");
         }
     }
 
     public Task Release(string code, Guid sessionId)
     {
-        lock (Entries)
+        lock (_entries)
         {
-            if (Entries.TryGetValue(code, out var entry) == false || entry.SessionId != sessionId)
+            if (_entries.TryGetValue(code, out var entry) == false || entry.SessionId != sessionId)
                 throw new InvalidOperationException($"Lobby code {code} is not held by session {sessionId}");
 
-            Entries.Remove(code);
-            Calls.Add($"Release {code}");
+            _entries.Remove(code);
+            _calls.Add($"Release {code}");
             return Task.CompletedTask;
         }
     }
