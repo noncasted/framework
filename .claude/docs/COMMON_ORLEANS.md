@@ -376,7 +376,7 @@ Task<string> ReadRawJson(StateIdentity identity);
 | `backend/Tools/Generators/StatesLookupGenerator.cs` | Generates `StatesLookup` and `GeneratedStatesRegistration` |
 | `backend/Orchestration/Extensions/ProjectsSetupExtensions.cs` | Cluster services by host kind, `AddStates()` builds `GrainStatesRegistry` |
 | `backend/Orchestration/GameComposition/GameModule.cs` | Composition root: game services by role, `CreateGameComposition()` |
-| `backend/Infrastructure/Orleans/State/StatesRegistry.cs` | `IGrainStatesRegistry`, `GrainStateInfo` |
+| `backend/Infrastructure/Orleans/State/GrainStatesRegistry.cs` | `IGrainStatesRegistry`, `GrainStatesRegistry` |
 | `backend/Infrastructure/Orleans/State/Direct/State.cs` | `State<T>` implementation |
 | `backend/Infrastructure/Orleans/State/Events/EventState.cs` | `EventState<T>` implementation |
 | `backend/Infrastructure/Orleans/State/StateExtensions.cs` | `Update()`, `Write()`, `ReadValue()`, `Read()` helpers |

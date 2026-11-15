@@ -10,7 +10,3 @@ public record DurableQueueOptions
 {
     public int ObserverKeepAliveMinutes { get; init; } = 3;
 }
-
-public interface IDurableQueueConfig : IAddressableState<DurableQueueOptions>
-{
-}

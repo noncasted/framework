@@ -12,7 +12,3 @@ public record TransactionOptions
     public float StuckGraceSeconds { get; init; } =
         30f; // grace period before a non-responsive transaction is considered stuck
 }
-
-public interface ITransactionConfig : IAddressableState<TransactionOptions>
-{
-}

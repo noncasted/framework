@@ -14,7 +14,3 @@ public class RuntimeChannelOptions
     public int ResubscribeMaxIntervalMs { get; init; } = 60_000; // reached by a listener with stable resubscribes
     public int ResubscribeTimeoutMs { get; init; } = 30_000; // after it a pass of the loop stops waiting for a listener
 }
-
-public interface IRuntimeChannelConfig : IAddressableState<RuntimeChannelOptions>
-{
-}
