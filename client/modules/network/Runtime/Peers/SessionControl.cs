@@ -153,17 +153,22 @@ namespace Internal
         }
 
         // A known index: the user has returned before the server noticed its loss. Its frames belong to a new connection,
-        // the tunnel of the old one is lost.
+        // the tunnel and the negotiation of the old one are lost. A new index keeps its channel: the first offer of a new
+        // player may come before its update.
         private void OnRemoteUpdate(SharedSessionPlayer.RemoteUpdate update)
         {
+            if (_peers.ContainsKey(update.Index) == true)
+                _signaling.Drop(update.Index);
+
             _tunnels.OnPeerGone(update.Index);
             _peers.Set(update.Index, update.Id);
         }
 
         // The player has lost its connection to the server (its seat waits for its return): no frame of its tunnel comes
-        // any more, the tunnel is lost at once instead of by the silence of the session of the game.
+        // any more, the tunnel and the negotiation are lost at once instead of by the silence of the session of the game.
         private void OnRemoteAway(SharedSessionPlayer.RemoteAway away)
         {
+            _signaling.Drop(away.Index);
             _peers.Remove(away.Index);
             _tunnels.OnPeerGone(away.Index);
         }
@@ -171,6 +176,8 @@ namespace Internal
         // A seat that was away first is already out of the peers.
         private void OnRemoteDisconnect(SharedSessionPlayer.RemoteDisconnect disconnect)
         {
+            _signaling.Drop(disconnect.Index);
+
             if (_peers.ContainsKey(disconnect.Index) == true)
                 _peers.Remove(disconnect.Index);
 
