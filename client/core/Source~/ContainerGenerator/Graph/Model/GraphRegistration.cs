@@ -34,6 +34,10 @@ namespace ContainerGenerator {
         public List<string> ParameterTypes { get; } = new List<string>();
 
         public GraphRegistration Clone() {
+            return CloneAt(File, Line, Location);
+        }
+
+        public GraphRegistration CloneAt(string file, int line, LocationInfo? location) {
             var copy = new GraphRegistration {
                 Kind = Kind,
                 ImplementationType = ImplementationType,
@@ -41,11 +45,11 @@ namespace ContainerGenerator {
                 Origin = Origin,
                 Source = Source,
                 Hole = Hole,
-                File = File,
-                Line = Line,
+                File = file,
+                Line = line,
                 Ordinal = Ordinal,
                 TypeMap = TypeMap,
-                Location = Location,
+                Location = location,
                 BranchPath = BranchPath,
             };
             copy.ParameterTypes.AddRange(ParameterTypes);
