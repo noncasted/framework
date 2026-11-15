@@ -83,12 +83,14 @@ public class TaskBalancerTests : LifetimeTest
                 "failed task should be re-enqueued and retried");
     }
 
+    // A task waiting since an earlier collect gains IterationScore on every collect that brings new tasks, so it beats a
+    // fresh task of a higher priority. The only slot is held until both wait.
     [Fact]
     public async Task AgingMechanism_OlderTasksGetHigherScore()
     {
         var executionOrder = new List<string>();
-        var lowTask = new OrderTrackingTask("low-old", TaskPriority.Low, executionOrder);
-        _queue.Enqueue(lowTask);
+        var queue = new CollectSignalQueue(_queue);
+        var blocker = new BlockingTask("blocker", TaskPriority.Critical);
 
         var config = CreateConfig(new TaskBalancerOptions
         {
@@ -98,28 +100,27 @@ public class TaskBalancerTests : LifetimeTest
             ExceptionPenalty = 50,
             ConcurrentTasks = 1
         });
-        var logger = Substitute.For<ILogger<TaskBalancer>>();
-        var balancer = new TaskBalancer(_queue, logger, config);
+        var balancer = new TaskBalancer(queue, Substitute.For<ILogger<TaskBalancer>>(), config);
 
         var lifetime = TestLifetime.Child();
         await balancer.Run(lifetime);
 
-        // Let the low task age through several collect cycles (gains IterationScore=100 each cycle)
-        await Task.Delay(200, TestContext.Current.CancellationToken);
+        queue.Enqueue(blocker);
+        await blocker.Started.WaitAsync(TestContext.Current.CancellationToken);
 
-        var highTask = new OrderTrackingTask("high-new", TaskPriority.High, executionOrder);
+        queue.Enqueue(new OrderTrackingTask("low-old", TaskPriority.Low, executionOrder));
+        await queue.Collected("low-old").WaitAsync(TestContext.Current.CancellationToken);
 
-        _queue.Enqueue(highTask);
+        queue.Enqueue(new OrderTrackingTask("high-new", TaskPriority.High, executionOrder));
+        await queue.Collected("high-new").WaitAsync(TestContext.Current.CancellationToken);
 
-        await TestWait.Until(() => executionOrder.Count >= 2);
+        blocker.Release();
+        await TestWait.Until(() => executionOrder.LockedCount() >= 2);
 
         lifetime.Terminate();
 
-        // Aged low-priority task should execute before fresh high-priority task
-        // because accumulated aging score (100 * N cycles) > High base score (30)
-        executionOrder.Should().HaveCount(2);
-        executionOrder[0].Should().Be("low-old", "aged low-priority task should beat fresh high-priority");
-        executionOrder[1].Should().Be("high-new");
+        // Low: 10 + 100 of the collect that brought the high one; high: 30.
+        executionOrder.Should().Equal(["low-old", "high-new"], "the aged low-priority task beats the fresh high-priority one");
     }
 
     [Fact]
@@ -146,20 +147,27 @@ public class TaskBalancerTests : LifetimeTest
     [Fact]
     public async Task LifetimeTermination_StopsProcessing()
     {
-        var lifetime = TestLifetime.Child();
-        await _balancer.Run(lifetime);
+        var logger = new RecordingLogger<TaskBalancer>();
+        var balancer = new TaskBalancer(_queue, logger, CreateConfig(new TaskBalancerOptions
+        {
+            EmptyDelayMs = 10,
+            NextDelayMs = 10,
+            IterationScore = 1,
+            ExceptionPenalty = 50,
+            ConcurrentTasks = 10
+        }));
 
-        await Task.Delay(50, TestContext.Current.CancellationToken);
+        var lifetime = TestLifetime.Child();
+        await balancer.Run(lifetime);
         lifetime.Terminate();
+
+        // The execute loop logs its drain as its last step: after it nothing executes a task.
+        await TestWait.Until(() => logger.Count(LogLevel.Information, "[TaskBalancer] Drained") == 1);
 
         var task = new FakeTask("late", delay: TimeSpan.Zero);
         _queue.Enqueue(task);
 
-        await Task.Delay(100, TestContext.Current.CancellationToken);
-
-        task.ExecuteCount.Should()
-            .Be(0,
-                "tasks enqueued after lifetime termination should not execute");
+        task.ExecuteCount.Should().Be(0, "tasks enqueued after lifetime termination should not execute");
     }
 
     private static ITaskBalancerConfig CreateConfig(TaskBalancerOptions options)

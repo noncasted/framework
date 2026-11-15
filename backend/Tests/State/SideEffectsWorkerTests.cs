@@ -60,7 +60,8 @@ public class SideEffectsWorkerTests
         await TestWait.Until(() => Volatile.Read(ref checks) >= 1);
         await worker.StopAsync(TestContext.Current.CancellationToken);
 
-        // Longer than the 500 ms between the checks of a running loop that sees the effects disabled.
+        // A window longer than the 500 ms between the checks of a running loop that sees the effects disabled: the loop
+        // has no signal of its end but the absence of checks after it.
         var afterStop = Volatile.Read(ref checks);
         await Task.Delay(700, TestContext.Current.CancellationToken);
 

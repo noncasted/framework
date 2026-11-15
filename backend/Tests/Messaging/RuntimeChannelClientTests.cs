@@ -495,6 +495,7 @@ public class RuntimeChannelClientTests : LifetimeTest
 
         _logger.Count(LogLevel.Error, "(attempt 1)").Should().Be(1);
 
+        // A window: the resubscribe loop gives no signal of its end, so only the absence of calls after it shows it ended.
         lifetime.Terminate();
         await Task.Delay(50, TestContext.Current.CancellationToken);
         var callsAfterEnd = Volatile.Read(ref healthyCalls);
