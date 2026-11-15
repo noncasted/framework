@@ -119,7 +119,7 @@ namespace Internal
             }
         }
 
-        // null while the main editor context is not ready or the MPPM API was not found.
+        // null while the main editor context is not ready, the MPPM API was not found or its read failed.
         private static List<(object Key, object State, int ProcessId)> ReadClones()
         {
             try
@@ -161,8 +161,10 @@ namespace Internal
             }
             catch (Exception exception)
             {
+                // Not an empty list: taken for "no clones", the restore would erase the snapshot and the save write an
+                // empty one. The restore polls again until its deadline.
                 Debug.LogWarning($"[MPPM] Clone sync is unavailable: {exception.Message}");
-                return new List<(object, object, int)>();
+                return null;
             }
         }
 
