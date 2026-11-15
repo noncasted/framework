@@ -115,7 +115,7 @@ public class SideEffectsWorkerTests
         loopObserver.IsOrleansStarted.Returns(new ViewableProperty<bool>(true));
 
         var participant = Substitute.For<IClusterParticipantContext>();
-        participant.IsInitialized.Returns(new ViewableProperty<bool>(true));
+        participant.IsInitialized.Returns(new SharedViewableProperty<bool>(true));
 
         return new SideEffectsWorker(
             GetSiloService<ISideEffectsStorage>(),
