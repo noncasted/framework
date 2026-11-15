@@ -68,6 +68,28 @@ namespace Global.UI.Tests
             Assert.AreEqual(UniTaskStatus.Succeeded, show.Status, "Show hangs after Hide");
         });
 
+        // A sequence without a loop time divides by zero in every update: the setup of the screen names the field instead.
+        [Test]
+        public void Setup_SequenceWithoutLoopTime_Throws()
+        {
+            var texture = new Texture2D(1, 1);
+            var sprite = Sprite.Create(texture, new Rect(0f, 0f, 1f, 1f), Vector2.zero);
+            var animation = _object.GetComponent<LoadingScreenAnimation>();
+            Set(animation, "_sequence", new[] { sprite });
+            Set(animation, "_loopTime", 0f);
+
+            try
+            {
+                var exception = Assert.Throws<InvalidOperationException>(() => _screen.OnSetup(new Internal.Lifetime()));
+                StringAssert.Contains("_loopTime", exception.Message);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(sprite);
+                UnityEngine.Object.DestroyImmediate(texture);
+            }
+        }
+
         private static void Set(object target, string field, object value)
         {
             target.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
