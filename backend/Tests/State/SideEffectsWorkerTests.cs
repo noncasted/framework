@@ -70,49 +70,33 @@ public class SideEffectsWorkerTests
     [Fact]
     public async Task UnknownPayloadType_DeadLetterKeepsOriginalError()
     {
+        var type = $"Missing.Effect{Guid.NewGuid():N}";
+
         await using (var connection = await Database.DataSource.OpenConnectionAsync(TestContext.Current.CancellationToken))
         await using (var command = connection.CreateCommand())
         {
             command.CommandText = """
                                   INSERT INTO side_effects_queue (id, payload, retry_count, created_at)
-                                  VALUES (@id, '{"$type":"Missing.Effect, Missing.Assembly"}'::jsonb, 0, now())
+                                  VALUES (@id, jsonb_build_object('$type', @type || ', Missing.Assembly'), 0, now())
                                   """;
             command.Parameters.AddWithValue("id", Guid.NewGuid());
+            command.Parameters.AddWithValue("type", type);
             await command.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
         }
 
-        // No retries: the first failure goes to the dead letter.
+        // One attempt: the first failure goes to the dead letter.
         var worker = CreateWorker(new SideEffectsOptions
         {
             ScanDelay = 50,
             EmptyScanDelay = 50,
-            MaxRetryCount = 0
+            MaxRetryCount = 1
         }, enabled: true);
 
         await worker.StartAsync(TestContext.Current.CancellationToken);
-        var error = await WaitDeadLetterError();
+        var error = await SideEffectRows.WaitDeadLetterError(Database.DataSource, type);
         await worker.StopAsync(TestContext.Current.CancellationToken);
 
-        error.Should().Contain("Missing.Effect", "the dead letter must keep the deserialization error");
-    }
-
-    private async Task<string> WaitDeadLetterError()
-    {
-        var deadline = DateTime.UtcNow.AddSeconds(5);
-
-        while (DateTime.UtcNow < deadline)
-        {
-            await using var connection = await Database.DataSource.OpenConnectionAsync(TestContext.Current.CancellationToken);
-            await using var command = connection.CreateCommand();
-            command.CommandText = "SELECT error_message FROM side_effects_dead_letter LIMIT 1";
-
-            if (await command.ExecuteScalarAsync(TestContext.Current.CancellationToken) is string message)
-                return message;
-
-            await Task.Delay(50, TestContext.Current.CancellationToken);
-        }
-
-        throw new TimeoutException("No dead letter entry");
+        error.Should().Contain(type, "the dead letter must keep the deserialization error");
     }
 
     private SideEffectsWorker CreateWorker(SideEffectsOptions options, bool enabled)

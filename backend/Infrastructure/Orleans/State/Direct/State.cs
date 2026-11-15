@@ -28,6 +28,8 @@ public class State<T> : IGrainStateTransactionParticipant where T : class, IDire
     {
         if (TransactionContextProvider.Current == null)
         {
+            ThrowIfInTransaction();
+
             if (_value != null)
                 return;
 
@@ -71,7 +73,10 @@ public class State<T> : IGrainStateTransactionParticipant where T : class, IDire
     public Task Write()
     {
         if (TransactionContextProvider.Current == null)
+        {
+            ThrowIfInTransaction();
             return WriteDirect();
+        }
 
         if (TransactionContextProvider.Current.Id != _currentTransactionId)
             throw new InvalidOperationException("Concurrent transactions are not supported.");
@@ -119,5 +124,17 @@ public class State<T> : IGrainStateTransactionParticipant where T : class, IDire
     {
         _value = null;
         _currentTransactionId = Guid.Empty;
+    }
+
+    // A call outside a transaction between the steps of an open one would see its uncommitted changes in memory, and a
+    // direct write would store them even if the transaction then rolls back.
+    private void ThrowIfInTransaction()
+    {
+        if (_currentTransactionId != Guid.Empty)
+        {
+            throw new InvalidOperationException(
+                $"[State] {typeof(T).Name} of {_context.GrainId} is used outside a transaction while transaction " +
+                $"{_currentTransactionId} holds it.");
+        }
     }
 }

@@ -88,9 +88,6 @@ internal class RuntimeChannelResubscription
                     "[Messaging] [Channel] Gap detected on {ChannelId}, last seen seq {LastSeq}, current seq {CurrentSeq}, replaying {Count} messages",
                     _id.ToRaw(), lastSeenSequence, catchUp.CurrentSequence, catchUp.Messages.Count);
 
-                if (lastSeenSequence > catchUp.CurrentSequence)
-                    _observerSource.ResetLastSeen(0);
-
                 _gapHandlers.Invoke();
             }
 

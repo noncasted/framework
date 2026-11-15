@@ -46,6 +46,65 @@ public class RuntimePipeTimeoutTests
         lifetime.Terminate();
     }
 
+    // The request that timed out fails later in the handler: nobody awaits it, but its failure must be observed, an
+    // unobserved one reaches TaskScheduler.UnobservedTaskException.
+    [Fact]
+    public async Task Send_TimedOutRequestFailsLater_FailureObserved()
+    {
+        var pipeId = new TestPipeId(Guid.NewGuid().ToString());
+        var messaging = GetSiloService<IMessaging>();
+        var lifetime = TestLifetime.Child();
+        var marker = $"late-{Guid.NewGuid():N}";
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var unobserved = 0;
+
+        void OnUnobserved(object? sender, UnobservedTaskExceptionEventArgs args)
+        {
+            if (args.Exception.ToString().Contains(marker))
+                Interlocked.Increment(ref unobserved);
+        }
+
+        using var timeout = OverrideConfig<IRuntimePipeConfig, RuntimePipeOptions>(new RuntimePipeOptions
+        {
+            SendTimeoutSeconds = 1
+        });
+
+        await messaging.AddPipeRequestHandler<TestRequest, TestResponse>(lifetime, pipeId, async request => {
+            if (request.Question == "late")
+            {
+                await release.Task;
+                throw new InvalidOperationException(marker);
+            }
+
+            return new TestResponse { Answer = request.Question };
+        });
+
+        TaskScheduler.UnobservedTaskException += OnUnobserved;
+
+        try
+        {
+            var late = () => messaging.SendPipe<TestResponse>(pipeId, new TestRequest { Question = "late" });
+            await late.Should().ThrowAsync<TimeoutException>();
+            release.SetResult();
+
+            // The observer runs one request at a time: the answer of the next one comes after the late failure.
+            (await messaging.SendPipe<TestResponse>(pipeId, new TestRequest { Question = "next" })).Answer.Should().Be("next");
+
+            for (var i = 0; i < 3; i++)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+            }
+
+            Volatile.Read(ref unobserved).Should().Be(0, "the late failure of a timed out request must be observed");
+        }
+        finally
+        {
+            TaskScheduler.UnobservedTaskException -= OnUnobserved;
+            lifetime.Terminate();
+        }
+    }
+
     [Fact]
     public async Task Exists_ObserverBusy_ObserverKept()
     {

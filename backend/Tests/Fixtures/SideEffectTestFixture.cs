@@ -1,5 +1,6 @@
 using Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace Framework.Tests.Fixtures;
@@ -19,8 +20,10 @@ public class SideEffectTestFixture : OrleansTestClusterFixture
         var transactions = siloServiceProvider.GetRequiredService<ITransactions>();
         var orleans = siloServiceProvider.GetRequiredService<IOrleans>();
         var config = siloServiceProvider.GetRequiredService<ISideEffectsConfig>();
+        var logger = siloServiceProvider.GetRequiredService<ILogger<SideEffectExecution>>();
 
-        Pipeline = new SideEffectTestPipeline(storage, transactions, orleans, config);
+        Pipeline = new SideEffectTestPipeline(storage,
+            new SideEffectExecution(storage, transactions, orleans, config, logger), config);
     }
 }
 

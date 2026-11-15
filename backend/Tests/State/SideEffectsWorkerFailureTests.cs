@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Common;
 using FluentAssertions;
 using Framework.Tests.Fixtures;
+using Framework.Tests.Grains;
 using Infrastructure;
 using Infrastructure.Startup;
 using Internal;
@@ -28,14 +29,14 @@ public class SideEffectsWorkerFailureTests
         {
             ScanDelay = 50,
             EmptyScanDelay = 50,
-            MaxRetryCount = 0
+            MaxRetryCount = 1
         });
 
         await worker.StartAsync(TestContext.Current.CancellationToken);
-        var hasCause = await WaitDeadLetter(marker);
+        var error = await SideEffectRows.WaitDeadLetterError(Database.DataSource, marker);
         await worker.StopAsync(TestContext.Current.CancellationToken);
 
-        hasCause.Should().BeTrue("the dead letter must keep the error of the effect");
+        error.Should().Contain(marker, "the dead letter must keep the error of the effect");
     }
 
     [Fact]
@@ -70,24 +71,42 @@ public class SideEffectsWorkerFailureTests
         await storage.Received(1).CompleteProcessing(entryId);
     }
 
-    private async Task<bool> WaitDeadLetter(string marker)
+    // Every slot busy: the worker still touches its entries at its stuck check, otherwise the stuck check of another
+    // worker takes them for the entries of a gone worker and runs them again.
+    [Fact]
+    public async Task SlotsFull_RunningEntriesTouched()
     {
-        var deadline = DateTime.UtcNow.AddSeconds(10);
+        var storage = Substitute.For<ISideEffectsStorage>();
+        var gate = TestGate.Create();
+        var entryId = Guid.NewGuid();
+        var reads = 0;
+        var touches = 0;
 
-        while (DateTime.UtcNow < deadline)
+        storage.Read(Arg.Any<int>()).Returns(_ => Task.FromResult<IReadOnlyList<SideEffectEntry>>(
+            Interlocked.Increment(ref reads) == 1
+                ? new[] { new SideEffectEntry { Id = entryId, Effect = new GatedSideEffect { GateId = gate.Id }, RetryCount = 0 } }
+                : Array.Empty<SideEffectEntry>()));
+
+        storage.TouchProcessing(Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Contains(entryId)))
+               .Returns(_ => {
+                   Interlocked.Increment(ref touches);
+                   return Task.CompletedTask;
+               });
+
+        var worker = CreateWorker(storage, new SideEffectsOptions
         {
-            await using var connection = await Database.DataSource.OpenConnectionAsync(TestContext.Current.CancellationToken);
-            await using var command = connection.CreateCommand();
-            command.CommandText = "SELECT error_message FROM side_effects_dead_letter WHERE payload::text LIKE @marker";
-            command.Parameters.AddWithValue("marker", $"%{marker}%");
+            ScanDelay = 50,
+            EmptyScanDelay = 50,
+            ConcurrentExecutions = 1,
+            StuckCheckIntervalSeconds = 0
+        });
 
-            if (await command.ExecuteScalarAsync(TestContext.Current.CancellationToken) is string message)
-                return message.Contains(marker);
+        await worker.StartAsync(TestContext.Current.CancellationToken);
+        await gate.Entered;
+        await TestWait.Until(() => Volatile.Read(ref touches) >= 1);
 
-            await Task.Delay(50, TestContext.Current.CancellationToken);
-        }
-
-        throw new TimeoutException("No dead letter entry");
+        gate.Release();
+        await worker.StopAsync(TestContext.Current.CancellationToken);
     }
 
     private SideEffectsWorker CreateWorker(ISideEffectsStorage storage, SideEffectsOptions options)
@@ -124,6 +143,17 @@ public class FailingTransactionalSideEffect : ITransactionalSideEffect
     public Task Execute(IOrleans orleans)
     {
         throw new InvalidOperationException(Marker);
+    }
+}
+
+[GenerateSerializer]
+public class GatedSideEffect : ISideEffect
+{
+    [Id(0)] public Guid GateId { get; init; }
+
+    public Task Execute(IOrleans orleans)
+    {
+        return TestGate.EnterAndWait(GateId);
     }
 }
 

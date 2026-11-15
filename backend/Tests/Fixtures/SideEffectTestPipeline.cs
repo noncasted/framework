@@ -6,21 +6,15 @@ namespace Framework.Tests.Fixtures;
 // Runs the side effects in the test instead of SideEffectsWorker: one pump, or a drain until the queue is quiet.
 public class SideEffectTestPipeline
 {
-    public SideEffectTestPipeline(
-        ISideEffectsStorage storage,
-        ITransactions transactions,
-        IOrleans orleans,
-        ISideEffectsConfig config)
+    public SideEffectTestPipeline(ISideEffectsStorage storage, SideEffectExecution execution, ISideEffectsConfig config)
     {
         _storage = storage;
-        _transactions = transactions;
-        _orleans = orleans;
+        _execution = execution;
         _config = config;
     }
 
     private readonly ISideEffectsStorage _storage;
-    private readonly ITransactions _transactions;
-    private readonly IOrleans _orleans;
+    private readonly SideEffectExecution _execution;
     private readonly ISideEffectsConfig _config;
 
     public async Task<PumpResult> PumpOnce()
@@ -45,40 +39,9 @@ public class SideEffectTestPipeline
 
     private async Task<BatchExecutionInfo> ExecuteEntry(SideEffectEntry entry)
     {
-        var sw = Stopwatch.StartNew();
-
-        try
-        {
-            if (entry.Effect is ITransactionalSideEffect)
-            {
-                var result = await _transactions
-                                   .CreateBuilder(() => entry.Effect.Execute(_orleans))
-                                   .WithCallback(tx => _storage.CompleteProcessing(tx, entry.Id))
-                                   .Run();
-
-                if (!result.IsSuccess)
-                    throw new Exception("Transactional side effect failed");
-            }
-            else
-            {
-                await entry.Effect.Execute(_orleans);
-                await _storage.CompleteProcessing(entry.Id);
-            }
-
-            sw.Stop();
-            return new BatchExecutionInfo(entry.Id, true, sw.Elapsed, null);
-        }
-        catch (Exception ex)
-        {
-            sw.Stop();
-            var options = _config.Value;
-
-            await _storage.FailProcessing(entry.Id,
-                entry.RetryCount,
-                options.MaxRetryCount,
-                options.IncrementalRetryDelay);
-            return new BatchExecutionInfo(entry.Id, false, sw.Elapsed, ex.Message);
-        }
+        var watch = Stopwatch.StartNew();
+        var error = await _execution.Execute(entry);
+        return new BatchExecutionInfo(entry.Id, error == null, watch.Elapsed, error?.Message);
     }
 
     // Waits for the first entry to appear in the queue, then drains until quiet.

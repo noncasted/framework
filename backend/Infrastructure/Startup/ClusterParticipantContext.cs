@@ -37,10 +37,10 @@ public class ClusterParticipantContext : IClusterParticipantContext
     {
         var index = _stages.IndexOf(stage);
 
-        if (index >= 0)
-        {
-            _currentStageIndex.Set(index);
-        }
+        if (index < 0)
+            throw new InvalidOperationException($"Stage '{stage}' is not one of the startup stages: {string.Join(", ", _stages)}");
+
+        _currentStageIndex.Set(index);
     }
 
     public void SetMessagingStarted()

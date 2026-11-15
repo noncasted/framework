@@ -100,33 +100,6 @@ public class RuntimeChannelTests
     }
 
     [Fact]
-    public async Task Observer_ResetLastSeen_AllowsLowerSequenceAfterGap()
-    {
-        var received = new List<int>();
-        var observer = new RuntimeChannelObserver(message => {
-            var typed = (TestMessage)message;
-            received.Add(typed.Sequence);
-            return Task.CompletedTask;
-        });
-
-        await observer.Send(new SequencedMessage
-        {
-            Sequence = 100,
-            Payload = new TestMessage { Sequence = 100 }
-        });
-
-        observer.ResetLastSeen(0);
-
-        await observer.Send(new SequencedMessage
-        {
-            Sequence = 1,
-            Payload = new TestMessage { Sequence = 1 }
-        });
-
-        received.Should().Equal([100, 1]);
-    }
-
-    [Fact]
     public async Task Observer_BufferedLiveDelivery_AfterCatchUpSkipsDuplicate()
     {
         var received = new List<int>();

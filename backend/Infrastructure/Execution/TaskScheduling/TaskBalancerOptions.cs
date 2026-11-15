@@ -14,7 +14,3 @@ public record TaskBalancerOptions
     public int ExceptionPenalty { get; init; } = 50;
     public int ConcurrentTasks { get; init; } = 10;
 }
-
-public interface ITaskBalancerConfig : IAddressableState<TaskBalancerOptions>
-{
-}

@@ -11,7 +11,3 @@ public class RuntimePipeOptions
     public int SendRetryCount { get; init; } = 3;
     public int SendRetryBaseDelayMs { get; init; } = 500;
 }
-
-public interface IRuntimePipeConfig : IAddressableState<RuntimePipeOptions>
-{
-}

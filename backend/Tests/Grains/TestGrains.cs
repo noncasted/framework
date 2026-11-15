@@ -151,6 +151,8 @@ public interface ITxTestGrain : IGrainWithGuidKey
     [Transaction]
     Task IncrementAndHold(Guid gateId);
 
+    Task IncrementDirect();
+
     Task<Guid> GetActivationId();
 
     Task<int> Get();
@@ -183,6 +185,11 @@ public class TxTestGrain : Grain, ITxTestGrain
     {
         await _state.Write(s => s.Increment());
         await TestGate.EnterAndWait(gateId);
+    }
+
+    public Task IncrementDirect()
+    {
+        return _state.Write(s => s.Increment());
     }
 
     public Task<Guid> GetActivationId()
@@ -447,6 +454,10 @@ public interface IEventTestGrain : IGrainWithGuidKey
     [Transaction]
     Task AppendThenFail(int counterAmount);
 
+    // Holds the transaction with the event applied and not yet written.
+    [Transaction]
+    Task AppendAndHold(int counterAmount, Guid gateId);
+
     Task AppendEventsStandalone(int counterAmount, string label);
 
 
@@ -486,6 +497,14 @@ public class EventTestGrain : Grain, IEventTestGrain
         await _state.Append(new CounterIncremented { Amount = counterAmount });
         await _state.Write();
         throw new Exception("Intentional failure after append");
+    }
+
+    public async Task AppendAndHold(int counterAmount, Guid gateId)
+    {
+        await _state.Read();
+        await _state.Append(new CounterIncremented { Amount = counterAmount });
+        await TestGate.EnterAndWait(gateId);
+        await _state.Write();
     }
 
     public async Task AppendEventsStandalone(int counterAmount, string label)

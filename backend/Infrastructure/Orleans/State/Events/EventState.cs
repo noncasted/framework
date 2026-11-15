@@ -46,6 +46,7 @@ public class EventState<TAggregate> : IGrainEventTransactionParticipant
     {
         if (TransactionContextProvider.Current == null)
         {
+            ThrowIfInTransaction();
             await _lock.WaitAsync();
 
             try
@@ -91,6 +92,7 @@ public class EventState<TAggregate> : IGrainEventTransactionParticipant
 
         if (TransactionContextProvider.Current == null)
         {
+            ThrowIfInTransaction();
             await _lock.WaitAsync();
 
             try
@@ -121,6 +123,17 @@ public class EventState<TAggregate> : IGrainEventTransactionParticipant
         ApplyEvents(events);
     }
 
+    // A call outside a transaction between the steps of an open one would see its uncommitted events, and a direct write
+    // would store them even if the transaction then rolls back.
+    private void ThrowIfInTransaction()
+    {
+        if (_currentTransactionId != Guid.Empty)
+        {
+            throw new InvalidOperationException(
+                $"[EventState] {StreamId} is used outside a transaction while transaction {_currentTransactionId} holds it.");
+        }
+    }
+
     private void RegisterInTransaction()
     {
         var handler = (GrainTransactionHandler)_context.GetComponent<IGrainTransactionHandler>().ThrowIfNull();
@@ -134,6 +147,7 @@ public class EventState<TAggregate> : IGrainEventTransactionParticipant
 
         if (TransactionContextProvider.Current == null)
         {
+            ThrowIfInTransaction();
             await _lock.WaitAsync();
 
             try

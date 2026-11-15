@@ -78,25 +78,6 @@ public class RuntimeChannelClientTests : LifetimeTest
     }
 
     [Fact]
-    public async Task Resubscribe_LastSeenAheadOfChannel_ResetsLastSeenAndCallsGapHandlers()
-    {
-        var epoch = Guid.NewGuid();
-        var listener = CreateListener();
-        var gaps = 0;
-
-        listener.AddHandler(_ => Task.CompletedTask, () => gaps++);
-        await listener.ObserverSource.Send(Message(5, epoch, "seq5"));
-
-        _channel.CatchUp(5).Returns(new CatchUpResult { GapDetected = true, CurrentSequence = 2, Epoch = epoch });
-
-        await listener.Resubscribe();
-
-        gaps.Should().Be(1);
-        listener.ObserverSource.LastSeenSequence.Should().Be(0);
-        listener.ObserverSource.LastSeenEpoch.Should().Be(epoch);
-    }
-
-    [Fact]
     public async Task Resubscribe_NothingMissed_NoGapAndNothingReplayed()
     {
         var epoch = Guid.NewGuid();
