@@ -1,3 +1,4 @@
+using Framework.Tests.Fixtures;
 using System.Net.WebSockets;
 using Common.Network;
 using Internal;
@@ -11,7 +12,7 @@ namespace Framework.Tests.Network;
 
 // F8.5: WebSocketMessageReader assembles a message from its parts and limits its size; ConnectionReader routes
 // the messages by kind (a message it cannot read: ConnectionProtocolErrorTests).
-public class ConnectionReaderTests
+public class ConnectionReaderTests : LifetimeTest
 {
     [Fact]
     public async Task MessageReader_PartsAreJoinedUpToEndOfMessage()
@@ -75,7 +76,7 @@ public class ConnectionReaderTests
         socket.EnqueueClose();
 
         var reader = new ConnectionReader(socket, NullLogger.Instance);
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
         var seen = new List<string>();
         reader.OneWay.Advise(lifetime, message => seen.Add($"oneway {((SharedSessionLatency.Ping)message.Context).Id}"));
         reader.Requests.Advise(lifetime, message => seen.Add($"request {message.RequestId}"));
@@ -96,7 +97,7 @@ public class ConnectionReaderTests
         socket.EnqueueClose();
 
         var reader = new ConnectionReader(socket, NullLogger.Instance);
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
         var seen = new List<int>();
 
         reader.OneWay.Advise(lifetime, message => {

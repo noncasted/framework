@@ -25,7 +25,6 @@ public abstract class ClientTelemetryEndpointTest : ClientTelemetryStorageTest
     protected const string TestToken = "secret";
 
     private readonly List<TestWebHost> _hosts = new();
-    private readonly Lifetime _lifetime = new();
 
     protected IClientTelemetrySwitch Switch { get; } = Substitute.For<IClientTelemetrySwitch>();
 
@@ -36,7 +35,6 @@ public abstract class ClientTelemetryEndpointTest : ClientTelemetryStorageTest
         foreach (var host in _hosts)
             await host.DisposeAsync();
 
-        _lifetime.Terminate();
         await base.DisposeAsync();
     }
 
@@ -72,8 +70,8 @@ public abstract class ClientTelemetryEndpointTest : ClientTelemetryStorageTest
 
         if (ownCollections == true)
         {
-            await app.Services.GetRequiredService<TelemetrySessionCollection>().OnLocalSetupCompleted(_lifetime);
-            await app.Services.GetRequiredService<TelemetryStartupCollection>().OnLocalSetupCompleted(_lifetime);
+            await app.Services.GetRequiredService<TelemetrySessionCollection>().OnLocalSetupCompleted(TestLifetime);
+            await app.Services.GetRequiredService<TelemetryStartupCollection>().OnLocalSetupCompleted(TestLifetime);
         }
 
         app.UseAllowedOrigins();

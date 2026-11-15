@@ -1,3 +1,4 @@
+using Framework.Tests.Fixtures;
 using Internal;
 using FluentAssertions;
 using Game.Session;
@@ -9,7 +10,7 @@ namespace Framework.Tests.Session;
 // A session with a reconnect window (SessionCreateOptions.ReconnectWindow): a user whose connection is lost keeps its
 // seat (index, entities) for the window and returns to it; a leave or the end of the window ends the seat. Without
 // a window a lost connection is a leave. Real sessions on manual time and queues: see TestSession.
-public class SessionReconnectTests
+public class SessionReconnectTests : LifetimeTest
 {
     private static readonly TimeSpan Window = TimeSpan.FromSeconds(60);
 
@@ -414,7 +415,7 @@ public class SessionReconnectTests
     [Fact]
     public void Seat_EntityOutOfItsRange_Throws()
     {
-        var seat = new SessionSeat(Guid.NewGuid(), Guid.NewGuid(), 2, new Lifetime());
+        var seat = new SessionSeat(Guid.NewGuid(), Guid.NewGuid(), 2, new Lifetime(TestLifetime));
 
         var create = () => seat.OnEntityCreated(SharedEntityIds.Create(3, 1));
         create.Should().Throw<InvalidOperationException>();

@@ -14,7 +14,7 @@ namespace Framework.Tests.Cluster;
 
 // Overlapping SetSlice calls are coalesced: the call that writes the latest slice may fail, and then a call whose
 // slice it took must not report success for a slice that was never saved.
-public class ServiceSlicedStateCoalescingTests
+public class ServiceSlicedStateCoalescingTests : LifetimeTest
 {
     [Fact]
     public async Task WriteOfACoalescedSliceFails_TheOtherCallDoesNotReportSuccessWithoutSavingIt()
@@ -53,7 +53,7 @@ public class ServiceSlicedStateCoalescingTests
             new ServiceEnvironment { Tag = TestRoles.Meta },
             new ConnectedUsersLiveData());
 
-        await state.OnDeployChanged(deployId, new Lifetime());
+        await state.OnDeployChanged(deployId, new Lifetime(TestLifetime));
 
         List<ConnectedUserEntry> first = [new ConnectedUserEntry { UserId = Guid.NewGuid() }];
         List<ConnectedUserEntry> second = [new ConnectedUserEntry { UserId = Guid.NewGuid() }];

@@ -1,5 +1,6 @@
 using Common.Network;
 using FluentAssertions;
+using Framework.Tests.Fixtures;
 using Internal;
 using MemoryPack;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -10,7 +11,7 @@ namespace Framework.Tests.Network;
 
 // The contract of the owner of a socket: the handlers are advised before Run (a message read before them is lost), and
 // the owner keeps the socket until Closed (a socket that ends with its handler takes the close frame with it).
-public class ConnectionRunContractTests
+public class ConnectionRunContractTests : LifetimeTest
 {
     [Fact]
     public async Task Run_WithoutHandlers_Throws()
@@ -18,7 +19,7 @@ public class ConnectionRunContractTests
         var socket = new ScriptedSocket();
         socket.Enqueue(Pack(new RequestMessageFromClient { RequestId = 7, Context = new SharedSessionLatency.Ping() }), true);
         socket.EnqueueClose();
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
         var connection = new Connection(socket, lifetime, NullLogger.Instance);
 
         await FluentActions.Awaiting(() => connection.Run()).Should().ThrowAsync<InvalidOperationException>();
@@ -29,7 +30,7 @@ public class ConnectionRunContractTests
     public async Task Run_LifetimeEndedBefore_CompletesAfterTheClose()
     {
         var socket = new ScriptedSocket();
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
         var connection = new Connection(socket, lifetime, NullLogger.Instance);
         lifetime.Terminate();
 
@@ -44,7 +45,7 @@ public class ConnectionRunContractTests
     public async Task ParentEndsWithoutRun_ClosedCompletes_CloseFrameSent()
     {
         var socket = new ScriptedSocket();
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
         var connection = new Connection(socket, lifetime, NullLogger.Instance);
 
         lifetime.Terminate();
@@ -59,7 +60,7 @@ public class ConnectionRunContractTests
     {
         var socket = new ScriptedSocket();
         socket.EnqueueClose();
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
         var connection = new Connection(socket, lifetime, NullLogger.Instance);
         connection.Reader.Requests.Advise(lifetime, _ => { });
 

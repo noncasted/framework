@@ -16,7 +16,7 @@ namespace Framework.Tests.State;
 
 // StateCollection subscribes before the load and buffers notifications, re-reads records from storage
 // (order independent of clocks), fails fast on a failed load and is registered once.
-public class StateCollectionSyncTests
+public class StateCollectionSyncTests : LifetimeTest
 {
     private static readonly TimeSpan Wait = TimeSpan.FromSeconds(5);
 
@@ -195,7 +195,7 @@ public class StateCollectionSyncTests
     {
         var utils = CreateUtils(Substitute.For<IStateStorage>(), typeof(SimpleTestState));
 
-        await utils.Invoking(u => u.Load(new Lifetime())).Should().ThrowAsync<InvalidOperationException>()
+        await utils.Invoking(u => u.Load(TestLifetime)).Should().ThrowAsync<InvalidOperationException>()
                    .WithMessage("*Type mismatch*");
     }
 

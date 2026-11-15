@@ -1,5 +1,6 @@
 using Cluster.Deploy;
 using Cluster.Monitoring;
+using Framework.Tests.Fixtures;
 using Internal;
 using FluentAssertions;
 using Infrastructure;
@@ -10,7 +11,7 @@ using Xunit;
 
 namespace Framework.Tests.Cluster;
 
-public class DeployContextTests
+public class DeployContextTests : LifetimeTest
 {
     [Fact]
     public async Task Set_ManyEpochs_ParentKeepsOnlyCurrentEpochListener()
@@ -37,7 +38,7 @@ public class DeployContextTests
         var context = new DeployContext([failing], NullLogger<DeployContext>.Instance);
         var deployId = Guid.NewGuid();
 
-        var act = () => context.Set(deployId, new Lifetime());
+        var act = () => context.Set(deployId, new Lifetime(TestLifetime));
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("load failed");
         context.DeployLifetime.IsTerminated.Should().BeTrue();
@@ -69,7 +70,7 @@ public class DeployContextTests
         });
 
         var context = new DeployContext([slow, next], NullLogger<DeployContext>.Instance);
-        var parent = new Lifetime();
+        var parent = new Lifetime(TestLifetime);
 
         var firstSet = context.Set(first, parent);
         var secondSet = context.Set(second, parent);
@@ -95,7 +96,7 @@ public class DeployContextTests
         var next = Substitute.For<IDeployAware>();
         var context = new DeployContext([slow, next], NullLogger<DeployContext>.Instance);
 
-        var set = context.Set(deployId, new Lifetime());
+        var set = context.Set(deployId, new Lifetime(TestLifetime));
         context.Leave();
         slowSet.SetResult();
         await set;
@@ -122,10 +123,10 @@ public class DeployContextTests
             NullLoggerFactory.Instance,
             new LiveSessionsData());
 
-        await state.OnDeployChanged(Guid.NewGuid(), new Lifetime());
+        await state.OnDeployChanged(Guid.NewGuid(), new Lifetime(TestLifetime));
         state.IsInitialized.Should().BeTrue();
 
-        var act = () => state.OnDeployChanged(Guid.NewGuid(), new Lifetime());
+        var act = () => state.OnDeployChanged(Guid.NewGuid(), new Lifetime(TestLifetime));
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("db down");
         state.IsInitialized.Should().BeFalse("the value of the previous epoch must not look valid for the new one");

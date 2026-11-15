@@ -1,6 +1,7 @@
 using Cluster.Deploy;
 using Cluster.Monitoring;
 using FluentAssertions;
+using Framework.Tests.Fixtures;
 using Game.Hosting.Collection;
 using Game.Session;
 using Framework.Tests.Session;
@@ -12,7 +13,7 @@ namespace Framework.Tests.Hosting;
 
 // The live sessions of a game server as the cluster sees them (LiveSessionsData): the sessions change their users in
 // their own queues, on many threads at once, and the slice of the server ends with the latest state.
-public class SessionsCollectionTests
+public class SessionsCollectionTests : LifetimeTest
 {
     // The queue of one session has built its snapshot and has not sent it yet when another session changes its
     // users and sends a newer one: the older snapshot must not be the last one sent.
@@ -69,22 +70,22 @@ public class SessionsCollectionTests
         last.Single(entry => entry.Id == first.Id).UserIds.Should().HaveCount(1);
     }
 
-    private static (ISession, SessionUsers) CreateSession()
+    private (ISession, SessionUsers) CreateSession()
     {
         var users = new SessionUsers();
         var session = Substitute.For<ISession>();
         session.Id.Returns(Guid.NewGuid());
         session.Users.Returns(users);
-        session.Lifetime.Returns(new Lifetime());
+        session.Lifetime.Returns(new Lifetime(TestLifetime));
 
         return (session, users);
     }
 
-    private static IUser CreateUser()
+    private IUser CreateUser()
     {
         var user = Substitute.For<IUser>();
         user.BackendId.Returns(Guid.NewGuid());
-        user.Lifetime.Returns(new Lifetime());
+        user.Lifetime.Returns(new Lifetime(TestLifetime));
         return user;
     }
 }

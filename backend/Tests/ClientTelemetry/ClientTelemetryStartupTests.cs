@@ -24,7 +24,7 @@ public class ClientTelemetryStartupTests : ClientTelemetryStorageTest
     {
         _switch.IsEnabled.Returns(flag);
 
-        return new ClientTelemetryConnections(_switch, Cluster.Orleans, NullLogger<ClientTelemetryConnection>.Instance).Of(new Lifetime());
+        return new ClientTelemetryConnections(_switch, Cluster.Orleans, NullLogger<ClientTelemetryConnection>.Instance).Of(TestLifetime.Child());
     }
 
     private static SharedClientTelemetry.StartupTrace Trace(bool final = false, Guid startupId = default, int spans = 1)
@@ -198,7 +198,7 @@ public class ClientTelemetryStartupTests : ClientTelemetryStorageTest
     [Fact]
     public async Task TheEndOfTheSocket_ChangesNothing_AndTheRecordIsRead()
     {
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
         _switch.IsEnabled.Returns(true);
         var connection = new ClientTelemetryConnections(_switch, Cluster.Orleans, NullLogger<ClientTelemetryConnection>.Instance).Of(lifetime);
         var id = (await connection.AcceptStartup(Trace(spans: 2))).StartupId;

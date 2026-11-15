@@ -1,3 +1,4 @@
+using Framework.Tests.Fixtures;
 using Microsoft.Extensions.DependencyInjection;
 using Internal;
 using FluentAssertions;
@@ -10,7 +11,7 @@ namespace Framework.Tests.Session;
 // Objects of a session: the overview of an entity carries the versions of its properties, service ids are stable
 // and negative, a write or destroy of an object that is already gone is dropped and of an object that never existed
 // fails; a session entity outlives its creator.
-public class SessionObjectsTests
+public class SessionObjectsTests : LifetimeTest
 {
     [Fact]
     public void EntityOverview_CarriesVersionOfEveryProperty()
@@ -119,7 +120,7 @@ public class SessionObjectsTests
         // Set up as ServiceFactory does before adding: a service that is not set up has an ended lifetime and
         // leaves the objects right away.
         var objects = new SessionObjects();
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
         var first = new Service("Chat");
         var second = new Service("Chat");
         first.Setup(lifetime);

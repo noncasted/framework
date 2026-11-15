@@ -11,7 +11,7 @@ namespace Framework.Tests.Cluster;
 
 // OpenLobbiesWatcher over a substituted registry and an in-memory channel: a gap of the channel (missed pushes)
 // reloads the open lobbies from the registry.
-public class OpenLobbiesWatcherTests
+public class OpenLobbiesWatcherTests : LifetimeTest
 {
     [Fact]
     public async Task GapDetected_ReloadsFromTheRegistry()
@@ -31,7 +31,7 @@ public class OpenLobbiesWatcherTests
         messaging.RuntimeChannel.Returns(channel);
 
         var watcher = new OpenLobbiesWatcher(orleans, messaging, NullLogger<OpenLobbiesWatcher>.Instance);
-        await watcher.OnDeployChanged(deployId, new Lifetime());
+        await watcher.OnDeployChanged(deployId, new Lifetime(TestLifetime));
 
         watcher.Lobbies.Value.Version.Should().Be(1);
 
