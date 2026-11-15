@@ -8,9 +8,9 @@ public interface IClipboard
     Task Copy(string text);
 }
 
-public class ClipboardService : IClipboard
+public class Clipboard : IClipboard
 {
-    public ClipboardService(IJSRuntime js, ToastService toast)
+    public Clipboard(IJSRuntime js, ToastService toast)
     {
         _js = js;
         _toast = toast;

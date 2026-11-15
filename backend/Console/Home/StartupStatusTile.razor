@@ -26,12 +26,14 @@
 
     protected override Task OnSetup(IReadOnlyLifetime lifetime)
     {
-        ClusterParticipantContext.IsInitialized.View(lifetime, value => {
+        ClusterParticipantContext.IsInitialized.View(lifetime, value =>
+        {
             _isInitialized = value;
             InvokeAsync(StateHasChanged).NoAwait();
         });
 
-        ClusterParticipantContext.CurrentStageIndex.View(lifetime, index => {
+        ClusterParticipantContext.CurrentStageIndex.View(lifetime, index =>
+        {
             var stages = ClusterParticipantContext.Stages;
             _currentStageName = index < stages.Count ? stages[index] : "Starting...";
             InvokeAsync(StateHasChanged).NoAwait();

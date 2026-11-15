@@ -1,7 +1,5 @@
 @page "/deploy"
 @using Cluster.Deploy
-@using global::Internal
-@inherits UiComponent
 
 <PageTitle>Deploy</PageTitle>
 <PageHeader Title="Deploy"/>
@@ -54,10 +52,9 @@
     private bool _isRunning;
     private DeployCleanupResult? _lastResult;
 
-    protected override Task OnSetup(IReadOnlyLifetime lifetime)
+    protected override void OnInitialized()
     {
         _currentDeployId = DeployContext.DeployId;
-        return Task.CompletedTask;
     }
 
     private async Task RunCleanup()
