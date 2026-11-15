@@ -32,7 +32,7 @@ public class StoredStatesFormatTests(OrleansTestClusterFixture fixture)
 
     private const string DeployStateJson =
         """
-        {"$type":"Cluster.Deploy.DeployState, Cluster","DeployId":"11111111-1111-1111-1111-111111111111","LastHeartbeat":"2026-11-02T10:20:30.123Z","CoordinatorReady":true,"Version":0}
+        {"$type":"Cluster.Deploy.DeployState, Cluster","DeployId":"11111111-1111-1111-1111-111111111111","LastHeartbeat":"2026-11-02T10:20:30.123Z","CoordinatorReady":true,"CreatedAt":"2026-11-02T10:20:30.123Z","Version":0}
         """;
 
     private const string ServiceDiscoveryStorageStateJson =
@@ -42,7 +42,7 @@ public class StoredStatesFormatTests(OrleansTestClusterFixture fixture)
 
     private const string LobbyRegistryStateJson =
         """
-        {"$type":"Cluster.Lobbies.LobbyRegistryState, Cluster","Entries":{"$type":"System.Collections.Generic.Dictionary`2[[System.String, System.Private.CoreLib],[Cluster.Lobbies.LobbyRegistryEntry, Cluster]], System.Private.CoreLib","ABCD":{"$type":"Cluster.Lobbies.LobbyRegistryEntry, Cluster","ServerId":"11111111-1111-1111-1111-111111111111","SessionId":"22222222-2222-2222-2222-222222222222","MatchSessionId":"33333333-3333-3333-3333-333333333333","Listing":{"$type":"Cluster.Lobbies.LobbyListing, Cluster","IsOpen":true,"LeaderUserId":"11111111-1111-1111-1111-111111111111","PlayersCount":2,"IsRunning":true,"IsJoinable":true,"MaxPlayers":4,"IsListed":true}}},"ListingVersion":7,"Version":0}
+        {"$type":"Cluster.Lobbies.LobbyRegistryState, Cluster","Entries":{"$type":"System.Collections.Generic.Dictionary`2[[System.String, System.Private.CoreLib],[Cluster.Lobbies.LobbyRegistryEntry, Cluster]], System.Private.CoreLib","ABCD":{"$type":"Cluster.Lobbies.LobbyRegistryEntry, Cluster","ServerId":"11111111-1111-1111-1111-111111111111","SessionId":"22222222-2222-2222-2222-222222222222","MatchSessionId":"33333333-3333-3333-3333-333333333333","Listing":{"$type":"Cluster.Lobbies.LobbyListing, Cluster","IsOpen":true,"LeaderUserId":"11111111-1111-1111-1111-111111111111","PlayersCount":2,"IsRunning":true,"IsJoinable":true,"MaxPlayers":4,"IsListed":true}}},"HiddenServers":{"$type":"System.Collections.Generic.HashSet`1[[System.Guid, System.Private.CoreLib]], System.Private.CoreLib","$values":["33333333-3333-3333-3333-333333333333"]},"ListingVersion":7,"Version":0}
         """;
 
     private const string ConnectedUsersLiveDataJson =
@@ -102,6 +102,7 @@ public class StoredStatesFormatTests(OrleansTestClusterFixture fixture)
             state.LastHeartbeat.Should().Be(Time);
             state.LastHeartbeat.Kind.Should().Be(DateTimeKind.Utc);
             state.CoordinatorReady.Should().BeTrue();
+            state.CreatedAt.Should().Be(Time);
         });
     }
 
@@ -123,6 +124,7 @@ public class StoredStatesFormatTests(OrleansTestClusterFixture fixture)
     {
         CheckState<LobbyRegistryState>(LobbyRegistryStateJson, state => {
             state.ListingVersion.Should().Be(7);
+            state.HiddenServers.Should().Equal(IdC);
             state.Entries.Should().ContainKey("ABCD");
 
             var entry = state.Entries["ABCD"];
