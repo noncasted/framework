@@ -48,10 +48,19 @@ public class TaskBalancer : ITaskBalancer
 
     private async Task CollectLoop(IReadOnlyLifetime lifetime)
     {
+        var failed = false;
+
         while (lifetime.IsTerminated == false)
         {
             try
             {
+                // The pause after a failure stands inside the try: the end of the lifetime in it ends the loop here.
+                if (failed)
+                {
+                    failed = false;
+                    await Task.Delay(_config.Value.EmptyDelayMs, lifetime.Token);
+                }
+
                 var options = _config.Value;
                 var items = _queue.Collect();
 
@@ -104,7 +113,7 @@ public class TaskBalancer : ITaskBalancer
             catch (Exception e)
             {
                 _logger.LogError(e, "[TaskBalancer] CollectLoop iteration failed");
-                await Task.Delay(_config.Value.EmptyDelayMs, lifetime.Token);
+                failed = true;
             }
         }
     }
@@ -115,12 +124,21 @@ public class TaskBalancer : ITaskBalancer
         var concurrentTasks = _config.Value.ConcurrentTasks;
         var executionLock = new SemaphoreSlim(concurrentTasks, concurrentTasks);
 
+        var failed = false;
+
         while (lifetime.IsTerminated == false)
         {
             var acquired = false;
 
             try
             {
+                // The pause after a failure stands inside the try: the end of the lifetime in it still drains.
+                if (failed)
+                {
+                    failed = false;
+                    await Task.Delay(_config.Value.EmptyDelayMs, lifetime.Token);
+                }
+
                 var options = _config.Value;
 
                 await executionLock.WaitAsync(lifetime.Token);
@@ -156,7 +174,7 @@ public class TaskBalancer : ITaskBalancer
                 if (acquired)
                     executionLock.Release();
 
-                await Task.Delay(_config.Value.EmptyDelayMs, lifetime.Token);
+                failed = true;
             }
         }
 
