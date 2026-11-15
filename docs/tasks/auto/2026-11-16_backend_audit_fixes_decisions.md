@@ -1,6 +1,6 @@
 ---
 task: аудит backend (2026-11-16) и исправление находок
-updated: 2026-11-16 00:55
+updated: 2026-11-16 02:45
 ---
 
 # Решения, принятые без пользователя
@@ -38,11 +38,24 @@ Unity: редактор открыт только для `/projects/gamejam-auto
 | 17 | 02:20 | Куда положить константы `SE_*` | `Common.SideEffectTables` | Infrastructure | `DeploySetup` игр ссылается только на Common | коммит 44025f77 |
 | 18 | 02:20 | Нетранзакционный доступ к состоянию при открытой транзакции | бросает `InvalidOperationException` | ждать конца транзакции | fail fast; ожидание внутри grain-а грозит дедлоком | коммит ef261998 |
 | 19 | 02:25 | Нестабильный `ClientTelemetryCloseRetryTests` после слияния | проверка Live перенесена до восстановления записи | - | таймер grain-а 10 мс реального времени успевал сохранить повтор; 8/8 после | коммит в backend-audit-fixes-2 |
+| 20 | 02:40 | Флейк `DeploymentStateUpdateTests.ConcurrentSubscriptions` (`FormatException`) | тест читает начальный маркер без id как 0 | - | подписчик до первой записи получал начальное значение | коммит в backend-audit-fixes-2 |
+| 21 | 02:45 | Unity-стадии `test-all.sh` | не запускались | запуск в worktree с копией Library | клиент, `shared` и `common` не менялись, Unity компилирует то же, что на main | - |
+| 22 | 02:45 | Сборка игр на новом фреймворке | не делалась, шаги в `releases/unreleased.md` | собрать выгрузки игр | это работа `release-framework` / `update-framework` | - |
+| 23 | 02:45 | Worktree-ы агентов `ba2_*` | удалены, ветки `ba2-*` оставлены | оставить | всё слито, деревья чистые | `git worktree add .claude/worktrees/ba2_<x> ba2-<x>` |
 
 ### Инциденты
 | Время | Что упало / зависло | Признаки | Что сделано | Итог |
 |-------|---------------------|----------|-------------|------|
+| 01:35 | `ClientTelemetryCloseRetryTests` после слияния | 1 падение из 3 | гонка таймера в тесте, решение 19 | 8/8 |
+| 02:40 | `DeploymentStateUpdateTests.ConcurrentSubscriptions` | `FormatException`, редко | решение 20 | 2 полных прогона зелёные |
 
 ### Отложено до пользователя
 - Слияние ветки: `cd /projects/framework && git merge backend-audit-fixes-2`
 - Push: `git push origin main` после слияния
+
+## Итог 02:45
+- Ветка `backend-audit-fixes-2`: 59 коммитов над main (отчёт, 7 веток агентов, мои правки). Backend 1739 тестов (было 1694), common 96,
+  два полных прогона подряд зелёные. Unity не запускался, редактор не трогал, кластер не нужен.
+- Исправлено всё из отчёта `docs/audits/2026-11-16_backend.md` (14 критичных, 6 важных, 27 мелких) плюс найденное по ходу:
+  `SessionEndpoints` не ждал привязку pipe, гонка `StartupStatusTile` (`ClusterParticipantContext`), два нестабильных теста.
+- Шаги игр: `releases/unreleased.md`.
