@@ -39,6 +39,9 @@ namespace Internal
         {
             PrefabRootResolver.Reset();
 
+            // Missing settings stop the run before anything is written.
+            CatalogAddressablesSync.RequireSettings();
+
             var groups = PrefabGroupBuilder.BuildGroups(PrefabSourceCollector.CollectSources());
 
             // Moving between Addressables and Resources happens before batch editing: inside it

@@ -41,8 +41,9 @@ namespace Internal
 
             var error = AssetDatabase.MoveAsset(previousPath, path);
 
+            // Not moved, the group would be created again at its new path and lose its GUID.
             if (string.IsNullOrEmpty(error) == false)
-                Debug.LogError($"[{logTag}] Failed to move {previousPath} to {path}: {error}");
+                throw new InvalidOperationException($"[{logTag}] Failed to move {previousPath} to {path}: {error}");
         }
 
         public static void DeleteStale<TAsset>(string groupsFolder, HashSet<string> writtenPaths, string logTag)

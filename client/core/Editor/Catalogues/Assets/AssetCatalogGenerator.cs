@@ -38,6 +38,9 @@ namespace Internal
 
         private static void GenerateInternal()
         {
+            // Missing settings stop the run before anything is written.
+            CatalogAddressablesSync.RequireSettings();
+
             var groups = AssetGroupBuilder.BuildGroups(AssetSourceCollector.CollectSources());
 
             // Moving between Addressables and Resources happens before batch editing: inside it

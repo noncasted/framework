@@ -63,10 +63,7 @@ namespace Internal
                 var folder = getFolder(group);
 
                 if (string.IsNullOrEmpty(folder))
-                {
-                    Debug.LogError($"[{logTag}] Missing generated folder for group '{group.Name}'");
-                    continue;
-                }
+                    throw new InvalidOperationException($"[{logTag}] Group '{group.Name}' has no generated folder");
 
                 if (byFolder.TryGetValue(folder, out var list) == false)
                 {

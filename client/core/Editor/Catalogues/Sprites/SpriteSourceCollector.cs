@@ -38,7 +38,7 @@ namespace Internal
                     if (seen.Add(path) == false)
                         continue;
 
-                    var importer = AssetImporter.GetAtPath(path);
+                    var importer = CatalogPaths.SourceImporter(path);
 
                     if (importer == null)
                         continue;
@@ -51,18 +51,12 @@ namespace Internal
                     var groupName = CatalogNaming.ToGroupPath(metadata.Group);
 
                     if (string.IsNullOrEmpty(groupName))
-                    {
-                        Debug.LogError($"[SpriteGenerator] {path} is included and has no group: it is left out of the catalogue");
-                        continue;
-                    }
+                        throw new InvalidOperationException($"Included sprite has empty group: {path}");
 
                     var propertyName = CatalogNaming.ToGroupName(Path.GetFileNameWithoutExtension(path));
 
                     if (string.IsNullOrEmpty(propertyName))
-                    {
-                        Debug.LogError($"[SpriteGenerator] Identifier is empty for {path}");
-                        continue;
-                    }
+                        throw new InvalidOperationException($"Identifier of the sprite is empty: {path}");
 
                     sources.Add(new SpriteSource(
                         path,
@@ -94,10 +88,7 @@ namespace Internal
             metadata.SetGroup(SpriteCatalogMetadata.GetDefaultGroup(importer.assetPath));
 
             if (string.IsNullOrEmpty(metadata.Group))
-            {
-                Debug.LogError($"[SpriteGenerator] {importer.assetPath} is included and has no group: it is left out of the catalogue");
-                return null;
-            }
+                throw new InvalidOperationException($"Included sprite has no group and no folder to take it from: {importer.assetPath}");
 
             SpriteCatalogMetadata.Write(importer, metadata);
             return metadata;

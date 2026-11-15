@@ -30,10 +30,7 @@ namespace Internal
                 return;
 
             if (settings == null)
-            {
-                Debug.LogError($"[{LogTag}] Addressable settings are missing.");
-                return;
-            }
+                throw new InvalidOperationException($"[{LogTag}] Addressable settings are missing: the scenes are not synced");
 
             var builtIn = CollectBuiltInScenes();
             var used = new HashSet<string>(StringComparer.Ordinal);
@@ -49,12 +46,6 @@ namespace Internal
                 var groupName = GroupPrefix + GetDomain(address);
                 var group = CatalogAddressablesSync.GetOrCreatePackedGroup(settings, groupName);
 
-                if (group == null)
-                {
-                    Debug.LogError($"[{LogTag}] Failed to create group '{groupName}'.");
-                    continue;
-                }
-
                 used.Add(guid);
                 usedGroups.Add(groupName);
 
@@ -62,14 +53,9 @@ namespace Internal
 
                 if (entry == null || entry.parentGroup != group)
                 {
-                    entry = settings.CreateOrMoveEntry(guid, group, false, false);
+                    entry = settings.CreateOrMoveEntry(guid, group, false, false)
+                            ?? throw new InvalidOperationException($"[{LogTag}] Failed to mark {address} addressable");
                     changed = true;
-
-                    if (entry == null)
-                    {
-                        Debug.LogError($"[{LogTag}] Failed to mark {address} addressable.");
-                        continue;
-                    }
                 }
 
                 if (entry.address != address)
