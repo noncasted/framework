@@ -93,6 +93,14 @@ namespace Internal.Tests
         }
 
         [ContainerGraphRoot]
+        public static UniTask FailingLoaded(IScopeBuilder builder)
+        {
+            ScopeLoaderProbe.Track("failingLoaded", builder.Events, builder.Lifetime);
+            builder.Register<ScopeLoaderThrowingLoaded>().As<IScopeLoaded>();
+            return UniTask.CompletedTask;
+        }
+
+        [ContainerGraphRoot]
         public static UniTask SeveralDisposeListeners(IScopeBuilder builder)
         {
             builder.Register<ScopeLoaderThrowingDispose>().As<IScopeDispose>();
@@ -195,6 +203,14 @@ namespace Internal.Tests
         public void OnSetup(IReadOnlyLifetime lifetime)
         {
             throw new InvalidOperationException("setup failed");
+        }
+    }
+
+    public sealed class ScopeLoaderThrowingLoaded : IScopeLoaded
+    {
+        public void OnLoaded(IReadOnlyLifetime lifetime)
+        {
+            throw new InvalidOperationException("loaded failed");
         }
     }
 

@@ -23,6 +23,7 @@ namespace Internal.Tests
             GeneratedScopeHarness.Register(((Action<IEntityBuilder>)ScopeEntityRoots.RootEntity).Method);
             GeneratedScopeHarness.Register(((Func<IEntityBuilder, UniTask>)ScopeEntityRoots.AsyncGatedEntity).Method);
             GeneratedScopeHarness.Register(((Func<IScopeBuilder, UniTask>)ScopeLoaderRoots.SeveralDisposeListeners).Method);
+            GeneratedScopeHarness.Register(((Func<IScopeBuilder, UniTask>)ScopeLoaderRoots.FailingLoaded).Method);
         }
 
         // A scope that fails to load is torn down: its lifetime ends and its asset groups are released.
@@ -35,6 +36,17 @@ namespace Internal.Tests
             Assert.AreEqual("setup failed", caught.Message);
             Assert.IsTrue(ScopeLoaderProbe.Lifetimes["failing"].IsTerminated, "scope lifetime survived the failed load");
             Assert.AreEqual(1, ScopeLoaderProbe.Count("failing.afterDispose"), "asset groups were not released");
+        });
+
+        // The root whose loaded phase throws is disposed: nothing else would ever dispose it.
+        [UnityTest]
+        public IEnumerator LoadRoot_InitializeThrows_DisposesRoot() => UniTask.ToCoroutine(async () =>
+        {
+            var caught = await Catch(() => new ServiceScopeLoader().LoadRoot(ScopeLoaderRoots.FailingLoaded));
+
+            Assert.AreEqual("loaded failed", caught.Message);
+            Assert.IsTrue(ScopeLoaderProbe.Lifetimes["failingLoaded"].IsTerminated, "the root lifetime survived the failed load");
+            Assert.AreEqual(1, ScopeLoaderProbe.Count("failingLoaded.afterDispose"), "asset groups were not released");
         });
 
         // A throwing dispose listener does not stop the teardown, and the error still reaches the caller.

@@ -34,6 +34,10 @@ namespace Internal
             try
             {
                 await construct.Invoke(builder);
+
+                // The lifetime ended before or during construct: the build events would retain the assets of an entity
+                // that is already torn down.
+                builder.ScopeLifetime.Token.ThrowIfCancellationRequested();
                 await builder.Events.InvokeBeforeBuild();
 
                 view.CreateViews(builder);
@@ -42,7 +46,7 @@ namespace Internal
             }
             catch
             {
-                builder.ScopeLifetime.Terminate();
+                await teardown.Fail(builder.ScopeLifetime);
                 throw;
             }
         }
@@ -60,6 +64,10 @@ namespace Internal
             try
             {
                 construct.Invoke(builder);
+
+                // The lifetime ended before or during construct: the build events would retain the assets of an entity
+                // that is already torn down.
+                builder.ScopeLifetime.Token.ThrowIfCancellationRequested();
                 await builder.Events.InvokeBeforeBuild();
 
                 view.CreateViews(builder);
@@ -68,7 +76,7 @@ namespace Internal
             }
             catch
             {
-                builder.ScopeLifetime.Terminate();
+                await teardown.Fail(builder.ScopeLifetime);
                 throw;
             }
         }
@@ -83,7 +91,8 @@ namespace Internal
         }
 
         // The end of the scope lifetime tears the entity down: the dispose phase, the container, then the asset
-        // groups. A load that fails ends the lifetime and is torn down the same way, without the dispose phase.
+        // groups. A load that fails ends the lifetime and is torn down the same way, without the dispose phase unless
+        // the setup has completed.
         private EntityBuilder CreateBuilder(
             IReadOnlyLifetime parentLifetime,
             IContainer parent,
@@ -118,7 +127,7 @@ namespace Internal
                 view.GetType(),
                 builder.ContainerBuilder);
 
-            teardown.Container = container;
+            teardown.SetContainer(container);
 
             // An entity root without WithParameter(ScopeLifetime) terminates the lifetime of the container. Component
             // setup is subscribed to the scope lifetime, and without this back link entity updates
@@ -128,8 +137,23 @@ namespace Internal
             view.Bind(container);
 
             builder.Events.Bind(container);
-            await builder.Events.RunConstruct(builder.ScopeLifetime);
-            teardown.IsConstructed = true;
+
+            // A teardown that comes during the setup waits for it: the services that have started their setup are
+            // disposed, and the setup does not resolve from a disposed container.
+            teardown.BeginConstruct();
+
+            try
+            {
+                await builder.Events.RunConstruct(builder.ScopeLifetime);
+                teardown.EndConstruct(true);
+            }
+            catch
+            {
+                teardown.EndConstruct(false);
+                throw;
+            }
+
+            builder.ScopeLifetime.Token.ThrowIfCancellationRequested();
 
             // An entity has no Initialize of its own: it is loaded once its setup is done.
             await builder.Events.RunLoaded(builder.ScopeLifetime);
@@ -146,12 +170,46 @@ namespace Internal
 
             private readonly IEventLoop _events;
 
-            public IContainer Container;
-            public bool IsConstructed;
+            private IContainer _container;
+
+            // The result of the setup: true when it has completed, so the dispose phase runs.
+            private UniTaskCompletionSource<bool> _construct;
+            private UniTaskCompletionSource _over;
+
+            public void SetContainer(IContainer container)
+            {
+                _container = container;
+            }
+
+            public void BeginConstruct()
+            {
+                _construct = new UniTaskCompletionSource<bool>();
+            }
+
+            public void EndConstruct(bool isCompleted)
+            {
+                _construct.TrySetResult(isCompleted);
+            }
 
             public void Run()
             {
+                _over = new UniTaskCompletionSource();
                 Process().NoAwait();
+            }
+
+            // A failed load ends the lifetime. When it had ended before, its teardown has released only what was
+            // retained by then: the load may have retained more after it (an async construct, the build events).
+            public async UniTask Fail(ILifetime lifetime)
+            {
+                var over = _over;
+
+                lifetime.Terminate();
+
+                if (over == null)
+                    return;
+
+                await over.Task;
+                await _events.InvokeAfterDispose();
             }
 
             // A failing step does not stop the teardown; the errors go to the UniTask unobserved exception handler.
@@ -159,13 +217,14 @@ namespace Internal
             {
                 var teardown = new ScopeTeardown();
 
-                if (IsConstructed == true)
+                if (_construct != null && await _construct.Task == true)
                     await teardown.StepAwaited(_events.RunDispose);
 
-                if (Container != null)
-                    teardown.Step(Container.Dispose);
+                if (_container != null)
+                    teardown.Step(_container.Dispose);
 
                 await teardown.StepAwaited(_events.InvokeAfterDispose);
+                _over.TrySetResult();
 
                 teardown.ThrowErrors();
             }
