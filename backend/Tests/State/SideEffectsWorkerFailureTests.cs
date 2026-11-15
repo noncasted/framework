@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Common;
 using FluentAssertions;
 using Framework.Tests.Fixtures;
+using Framework.Tests.Grains;
 using Infrastructure;
 using Infrastructure.Startup;
 using Internal;
@@ -70,6 +71,44 @@ public class SideEffectsWorkerFailureTests
         await storage.Received(1).CompleteProcessing(entryId);
     }
 
+    // Every slot busy: the worker still touches its entries at its stuck check, otherwise the stuck check of another
+    // worker takes them for the entries of a gone worker and runs them again.
+    [Fact]
+    public async Task SlotsFull_RunningEntriesTouched()
+    {
+        var storage = Substitute.For<ISideEffectsStorage>();
+        var gate = TestGate.Create();
+        var entryId = Guid.NewGuid();
+        var reads = 0;
+        var touches = 0;
+
+        storage.Read(Arg.Any<int>()).Returns(_ => Task.FromResult<IReadOnlyList<SideEffectEntry>>(
+            Interlocked.Increment(ref reads) == 1
+                ? new[] { new SideEffectEntry { Id = entryId, Effect = new GatedSideEffect { GateId = gate.Id }, RetryCount = 0 } }
+                : Array.Empty<SideEffectEntry>()));
+
+        storage.TouchProcessing(Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Contains(entryId)))
+               .Returns(_ => {
+                   Interlocked.Increment(ref touches);
+                   return Task.CompletedTask;
+               });
+
+        var worker = CreateWorker(storage, new SideEffectsOptions
+        {
+            ScanDelay = 50,
+            EmptyScanDelay = 50,
+            ConcurrentExecutions = 1,
+            StuckCheckIntervalSeconds = 0
+        });
+
+        await worker.StartAsync(TestContext.Current.CancellationToken);
+        await gate.Entered;
+        await TestWait.Until(() => Volatile.Read(ref touches) >= 1);
+
+        gate.Release();
+        await worker.StopAsync(TestContext.Current.CancellationToken);
+    }
+
     private SideEffectsWorker CreateWorker(ISideEffectsStorage storage, SideEffectsOptions options)
     {
         var flags = Substitute.For<IClusterFlags>();
@@ -104,6 +143,17 @@ public class FailingTransactionalSideEffect : ITransactionalSideEffect
     public Task Execute(IOrleans orleans)
     {
         throw new InvalidOperationException(Marker);
+    }
+}
+
+[GenerateSerializer]
+public class GatedSideEffect : ISideEffect
+{
+    [Id(0)] public Guid GateId { get; init; }
+
+    public Task Execute(IOrleans orleans)
+    {
+        return TestGate.EnterAndWait(GateId);
     }
 }
 
