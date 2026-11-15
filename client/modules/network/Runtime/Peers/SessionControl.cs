@@ -77,6 +77,9 @@ namespace Internal
         // As NetworkSession: the server sends the local seat right after the authorization.
         private static readonly TimeSpan LocalSeatTimeout = TimeSpan.FromSeconds(20);
 
+        // As NetworkLatencyMonitor: the answers keep the silence of the server below ConnectionSilence.Limit.
+        private const float PingInterval = 0.5f;
+
         private readonly NetworkConnection _connection;
         private readonly PeerSignaling _signaling;
         private readonly PeerTunnels _tunnels;
@@ -107,6 +110,10 @@ namespace Internal
                 throw new OperationCanceledException("[Network] [Control] The connection is lost before the local seat");
 
             Debug.Log($"[Network] [Control] Local seat {_localIndex}");
+
+            // A network lost without a close ends the match for this player as a closed connection does.
+            Ping(lifetime).NoAwait();
+            ConnectionSilence.Watch(lifetime, _connection).NoAwait();
         }
 
         public async UniTask<SharedSessionService.GetResponse> GetService(
@@ -141,6 +148,28 @@ namespace Internal
         {
             _connection.OneWay(new SharedSessionPlayer.Leave());
             await _connection.ForceSendAll();
+        }
+
+        // The server answers Pong (ignored here): the traffic the watch of the silence counts. The time is the one of the
+        // watch, so a stalled frame delays both alike.
+        private async UniTask Ping(IReadOnlyLifetime lifetime)
+        {
+            var id = 0;
+            var timer = 0f;
+
+            while (lifetime.IsTerminated == false && _connection.Writer.IsClosed == false)
+            {
+                await UniTask.Yield(lifetime.Token);
+
+                timer += ConnectionSilence.FrameDelta;
+
+                if (timer < PingInterval)
+                    continue;
+
+                timer = 0f;
+                id++;
+                _connection.OneWay(new SharedSessionLatency.Ping { Id = id });
+            }
         }
 
         private void OnLocalUpdate(SharedSessionPlayer.LocalUpdate update)
