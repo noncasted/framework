@@ -1,6 +1,6 @@
 namespace Internal.EditorTests
 {
-    // Counts the content builds of ContentBuildTests; the content builds of the project pass by.
+    // Counts the content builds (ContentBuildTests).
     public sealed class ContentTestBuildStep : IContentBuildStep
     {
         public static int Calls { get; private set; }
@@ -10,10 +10,9 @@ namespace Internal.EditorTests
             Calls = 0;
         }
 
-        public void BeforeContentBuild(ContentDirectorySettings directory)
+        public void BeforeContentBuild()
         {
-            if (directory.Name == ContentBuildTests.Name)
-                Calls++;
+            Calls++;
         }
     }
 }

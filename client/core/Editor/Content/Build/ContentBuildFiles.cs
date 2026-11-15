@@ -1,42 +1,39 @@
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
 
 namespace Internal
 {
-    // The files a player build gets from the content build for its time only, removed after it, also a failed one:
-    // the stamp (ContentStamp) of each directory as a json TextAsset in Resources (an asset folder of its own) and, for the
-    // preloaded directories of a WebGL build, the index as a json TextAsset next to the stamp and the preload manifest that puts
-    // their archives into the .data file (no request for either at the start).
+    // The files a player build gets from the content build for its time only, removed after it, also a failed one: the
+    // catalog (ContentCatalog) as a json TextAsset in Resources (an asset folder of its own) and, for the preloaded bundles
+    // of a WebGL build, the preload manifest that puts their files into the .data file (no request at the start).
     public static class ContentBuildFiles
     {
         // An asset folder owned by the build alone: removed whole after it, and before it when a killed editor left it.
-        public const string StampFolder = "Assets/FrameworkContentStamp";
+        public const string CatalogFolder = "Assets/FrameworkContentStamp";
 
         // Read by the WebGL build program: one path under StreamingAssets a line.
         public const string PreloadManifest = "Library/PlayerDataCache/WebGLPreloadedStreamingAssets/framework-content.manifest";
 
-        public static string StampAsset(string name)
+        public static string CatalogAsset => $"{CatalogFolder}/Resources/{ContentCatalog.Resource}.json";
+
+        public static void WriteCatalog(ContentCatalog catalog)
         {
-            return $"{StampFolder}/Resources/{ContentPaths.StampResource(name)}.json";
+            Directory.CreateDirectory(Path.GetDirectoryName(CatalogAsset) ?? throw new IOException(CatalogAsset));
+            File.WriteAllText(CatalogAsset, catalog.ToJson());
+            AssetDatabase.ImportAsset(CatalogFolder, ImportAssetOptions.ImportRecursive | ImportAssetOptions.ForceSynchronousImport);
         }
 
-        public static void WriteStamp(string name, ContentStamp stamp)
+        // The files of the preloaded bundles of the build; none: no manifest.
+        public static void WritePreloadManifest(ContentCatalog catalog)
         {
-            var path = StampAsset(name);
+            var files = catalog.Bundles
+                .Where(bundle => bundle.IsPreloaded)
+                .SelectMany(bundle => bundle.Files.Select(file => $"{ContentCatalogPaths.Folder}/{file.Name}"))
+                .ToArray();
 
-            Directory.CreateDirectory(Path.GetDirectoryName(path) ?? throw new IOException(path));
-            File.WriteAllText(path, stamp.ToJson());
-            AssetDatabase.ImportAsset(StampFolder, ImportAssetOptions.ImportRecursive | ImportAssetOptions.ForceSynchronousImport);
-        }
-
-        // The archives of the preloaded directories of the build.
-        public static void WritePreloadManifest(IReadOnlyList<ContentIndex> indexes)
-        {
-            var files = indexes
-                .Select(index => ContentPaths.Directory(index.Name))
-                .SelectMany(folder => new[] { ContentPaths.ArchiveFile, ContentPaths.ManifestHashFile }.Select(file => $"{folder}/{file}"));
+            if (files.Length == 0)
+                return;
 
             Directory.CreateDirectory(Path.GetDirectoryName(PreloadManifest) ?? throw new IOException(PreloadManifest));
             File.WriteAllLines(PreloadManifest, files);
@@ -44,17 +41,17 @@ namespace Internal
 
         public static void Delete()
         {
-            if (AssetDatabase.IsValidFolder(StampFolder))
+            if (AssetDatabase.IsValidFolder(CatalogFolder))
             {
-                if (AssetDatabase.DeleteAsset(StampFolder) == false)
-                    throw new IOException($"[ContentBuild] Could not delete {StampFolder}");
+                if (AssetDatabase.DeleteAsset(CatalogFolder) == false)
+                    throw new IOException($"[ContentBuild] Could not delete {CatalogFolder}");
             }
 
             // Written but never imported: the editor died between the two.
-            if (Directory.Exists(StampFolder))
+            if (Directory.Exists(CatalogFolder))
             {
-                Directory.Delete(StampFolder, true);
-                File.Delete($"{StampFolder}.meta");
+                Directory.Delete(CatalogFolder, true);
+                File.Delete($"{CatalogFolder}.meta");
             }
 
             if (File.Exists(PreloadManifest))

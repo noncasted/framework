@@ -6,43 +6,36 @@ using Object = UnityEngine.Object;
 
 namespace Internal
 {
-    // The loads of a game from one content directory: a registered one in a player (Register), the assets of the project
-    // in Play Mode of the editor (EditorContentDirectory). Each load is an AssetLoads entry ("Content: <name>") and a
-    // concurrent span of the trace. Main thread only.
+    // The loads of a game through one bundle (its roots) of a player (BundleContentSource) or the assets of the project
+    // in Play Mode of the editor (EditorContentSource): any reference of the catalog, wherever its bundle is. Each load is
+    // an AssetLoads entry ("Content: <name>") and a concurrent span of the trace. Main thread only.
     public sealed class ContentLoader : IContentLoader
     {
-        internal ContentLoader(IContentDirectory directory)
+        internal ContentLoader(IContentSource source, ContentLoads loads)
         {
-            _directory = directory;
-            _scenes = new ContentSceneLoads(directory, Report);
+            _source = source;
+            _loads = loads;
+            _scenes = new ContentSceneLoads(source, Report);
         }
 
-        private readonly IContentDirectory _directory;
+        private readonly IContentSource _source;
+        private readonly ContentLoads _loads;
         private readonly ContentSceneLoads _scenes;
-        private readonly Dictionary<ContentReference, object> _objects = new();
-        private readonly Dictionary<string, ViewableProperty<ContentProgress>> _progress = new();
 
-        public string Name => _directory.Name;
+        public string Name => _source.Name;
 
-        // Registers the content directory a player build carries (its stamp in Resources, its index and archive in the
-        // store of the platform) for the lifetime: when it ends the directory is unregistered and every object loaded from
-        // it is destroyed. The options name the directory and, for a WebGL player, where and how its archive is fetched.
-        public static async UniTask<ContentLoader> Register(IReadOnlyLifetime lifetime, ContentOptions options)
+        // The main bundle of the build (a player) or of the project (Play Mode), held while the lifetime lives, without a
+        // scope (a smoke player, a tool); a game calls AddContent.
+        public static UniTask<ContentLoader> Register(IReadOnlyLifetime lifetime, ContentOptions options)
         {
-            ContentStamp stamp;
-
-            using (GameProfiler.Scope("Content: stamp"))
-                stamp = ContentStamp.Load(options.Name);
-
-            var (index, store) = await ContentStores.Open(lifetime, stamp, options);
-            var directory = await ContentDirectory.Register(lifetime, index, store);
-            return new ContentLoader(directory);
+            options.Validate();
+            return ContentRuntime.Open(options).Register(lifetime, options.Name);
         }
 
-        // The root assets of the directory, loaded with its registration.
+        // The root assets of the bundle, loaded with its registration.
         public IReadOnlyList<T> RootAssets<T>() where T : Object
         {
-            return _directory.RootAssets<T>();
+            return _source.RootAssets<T>();
         }
 
         public UniTask<T> Load<T>(IReadOnlyLifetime lifetime, ContentReference<T> reference) where T : Object
@@ -50,7 +43,7 @@ namespace Internal
             reference.ThrowIfEmpty();
             lifetime.Token.ThrowIfCancellationRequested();
 
-            if (_objects.TryGetValue(reference, out var running))
+            if (_loads.Objects.TryGetValue(reference, out var running))
                 return ((ContentObjectLoad<T>)running).Add(lifetime);
 
             return Create(reference).Start(lifetime);
@@ -58,7 +51,7 @@ namespace Internal
 
         public async UniTask<IReadOnlyList<T>> Load<T>(IReadOnlyLifetime lifetime, IReadOnlyList<ContentReference<T>> references) where T : Object
         {
-            // Every fetch starts in this frame, so the store sees them as one batch; the engine loads run in parallel.
+            // Every load starts in this frame: their fetches run together.
             var loads = new UniTask<T>[references.Count];
 
             for (var i = 0; i < references.Count; i++)
@@ -72,7 +65,7 @@ namespace Internal
             reference.ThrowIfEmpty();
             lifetime.Token.ThrowIfCancellationRequested();
 
-            if (_objects.TryGetValue(reference, out var running))
+            if (_loads.Objects.TryGetValue(reference, out var running))
             {
                 var load = (ContentObjectLoad<T>)running;
 
@@ -83,7 +76,7 @@ namespace Internal
                 return reference.Target;
             }
 
-            if (_directory.IsObjectReal(reference.Guid, reference.LocalId) == false)
+            if (_source.IsReal(reference) == false)
                 throw new InvalidOperationException($"[Content] {typeof(T).Name} {reference} needs a fetch: load it with Load");
 
             return Create(reference).LoadNow(lifetime);
@@ -98,26 +91,25 @@ namespace Internal
         public UniTask Fetch(IReadOnlyLifetime lifetime, ContentReference reference)
         {
             reference.ThrowIfEmpty();
-            return _directory.FetchObject(lifetime, reference.Guid, reference.LocalId, Report(reference));
+            return _source.Fetch(lifetime, reference, Report(reference));
         }
 
         public UniTask Fetch(IReadOnlyLifetime lifetime, ContentScene scene)
         {
             scene.ThrowIfEmpty();
-            return _directory.FetchScene(lifetime, scene.Guid, Report(scene));
+            return _source.Fetch(lifetime, scene, Report(scene));
         }
 
         public IViewableProperty<ContentProgress> Progress(ContentReference reference)
         {
             reference.ThrowIfEmpty();
-            return ProgressOf(ObjectKey(reference), () => _directory.ObjectBytes(reference.Guid, reference.LocalId),
-                () => _directory.IsObjectReal(reference.Guid, reference.LocalId));
+            return ProgressOf($"{reference.Guid}:{reference.LocalId}", () => _source.Bytes(reference), () => _source.IsReal(reference));
         }
 
         public IViewableProperty<ContentProgress> Progress(ContentScene scene)
         {
             scene.ThrowIfEmpty();
-            return ProgressOf(scene.Guid, () => _directory.SceneBytes(scene.Guid), () => false);
+            return ProgressOf(scene.Guid, () => _source.Bytes(scene), () => false);
         }
 
         private IProgress<long> Report(ContentScene scene)
@@ -132,31 +124,26 @@ namespace Internal
 
         private ContentObjectLoad<T> Create<T>(ContentReference<T> reference) where T : Object
         {
-            var load = new ContentObjectLoad<T>(reference, _directory, Report(reference), OnObjectOver);
-            _objects.Add(reference, load);
+            var load = new ContentObjectLoad<T>(reference, _source, Report(reference), OnObjectOver);
+            _loads.Objects.Add(reference, load);
             return load;
         }
 
         private void OnObjectOver(ContentReference reference)
         {
-            _objects.Remove(reference);
+            _loads.Objects.Remove(reference);
         }
 
         // A scene starts at 0 bytes: its first fetch reports the files real already.
         private IViewableProperty<ContentProgress> ProgressOf(string key, Func<long> total, Func<bool> isReal)
         {
-            if (_progress.TryGetValue(key, out var progress))
+            if (_loads.Progress.TryGetValue(key, out var progress))
                 return progress;
 
             var bytes = total();
             progress = new ViewableProperty<ContentProgress>(new ContentProgress(isReal() ? bytes : 0, bytes));
-            _progress.Add(key, progress);
+            _loads.Progress.Add(key, progress);
             return progress;
-        }
-
-        private static string ObjectKey(ContentReference reference)
-        {
-            return $"{reference.Guid}:{reference.LocalId}";
         }
     }
 }

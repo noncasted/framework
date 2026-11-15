@@ -18,7 +18,7 @@ shared/                 protocol and types used by both the Unity client and the
                         union tags), Session/ (the real-time session), Lobbies/ and Matchmaking/ (lobby rooms and the
                         session requests of the meta), ClientTelemetry/ (the telemetry of a client over its meta socket)
 client/
-  core/                 DI container (+ ContainerGenerator), scopes, content directory, catalogues, the Unity side of the reactive
+  core/                 DI container (+ ContainerGenerator), scopes, content bundles, catalogues, the Unity side of the reactive
                         primitives (GameObjectLifetime, UniTask waits, Lifetime Graph), editor tools
   flow/                 base of game loop, loaders and mocks (concrete mocks and the startup scene stay in the project)
   modules/              optional modules: publish, network, browser, audio, animations, cameras, inputs, backend, ui,
@@ -155,7 +155,7 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
 - **Project layout for the editor tools.** `ProjectSettings/Framework.json` (`FrameworkSettings`, required: no game
   defaults, `ContentAssembly` and `ContentFolder` must be set): content folder and
   assembly, module roots, scene folders, art and audio folders, favorite scenes, player assemblies to strip, the content
-  directory (`Content`: `Name`, `Roots`, `IsPreloaded`; required by a player build only). A game without the settings gets
+  directory (`Content`: `Name`, `Roots`, `IsPreloaded`, `Fetch` `Ranges` / `Whole`, `IsArchiveGzip`; required by a player build only). A game without the settings gets
   the error. The live graphs write into `<ContentFolder>/Editor/Transient`: the project ignores `Transient*`
   there in git. Editor assets of the framework are loaded from `FrameworkSettings.Package(...)`.
 - **Screen canvases.** The canvases the framework builds from code (the latency overlay of `network`, the outdated
@@ -163,21 +163,20 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   layer, planeDistance)` (Screen Space - Camera: the whole canvas on the layer, the camera asked on every show) or, explicitly,
   `AddScreenCanvasOverlay()`. Without one the scope that builds them does not resolve. The Overlay mode lost its projection on
   iPadOS 18.2 Safari; the camera and its drawing stay in the game.
-- **Content.** One content directory per game (`CONTENT.md`) instead of Addressables (removed in 0.7): `ContentBuild` builds it
-  with every player build (an `IPlayerBuildStep` and a `BuildPlayerProcessor` for the build window; `IContentBuildStep` runs first,
-  the `ContentRoot` generator among them) into `Library/Content/<name>`, checks its lazy references (empty or outside it fail the
-  build), bakes its index into `Resources` and ships it as `StreamingAssets/Content/<name>` (`IsPreloaded` on WebGL: inside the
-  `.data`; a WebGL build with brotli ships `<file>.br`, which the server sends with `Content-Encoding: br` as `Build/*.br`). The root scope calls `await builder.AddContent(ContentOptions)` once (`IContentLoader`; binds the catalogues to the
-  roots; its lifetime keeps the directory registered); scopes `LoadContent(reference)` / `RequestContent(reference, out slot)`
-  (container primitives), scenes `FindOrLoadSceneWithServices(ContentScene)`, `WithAssetScene(ContentScene)`; during the game
-  `IContentLoader.Load / LoadScene / Fetch / Progress` on the lifetime of the owner, which owns the result (counted per
-  reference instance, one fetch per file). References: `ContentReference<T>` (`Loadable<T>`), `ContentScene`
-  (`LoadableSceneId`), only inside assets of the directory (a player scene erases them). Stores: local (`StreamingAssets`),
-  web (zeros + fetch, Cache API `content`, `remoteUrl` for a CDN), Play Mode without a directory (assets of the project).
-  Extra directories (`ExtraContent` of `Framework.json`, e.g. music fetched apart from a preloaded main one) are built the same way;
-  an asset in two directories fails the build; the root registers each with `AddContentDirectory(ContentOptions)` after `AddContent`
-  (registered in the background: `await IContentDirectories.Wait(lifetime, name)`, a loader of its own, no catalogues: loads from its `RootAssets<T>()`).
-  `IsPreloaded` groups (`preloaded` in the json lists) are read synchronously. Unity 7000 alpha API.
+- **Content.** AssetBundles of the engine (`CONTENT.md`) instead of the content directory (until 0.8) and Addressables (until 0.7):
+  a bundle is a `ContentBundle` asset (roots, `IsPreloaded`, `IsGzip`) holding its roots and what they reach directly and lazily,
+  except the roots of other bundles (dependencies). `ContentBuild` lays them out and checks every dependency has one owner
+  (`ContentBundleLayout`), builds them with every player build (an `IPlayerBuildStep` and a `BuildPlayerProcessor`;
+  `IContentBuildStep` runs first, the `ContentRoot` generator among them), writes the catalog into `Resources`, the types of their
+  objects into a link.xml (`ContentLinkerProcessor`) and ships them as `StreamingAssets/Content/<name>.<hash>.bundle[.gz]`
+  (`IsPreloaded` on WebGL: inside the `.data`). The root scope calls `await builder.AddContent(ContentOptions)` once (the main
+  bundle held as long as the root, `IContentLoader`, the catalogues bound); more bundles with roots of their own:
+  `AddContentBundle(name, registration)`, `await IContentBundles.Wait(lifetime, name)`, `RootAssets<T>()`. Scopes
+  `LoadContent(reference)` / `RequestContent(reference, out slot)` (container primitives), scenes `FindOrLoadSceneWithServices(ContentScene)`,
+  `WithAssetScene(ContentScene)`; during the game `IContentLoader.Load / LoadNow / LoadScene / Fetch / Progress` on the lifetime of the
+  owner, which holds the whole bundle of the target with its dependencies and unloads it after the last hold. References:
+  `ContentReference<T>`, `ContentScene` (GUID and local id; the catalog knows the bundle). Stores: local (`StreamingAssets`, Android
+  inside the APK), web (fetch into MEMFS, Cache API `content`, `remoteUrl` for a CDN), Play Mode (assets of the project).
 - **Player build steps.** A project step around the build entry points of the platforms implements `IPlayerBuildStep`
   (`core/Editor/Tools/Build`: `BeforeBuild` / `AfterBuild(target, succeeded)`, a parameterless class, found by
   `TypeCache`, ordered by full type name); `PlayerBuildSteps.Run(target, build)` calls `AfterBuild` of every started

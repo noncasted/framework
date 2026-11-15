@@ -5,32 +5,32 @@ using Object = UnityEngine.Object;
 
 namespace Internal
 {
-    // The load of one content reference and the lifetimes holding it. The engine loads a Loadable once and its first
-    // Release frees it, so the lifetimes are counted here: one LoadAsync for all of them, one Release after the last.
-    // The last holder gone during the fetch aborts the fetch; during the engine load, the load goes on and is released
-    // when it ends; a holder that comes meanwhile keeps it. Main thread only.
+    // The load of one content reference and the lifetimes holding it: one load of the source for all of them, held (its
+    // bundle with its dependencies) on a lifetime of its own that ends after the last one. The last holder gone before
+    // the load is over ends it: the fetch is aborted, a load of the engine already started is let go when it is over.
+    // Main thread only.
     internal sealed class ContentObjectLoad<T> where T : Object
     {
-        public ContentObjectLoad(ContentReference<T> reference, IContentDirectory directory, IProgress<long> progress, Action<ContentReference> onOver)
+        public ContentObjectLoad(ContentReference<T> reference, IContentSource source, IProgress<long> progress, Action<ContentReference> onOver)
         {
             _reference = reference;
-            _directory = directory;
+            _source = source;
             _progress = progress;
             _onOver = onOver;
         }
 
         private readonly ContentReference<T> _reference;
-        private readonly IContentDirectory _directory;
+        private readonly IContentSource _source;
         private readonly IProgress<long> _progress;
         private readonly Action<ContentReference> _onOver;
         private readonly UniTaskCompletionSource<T> _completion = new();
-        private readonly Lifetime _fetch = new();
+        private readonly Lifetime _hold = new();
         private readonly List<Hold> _holds = new();
-        private ContentLoadPhase _phase = ContentLoadPhase.Fetching;
+        private ContentLoadPhase _phase = ContentLoadPhase.Loading;
 
         public bool IsLoaded => _phase == ContentLoadPhase.Loaded;
 
-        // Starts the fetch and the load of the reference for its first holder.
+        // Starts the load of the reference for its first holder.
         public UniTask<T> Start(IReadOnlyLifetime lifetime)
         {
             var wait = Add(lifetime);
@@ -44,33 +44,37 @@ namespace Internal
             return _completion.Task.AttachExternalCancellation(lifetime.Token);
         }
 
-        // The files are real: the engine loads it now, without a frame.
+        // The bundle is real: loaded now, without a frame.
         public T LoadNow(IReadOnlyLifetime lifetime)
         {
-            if (_phase != ContentLoadPhase.Fetching || _holds.Count > 0)
+            if (_holds.Count > 0)
                 throw new InvalidOperationException($"[Content] {_reference} is loading already");
 
             var load = AssetLoads.Begin($"Content: {_reference.Guid}");
-            _phase = ContentLoadPhase.Loading;
             T target;
 
-            using (GameProfiler.Scope($"Content: load {typeof(T).Name}"))
-                target = _reference.Loadable.Load();
-
-            if (target == null)
+            try
             {
-                var exception = new InvalidOperationException($"[Content] The engine did not load {typeof(T).Name} {_reference} ({_reference.Loadable.Status})");
+                target = _source.LoadNow(_hold, _reference);
+            }
+            catch (Exception exception)
+            {
                 load.Fail(exception);
-                _reference.Loadable.Release();
                 End();
-                throw exception;
+                throw;
             }
 
             load.Finish($"Content: {target.name}");
-            _phase = ContentLoadPhase.Loaded;
-            _completion.TrySetResult(target);
+            Loaded(target);
             AddHold(lifetime);
             return target;
+        }
+
+        public void AddHold(IReadOnlyLifetime lifetime)
+        {
+            var hold = new Hold(this, lifetime);
+            _holds.Add(hold);
+            lifetime.Listen(hold.OnEnded);
         }
 
         // The top of a task nobody awaits: the outcome goes to the holders through the completion.
@@ -82,67 +86,46 @@ namespace Internal
 
             try
             {
-                await _directory.FetchObject(_fetch, _reference.Guid, _reference.LocalId, _progress);
-                _fetch.Token.ThrowIfCancellationRequested();
-
-                _phase = ContentLoadPhase.Loading;
-                target = await _reference.Loadable.LoadAsync();
-
-                if (target == null)
-                    throw new InvalidOperationException($"[Content] The engine did not load {typeof(T).Name} {_reference} ({_reference.Loadable.Status})");
+                target = await _source.Load(_hold, _reference, _progress);
             }
             catch (Exception exception)
             {
                 load.Fail(exception);
-
-                if (_phase == ContentLoadPhase.Loading)
-                    _reference.Loadable.Release();
-
                 End();
-                _completion.TrySetException(exception);
+
+                if (exception is OperationCanceledException)
+                    _completion.TrySetCanceled();
+                else
+                    _completion.TrySetException(exception);
+
                 return;
             }
 
             load.Finish($"Content: {target.name}");
 
-            // Every holder ended during the engine load.
-            if (_holds.Count == 0)
+            // Every holder ended during the load: End has let the bundle go.
+            if (_phase == ContentLoadPhase.Over)
             {
-                _reference.Loadable.Release();
-                End();
                 _completion.TrySetCanceled();
                 return;
             }
 
-            _phase = ContentLoadPhase.Loaded;
+            Loaded(target);
             _completion.TrySetResult(target);
         }
 
-        public void AddHold(IReadOnlyLifetime lifetime)
+        private void Loaded(T target)
         {
-            var hold = new Hold(this, lifetime);
-            _holds.Add(hold);
-            lifetime.Listen(hold.OnEnded);
+            _phase = ContentLoadPhase.Loaded;
+            _reference.Fill(target);
         }
 
         private void OnHoldEnded(Hold hold)
         {
             _holds.Remove(hold);
 
-            if (_holds.Count > 0)
-                return;
-
-            switch (_phase)
-            {
-                case ContentLoadPhase.Fetching:
-                    // A new load of the reference starts over; this one ends with the cancelled fetch.
-                    End();
-                    break;
-                case ContentLoadPhase.Loaded:
-                    _reference.Loadable.Release();
-                    End();
-                    break;
-            }
+            if (_holds.Count == 0)
+                End();
         }
 
         private void End()
@@ -156,7 +139,8 @@ namespace Internal
                 hold.Lifetime.RemoveListener(hold.OnEnded);
 
             _holds.Clear();
-            _fetch.Terminate();
+            _reference.Clear();
+            _hold.Terminate();
             _onOver(_reference);
         }
 

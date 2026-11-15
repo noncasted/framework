@@ -6,12 +6,12 @@ using UnityEngine;
 
 namespace ContentSmoke
 {
-    // The only scene of a player build of client/project: registers the content directory of the build over the store
-    // of the platform (fetched on demand on WebGL, StreamingAssets elsewhere), loads the target of its root and its
-    // scene through IContentLoader, logs each step. A standalone player quits after it; a page stays (the smoke reopens it).
+    // The only scene of a player build of client/project: registers the content bundle Smoke of the build over the store
+    // of the platform (fetched on WebGL, StreamingAssets elsewhere), loads the target of its root and its scene through
+    // IContentLoader, logs each step. A standalone player quits after it; a page stays (the smoke reopens it).
     public sealed class ContentSmokeProbe : MonoBehaviour
     {
-        private const string Directory = "Smoke";
+        private const string Bundle = "Smoke";
 
         private readonly Lifetime _lifetime = new();
 
@@ -30,9 +30,9 @@ namespace ContentSmoke
         {
             try
             {
-                var loader = await ContentLoader.Register(_lifetime, new ContentOptions(Directory));
+                var loader = await ContentLoader.Register(_lifetime, new ContentOptions(Bundle));
                 var root = loader.RootAssets<ContentSmokeRoot>().Single();
-                Debug.Log($"[ContentSmoke] registered {loader.Name}: root {root.name}, target {root.Target.Id}");
+                Debug.Log($"[ContentSmoke] registered {loader.Name}: root {root.name}, target {root.Target}");
 
                 IContentLoader content = loader;
                 var target = await content.Load(_lifetime, root.Target);

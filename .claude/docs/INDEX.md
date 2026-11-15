@@ -35,7 +35,7 @@ Research media of a project: work in progress is in `docs/media/research/<topic>
 |----------|-----|
 | planning a feature or a refactoring, "if X the plan has Y" | ARCHITECTURE_PATTERNS.md |
 | container, DI, IScopeBuilder, IEntityBuilder, Register, As<>, ISceneService, IScopeSetup, OnSetup(), [Inject], ScopeLoadOptions, ContainerScopeParent, CINGR, Container Graph | COMMON_CONTAINER.md |
-| content directory, ContentReference, ContentScene, Loadable, LoadableSceneId, IContentLoader, ContentRoot, AddContent, LoadContent, RequestContent, IsPreloaded, Addressables (removed in 0.7) | CONTENT.md |
+| content bundle, ContentBundle, AssetBundle, ContentReference, ContentScene, IContentLoader, IContentBundles, AddContentBundle, ContentRoot, AddContent, LoadContent, RequestContent, IsPreloaded, IsGzip, content directory (removed in 0.8), Addressables (removed in 0.7) | CONTENT.md |
 | HierarchyBindings, *Bindings.g.cs, ObjectBindings, Create Object Bindings, Regenerate bindings | HIERARCHY_BINDINGS.md |
 | Lifetime, Advise, View, Terminate, subscription, cleanup, Lifetime Graph, LifetimeAnalytics, lifetime leak | COMMON_LIFETIMES.md, COMMON_LIFETIMES_PATTERNS.md |
 | EventSource, ViewableProperty, ViewableList, reactive, observable, event | COMMON_REACTIVE_BASICS.md, then COMMON_REACTIVE_VALUES.md, COMMON_REACTIVE_COLLECTIONS.md, COMMON_REACTIVE_PATTERNS.md |

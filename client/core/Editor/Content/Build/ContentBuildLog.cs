@@ -1,59 +1,36 @@
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using UnityEngine;
 
 namespace Internal
 {
-    // The log of a built content directory: the number of files, the raw size, the bytes of the archive (LZ4) and of
-    // everything the player gets (the archive and the index), the files no load needs
-    // and the built-in resources the build copied into the directory (a warning with their names: they come with every
-    // scene or material that references them and are better cut at the source, see m_LightingDataAsset).
+    // The log of the built bundles: per bundle its files and bytes, how the player gets it, its dependencies, roots, lazy
+    // targets and scenes, and the assets the engine copied into it; and a warning for the built-in resources a bundle
+    // copied in (they come with every scene or material that references them and are better cut at the source).
     public static class ContentBuildLog
     {
-        // The GUIDs of the built-in resource files of the editor.
-        private static readonly IReadOnlyDictionary<string, string> BuiltIn = new Dictionary<string, string>
+        public static void Write(ContentBuildOutput output)
         {
-            ["0000000000000000e000000000000000"] = "unity default resources",
-            ["0000000000000000f000000000000000"] = "unity_builtin_extra"
-        };
+            foreach (var bundle in output.Bundles)
+            {
+                var entry = output.Catalog.Bundle(bundle.Name);
+                var delivery = entry.IsPreloaded ? "preloaded" : entry.IsGzip ? "fetched in gzip" : "fetched or read in place";
 
-        public static void Write(ContentManifest manifest, ContentIndex index, string shipped)
-        {
-            var raw = index.Files.Sum(file => new FileInfo(Path.Combine(manifest.Folder, file.Name)).Length);
-            var bytes = Directory.GetFiles(shipped).Sum(path => new FileInfo(path).Length);
+                Debug.Log($"[ContentBuild] {bundle.Name}: {string.Join(", ", bundle.Files.Select(file => $"{file.Name} {file.Size} bytes"))}, {delivery}; " +
+                          $"dependencies [{string.Join(", ", bundle.Dependencies)}], {bundle.Plan.Roots.Count} roots, " +
+                          $"{bundle.Plan.Assets.Count} assets, {bundle.Plan.Scenes.Count} scenes, {bundle.Plan.Objects.Count} lazy targets, " +
+                          $"{bundle.Plan.Implicit.Count} assets copied in");
 
-            Debug.Log($"[ContentBuild] {index.Name}: {index.Files.Count} files, {raw} bytes raw, archive {index.ArchiveLength} bytes " +
-                      $"(header {index.Header.Size}), {bytes} bytes shipped in {shipped}; " +
-                      $"root files {index.RootFiles.Count} ({index.RootFiles.Sum(file => file.Size)} bytes), " +
-                      $"{index.Objects.Count} objects, {index.Scenes.Count} scenes");
+                var builtIn = BuiltIn(bundle.Plan.Implicit.Keys);
 
-            var unused = Unused(index);
-
-            if (unused.Count > 0)
-                Debug.LogWarning($"[ContentBuild] {index.Name}: {unused.Count} files no load needs: {string.Join(", ", unused)}");
-
-            var builtIn = manifest.SerializedFiles
-                .Where(file => file.IsInDirectory && BuiltIn.ContainsKey(file.Guid))
-                .Select(file => $"{BuiltIn[file.Guid]} ({file.FileName}, {new FileInfo(Path.Combine(manifest.Folder, file.FileName)).Length} bytes)")
-                .ToArray();
-
-            if (builtIn.Length > 0)
-                Debug.LogWarning($"[ContentBuild] {index.Name}: built-in resources in the directory: {string.Join(", ", builtIn)}");
+                if (builtIn.Count > 0)
+                    Debug.LogWarning($"[ContentBuild] {bundle.Name}: built-in resources in the bundle: {string.Join(", ", builtIn)}");
+            }
         }
 
-        public static IReadOnlyList<ContentFile> Unused(ContentIndex index)
+        private static IReadOnlyList<string> BuiltIn(IEnumerable<string> paths)
         {
-            var used = new HashSet<ContentFile> { index.Manifest };
-            used.UnionWith(index.RootFiles);
-
-            foreach (var entry in index.Objects)
-                used.UnionWith(index.ObjectFiles(entry.Guid, entry.LocalId));
-
-            foreach (var entry in index.Scenes)
-                used.UnionWith(index.SceneFiles(entry.Guid));
-
-            return index.Files.Where(file => used.Contains(file) == false).ToArray();
+            return paths.Where(path => path.StartsWith("Resources/unity_builtin_extra") || path.StartsWith("Library/unity default resources")).ToArray();
         }
     }
 }

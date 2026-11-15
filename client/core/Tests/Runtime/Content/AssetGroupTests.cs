@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.IO;
 using System.Linq;
 using Cysharp.Threading.Tasks;
 using Internal.EditorTests.Content;
@@ -10,25 +9,24 @@ using UnityEngine.TestTools;
 
 namespace Internal.Tests
 {
-    // Catalogue groups over the ContentRoot of ContentDirectoryTestBuild, bound by CatalogContent for the lifetime of a
-    // root: Retain loads the group asset and Release releases it, a preloaded group is fetched by the binding and loads
-    // on its first access without a Retain, the end of the root unloads every group and keeps the retains to release.
-    [PrebuildSetup("Internal.EditorTests.ContentDirectoryTestBuild")]
-    [PostBuildCleanup("Internal.EditorTests.ContentDirectoryTestBuild")]
+    // Catalogue groups over the ContentRoot of ContentBundleTestBuild, bound by CatalogContent for the lifetime of a
+    // root (which holds the main bundle too): Retain loads the group asset and Release releases it, a preloaded group is
+    // fetched by the binding and loads on its first access without a Retain, the end of the root unloads every group and
+    // keeps the retains to release.
+    [PrebuildSetup("Internal.EditorTests.ContentBundleTestBuild")]
+    [PostBuildCleanup("Internal.EditorTests.ContentBundleTestBuild")]
     public class AssetGroupTests
     {
-        private const string FetchedFolder = ContentTestPaths.Output + "/GroupsFetched";
         private const int ReleaseFrames = 120;
 
-        private ContentIndex _index;
         private Lifetime _lifetime;
         private ILifetime _root;
 
         [SetUp]
         public void SetUp()
         {
-            _index = ContentIndex.FromJson(File.ReadAllText(ContentTestPaths.Index));
             _lifetime = new Lifetime();
+            ContentTestSets.DeleteFetched();
             _root = _lifetime.Child();
         }
 
@@ -36,9 +34,8 @@ namespace Internal.Tests
         public void TearDown()
         {
             _lifetime.Terminate();
-
-            if (Directory.Exists(FetchedFolder))
-                Directory.Delete(FetchedFolder, true);
+            ContentTestSets.DeleteFetched();
+            AssetBundle.UnloadAllAssetBundles(true);
         }
 
         [UnityTest]
@@ -56,15 +53,14 @@ namespace Internal.Tests
             var loaded = group.Loaded;
             Assert.IsTrue(group.IsLoaded);
             Assert.AreEqual("Group", loaded.name);
-            Assert.AreEqual(before + 1, Groups(), "A copy of the directory is loaded");
+            Assert.AreEqual(before + 1, Groups(), "A copy of the bundle is loaded");
             Assert.DoesNotThrow(group.EnsureLoaded);
 
             group.Release();
 
             Assert.IsFalse(group.IsLoaded);
             Assert.IsNull(group.Loaded);
-            await WaitGroups(before);
-            Assert.IsTrue(loaded == null, "The asset is destroyed after the release");
+            Assert.IsTrue(loaded != null, "The main bundle is held by the root: an AssetBundle frees its objects only with itself");
             LogAssert.NoUnexpectedReceived();
         });
 
@@ -93,13 +89,9 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator Preloaded_FetchedByBinding_EnsureLoadedWithoutRetain() => UniTask.ToCoroutine(async () =>
         {
-            var store = new FetchedContentStore(new CopyContentRangeSource(ContentTestPaths.Archive), Path.GetFullPath(FetchedFolder), ContentOptions.DefaultRangeGap, _index);
-            var directory = await ContentDirectory.Register(_lifetime, _index, store);
-            var loader = new ContentLoader(directory);
-            var root = directory.RootAssets<ContentRoot>().Single();
-
+            var loader = await ContentRuntime.Over(ContentTestSets.Fetched(ContentTestSets.Store(false))).Register(_root, ContentTestPaths.Name);
+            var root = loader.RootAssets<ContentRoot>().Single();
             var preloadedReference = root.PreloadedGroups.Single();
-            Assert.Throws<InvalidOperationException>(() => loader.LoadNow(_lifetime, preloadedReference), "Zeros before the binding fetches it");
 
             await CatalogContent.Bind(_root, loader, new[] { root });
             var group = new TestPreloadedGroup(preloadedReference.Guid);
@@ -143,9 +135,9 @@ namespace Internal.Tests
 
         private async UniTask<ContentRoot> BindLocal()
         {
-            var directory = await ContentDirectory.Register(_lifetime, _index, new LocalContentStore(Path.GetFullPath(ContentTestPaths.Folder)));
-            var root = directory.RootAssets<ContentRoot>().Single();
-            await CatalogContent.Bind(_root, new ContentLoader(directory), new[] { root });
+            var loader = await ContentRuntime.Over(ContentTestSets.Local()).Register(_root, ContentTestPaths.Name);
+            var root = loader.RootAssets<ContentRoot>().Single();
+            await CatalogContent.Bind(_root, loader, new[] { root });
             return root;
         }
 

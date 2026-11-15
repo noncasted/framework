@@ -32,13 +32,13 @@ namespace Internal.Tests
             }
         }
 
-        // AddContent, then AddContentDirectory: the directories of the options in their order.
-        public static class TwoDirectories
+        // AddContent, then AddContentBundle: the bundles of the options in their order.
+        public static class TwoBundles
         {
             public static async UniTask Construct(IScopeBuilder builder, ContentOptions[] options)
             {
                 await builder.AddContent(options[0]);
-                builder.AddContentDirectory(options[1]);
+                builder.AddContentBundle(options[1].Name);
             }
         }
 
@@ -47,7 +47,7 @@ namespace Internal.Tests
             public static async UniTask Construct(IScopeBuilder builder, ContentOptions[] options)
             {
                 await builder.AddContent(options[0]);
-                builder.AddContentDirectory(options[1], ContentRegistration.OnFirstWait);
+                builder.AddContentBundle(options[1].Name, ContentRegistration.OnFirstWait);
             }
         }
 
@@ -55,7 +55,7 @@ namespace Internal.Tests
         {
             public static UniTask Construct(IScopeBuilder builder, ContentOptions options)
             {
-                builder.AddContentDirectory(options);
+                builder.AddContentBundle(options.Name);
                 return UniTask.CompletedTask;
             }
         }

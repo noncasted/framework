@@ -1,7 +1,6 @@
 namespace Internal
 {
-    // When AddContentDirectory registers an extra directory: at once in the background, or at the first
-    // IContentDirectories.Wait of its name.
+    // When AddContentBundle registers a bundle: at once in the background, or at the first IContentBundles.Wait of its name.
     public enum ContentRegistration
     {
         Background = 0,

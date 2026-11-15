@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.IO;
 using System.Linq;
 using Cysharp.Threading.Tasks;
 using Internal.EditorTests.Content;
@@ -15,185 +14,232 @@ using Object = UnityEngine.Object;
 
 namespace Internal.Tests
 {
-    // IContentLoader over the content directory of ContentDirectoryTestBuild: registered over a local store (the files on
-    // the disk), over a fetched store (zeros until a load fetches them), and the assets of the project without a
-    // registered directory (EditorContentDirectory, Play Mode of the editor). The references are the ones of the root
-    // ContentTestReferences, written by the editor.
-    [PrebuildSetup("Internal.EditorTests.ContentDirectoryTestBuild")]
-    [PostBuildCleanup("Internal.EditorTests.ContentDirectoryTestBuild")]
+    // IContentLoader over the bundles of ContentBundleTestBuild: read in place (the files on the disk), fetched (a file
+    // real once fetched, LoadNow before it throws) and the assets of the project (EditorContentSource, Play Mode of the
+    // editor). The main loader registers Tests (held while the test lives); the target of TestsExtra loads its bundle and
+    // TestsShared, which its target references directly, and the end of the last lifetime unloads both. No bundle is left
+    // loaded after a test.
+    [PrebuildSetup("Internal.EditorTests.ContentBundleTestBuild")]
+    [PostBuildCleanup("Internal.EditorTests.ContentBundleTestBuild")]
     public class ContentLoaderTests
     {
-        private const string FetchedFolder = ContentTestPaths.Output + "/LoaderFetched";
         private const int ReleaseFrames = 120;
 
-        private ContentIndex _index;
         private Lifetime _lifetime;
 
         [SetUp]
         public void SetUp()
         {
-            _index = ContentIndex.FromJson(File.ReadAllText(ContentTestPaths.Index));
             _lifetime = new Lifetime();
+            ContentTestSets.DeleteFetched();
         }
 
         [TearDown]
         public void TearDown()
         {
             _lifetime.Terminate();
+            ContentTestSets.DeleteFetched();
 
-            if (Directory.Exists(FetchedFolder))
-                Directory.Delete(FetchedFolder, true);
+            var left = AssetBundle.GetAllLoadedAssetBundles().Select(bundle => bundle.name).ToArray();
+            AssetBundle.UnloadAllAssetBundles(true);
+            Assert.IsEmpty(left, "Every bundle is unloaded with the lifetimes that held it");
         }
 
         [UnityTest]
-        public IEnumerator Load_LifetimeEnds_Released() => UniTask.ToCoroutine(async () =>
+        public IEnumerator Load_LoadsTheBundleWithItsDependency_LifetimeEnds_BothUnloaded() => UniTask.ToCoroutine(async () =>
         {
-            var (loader, references) = await RegisterLocal();
+            var (loader, extra) = await Register(ContentTestSets.Local());
             var before = Targets();
             var lifetime = new Lifetime();
 
-            Assert.Throws<InvalidOperationException>(() => _ = references.Target.Target, "Target before the load");
-            var target = await loader.Load(lifetime, references.Target);
+            Assert.Throws<InvalidOperationException>(() => _ = extra.Target, "Target before the load");
+            var target = await loader.Load(lifetime, extra);
 
-            Assert.AreEqual("Target", target.name);
-            Assert.IsTrue(references.Target.IsLoaded);
-            Assert.AreSame(target, references.Target.Target);
-            Assert.AreEqual(before + 1, Targets(), "A copy of the directory is loaded");
+            Assert.AreEqual("ExtraTarget", target.name);
+            Assert.IsTrue(extra.IsLoaded);
+            Assert.AreSame(target, extra.Target);
+            Assert.AreEqual("Shared", target.Direct.name, "The direct reference into TestsShared");
+            Assert.AreEqual(before + 1, Targets(), "A copy of the bundle is loaded");
+            var shared = target.Direct;
 
             lifetime.Terminate();
 
-            Assert.IsFalse(references.Target.IsLoaded);
+            Assert.IsFalse(extra.IsLoaded);
             await WaitTargets(before);
-            Assert.IsTrue(target == null, "The object is destroyed after its release");
+            Assert.IsTrue(target == null, "Destroyed with its bundle");
+            Assert.IsTrue(shared == null, "The dependency is unloaded too");
             LogAssert.NoUnexpectedReceived();
         });
 
         [UnityTest]
         public IEnumerator LifetimeEndsDuringLoad_Canceled_Released() => UniTask.ToCoroutine(async () =>
         {
-            var (loader, references) = await RegisterLocal();
+            var (loader, extra) = await Register(ContentTestSets.Local());
             var before = Targets();
             var lifetime = new Lifetime();
 
-            var load = loader.Load(lifetime, references.Target);
+            var load = loader.Load(lifetime, extra);
             lifetime.Terminate();
 
             await AssertCanceled(load);
+            await UniTask.DelayFrame(10);
             await WaitTargets(before);
-            Assert.IsFalse(references.Target.IsLoaded);
+            Assert.IsFalse(extra.IsLoaded);
 
-            // The next load of the reference starts over.
-            var target = await loader.Load(_lifetime, references.Target);
-            Assert.AreEqual("Target", target.name);
+            // The next load starts over, after the abandoned one is unloaded.
+            var target = await loader.Load(_lifetime, extra);
+            Assert.AreEqual("ExtraTarget", target.name);
             LogAssert.NoUnexpectedReceived();
         });
 
         [UnityTest]
-        public IEnumerator LifetimeEndsDuringFetch_Canceled_NothingLoaded() => UniTask.ToCoroutine(async () =>
+        public IEnumerator LifetimeEndsDuringFetch_Canceled_FetchAborted_NothingLoaded() => UniTask.ToCoroutine(async () =>
         {
-            var (loader, references) = await RegisterFetched();
+            var store = ContentTestSets.Store(false);
+            var (loader, extra) = await Register(ContentTestSets.Fetched(store));
+            store.Shut();
             var lifetime = new Lifetime();
 
-            var load = loader.Load(lifetime, references.Target);
+            var load = loader.Load(lifetime, extra);
+            await UniTask.DelayFrame(2);
             lifetime.Terminate();
 
             await AssertCanceled(load);
-            Assert.IsFalse(references.Target.IsLoaded);
-            Assert.Throws<InvalidOperationException>(() => loader.LoadNow(_lifetime, references.Target), "Still zeros: a fetch is needed");
+            await UniTask.DelayFrame(2);
+            Assert.IsFalse(extra.IsLoaded);
+            Assert.Greater(store.Aborts, 0, "Nobody waits for the files: the fetch is aborted");
+            Assert.Throws<InvalidOperationException>(() => loader.LoadNow(_lifetime, extra), "Not fetched: LoadNow does not wait");
             LogAssert.NoUnexpectedReceived();
         });
 
         [UnityTest]
         public IEnumerator TwoLoads_FirstEnds_Alive_SecondEnds_Released() => UniTask.ToCoroutine(async () =>
         {
-            var (loader, references) = await RegisterLocal();
+            var (loader, extra) = await Register(ContentTestSets.Local());
             var before = Targets();
             var first = new Lifetime();
             var second = new Lifetime();
 
-            var loads = await UniTask.WhenAll(loader.Load(first, references.Target), loader.Load(second, references.Target));
+            var loads = await UniTask.WhenAll(loader.Load(first, extra), loader.Load(second, extra));
             Assert.AreSame(loads.Item1, loads.Item2);
 
             first.Terminate();
             await UniTask.DelayFrame(10);
 
-            Assert.IsTrue(references.Target.IsLoaded);
+            Assert.IsTrue(extra.IsLoaded);
             Assert.IsTrue(loads.Item1 != null, "Alive while the second lifetime holds it");
 
             second.Terminate();
 
-            Assert.IsFalse(references.Target.IsLoaded);
+            Assert.IsFalse(extra.IsLoaded);
             await WaitTargets(before);
             LogAssert.NoUnexpectedReceived();
         });
 
         [UnityTest]
-        public IEnumerator LoadList_LoadsEach() => UniTask.ToCoroutine(async () =>
+        public IEnumerator TargetOfTheRegisteredBundle_StaysWhileTheBundleIsHeld() => UniTask.ToCoroutine(async () =>
         {
-            var (loader, references) = await RegisterLocal();
+            var (loader, _) = await Register(ContentTestSets.Local());
+            var references = loader.RootAssets<ContentTestReferences>().Single();
+            var lifetime = new Lifetime();
 
-            var targets = await loader.Load(_lifetime, new[] { references.Target, references.Target });
-
+            var targets = await loader.Load(lifetime, new[] { references.Target, references.Target });
             Assert.AreEqual(2, targets.Count);
             Assert.AreSame(targets[0], targets[1]);
+            Assert.AreEqual(0, loader.Progress(references.Target).Value.Total, "Read in place: nothing to fetch");
+
+            lifetime.Terminate();
+
+            Assert.IsFalse(references.Target.IsLoaded, "Released by the reference");
+            Assert.IsTrue(targets[0] != null, "The bundle is held by the registration: an AssetBundle frees its objects only with itself");
+            Assert.AreSame(targets[0], loader.LoadNow(_lifetime, references.Target), "Loaded synchronously from the held bundle");
             LogAssert.NoUnexpectedReceived();
         });
 
         [UnityTest]
-        public IEnumerator Scene_LoadsAndUnloadsByLifetime() => UniTask.ToCoroutine(async () =>
+        public IEnumerator Scene_LoadsAndUnloadsByLifetime_OfTheMainAndOfAnotherBundle() => UniTask.ToCoroutine(async () =>
         {
-            var (loader, references) = await RegisterLocal();
-            await AssertSceneByLifetime(loader, references.Scene);
+            var (loader, _) = await Register(ContentTestSets.Local());
+            var references = loader.RootAssets<ContentTestReferences>().Single();
+            var extraScene = ContentTestSets.Catalog.Scenes.Single(scene => scene.Bundle == ContentTestPaths.ExtraName);
+
+            await AssertSceneByLifetime(loader, references.Scene, "Level");
+            await AssertSceneByLifetime(loader, new ContentScene(extraScene.Guid), "ExtraLevel");
         });
 
         [UnityTest]
-        public IEnumerator FetchedStore_LoadFetches_Progress_LoadNowAfter() => UniTask.ToCoroutine(async () =>
+        public IEnumerator Fetched_LoadFetches_Progress_LoadNowWhileHeld_ForgottenAfter() => UniTask.ToCoroutine(async () =>
         {
-            var (loader, references) = await RegisterFetched();
-            var progress = loader.Progress(references.Target);
-            var total = _index.ObjectFiles(references.Target.Guid, references.Target.LocalId).Sum(file => file.Size);
+            var store = ContentTestSets.Store(false);
+            var (loader, extra) = await Register(ContentTestSets.Fetched(store));
+            var progress = loader.Progress(extra);
+            var total = ExtraFiles().Sum(file => file.Size);
 
-            Assert.AreEqual(total, progress.Value.Total);
-            Assert.Throws<InvalidOperationException>(() => loader.LoadNow(_lifetime, references.Target), "Zeros: LoadNow does not wait");
+            Assert.AreEqual(total, progress.Value.Total, "The bundle and its dependency");
+            Assert.AreEqual(0, progress.Value.Loaded);
+            Assert.Throws<InvalidOperationException>(() => loader.LoadNow(_lifetime, extra), "Not fetched: LoadNow does not wait");
 
             var lifetime = new Lifetime();
-            var target = await loader.Load(lifetime, references.Target);
+            var target = await loader.Load(lifetime, extra);
 
-            Assert.AreEqual("Target", target.name);
+            Assert.AreEqual("ExtraTarget", target.name);
             Assert.AreEqual(total, progress.Value.Loaded);
             Assert.IsTrue(progress.Value.IsDone);
 
-            lifetime.Terminate();
-            var now = loader.LoadNow(_lifetime, references.Target);
-            Assert.AreEqual("Target", now.name, "Fetched already: loaded without a frame");
+            var held = new Lifetime();
+            Assert.AreSame(target, loader.LoadNow(held, extra), "Loaded: LoadNow gives it at once");
+            held.Terminate();
 
-            await AssertSceneByLifetime(loader, references.Scene);
+            var forgotten = store.Forgotten;
+            lifetime.Terminate();
+
+            Assert.AreEqual(forgotten + ExtraFiles().Length, store.Forgotten, "The fetched files go with the unload of their bundles");
+            Assert.Throws<InvalidOperationException>(() => loader.LoadNow(_lifetime, extra), "Forgotten: a fetch again");
+            LogAssert.NoUnexpectedReceived();
         });
 
         [UnityTest]
-        public IEnumerator EditorKeys_MatchTheIndex() => UniTask.ToCoroutine(async () =>
+        public IEnumerator Prefetch_FetchesOnce_LoadsNothing_LoadNowAfter() => UniTask.ToCoroutine(async () =>
         {
-            var (_, references) = await RegisterLocal();
-            var target = references.Target;
+            var store = ContentTestSets.Store(false);
+            var (loader, extra) = await Register(ContentTestSets.Fetched(store));
+            var fetches = store.Fetches;
+            var before = Targets();
 
-            Assert.AreEqual(File.ReadAllText(ContentTestPaths.TargetGuid), target.Guid);
-            Assert.IsNotEmpty(_index.ObjectFiles(target.Guid, target.LocalId));
-            Assert.AreNotEqual(0, target.LocalId);
+            await UniTask.WhenAll(loader.Fetch(_lifetime, extra), loader.Fetch(_lifetime, extra));
 
-            // The engine does not promise this format: a check of the keys only.
-            StringAssert.Contains($"guid: {target.Guid}", target.Id.ToString());
-            StringAssert.Contains($"fileID: {target.LocalId}", target.Id.ToString());
+            Assert.AreEqual(fetches + ExtraFiles().Length, store.Fetches, "One fetch per file for both");
+            Assert.AreEqual(before, Targets(), "Nothing loaded");
+            Assert.IsTrue(loader.Progress(extra).Value.IsDone);
 
-            Assert.IsTrue(_index.Scenes.Any(scene => scene.Guid == references.Scene.Guid));
-            Assert.AreEqual(references.Scene.Guid, references.Scene.Id.ToString());
+            var target = loader.LoadNow(_lifetime, extra);
+            Assert.AreEqual("ExtraTarget", target.name, "Fetched: loaded without a frame");
+            Assert.AreEqual("Shared", target.Direct.name);
+            LogAssert.NoUnexpectedReceived();
+        });
+
+        [UnityTest]
+        public IEnumerator Registration_OfAnUnknownBundle_Throws() => UniTask.ToCoroutine(async () =>
+        {
+            var runtime = ContentRuntime.Over(ContentTestSets.Local());
+
+            try
+            {
+                await runtime.Register(_lifetime, "Missing");
+                Assert.Fail("An unknown bundle registers");
+            }
+            catch (System.Collections.Generic.KeyNotFoundException exception)
+            {
+                StringAssert.Contains("No content bundle Missing", exception.Message);
+            }
         });
 
 #if UNITY_EDITOR
         [UnityTest]
-        public IEnumerator EditorDirectory_LoadsTheProjectAssets() => UniTask.ToCoroutine(async () =>
+        public IEnumerator EditorSource_LoadsTheProjectAssets() => UniTask.ToCoroutine(async () =>
         {
             var references = AssetDatabase.LoadAssetAtPath<ContentTestReferences>(ContentTestPaths.ReferencesAsset);
-            var loader = new ContentLoader(new EditorContentDirectory(ContentTestPaths.Name, new Object[] { references }));
+            var loader = new ContentLoader(new EditorContentSource(ContentTestPaths.Name, new Object[] { references }), new ContentLoads());
             var asset = AssetDatabase.LoadAssetAtPath<ContentTestTarget>(ContentTestPaths.TargetAsset);
             var lifetime = new Lifetime();
 
@@ -212,24 +258,26 @@ namespace Internal.Tests
             Assert.IsTrue(asset != null, "A release keeps the asset of the project");
             Assert.AreSame(asset, loader.LoadNow(_lifetime, references.Target));
 
-            await AssertSceneByLifetime(loader, references.Scene);
+            await AssertSceneByLifetime(loader, references.Scene, "Level");
         });
 #endif
 
-        private async UniTask<(ContentLoader, ContentTestReferences)> RegisterLocal()
+        // The main loader over Tests, and the reference of the catalog to the target of TestsExtra.
+        private async UniTask<(IContentLoader, ContentReference<ContentTestTarget>)> Register(ContentBundleSet set)
         {
-            var directory = await ContentDirectory.Register(_lifetime, _index, new LocalContentStore(Path.GetFullPath(ContentTestPaths.Folder)));
-            return (new ContentLoader(directory), directory.RootAssets<ContentTestReferences>().Single());
+            var loader = await ContentRuntime.Over(set).Register(_lifetime, ContentTestPaths.Name);
+            var entry = set.Catalog.Objects.Single(target => target.Bundle == ContentTestPaths.ExtraName);
+            return (loader, new ContentReference<ContentTestTarget>(entry.Guid, entry.LocalId));
         }
 
-        private async UniTask<(ContentLoader, ContentTestReferences)> RegisterFetched()
+        // The files of TestsExtra and of TestsShared, its dependency.
+        private static ContentCatalogFile[] ExtraFiles()
         {
-            var store = new FetchedContentStore(new CopyContentRangeSource(ContentTestPaths.Archive), Path.GetFullPath(FetchedFolder), ContentOptions.DefaultRangeGap, _index);
-            var directory = await ContentDirectory.Register(_lifetime, _index, store);
-            return (new ContentLoader(directory), directory.RootAssets<ContentTestReferences>().Single());
+            var catalog = ContentTestSets.Catalog;
+            return new[] { ContentTestPaths.ExtraName, ContentTestPaths.SharedName }.SelectMany(name => catalog.Bundle(name).Files).ToArray();
         }
 
-        private static async UniTask AssertSceneByLifetime(IContentLoader loader, ContentScene scene)
+        private static async UniTask AssertSceneByLifetime(IContentLoader loader, ContentScene scene, string name)
         {
             var lifetime = new Lifetime();
             var count = SceneManager.sceneCount;
@@ -237,7 +285,7 @@ namespace Internal.Tests
             var loaded = await loader.LoadScene(lifetime, scene, true);
 
             Assert.IsTrue(loaded.Scene.isLoaded);
-            Assert.AreEqual("Level", loaded.Scene.name);
+            Assert.AreEqual(name, loaded.Scene.name);
             Assert.AreEqual(loaded.Scene, SceneManager.GetActiveScene(), "isMain makes it active");
             Assert.AreEqual(count + 1, SceneManager.sceneCount);
 
@@ -248,6 +296,7 @@ namespace Internal.Tests
 
             Assert.AreEqual(count, SceneManager.sceneCount, "Unloaded when its lifetime ends");
             Assert.IsFalse(loaded.Scene.isLoaded);
+            await UniTask.DelayFrame(2);
             LogAssert.NoUnexpectedReceived();
         }
 

@@ -1,6 +1,5 @@
 using System;
 using NUnit.Framework;
-using Unity.Loading;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -18,7 +17,7 @@ namespace Internal.Tests
         public void SetUp()
         {
             _root = new TextAsset("root");
-            _loader = new ContentLoader(new EditorContentDirectory("Tests", new Object[] { _root }));
+            _loader = new ContentLoader(new EditorContentSource("Tests", new Object[] { _root }), new ContentLoads());
             _lifetime = new Lifetime();
         }
 
@@ -32,7 +31,7 @@ namespace Internal.Tests
         [Test]
         public void EmptyReference_EveryCallThrows()
         {
-            var reference = new ContentReference<TextAsset>(default, string.Empty, 0);
+            var reference = new ContentReference<TextAsset>(string.Empty, 0);
 
             Assert.IsTrue(reference.IsEmpty);
             Assert.Throws<ArgumentException>(() => _loader.Load(_lifetime, reference));
@@ -45,7 +44,7 @@ namespace Internal.Tests
         [Test]
         public void EmptyScene_EveryCallThrows()
         {
-            var scene = new ContentScene(default, string.Empty);
+            var scene = new ContentScene(string.Empty);
 
             Assert.IsTrue(scene.IsEmpty);
             Assert.Throws<ArgumentException>(() => _loader.LoadScene(_lifetime, scene));
@@ -56,7 +55,7 @@ namespace Internal.Tests
         [Test]
         public void TargetOfAReferenceNotLoaded_Throws()
         {
-            var reference = new ContentReference<TextAsset>(default, string.Empty, 0);
+            var reference = new ContentReference<TextAsset>(string.Empty, 0);
 
             Assert.IsFalse(reference.IsLoaded);
             Assert.Throws<InvalidOperationException>(() => _ = reference.Target);
@@ -67,16 +66,10 @@ namespace Internal.Tests
         {
             var ended = new Lifetime();
             ended.Terminate();
-            var reference = new ContentReference<TextAsset>(ValidId(), "0123456789abcdef0123456789abcdef", 11400000);
+            var reference = new ContentReference<TextAsset>("0123456789abcdef0123456789abcdef", 11400000);
 
             Assert.Throws<OperationCanceledException>(() => _loader.Load(ended, reference));
             Assert.IsFalse(reference.IsLoaded);
-        }
-
-        private static LoadableObjectId ValidId()
-        {
-            return UnityEditor.LoadableObjectIdEditorUtility.CreateLoadableObjectId(
-                new GUID("0123456789abcdef0123456789abcdef"), FileIdentifierType.SourceAsset, 11400000);
         }
     }
 }

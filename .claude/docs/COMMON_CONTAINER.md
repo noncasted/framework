@@ -48,7 +48,7 @@ public static async UniTask Construct(IScopeBuilder builder)
 ```
 
 - Root with an argument: `ScopeLoadOptions.Create(parent, Construct, sessionData)` and `Construct(IScopeBuilder builder, SessionData sessionData)`.
-- Scene for the scope objects: `WithRuntimeScene(name)` (empty scene created at runtime), `WithAssetScene(contentScene)` (a `ContentScene` of the content directory, `CONTENT.md`), or nothing (`NoScene`: `builder.Instantiate` / `Binder.MoveToModules` throw).
+- Scene for the scope objects: `WithRuntimeScene(name)` (empty scene created at runtime), `WithAssetScene(contentScene)` (a `ContentScene` of a content bundle, `CONTENT.md`), or nothing (`NoScene`: `builder.Instantiate` / `Binder.MoveToModules` throw).
 - `AsMock()` marks a scope as part of a mock; installers read `builder.IsMock`.
 - `ILoadedScope.Dispose()` runs the dispose phase, terminates the lifetime, unloads the scope scenes, disposes the container and only then releases asset groups (`AddAfterDispose`): lifetime listeners run in an order not tied to assets (session entities die before remote users) and may still read the catalogues.
 

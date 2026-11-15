@@ -1,9 +1,8 @@
 namespace Internal
 {
-    // Where the load of a content reference is: its files on their way, the engine loading it, loaded, released.
+    // Where the load of a content reference is: its bundle and the object on their way, loaded, let go.
     internal enum ContentLoadPhase
     {
-        Fetching,
         Loading,
         Loaded,
         Over

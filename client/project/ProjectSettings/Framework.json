@@ -2,11 +2,12 @@
   "ContentAssembly": "Internal.Content",
   "ContentFolder": "Assets/Common/Internal",
   "ModuleRoots": [],
-  "SceneFolders": [ "Assets/Common" ],
+  "SceneFolders": [
+    "Assets/Common"
+  ],
   "ArtFolder": "",
   "SoundsFolder": "",
   "MusicFolder": "",
   "FavoriteScenes": [],
-  "StrippedPlayerAssemblies": [],
-  "Content": { "Name": "Smoke", "Roots": [ "Assets/Common/Internal/Runtime/Catalogues/ContentRoot.asset", "Assets/ContentSmoke/Root.asset" ], "IsPreloaded": false }
+  "StrippedPlayerAssemblies": []
 }

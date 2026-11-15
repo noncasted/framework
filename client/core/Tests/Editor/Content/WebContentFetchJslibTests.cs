@@ -6,24 +6,13 @@ using UnityEditor;
 
 namespace Internal.Tests
 {
-    // The Range requests of the archive bypass the HTTP cache of the browser: Chromium lets one request at a time use the
-    // cache entry of a URL, so concurrent ranges of the one archive went to the server one after another (150 ms of
-    // latency each on the stand, a menu 2.5x slower than Addressables). The browser cannot run in EditMode; the source
-    // of the jslib is checked instead, the stand of the step measured the effect.
+    // The jslib of the fetches on node (core/Tests~/web-content-fetch.test.js): the browser cannot run in EditMode.
     public class WebContentFetchJslibTests
     {
+        // The cache entries of the builds before go, the files of this build and the other entries of the page stay; a gzip
+        // body is unpacked.
         [Test]
-        public void RangeRequest_BypassesTheHttpCache()
-        {
-            var source = File.ReadAllText(Path.GetFullPath(JslibPath()));
-
-            Assert.That(source, Does.Contain("cache: 'no-store', headers: { Range: "));
-        }
-
-        // The cache entries of the builds before go per directory: a directory registered later (fetched when the menu
-        // opens) keeps its cached files when the first one opens. On node: core/Tests~/web-content-fetch.test.js.
-        [Test]
-        public void KeepOnly_OnNode_RemovesOnlyTheEntriesOfItsDirectory()
+        public void Jslib_OnNode()
         {
             // <core>/Runtime/Content/Plugins/WebContentFetch.jslib
             var core = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(JslibPath())), "..", "..", ".."));

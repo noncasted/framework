@@ -34,29 +34,50 @@ async function keepOnly(urls, directory, keep) {
     return [...entries].sort();
 }
 
-const game = 'https://cdn/StreamingAssets/Content/Game';
-const stream = 'https://cdn/StreamingAssets/Content/Stream';
+const content = 'https://cdn/StreamingAssets/Content';
 
-test('the entries of the builds before of the directory go, the other directory keeps its own', async () => {
+test('the files of the builds before go, wherever they were fetched from; the kept ones stay', async () => {
     const left = await keepOnly([
-        `${game}/new.index.json`,
-        `${game}/new.archive?offset=0`,
-        `${game}/old.archive?offset=0`,
-        `https://old-cdn/v1/StreamingAssets/Content/Game/old.index.json`,
-        `${stream}/s.index.json`,
-        `${stream}/s.archive?offset=64`
-    ], 'Content/Game', [`${game}/new.index.json`, `${game}/new.archive`]);
+        `${content}/Game.new.bundle`,
+        `${content}/Game.old.bundle`,
+        `${content}/Battle.new.bundle`,
+        `https://old-cdn/v1/StreamingAssets/Content/Battle.old.bundle`
+    ], 'Content', [`${content}/Game.new.bundle`, `${content}/Battle.new.bundle`]);
 
-    assert.deepStrictEqual(left, [
-        `${game}/new.archive?offset=0`,
-        `${game}/new.index.json`,
-        `${stream}/s.archive?offset=64`,
-        `${stream}/s.index.json`
-    ]);
+    assert.deepStrictEqual(left, [`${content}/Battle.new.bundle`, `${content}/Game.new.bundle`]);
 });
 
-test('a directory whose name starts with the name of another one is another directory', async () => {
-    const left = await keepOnly([`${game}Extra/x.index.json`, `${game}/old.index.json`], 'Content/Game', [`${game}/new.index.json`]);
+test('an entry outside the content folder stays', async () => {
+    const left = await keepOnly([`https://cdn/Build/x.data`, `https://cdn/StreamingAssets/Contents/y.bundle`, `${content}/old.bundle`], 'Content', []);
 
-    assert.deepStrictEqual(left, [`${game}Extra/x.index.json`]);
+    assert.deepStrictEqual(left, [`https://cdn/Build/x.data`, `https://cdn/StreamingAssets/Contents/y.bundle`]);
+});
+
+// WebContentFetchGunzip: a .gz body sent as it is is unpacked, a body the browser decoded already goes as it is.
+function gunzip() {
+    const library = {};
+    const context = vm.createContext({
+        LibraryManager: { library },
+        mergeInto: (target, added) => Object.assign(target, added),
+        Response, Blob, DecompressionStream, Uint8Array, Promise
+    });
+
+    vm.runInContext(source, context);
+    return library.$WebContentFetchGunzip;
+}
+
+test('a gzip body is unpacked', async () => {
+    const raw = Buffer.from('UnityFS\0 a bundle '.repeat(50));
+    const packed = require('node:zlib').gzipSync(raw);
+    const buffer = packed.buffer.slice(packed.byteOffset, packed.byteOffset + packed.length);
+
+    const unpacked = await gunzip()(buffer);
+
+    assert.deepStrictEqual(Buffer.from(unpacked), raw);
+});
+
+test('a body that is no gzip is taken as it is', async () => {
+    const raw = new Uint8Array(Buffer.from('UnityFS\0 decoded by the browser')).buffer;
+
+    assert.strictEqual(await gunzip()(raw), raw);
 });

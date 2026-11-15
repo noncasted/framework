@@ -51,43 +51,6 @@ namespace Internal
         // Runtime assemblies dropped from player builds (PlayerAssemblyFilter).
         public static IReadOnlyList<string> StrippedPlayerAssemblies => Get().StrippedPlayerAssemblies;
 
-        // The content directory every player build builds. Required by a build, so a project without it fails there,
-        // not in the tools that do not build.
-        public static ContentDirectorySettings ContentDirectory => Get().Content ??
-            throw new InvalidOperationException(
-                $"[FrameworkSettings] {SettingsPath} has no Content: a player build needs its content directory " +
-                "(\"Content\": { \"Name\": ..., \"Roots\": [ ... ], \"IsPreloaded\": false }).");
-
-        // The directories a player build builds besides ContentDirectory, the "ExtraContent" list: registered by the game
-        // itself (AddContentDirectory), never bound to the catalogues; empty when the list is missing.
-        public static IReadOnlyList<ContentDirectorySettings> ExtraContentDirectories => Get().ExtraContent;
-
-        // ContentDirectory first, then the extra ones; two directories of one name (the folder StreamingAssets/Content/<name>,
-        // case aside) throw.
-        public static IReadOnlyList<ContentDirectorySettings> ContentDirectories
-        {
-            get
-            {
-                var directories = new List<ContentDirectorySettings> { ContentDirectory };
-                directories.AddRange(ExtraContentDirectories);
-
-                var twice = directories.GroupBy(directory => directory.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault(group => group.Count() > 1);
-
-                if (twice != null)
-                    throw new InvalidOperationException($"[FrameworkSettings] {SettingsPath}: two content directories are named {twice.Key}");
-
-                return directories;
-            }
-        }
-
-        // The settings of the content directory of this name, Content or one of ExtraContent.
-        public static ContentDirectorySettings ContentDirectoryOf(string name)
-        {
-            return ContentDirectories.SingleOrDefault(directory => directory.Name == name) ??
-                   throw new InvalidOperationException(
-                       $"[FrameworkSettings] {SettingsPath} has no content directory {name}: it has {string.Join(", ", ContentDirectories.Select(directory => directory.Name))}");
-        }
-
         public static string Content(string relativePath)
         {
             return $"{ContentFolder}/{relativePath}";
@@ -121,6 +84,12 @@ namespace Internal
             });
 
             Require(data.ContentAssembly, nameof(Data.ContentAssembly));
+
+            // The content directories of 0.7: their roots are ContentBundle assets now, a file that still lists them would build nothing.
+            if (data.Content != null || data.ExtraContent != null)
+                throw new InvalidOperationException(
+                    $"[FrameworkSettings] {SettingsPath} has \"Content\" / \"ExtraContent\": the content is ContentBundle assets now " +
+                    "(Create > Framework > Content Bundle, its roots and IsPreloaded); remove the sections.");
             Require(data.ContentFolder, nameof(Data.ContentFolder));
 
             _data = data;
@@ -147,8 +116,8 @@ namespace Internal
             public List<string> FavoriteScenes = new();
             public List<string> TestSceneFolders = new();
             public List<string> StrippedPlayerAssemblies = new();
-            public ContentDirectorySettings Content;
-            public List<ContentDirectorySettings> ExtraContent = new();
+            public object Content;
+            public object ExtraContent;
         }
     }
 }

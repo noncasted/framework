@@ -20,10 +20,8 @@ verify_target() {
         fi
     done
 
-    # The content directory of this build (Content of ProjectSettings/Framework.json, built into Library/Content/<name>):
-    # its stamp is inside the player (Resources, in the .data file) and, unless it is preloaded into the .data file too,
-    # the archive of Library/ContentArchive/<name> and its index are next to the player in StreamingAssets/Content/<name>
-    # as <hash>.archive (as it is) and <hash>.index.json.br (the build is brotli).
+    # The content bundles of this build (the ContentBundle assets, shipped into Library/ContentShipped): each file in
+    # StreamingAssets/Content exactly as shipped, or preloaded into the .data file, which also holds the catalog naming them.
     content_check "$copy/client" "$output" "$started" failed
     content="$CONTENT_SUMMARY"
 
@@ -59,68 +57,52 @@ verify_target() {
 # "<client folder>" "<output>" "<start epoch>" "<name of the failures array>". Appends its failures to that array and
 # leaves a short summary in CONTENT_SUMMARY.
 content_check() {
-    local client="$1" output="$2" started="$3" name preloaded built hash shipped data expected actual archive files index raw bytes
+    local client="$1" output="$2" started="$3" shipped streaming data text file name bundles=0 preloaded=0 bytes=0 actual expected
     local -n failures="$4"
     CONTENT_SUMMARY="content ?"
 
-    name="$(jq -r '.Content.Name // empty' "$client/ProjectSettings/Framework.json" 2>/dev/null)"
-    if [[ -z "$name" ]]; then
-        failures+=("no Content.Name in ProjectSettings/Framework.json")
+    shipped="$client/Library/ContentShipped"
+    if [[ ! -d "$shipped" ]] || [[ -z "$(find "$shipped" -type f -newermt "@$started" -print -quit)" ]]; then
+        failures+=("no content bundles of this build in Library/ContentShipped")
         return
-    fi
-    preloaded="$(jq -r '.Content.IsPreloaded // false' "$client/ProjectSettings/Framework.json")"
-    built="$client/Library/Content/$name"
-
-    hash="$(cat "$built/BuildManifestHash.txt" 2>/dev/null || true)"
-    if [[ -z "$hash" ]]; then
-        failures+=("no content directory $name in Library/Content")
-        return
-    elif (($(stat -c %Y "$built/BuildManifestHash.txt") < started)); then
-        failures+=("content directory $name older than the build")
     fi
 
     if ! command -v brotli >/dev/null; then
-        failures+=("brotli is not installed: the content directory is not checked")
+        failures+=("brotli is not installed: the content bundles are not checked")
         return
     fi
 
-    # The stamp carries the hash of the manifest the directory was built with. grep reads the whole stream (-c, not -q): an early
-    # exit would kill brotli with SIGPIPE, and pipefail of the caller fails the pipeline although the hash is there.
+    # The .data file once, unpacked: the catalog (Resources) names every file, the preloaded ones are in it.
     data="$(find "$output/Build" -maxdepth 1 -name '*.data.br' 2>/dev/null | head -1)"
-    if [[ -z "$data" ]]; then
-        : # reported by the payload check
-    elif ! brotli -dc "$data" | grep -acF -- "$hash" >/dev/null; then
-        failures+=("the .data file has no stamp of the content directory $name ($hash)")
-    fi
+    [[ -n "$data" ]] || return # reported by the payload check
+    text="$(mktemp)"
+    brotli -dc "$data" > "$text"
 
-    if [[ "$preloaded" == true ]]; then
-        CONTENT_SUMMARY="content $name preloaded"
-        return
-    fi
+    streaming="$output/StreamingAssets/Content"
+    for file in "$shipped"/*; do
+        name="$(basename "$file")"
+        bundles=$((bundles + 1))
+        grep -aqF -- "${name%.gz}" "$text" || failures+=("the catalog in the .data file does not name $name")
 
-    shipped="$output/StreamingAssets/Content/$name"
-    if [[ ! -d "$shipped" ]]; then
-        failures+=("no StreamingAssets/Content/$name")
-        return
-    fi
-    # Exactly the archive and the index of this build; the archive the one of Library/ContentArchive/<name>, the index of
-    # its hash, its length and every file of the directory, BuildManifestHash.txt aside (the player writes it).
-    expected="$(printf '%s\n' "$hash.archive" "$hash.index.json.br" | sort)"
-    actual="$(cd "$shipped" && find . -type f -printf '%P\n' | sort)"
-    if [[ "$expected" != "$actual" ]]; then
-        failures+=("StreamingAssets/Content/$name is not $hash.archive and $hash.index.json.br (a stale or an uncompressed directory)")
-        return
-    fi
-    archive="$client/Library/ContentArchive/$name/content0.archive"
-    cmp -s "$archive" "$shipped/$hash.archive" || failures+=("StreamingAssets/Content/$name/$hash.archive is not $archive")
-    [[ "$(head -c 7 "$shipped/$hash.archive")" == UnityFS ]] || failures+=("$hash.archive is no UnityFS archive (compressed again?)")
-    files="$(find "$built" -type f ! -name BuildManifestHash.txt | wc -l)"
-    index="$(brotli -dc "$shipped/$hash.index.json.br" 2>/dev/null |
-        jq -r '"\(._manifestHash) \(._archiveLength) \(._files | length)"' 2>/dev/null || true)"
-    raw="$(stat -c %s "$shipped/$hash.archive")"
-    [[ "$index" == "$hash $raw $files" ]] ||
-        failures+=("the index of $name is '$index', not '$hash $raw $files' (hash, archive bytes, files)")
-    bytes="$(find "$shipped" -type f -printf '%s\n' | awk '{ s += $1 } END { print s + 0 }')"
-    CONTENT_SUMMARY="content $name ($files files, archive $raw bytes, $bytes bytes shipped)"
+        if [[ -f "$streaming/$name" ]]; then
+            cmp -s "$file" "$streaming/$name" || failures+=("StreamingAssets/Content/$name is not the one of Library/ContentShipped")
+            bytes=$((bytes + $(stat -c %s "$file")))
+        else
+            preloaded=$((preloaded + 1))
+        fi
 
+        if [[ "$name" == *.gz ]]; then
+            [[ "$(gzip -dc "$file" | head -c 7)" == UnityFS ]] || failures+=("$name is no gzip of a bundle")
+        else
+            [[ "$(head -c 7 "$file")" == UnityFS ]] || failures+=("$name is no bundle (compressed again?)")
+        fi
+    done
+    rm -f "$text"
+
+    # Nothing of another build next to them.
+    expected="$(cd "$shipped" && find . -type f -printf '%P\n' | sort)"
+    actual="$( [[ -d "$streaming" ]] && cd "$streaming" && find . -type f -printf '%P\n' | sort)"
+    [[ -z "$(comm -13 <(echo "$expected") <(echo "$actual"))" ]] || failures+=("StreamingAssets/Content has files of no bundle of this build")
+
+    CONTENT_SUMMARY="content $bundles bundle files ($preloaded preloaded, $bytes bytes shipped)"
 }

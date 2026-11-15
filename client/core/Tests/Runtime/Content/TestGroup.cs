@@ -4,7 +4,7 @@ using Internal.EditorTests.Content;
 namespace Internal.Tests
 {
     // A group of AssetGroupTests loaded on Retain, as the generated catalogues write one, over the group asset of the
-    // ContentRoot of ContentDirectoryTestBuild.
+    // ContentRoot of ContentBundleTestBuild.
     public sealed class TestGroup : AssetGroup<ContentTestGroup>
     {
         private readonly string _guid;

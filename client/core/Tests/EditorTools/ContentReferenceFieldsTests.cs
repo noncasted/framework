@@ -1,14 +1,13 @@
 using System.IO;
 using Internal.EditorTests.Content;
 using NUnit.Framework;
-using Unity.Loading;
 using UnityEditor;
 using UnityEngine;
 
 namespace Internal.EditorTests
 {
-    // The editor writes the GUID and the local id of a content reference and the GUID of a content scene from their
-    // engine ids: by an assignment of a tool and after the engine's own drawer changed the id.
+    // The editor writes the GUID and the local id of a content reference and the GUID of a content scene, and reads their
+    // targets back: what the drawers and the tools assign.
     public class ContentReferenceFieldsTests
     {
         private const string TempFolder = "Assets/ContentReferenceFieldsTemp";
@@ -61,7 +60,8 @@ namespace Internal.EditorTests
             AssertKeys(_references.Target);
             Assert.AreSame(_target, _references.Target.EditorAsset);
             Assert.AreEqual(AssetDatabase.AssetPathToGUID(ScenePath), _references.Scene.Guid);
-            Assert.AreEqual(LoadableSceneIdEditorUtility.CreateLoadableSceneId(ScenePath), _references.Scene.Id);
+            Assert.AreSame(_target, ContentReferenceFields.Target(serialized.FindProperty("_target")));
+            Assert.AreEqual(ScenePath, AssetDatabase.GetAssetPath(ContentReferenceFields.TargetScene(serialized.FindProperty("_scene"))));
 
             ContentReferenceFields.AssignObject(serialized.FindProperty("_target"), null);
             ContentReferenceFields.AssignScene(serialized.FindProperty("_scene"), null);
@@ -75,30 +75,16 @@ namespace Internal.EditorTests
         }
 
         [Test]
-        public void IdChangedByTheEngineDrawer_SyncFollows()
+        public void SceneThatIsNoScene_Throws()
         {
-            using var serialized = new SerializedObject(_references);
-            var target = serialized.FindProperty("_target");
-            var scene = serialized.FindProperty("_scene");
-
-            // What the engine's drawers of Loadable and LoadableSceneId write.
-            target.FindPropertyRelative("_loadable.m_LoadableObjectId").boxedValue = LoadableObjectIdEditorUtility.CreateLoadableObjectId(_target);
-            scene.FindPropertyRelative("_id").boxedValue = LoadableSceneIdEditorUtility.CreateLoadableSceneId(ScenePath);
-
-            Assert.IsTrue(ContentReferenceFields.SyncObject(target));
-            Assert.IsTrue(ContentReferenceFields.SyncScene(scene));
-            Assert.IsFalse(ContentReferenceFields.SyncObject(target), "In sync: nothing to write");
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-
-            AssertKeys(_references.Target);
-            Assert.AreEqual(AssetDatabase.AssetPathToGUID(ScenePath), _references.Scene.Guid);
+            Assert.Throws<System.ArgumentException>(() => ContentReferenceFields.CreateScene(TargetPath));
         }
 
         private void AssertKeys(ContentReference<ContentTestTarget> reference)
         {
-            Assert.IsTrue(LoadableObjectIdEditorUtility.TryDeconstructLoadableObjectId(reference.Id, out var guid, out var localId, out _));
+            Assert.IsTrue(AssetDatabase.TryGetGUIDAndLocalFileIdentifier(_target, out var guid, out long localId));
             Assert.AreEqual(AssetDatabase.AssetPathToGUID(TargetPath), reference.Guid);
-            Assert.AreEqual(guid.ToString(), reference.Guid);
+            Assert.AreEqual(guid, reference.Guid);
             Assert.AreEqual(localId, reference.LocalId);
             Assert.AreNotEqual(0, reference.LocalId);
         }

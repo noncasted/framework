@@ -5,11 +5,11 @@ using UnityEditor.Build.Reporting;
 
 namespace Internal
 {
-    // Gives every player build the folder of each content directory as StreamingAssets/Content/<name>, without a copy in
-    // Assets, and the types each directory serialized, so that the linker keeps them. A build that did not come through PlayerBuildSteps (the build window, a script of a game) has no prepared
-    // directory: it is prepared here and cleaned up after the build. Unity calls no callback after a failed build, so
-    // that cleanup is also queued for the next update of the editor; a batchmode run that quits right away leaves the
-    // files to the next build, which removes them first.
+    // Gives every player build the files of the bundles as StreamingAssets/Content, without a copy in Assets (the types of
+    // their objects go to the linker through ContentLinkerProcessor). A build that did not come through PlayerBuildSteps (the build
+    // window, a script of a game) has no prepared bundles: they are prepared here and cleaned up after the build. Unity calls
+    // no callback after a failed build, so that cleanup is also queued for the next update of the editor; a batchmode run
+    // that quits right away leaves the files to the next build, which removes them first.
     public sealed class ContentBuildPlayerProcessor : BuildPlayerProcessor, IPostprocessBuildWithReport
     {
         private static bool _prepared;
@@ -18,23 +18,16 @@ namespace Internal
 
         public override void PrepareForBuild(BuildPlayerContext context)
         {
-            var outputs = ContentBuild.Current;
+            var output = ContentBuild.Current;
 
-            if (outputs == null)
+            if (output == null)
             {
-                outputs = ContentBuild.Prepare(context.BuildPlayerOptions.target);
+                output = ContentBuild.Prepare(context.BuildPlayerOptions.target);
                 _prepared = true;
                 EditorApplication.delayCall += CleanupPrepared;
             }
 
-            foreach (var output in outputs)
-            {
-                context.AddAdditionalPathToStreamingAssets(Path.GetFullPath(output.Shipped), ContentPaths.Directory(output.Index.Name));
-
-                // The types only the directory uses (a collider of a level, a component of a prefab) stay in the player:
-                // the player build takes every report directory added (BuildPlayerOptions.previousBuildReportDirectories).
-                context.AddPreviousBuildReportDirectory(output.ReportDirectory);
-            }
+            context.AddAdditionalPathToStreamingAssets(Path.GetFullPath(output.Shipped), ContentCatalogPaths.Folder);
         }
 
         public void OnPostprocessBuild(BuildReport report)

@@ -7,48 +7,46 @@ namespace Internal
 {
     public static class ContentScopeExtensions
     {
-        // The root scope of the game, once: the content directory of the build in the store of the platform (a player),
-        // the assets of the project (Play Mode of the editor), and IContentLoader over it. The directory lives as long as
-        // the root: its end destroys every object loaded from it. The generated catalogues load from it too (CatalogContent).
+        // The root scope of the game, once: the catalog of the bundles of the build and the store of the platform (a
+        // player), the assets of the project (Play Mode of the editor); the main bundle (options.Name) loaded whole and held
+        // as long as the root, IContentLoader over its roots. The generated catalogues load from it too (CatalogContent).
         public static async UniTask AddContent(this IScopeBuilder builder, ContentOptions options)
         {
             options.Validate();
 
-            var loader = await CreateLoader(builder.Lifetime, options);
-            var directories = new ContentDirectories();
-            directories.Add(options.Name, loader);
+            var runtime = ContentRuntime.Open(options);
+            var loader = await runtime.Register(builder.Lifetime, options.Name);
+            runtime.Bundles.Add(options.Name, loader);
 
-            builder.Content.Use(loader, directories);
+            builder.Content.Use(loader, runtime);
 
             using (GameProfiler.Scope("Content: bind catalogues"))
                 await CatalogContent.Bind(builder.Lifetime, loader, loader.RootAssets<ContentRoot>());
             builder.RegisterInstance(loader).As<IContentLoader>();
-            builder.RegisterInstance(directories).As<IContentDirectories>();
+            builder.RegisterInstance(runtime.Bundles).As<IContentBundles>();
         }
 
-        // The root scope, after AddContent: one more directory of the build (an entry of ExtraContent of
-        // ProjectSettings/Framework.json, usually not preloaded: a WebGL player fetches its files when they are loaded),
-        // with a loader of its own. The registration fetches its index and its roots only, and runs in the background: the
-        // root and the scopes after it do not wait for its requests; IContentDirectories.Wait(lifetime, options.Name) gives
-        // the loader once it is registered. The directory lives as long as the root. The catalogues know nothing of it: its
+        // The root scope, after AddContent: one more bundle (a ContentBundle asset, usually not preloaded: a WebGL player
+        // fetches it), loaded whole with its dependencies and held as long as the root, with a loader over its roots. The
+        // registration runs in the background: the root and the scopes after it do not wait for its requests;
+        // IContentBundles.Wait(lifetime, name) gives the loader once it is loaded. The catalogues know nothing of it: its
         // objects are loaded from the references of its roots (IContentLoader.RootAssets).
-        // OnFirstWait: nothing is fetched until the first Wait of the name (a directory needed only well after the start: its
-        // index is parsed on the main thread, ~0.1 s on a Mali phone for a few hundred files).
-        public static void AddContentDirectory(this IScopeBuilder builder, ContentOptions options,
-            ContentRegistration registration = ContentRegistration.Background)
+        // OnFirstWait: nothing is fetched until the first Wait of the name (a bundle needed only well after the start).
+        public static void AddContentBundle(this IScopeBuilder builder, string name, ContentRegistration registration = ContentRegistration.Background)
         {
-            options.Validate();
+            if (string.IsNullOrEmpty(name))
+                throw new ArgumentException("[Content] AddContentBundle without the name of the bundle", nameof(name));
 
-            var directories = builder.Content.Directories;
+            var runtime = builder.Content.Runtime;
             var lifetime = builder.Lifetime;
 
             if (registration == ContentRegistration.OnFirstWait)
             {
-                directories.Defer(options.Name, source => RegisterInBackground(lifetime, options, source).NoAwait());
+                runtime.Bundles.Defer(name, source => RegisterInBackground(lifetime, runtime, name, source).NoAwait());
                 return;
             }
 
-            RegisterInBackground(lifetime, options, directories.Begin(options.Name)).NoAwait();
+            RegisterInBackground(lifetime, runtime, name, runtime.Bundles.Begin(name)).NoAwait();
         }
 
         // Construct runs before the build events, so an object used while registering is loaded right away. It is
@@ -72,15 +70,15 @@ namespace Internal
             return builder;
         }
 
-        // The top of a task nobody awaits: a failure goes to the log and to every Wait of the directory.
-        private static async UniTask RegisterInBackground(IReadOnlyLifetime lifetime, ContentOptions options,
+        // The top of a task nobody awaits: a failure goes to the log and to every Wait of the bundle.
+        private static async UniTask RegisterInBackground(IReadOnlyLifetime lifetime, ContentRuntime runtime, string name,
             UniTaskCompletionSource<IContentLoader> registration)
         {
             try
             {
-                registration.TrySetResult(await CreateLoader(lifetime, options));
+                registration.TrySetResult(await runtime.Register(lifetime, name));
             }
-            catch (OperationCanceledException) when (lifetime.IsTerminated == true)
+            catch (OperationCanceledException) when (lifetime.IsTerminated)
             {
                 registration.TrySetCanceled();
             }
@@ -89,16 +87,6 @@ namespace Internal
                 Debug.LogException(exception);
                 registration.TrySetException(exception);
             }
-        }
-
-        private static async UniTask<ContentLoader> CreateLoader(IReadOnlyLifetime lifetime, ContentOptions options)
-        {
-#if UNITY_EDITOR
-            await UniTask.CompletedTask;
-            return new ContentLoader(EditorContentDirectories.Create(options.Name));
-#else
-            return await ContentLoader.Register(lifetime, options);
-#endif
         }
     }
 }

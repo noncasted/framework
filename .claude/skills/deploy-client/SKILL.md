@@ -83,12 +83,12 @@ A full run takes several minutes (the longest build plus the uploads). Environme
 - `UNITY_BUILD_SLOTS`, `UNITY_BUILD_MIN_FREE_GB`, `UNITY_BUILD_MEM_WAIT`, `UNITY_BUILD_TIMEOUT` - see the script; leave
   the defaults unless the user asks.
 
-The `checks <t>` stage (`tools/scripts/deploy-client/verify.sh`) also checks the content directory of the build (`Content` of
-`client/ProjectSettings/Framework.json`): `Library/Content/<name>` of the copy built by this run, the hash of its manifest inside the
-`.data` (the index of the player; unpacked with `brotli`, which must be installed: without it the check fails), and, unless
-`IsPreloaded`, `StreamingAssets/Content/<name>` of the output holding exactly `<file>.br` of the built files (the manifest among them),
-each decompressing into the built file (an uncompressed directory fails: the build is brotli). Its detail is
-`content <name> (N files, B bytes brotli of R raw)` or `content <name> preloaded`. A failure here is a broken build: report it, do not upload by hand.
+The `checks <t>` stage (`tools/scripts/deploy-client/verify.sh`) also checks the content bundles of the build (the
+`ContentBundle` assets, `CONTENT.md`): `Library/ContentShipped` of the copy written by this run, every file of it in
+`StreamingAssets/Content` of the output exactly as shipped or preloaded into the `.data`, named by the catalog inside the
+`.data` (unpacked with `brotli`, which must be installed: without it the check fails), each a bundle (`UnityFS`, a `.gz`
+unpacking into one), no file of another build next to them. Its detail is `content N bundle files (P preloaded, B bytes
+shipped)`. A failure here is a broken build: report it, do not upload by hand.
 
 Never pass `FORCE=1` and never work around a refusal of the deploy script: it refuses a build whose `build-guid.txt` is
 already live (`FORCE=1` only when the user asked for a redeploy of the same build), a web build on the telegram target and

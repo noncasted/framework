@@ -15,9 +15,5 @@ MonoBehaviour:
   _target:
     _guid: 6d2f1eeede49524c69ae481d6b2a8ae2
     _localId: 11400000
-    _loadable:
-      m_LoadableObjectId: {fileID: 11400000, loadable: 1, guid: 6d2f1eeede49524c69ae481d6b2a8ae2, type: 2}
   _scene:
     _guid: b25339b311d6c8b318d43a9a0c8a8ff8
-    _id:
-      m_SceneGUID: b25339b311d6c8b318d43a9a0c8a8ff8

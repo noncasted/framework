@@ -328,3 +328,30 @@ uGUI / TMP / inputs), инспекторы - в `Internal.Layout.Editor`, тес
   серверный `Game.MatchMetrics.MatchMetricNames` удалены. Типы хранения и парсер бэкенда стали `internal`.
 - `grep -rn "IMatchMetricsServerStream" backend` - `Event` / `Gauge` после конца lifetime потока бросают: не писать после конца сессии.
 - Парсер отклоняет (`Rejected`) пересекающиеся чанки одного слота и ряд, объявленный в двух слотах.
+
+### Content: встроенные AssetBundles вместо content directory (BREAKING)
+
+Кого касается: клиент, все игры с `Content` / `ExtraContent` в `ProjectSettings/Framework.json`.
+
+Контент теперь - бандлы движка (`com.unity.modules.assetbundle`, зависимость пакета core; без Addressables и UnityWebRequest,
++~40 KB br к `Build/` против голого плеера). Бандл задаётся ассетом `ContentBundle` (Create > Framework > Content Bundle): корни,
+`IsPreloaded` (в `.data` WebGL), `IsGzip` (WebGL качает `<file>.gz`, распаковывает страница). В бандл входят корни и всё, чего они
+достигают прямыми и ленивыми ссылками, кроме корней других бандлов (на них - зависимость, грузится вместе). Сборка падает на корне
+двух бандлов, на ассете, который нужен двум бандлам напрямую и не назначен ни одному, на ленивой цели двух бандлов без корня, на
+пустой / битой ленивой ссылке. Range, индекс, архив, порядок загрузок (`ContentLoadOrder`, меню Record Load Order) удалены.
+
+Что сделать игре:
+- Секции `Content` и `ExtraContent` из `Framework.json` убрать (с ними редактор бросает исключение) и на каждую директорию создать
+  ассет `ContentBundle` с её `Roots` и `IsPreloaded` (`IsArchiveGzip` -> `IsGzip`; `Fetch` не нужен: бандл всегда качается целиком).
+  Имя ассета = имя бандла.
+- `builder.AddContentDirectory(new ContentOptions(name), registration)` -> `builder.AddContentBundle(name, registration)`;
+  `IContentDirectories` -> `IContentBundles` (`Get` / `Wait` те же). `ContentOptions` без `rangeGap`.
+- Зарегистрированный бандл держится до конца рут-скоупа и не выгружает свои объекты: держать его тонким (только ленивые ссылки), а
+  тяжёлое - корнями отдельных бандлов: они грузятся на лайфтайм загрузки и выгружаются после неё.
+- Сериализованные ссылки переносятся сами (`_guid` / `_localId` остались, `_loadable` / `_id` больше не читаются). `ContentReference`
+  без `Id` и `Loadable`: конструктор `(guid, localId)`, `ContentScene(guid)`; `ContentReferenceFields.SyncObject` / `SyncScene`
+  удалены (`Target` / `TargetScene` вместо них). `IContentBuildStep.BeforeContentBuild()` без параметра.
+- Сервер: файлы `StreamingAssets/Content/<name>.<hash>.bundle[.gz]` как есть, Range не нужен.
+
+Проверка: `grep -rn "AddContentDirectory\|IContentDirectories\|ExtraContent" client/ProjectSettings client/Assets` пусто; сборка
+игры логирует `[ContentBuild] <name>: ...` по каждому бандлу; в `StreamingAssets/Content` только файлы `<name>.<hash>.bundle[.gz]`.

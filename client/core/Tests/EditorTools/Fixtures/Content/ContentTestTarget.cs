@@ -2,15 +2,17 @@ using UnityEngine;
 
 namespace Internal.EditorTests.Content
 {
-    // The asset behind the Loadable of the root of the index tests: a direct reference to a clip, whose samples the
-    // build writes into a resource file.
+    // A lazy target of the content tests: a direct reference to another asset, which the bundle of the target needs
+    // (in the same bundle, or in another one it then depends on).
     public sealed class ContentTestTarget : ScriptableObject
     {
-        [SerializeField] private AudioClip _clip;
+        [SerializeField] private Object _direct;
 
-        public void Init(AudioClip clip)
+        public Object Direct => _direct;
+
+        public void Init(Object direct)
         {
-            _clip = clip;
+            _direct = direct;
         }
     }
 }

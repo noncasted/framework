@@ -3,8 +3,8 @@ using UnityEngine;
 
 namespace ContentSmoke
 {
-    // The root of the content directory of client/project: a lazy reference to an asset and a scene, enough for a player
-    // build to build, check and index a directory.
+    // The root of the content bundle Smoke of client/project: a lazy reference to an asset and a scene, enough for a player
+    // build to lay out, check and build a bundle.
     public sealed class ContentSmokeRoot : ScriptableObject
     {
         [SerializeField] private ContentReference<ContentSmokeTarget> _target;

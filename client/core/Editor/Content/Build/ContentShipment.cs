@@ -1,45 +1,60 @@
+using System.Collections.Generic;
 using System.IO;
-using UnityEditor.Build;
+using System.IO.Compression;
+using UnityEditor;
 
 namespace Internal
 {
-    // What a player gets as StreamingAssets/Content/<name>. A player that reads the folder in place (standalone, a
-    // directory preloaded into the .data file of WebGL) gets the folder of the archive as the registration mounts it
-    // (content0.archive, BuildManifestHash.txt) with <hash>.index.json in it. A WebGL player that fetches the directory
-    // gets <hash>.archive and its index (<hash>.index.json, .br with brotli) in Library/ContentShipped/<name>: names of
-    // this build only, so a server and the Cache API keep them forever; it writes the files of the registration itself.
+    // What a player gets as StreamingAssets/Content: every file of every bundle under the name of the build
+    // (<name>.<hash>.bundle), so a server and the Cache API keep it forever; a bundle a WebGL player fetches in gzip
+    // (IsGzip, not preloaded) as <file>.gz alone, at the smallest size (unpacked by the page). Written into
+    // Library/ContentShipped, made anew for every build.
     public static class ContentShipment
     {
         public const string Output = "Library/ContentShipped";
 
-        // archive: the folder ContentArchiveWriter wrote. Returns the folder the player gets.
-        public static string Write(ContentIndex index, string archive, bool isFetched, bool isIndexBrotli)
+        // CompressionLevel.SmallestSize of .NET 6, missing from the netstandard the scripts compile against.
+        private const CompressionLevel SmallestSize = (CompressionLevel)3;
+
+        public static string Write(IReadOnlyList<ContentBuiltBundle> bundles, BuildTarget target, string folder = Output)
         {
-            if (isFetched == false)
-            {
-                if (isIndexBrotli)
-                    throw new BuildFailedException($"[ContentBuild] A brotli index of {index.Name} for a directory read in place");
-
-                File.WriteAllText(Path.Combine(archive, ContentPaths.IndexFile(index.ManifestHash)), index.ToJson());
-                return archive;
-            }
-
-            var folder = $"{Output}/{index.Name}";
-
             if (Directory.Exists(folder))
                 Directory.Delete(folder, true);
 
             Directory.CreateDirectory(folder);
-            File.Copy(Path.Combine(archive, ContentPaths.ArchiveFile), Path.Combine(folder, ContentPaths.ShippedArchive(index.ManifestHash)));
 
-            var indexPath = Path.Combine(folder, ContentPaths.IndexFile(index.ManifestHash));
+            foreach (var bundle in bundles)
+            {
+                var isGzip = IsGzip(bundle.Plan, target);
 
-            if (isIndexBrotli)
-                ContentBrotli.Write(indexPath + ContentPaths.BrotliExtension, index.ToJson());
-            else
-                File.WriteAllText(indexPath, index.ToJson());
+                foreach (var file in bundle.Files)
+                {
+                    var shipped = Path.Combine(folder, file.Name);
+
+                    if (isGzip == false)
+                    {
+                        File.Copy(file.Path, shipped);
+                        continue;
+                    }
+
+                    using var input = File.OpenRead(file.Path);
+                    using var gzip = new GZipStream(File.Create(shipped + ContentCatalogPaths.GzipExtension), SmallestSize);
+                    input.CopyTo(gzip);
+                }
+            }
 
             return folder;
+        }
+
+        // Only WebGL fetches StreamingAssets, and the .data file of a preloaded bundle is compressed by the build.
+        public static bool IsPreloaded(ContentBundlePlan bundle, BuildTarget target)
+        {
+            return bundle.IsPreloaded && target == BuildTarget.WebGL;
+        }
+
+        public static bool IsGzip(ContentBundlePlan bundle, BuildTarget target)
+        {
+            return bundle.IsGzip && target == BuildTarget.WebGL && bundle.IsPreloaded == false;
         }
     }
 }
