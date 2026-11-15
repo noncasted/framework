@@ -39,7 +39,8 @@ internal class SessionUserRuns
                 user.BackendId);
         }
 
-        _executionQueue.Enqueue(() => Disconnect(user));
+        // What the others are told depends on the seat (SessionConnections): a leave, a loss or nothing.
+        _executionQueue.Enqueue(user.Lifetime.Terminate);
     }
 
     private Task Connect(IUser user)
@@ -53,11 +54,5 @@ internal class SessionUserRuns
         _presence.Introduce(user);
 
         return connectionTask;
-    }
-
-    // What the others are told depends on the seat (SessionConnections): a leave, a loss or nothing.
-    private void Disconnect(IUser user)
-    {
-        _executionQueue.Enqueue(user.Lifetime.Terminate);
     }
 }
