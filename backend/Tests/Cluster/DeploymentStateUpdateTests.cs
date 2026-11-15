@@ -131,7 +131,8 @@ public class DeploymentStateUpdateTests : LifetimeTest
         await SubscriptionStress.Run<Marker>(
             (subscriber, listener) => state.View(subscriber, listener),
             index => state.Receive(new AddressableStateValue { IsInitialized = true, UpdateDate = start.AddTicks(index), Value = index.ToString() }),
-            marker => int.Parse(marker.Id));
+            // A circuit that views before the first update gets the initial marker, without an id.
+            marker => marker.Id == string.Empty ? 0 : int.Parse(marker.Id));
 
         lifetime.Terminate();
     }
