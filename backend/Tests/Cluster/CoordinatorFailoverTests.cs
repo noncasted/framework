@@ -32,6 +32,7 @@ public class CoordinatorFailoverTests : IntegrationTestBase<OrleansTestClusterFi
 
         state.CoordinatorReady.Should().BeFalse();
         state.DeployId.Should().Be(deployId);
+        state.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
     }
 
     [Fact]
