@@ -58,9 +58,12 @@ internal class RunningMatchEntry
             case SessionReservation.HeldOnlyByOwnStale:
                 return LobbyJoinStatus.NotFound;
 
-            case SessionReservation.Sealed:
             case SessionReservation.Full:
                 return LobbyJoinStatus.Full;
+
+            // Only a lobby is sealed (at the start of its match).
+            case SessionReservation.Sealed:
+                throw new InvalidOperationException($"Match {matchSessionId} is sealed");
 
             default:
                 throw new ArgumentOutOfRangeException(nameof(reservation), reservation, null);
@@ -77,8 +80,8 @@ internal class RunningMatchEntry
         if (status != LobbyJoinStatus.Ok)
             return LobbyJoined.Refused(status);
 
-        // A lobby that is being closed is replaced: closed, or held only by the stale connection of this player (closed
-        // once it is dropped).
+        // A lobby that is being closed is replaced: closed, held only by the stale connection of this player (closed
+        // once it is dropped), or sealed (it takes nobody any more).
         ISession? closing = null;
 
         for (var attempt = 0; attempt < 2; attempt++)
@@ -99,10 +102,10 @@ internal class RunningMatchEntry
 
                 case SessionReservation.Closed:
                 case SessionReservation.HeldOnlyByOwnStale:
+                case SessionReservation.Sealed:
                     closing = lobby;
                     break;
 
-                case SessionReservation.Sealed:
                 case SessionReservation.Full:
                     return LobbyJoined.Refused(LobbyJoinStatus.Full);
 

@@ -487,6 +487,50 @@ public class LobbyListingTests
         lobbies.JoinMatch(Guid.Empty, matchId, Guid.NewGuid()).Should().Be(LobbyJoinStatus.NotFound);
     }
 
+    // The framework never seals a match: a sealed one is an unexpected state, not a full match.
+    [Fact]
+    public void JoinMatch_MatchSealed_Throws()
+    {
+        var world = new HostingTestWorld();
+        var matchId = Guid.NewGuid();
+        var match = Substitute.For<ISession>();
+        match.Type.Returns(SessionType.Match);
+        match.HasFreePlace(Arg.Any<Guid>()).Returns(true);
+        match.Reserve(Arg.Any<Guid>()).Returns(SessionReservation.Sealed);
+        match.IsClosed.Returns(false);
+
+        var collection = Substitute.For<ISessionsCollection>();
+
+        collection.TryGet(matchId, out Arg.Any<ISession>()!).Returns(call => {
+            call[1] = match;
+            return true;
+        });
+
+        var lobbies = Lobbies(world, world, collection);
+
+        var join = () => lobbies.JoinMatch(Guid.Empty, matchId, Guid.NewGuid());
+
+        join.Should().Throw<InvalidOperationException>();
+    }
+
+    // A sealed lobby of the late players takes nobody any more: it is replaced like a closing one, never Full.
+    [Fact]
+    public void JoinLate_LobbyOfLatePlayersSealed_NewLobby()
+    {
+        var world = new HostingTestWorld();
+        var match = world.CreatePublicMatch();
+        match.ReserveAndEnter();
+
+        var first = world.Lobbies.JoinLate(match.Session.Id, Guid.NewGuid());
+        first.Status.Should().Be(LobbyJoinStatus.Ok);
+        world.Sessions[first.SessionId].Admission.Seal();
+
+        var second = world.Lobbies.JoinLate(match.Session.Id, Guid.NewGuid());
+
+        second.Status.Should().Be(LobbyJoinStatus.Ok);
+        second.SessionId.Should().NotBe(first.SessionId);
+    }
+
     // A lobby of the late players closed under the reservation is replaced once; the old one ending later does not
     // take the new one out of the map.
     [Fact]
