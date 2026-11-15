@@ -177,7 +177,7 @@ public class RuntimePipeClientTests : LifetimeTest
         await client.AddHandler<string, string>(TestLifetime, _id, Task.FromResult);
 
         bound.Should().HaveCount(2);
-        CountLogged(_logger, LogLevel.Warning, "Removing duplicate observer").Should().Be(1);
+        _logger.Count(LogLevel.Warning, "Removing duplicate observer").Should().Be(1);
 
         await TestWait.Until(() => _pipe.ReceivedCalls().Any(call => call.GetMethodInfo().Name == "UnbindObserver"));
         await _pipe.Received(1).UnbindObserver(bound[0]);
@@ -196,7 +196,7 @@ public class RuntimePipeClientTests : LifetimeTest
         await client.AddHandler<string, string>(TestLifetime, _id, Task.FromResult);
         await client.AddHandler<string, string>(TestLifetime, new TestPipeId("other"), Task.FromResult);
 
-        CountLogged(_logger, LogLevel.Warning, "Removing duplicate observer").Should().Be(0);
+        _logger.Count(LogLevel.Warning, "Removing duplicate observer").Should().Be(0);
         await _pipe.DidNotReceiveWithAnyArgs().UnbindObserver(default);
     }
 
@@ -211,7 +211,7 @@ public class RuntimePipeClientTests : LifetimeTest
         var act = () => client.AddHandler<string, string>(lifetime, _id, Task.FromResult);
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("bind failed");
-        CountLogged(_logger, LogLevel.Error, "Failed to rebind observer").Should().Be(1);
+        _logger.Count(LogLevel.Error, "Failed to rebind observer").Should().Be(1);
 
         await TestWait.Until(() => _pipe.ReceivedCalls().Any(call => call.GetMethodInfo().Name == "UnbindObserver"));
 
@@ -221,7 +221,7 @@ public class RuntimePipeClientTests : LifetimeTest
 
         _pipe.BindObserver(default, default!).ReturnsForAnyArgs(Task.CompletedTask);
         await client.AddHandler<string, string>(TestLifetime, _id, Task.FromResult);
-        CountLogged(_logger, LogLevel.Warning, "Removing duplicate observer").Should().Be(0);
+        _logger.Count(LogLevel.Warning, "Removing duplicate observer").Should().Be(0);
     }
 
     [Fact]
@@ -260,8 +260,8 @@ public class RuntimePipeClientTests : LifetimeTest
 
         await TestWait.Until(() => _logger.Entries.Count(entry => entry.Level == LogLevel.Warning) == 2);
 
-        CountLogged(_logger, LogLevel.Warning, "Failed to unbind observer").Should().Be(1);
-        CountLogged(_logger, LogLevel.Warning, "Failed to delete object reference").Should().Be(1);
+        _logger.Count(LogLevel.Warning, "Failed to unbind observer").Should().Be(1);
+        _logger.Count(LogLevel.Warning, "Failed to delete object reference").Should().Be(1);
     }
 
     [Fact]
@@ -280,14 +280,14 @@ public class RuntimePipeClientTests : LifetimeTest
         for (var i = 0; i < 10; i++)
             listener.RecordFailure(new InvalidOperationException("bind failed"));
 
-        CountLogged(_logger, LogLevel.Error, "(attempt 1) to pipe test-pipe-pipe").Should().Be(1);
-        CountLogged(_logger, LogLevel.Error, "(attempt 10) to pipe test-pipe-pipe").Should().Be(1);
+        _logger.Count(LogLevel.Error, "(attempt 1) to pipe test-pipe-pipe").Should().Be(1);
+        _logger.Count(LogLevel.Error, "(attempt 10) to pipe test-pipe-pipe").Should().Be(1);
         _logger.Entries.Count(entry => entry.Level == LogLevel.Error).Should().Be(2);
 
         listener.RecordSuccess();
         listener.RecordFailure(new InvalidOperationException("bind failed"));
 
-        CountLogged(_logger, LogLevel.Error, "(attempt 1) to pipe test-pipe-pipe").Should().Be(2);
+        _logger.Count(LogLevel.Error, "(attempt 1) to pipe test-pipe-pipe").Should().Be(2);
     }
 
     [Fact]
@@ -307,7 +307,7 @@ public class RuntimePipeClientTests : LifetimeTest
 
         await TestWait.Until(() => Volatile.Read(ref calls) >= 2);
 
-        CountLogged(_logger, LogLevel.Error, "(attempt 1) to pipe test-pipe-pipe").Should().Be(1);
+        _logger.Count(LogLevel.Error, "(attempt 1) to pipe test-pipe-pipe").Should().Be(1);
 
         lifetime.Terminate();
     }

@@ -120,7 +120,7 @@ public class DurableQueueClientTests : LifetimeTest
         var act = () => client.Listen<string>(lifetime, _id, _ => Task.CompletedTask);
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("bind failed");
-        CountLogged(_logger, LogLevel.Error, "Failed to rebind observer").Should().Be(1);
+        _logger.Count(LogLevel.Error, "Failed to rebind observer").Should().Be(1);
 
         await TestWait.Until(() => _queue.ReceivedCalls().Any(call => call.GetMethodInfo().Name == "RemoveObserver"));
 
@@ -170,7 +170,7 @@ public class DurableQueueClientTests : LifetimeTest
         await listener.ObserverSource.Send("message");
 
         received.Should().Equal("message");
-        CountLogged(_logger, LogLevel.Error, "failed for queue test-queue-queue").Should().Be(1);
+        _logger.Count(LogLevel.Error, "failed for queue test-queue-queue").Should().Be(1);
     }
 
     [Fact]
@@ -238,14 +238,14 @@ public class DurableQueueClientTests : LifetimeTest
         for (var i = 0; i < 10; i++)
             listener.RecordFailure(new InvalidOperationException("bind failed"));
 
-        CountLogged(_logger, LogLevel.Error, "(attempt 1) to queue test-queue-queue").Should().Be(1);
-        CountLogged(_logger, LogLevel.Error, "(attempt 10) to queue test-queue-queue").Should().Be(1);
+        _logger.Count(LogLevel.Error, "(attempt 1) to queue test-queue-queue").Should().Be(1);
+        _logger.Count(LogLevel.Error, "(attempt 10) to queue test-queue-queue").Should().Be(1);
         _logger.Entries.Should().HaveCount(2);
 
         listener.RecordSuccess();
         listener.RecordFailure(new InvalidOperationException("bind failed"));
 
-        CountLogged(_logger, LogLevel.Error, "(attempt 1) to queue test-queue-queue").Should().Be(2);
+        _logger.Count(LogLevel.Error, "(attempt 1) to queue test-queue-queue").Should().Be(2);
     }
 
     [Fact]
@@ -289,8 +289,8 @@ public class DurableQueueClientTests : LifetimeTest
 
         await TestWait.Until(() => _logger.Entries.Count == 2);
 
-        CountLogged(_logger, LogLevel.Warning, "Failed to remove observer").Should().Be(1);
-        CountLogged(_logger, LogLevel.Warning, "Failed to delete object reference").Should().Be(1);
+        _logger.Count(LogLevel.Warning, "Failed to remove observer").Should().Be(1);
+        _logger.Count(LogLevel.Warning, "Failed to delete object reference").Should().Be(1);
     }
 
     [Fact]
@@ -310,7 +310,7 @@ public class DurableQueueClientTests : LifetimeTest
 
         await TestWait.Until(() => Volatile.Read(ref calls) >= 2);
 
-        CountLogged(_logger, LogLevel.Error, "(attempt 1) to queue test-queue-queue").Should().Be(1);
+        _logger.Count(LogLevel.Error, "(attempt 1) to queue test-queue-queue").Should().Be(1);
 
         lifetime.Terminate();
     }

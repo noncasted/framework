@@ -74,7 +74,7 @@ public class RuntimeChannelResubscribeTests
         for (var i = 1; i <= 3; i++)
             await messaging.PublishChannel(channelId, new TestMessage { Text = $"old-{i}" });
 
-        await TestWait.Until(() => Count(received) == 3);
+        await TestWait.Until(() => received.LockedCount() == 3);
 
         // A new activation numbers its messages from 1 again: the listener has seen up to 3.
         await channel.Cast<IGrainManagementExtension>().DeactivateOnIdle();
@@ -85,7 +85,7 @@ public class RuntimeChannelResubscribeTests
 
         await listener.Resubscribe();
 
-        await TestWait.Until(() => Count(received) == 6);
+        await TestWait.Until(() => received.LockedCount() == 6);
 
         lock (received)
             received.Should().Equal("old-1", "old-2", "old-3", "new-1", "new-2", "new-3");
@@ -173,7 +173,7 @@ public class RuntimeChannelResubscribeTests
         gaps.Should().Be(0);
 
         await GetSiloService<IMessaging>().PublishChannel(channelId, new TestMessage { Text = "new" });
-        await TestWait.Until(() => Count(received) == 1);
+        await TestWait.Until(() => received.LockedCount() == 1);
 
         lock (received)
             received.Should().Equal("new");
@@ -310,11 +310,5 @@ public class RuntimeChannelResubscribeTests
 
         return (channelId, channel, new RuntimeChannelClient.Listener(channelId, channel,
             GetSiloService<IOrleans>(), NullLogger.Instance, new RuntimeChannelOptions()));
-    }
-
-    private static int Count(List<string> received)
-    {
-        lock (received)
-            return received.Count;
     }
 }
