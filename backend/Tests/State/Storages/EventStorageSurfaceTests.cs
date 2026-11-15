@@ -87,11 +87,19 @@ public class EventStorageSurfaceTests
     [Fact]
     public async Task DeleteBatchInTransaction_Empty_DoesNothing()
     {
+        var streamId = $"event_test:{Guid.NewGuid()}";
+        await Storage.Append(streamId, new CounterIncremented { Amount = 1 });
+
         await using var connection = await Database.DataSource.OpenConnectionAsync(TestContext.Current.CancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(TestContext.Current.CancellationToken);
 
         await Storage.DeleteBatch(transaction, []);
         await transaction.CommitAsync(TestContext.Current.CancellationToken);
+
+        await using var session = GetSiloService<IDocumentStore>().QuerySession();
+        var state = await session.Events.FetchStreamStateAsync(streamId, TestContext.Current.CancellationToken);
+        state!.IsArchived.Should().BeFalse();
+        (await Storage.Read<EventTestAggregate>(streamId)).Counter.Should().Be(1);
     }
 
     [Fact]
