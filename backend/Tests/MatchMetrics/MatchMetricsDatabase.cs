@@ -48,6 +48,15 @@ public sealed class MatchMetricsDatabase : IAsyncLifetime, IDbSource
         return new MatchMetricsWriter(Streams, Writer, Dictionary, options, TimeProvider.System, NullLogger<MatchMetricsServerStream>.Instance);
     }
 
+    // A writer over its own storage: a cache of the dictionary of its own and the database the test gives.
+    public IMatchMetricsWriter ServerWriter(MatchMetricsOptions options, IDbSource db)
+    {
+        var dictionary = new MatchMetricSeriesDictionary(db);
+        var writer = new MatchMetricBatchWriter(db, dictionary);
+
+        return new MatchMetricsWriter(new MatchMetricStreamStore(db), writer, dictionary, options, TimeProvider.System, NullLogger<MatchMetricsServerStream>.Instance);
+    }
+
     public async Task<T> Scalar<T>(string sql, params (string Name, object Value)[] parameters)
     {
         await using var connection = await Value.OpenConnectionAsync();
