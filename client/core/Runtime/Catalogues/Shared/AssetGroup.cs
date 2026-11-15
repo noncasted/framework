@@ -137,14 +137,21 @@ namespace Internal
             {
                 load.Fail(exception);
 
-                // The next Retain must retry a failed load on a clean group rather than get the same error.
-                if (_loading == loading)
+                // The next Retain must retry a failed load on a clean group rather than get the same error. An unload
+                // that throws does not leave the awaiters of Retain waiting.
+                try
                 {
-                    _loading = null;
-                    UnloadFailedGroup();
+                    if (_loading == loading)
+                    {
+                        _loading = null;
+                        UnloadFailedGroup();
+                    }
+                }
+                finally
+                {
+                    loading.TrySetException(exception);
                 }
 
-                loading.TrySetException(exception);
                 return;
             }
 
@@ -161,8 +168,16 @@ namespace Internal
             if (_retainCount == 0 && IsAddressable == true)
             {
                 _loading = null;
-                UnloadGroup();
-                loading.TrySetResult();
+
+                try
+                {
+                    UnloadGroup();
+                }
+                finally
+                {
+                    loading.TrySetResult();
+                }
+
                 return;
             }
 
