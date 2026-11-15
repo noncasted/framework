@@ -135,7 +135,7 @@ public class TestSession
 
     // What the gateway does in the session queue after TryAccept: the real UserFactory.Create, over a TestConnection
     // instead of a WebSocket. connection: a connection built by the test (over Session.Lifetime), e.g. a failing one.
-    public IUser Join(Guid backendId, TestConnection? connection = null)
+    public IUser Join(Guid backendId, IConnection? connection = null)
     {
         IUser? created = null;
         EnqueueJoin(backendId, user => created = user, connection);
@@ -145,7 +145,7 @@ public class TestSession
     }
 
     // The creation of the user is only queued: the test decides what runs before it.
-    public void EnqueueJoin(Guid backendId, Action<IUser>? onCreated = null, TestConnection? connection = null)
+    public void EnqueueJoin(Guid backendId, Action<IUser>? onCreated = null, IConnection? connection = null)
     {
         Queue.Enqueue(() => {
             var user = Session.UserFactory.Create(Session.Lifetime, backendId, connection ?? new TestConnection(Session.Lifetime));

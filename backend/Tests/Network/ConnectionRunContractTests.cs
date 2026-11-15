@@ -38,6 +38,22 @@ public class ConnectionRunContractTests
         connection.Closed.IsCompleted.Should().BeTrue();
     }
 
+    // The session ends before it runs the connection (the join timeout of a match): the owner awaiting Closed is not left
+    // hanging, and the client gets the close frame.
+    [Fact]
+    public async Task ParentEndsWithoutRun_ClosedCompletes_CloseFrameSent()
+    {
+        var socket = new ScriptedSocket();
+        var lifetime = new Lifetime();
+        var connection = new Connection(socket, lifetime, NullLogger.Instance);
+
+        lifetime.Terminate();
+
+        await connection.Closed.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+
+        socket.SentCloseStatus.Should().Be(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure);
+    }
+
     [Fact]
     public async Task Closed_CompletesOnceTheCloseIsOver()
     {

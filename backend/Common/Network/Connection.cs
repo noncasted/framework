@@ -11,13 +11,14 @@ public interface IConnection
     IConnectionReader Reader { get; }
     IConnectionWriter Writer { get; }
 
-    // Completes once the socket is closed: the close frame went out or the client is gone. The owner of the socket (the
-    // handler of its request) returns only after it, a socket that ends with its handler takes the close frame with it.
+    // Completes once the socket is closed: the close frame went out or the client is gone. The end of Lifetime closes the
+    // socket, run or not. The owner of the socket (the handler of its request) returns only after it, a socket that ends
+    // with its handler takes the close frame with it.
     Task Closed { get; }
 
     // Reads the socket until the connection ends and completes after Closed. The handlers of Reader are advised before:
     // a message read before them would be lost, so a run without a handler throws. A connection ended before the run is
-    // an ordinary disconnect: the run closes it and completes.
+    // an ordinary disconnect: the run completes after its close.
     Task Run();
 
     void ForceDisconnect();
@@ -32,6 +33,9 @@ public class Connection : IConnection
         _lifetime = parentLifetime.Child();
         _reader = new ConnectionReader(webSocket, logger);
         _writer = new ConnectionWriter(webSocket, logger);
+
+        // Not in Run: a connection its owner never runs (a session aborted before its start) is closed all the same.
+        _lifetime.Listen(OnDisconnected);
     }
 
     private readonly WebSocket _webSocket;
@@ -49,14 +53,20 @@ public class Connection : IConnection
     private readonly ConnectionReader _reader;
     private readonly ConnectionWriter _writer;
 
-    // The read loop of Run is over, or will never start. A close that does not see the start of the loop waits all the
-    // same: the loop may be about to receive, and a receive with a cancelled token aborts the socket.
+    // The read loop of Run is over, or will never start. A close that comes after Run has claimed the read waits for it:
+    // the loop may be about to receive, and a receive with a cancelled token aborts the socket.
     private readonly TaskCompletionSource _readEnded = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     // The close is over (Closed). Run ends after it.
     private readonly TaskCompletionSource _closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+    // Who came first, Run (Reading) or the close (Unread): a close before the run knows that no loop will read.
+    private int _readState = ReadPending;
     private int _isClosing;
+
+    private const int ReadPending = 0;
+    private const int Reading = 1;
+    private const int Unread = 2;
 
     public IReadOnlyLifetime Lifetime => _lifetime;
     public IConnectionReader Reader => _reader;
@@ -66,21 +76,21 @@ public class Connection : IConnection
     public async Task Run()
     {
         // Neither reads: the close is still made, so Closed completes for the owner either way.
-        if (_lifetime.IsTerminated == true || _reader.HasHandlers == false)
+        if (_lifetime.IsTerminated == false && _reader.HasHandlers == false)
         {
-            var isMisused = _lifetime.IsTerminated == false;
-
-            _readEnded.TrySetResult();
             ForceDisconnect();
             await _closed.Task;
 
-            if (isMisused == true)
-                throw new InvalidOperationException("Connection.Run without a handler of its reader: advise Reader first");
+            throw new InvalidOperationException("Connection.Run without a handler of its reader: advise Reader first");
+        }
 
+        // Ended before the run: the close is made without a read.
+        if (Interlocked.CompareExchange(ref _readState, Reading, ReadPending) != ReadPending)
+        {
+            await _closed.Task;
             return;
         }
 
-        _lifetime.Listen(OnDisconnected);
         _writer.Run(_lifetime, _socketLifetime).NoAwait();
 
         // A failure of the read loop (a handler of a message that throws) ends the connection too: its lifetime and
@@ -92,11 +102,7 @@ public class Connection : IConnection
         finally
         {
             _readEnded.TrySetResult();
-
-            if (_lifetime.IsTerminated == false)
-                _lifetime.Terminate();
-
-            OnDisconnected();
+            _lifetime.Terminate();
             await _closed.Task;
         }
     }
@@ -104,13 +110,15 @@ public class Connection : IConnection
     public void ForceDisconnect()
     {
         _lifetime.Terminate();
-        OnDisconnected();
     }
 
     private void OnDisconnected()
     {
         if (Interlocked.Exchange(ref _isClosing, 1) == 1)
             return;
+
+        if (Interlocked.CompareExchange(ref _readState, Unread, ReadPending) == ReadPending)
+            _readEnded.TrySetResult();
 
         Close().NoAwait();
     }
