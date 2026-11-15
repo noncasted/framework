@@ -57,6 +57,7 @@ namespace ContainerGenerator.Verify {
             Run("builder.Inject calls [Inject] on every instance", TestInjectEveryInstance);
             RunRegressionCases();
             RunAuditCases();
+            RunHarvestCases();
             if (_failed == 0)
                 Console.WriteLine("ALL PASSED");
             else
@@ -1101,7 +1102,7 @@ namespace ContainerGenerator.Verify {
                     var parse = compilation.SyntaxTrees.First().Options as CSharpParseOptions
                                 ?? new CSharpParseOptions(LanguageVersion.Latest);
                     walkCompilation = compilation.AddSyntaxTrees(
-                        CSharpSyntaxTree.ParseText(harvested.Source, parse, path: "ContainerInstallerHarvest.g.cs"));
+                        CSharpSyntaxTree.ParseText(harvested.Source, parse, path: ManifestHarvest.Path));
                     walkReferences = ReferenceSymbols.Create(walkCompilation) ?? references!;
                 }
             }

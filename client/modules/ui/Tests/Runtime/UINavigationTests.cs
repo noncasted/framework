@@ -74,6 +74,46 @@ namespace Global.UI.Tests
             Assert.AreSame(input, EventSystem.current.GetComponent<StandaloneInputModule>().inputOverride);
         }
 
+        [UnityTest]
+        public IEnumerator LifetimeEnd_RemovesTheInputAndRestoresThePreviousOverride()
+        {
+            var events = Create("events");
+            events.AddComponent<EventSystem>();
+            var module = events.AddComponent<StandaloneInputModule>();
+            var previous = events.AddComponent<BaseInput>();
+            module.inputOverride = previous;
+
+            var lifetime = new Lifetime();
+            CreateNavigation().OnSetup(lifetime);
+            Assert.IsInstanceOf<GamepadUIInput>(module.inputOverride);
+
+            lifetime.Terminate();
+            yield return null;
+
+            Assert.AreSame(previous, module.inputOverride);
+            Assert.IsNull(events.GetComponent<GamepadUIInput>());
+        }
+
+        [UnityTest]
+        public IEnumerator SecondScope_AfterTheFirstEnded_HasOneInput()
+        {
+            var events = Create("events");
+            events.AddComponent<EventSystem>();
+            var module = events.AddComponent<StandaloneInputModule>();
+
+            var first = new Lifetime();
+            CreateNavigation().OnSetup(first);
+            first.Terminate();
+            yield return null;
+
+            CreateNavigation().OnSetup(_lifetime);
+            yield return null;
+
+            var inputs = events.GetComponents<GamepadUIInput>();
+            Assert.AreEqual(1, inputs.Length);
+            Assert.AreSame(inputs[0], module.inputOverride);
+        }
+
         [Test]
         public void EnableNavigation_MakesASelectableACandidate()
         {

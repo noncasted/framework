@@ -8,6 +8,6 @@ namespace Internal
     [DisallowMultipleComponent]
     public abstract class MockEntry : MonoBehaviour
     {
-        public abstract UniTaskVoid Process();
+        public abstract UniTask Process();
     }
 }

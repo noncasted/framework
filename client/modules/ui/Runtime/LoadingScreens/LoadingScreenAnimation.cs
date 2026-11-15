@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 using UnityEngine.UI;
 
 namespace Global.UI
@@ -15,6 +16,12 @@ namespace Global.UI
         [SerializeField, Min(0f)] private float _pixelScale;
 
         private float _time;
+
+        public void Validate()
+        {
+            if (_sequence.Length > 0 && _loopTime <= 0f)
+                throw new InvalidOperationException($"[LoadingScreenAnimation] {name}: _loopTime must be above 0 for a sequence of {_sequence.Length} frames");
+        }
 
         public void UpdateAnimation(float delta)
         {

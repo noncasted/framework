@@ -22,3 +22,16 @@
 `InvalidOperationException` с путём до любой записи, и каталог не обновляется, пока вход не исправлен (группа, имя файла, импорт,
 настройки Addressables). Файл в Assets без импортера (не импортирован) тоже ошибка; папки, которые Unity не импортирует (`~`, скрытые), пропускаются.
 Также спрайт с `tagSpeeds` без `fps` теперь ошибка разметки, а не 0.
+### Анимации: удалена поворотная анимация спрайтов (BREAKING)
+
+Кого касается: клиент, игры с модулем `animations` (peace-data-reborn, pixel-swarm; ни одна её не использует).
+Поиск: `git grep -nE 'RotatableSpriteAnimation|RotatableFrameProvider|IAnimationRotationProvider|FiveAnimationDirection' -- 'client/Assets/*.cs'`
+Сделать: удалены `RotatableSpriteAnimation`, `RotatableFrameProvider`, `IAnimationRotationProvider`, `FiveAnimationDirection`;
+`SpriteAnimationVariants.cs` переименован в `ForwardSpriteAnimation.cs` (guid тот же). Если поиск что-то нашёл, держать свою копию в игре.
+
+### Flow: `MockEntry.Process` возвращает `UniTask` (BREAKING)
+
+Кого касается: клиент, все игры с моками сцен.
+Поиск: `git grep -n 'UniTaskVoid Process' -- 'client/Assets/*.cs'`
+Сделать: `public override async UniTaskVoid Process()` -> `public override async UniTask Process()` (и `abstract UniTaskVoid Process()`
+в своей базе моков, если она переобъявляет метод). `MockSwitcher` запускает его через `.NoAwait()`.

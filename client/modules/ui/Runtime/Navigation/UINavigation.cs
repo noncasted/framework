@@ -48,8 +48,21 @@ namespace Global.UI
             if (_eventSystem.TryGetComponent(out StandaloneInputModule module) == false)
                 throw new MissingComponentException("[UINavigation] The event system has no StandaloneInputModule");
 
-            _input = _eventSystem.gameObject.AddComponent<GamepadUIInput>();
-            _input.Construct(_scheme, _gamepad, _options, module);
+            // The override the event system had is given back, and the component removed, when the scope ends: a rebuilt
+            // scope does not leave the module on a dead reader.
+            var previous = module.inputOverride;
+            var input = _eventSystem.gameObject.AddComponent<GamepadUIInput>();
+            input.Construct(_scheme, _gamepad, _options, module);
+            _input = input;
+
+            lifetime.Listen(() =>
+            {
+                if (module != null && module.inputOverride == input)
+                    module.inputOverride = previous;
+
+                if (input != null)
+                    UnityEngine.Object.Destroy(input);
+            });
 
             _updater.Add(lifetime, this);
         }

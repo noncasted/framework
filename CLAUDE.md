@@ -192,7 +192,7 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   them). Each has an `Add*` extension of `IScopeBuilder`; prefabs and options come as arguments (the project owns
   the assets and its generated `GlobalPrefabs` / `GlobalAssets`), so the project's global `Construct` calls them:
   - `animations` (`Internal.Animations`, namespace `Internal`, no `Add*`): sprite animations of entities on the
-    updater (`ForwardSpriteAnimation`, `RotatableSpriteAnimation`, `RegisterSpriteForwardAnimation`), the
+    updater (`ForwardSpriteAnimation`, `RegisterSpriteForwardAnimation`), the
     `SpriteAnimationRenderer` component. `ISpriteAnimationData` stays in core (the sprite catalogue returns it).
   - `backend` (`AddBackend`): HTTP get / post / media.
   - `cameras` (`AddCamera(GlobalCamera prefab)`): camera of the global scope, `ICurrentCamera` (the camera of the
@@ -329,7 +329,7 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1694, common 96, Verify 168, control 23, telemetry 84, EditMode 1203 (4 of them skipped, the
+Release build replaces it. The expected numbers: backend 1694, common 96, Verify 172, control 23, telemetry 84, EditMode 1203 (4 of them skipped, the
 benchmarks of `ContainerBenchmarkTests`), PlayMode 120 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 
