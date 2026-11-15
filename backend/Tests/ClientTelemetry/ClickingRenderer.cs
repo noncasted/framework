@@ -17,6 +17,8 @@ public sealed class ClickingRenderer : Renderer
 
     private readonly List<ulong> _clicks = [];
 
+    private int _pageId;
+
     public override Dispatcher Dispatcher { get; } = Dispatcher.CreateDefault();
 
     public Task<IComponent> RenderPage(Type page, Dictionary<string, object?> parameters)
@@ -24,10 +26,16 @@ public sealed class ClickingRenderer : Renderer
         return Dispatcher.InvokeAsync(async () =>
         {
             var component = InstantiateComponent(page);
-            var id = AssignRootComponentId(component);
-            await RenderRootComponentAsync(id, ParameterView.FromDictionary(parameters));
+            _pageId = AssignRootComponentId(component);
+            await RenderRootComponentAsync(_pageId, ParameterView.FromDictionary(parameters));
             return component;
         });
+    }
+
+    // New parameters for the page already rendered, as the router gives them on a link to the same route.
+    public Task SetPageParameters(Dictionary<string, object?> parameters)
+    {
+        return Dispatcher.InvokeAsync(() => RenderRootComponentAsync(_pageId, ParameterView.FromDictionary(parameters)));
     }
 
     public Task ClickFirstButton()

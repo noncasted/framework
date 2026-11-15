@@ -150,16 +150,42 @@
     // The read after the close has taken the last rows.
     protected override bool KeepsRefreshing => _log?.IsLive == true;
 
+    // The previous and the next session are links to this route: the router keeps the component and sets the new Id.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_log == null || _log.Id == Id)
+            return;
+
+        _log = null;
+        _charts = null;
+        _next = null;
+        _isLoaded = false;
+
+        await Restart();
+    }
+
     protected override async Task Refresh()
     {
-        _log ??= new TelemetrySessionLog(Reader, Id);
+        var log = _log ??= new TelemetrySessionLog(Reader, Id);
+        var changed = await log.Refresh();
 
-        if (await _log.Refresh() && _log.Info is { } info)
-            _charts = TelemetrySessionCharts.Of(_log, info.Names);
+        // The Id changed during the read: the new log is read by its own loop.
+        if (log != _log)
+            return;
+
+        if (changed && log.Info is { } info)
+            _charts = TelemetrySessionCharts.Of(log, info.Names);
 
         // A next session starts when this one is over on the client: asked once, after the close.
-        if (_next == null && _log.Info is { Status: not TelemetrySessionStatus.Live })
-            _next = await Reader.GetSessions(new TelemetrySessionFilter { PreviousId = Id, Limit = MaxNext });
+        if (_next == null && log.Info is { Status: not TelemetrySessionStatus.Live })
+        {
+            var next = await Reader.GetSessions(new TelemetrySessionFilter { PreviousId = log.Id, Limit = MaxNext });
+
+            if (log != _log)
+                return;
+
+            _next = next;
+        }
 
         _isLoaded = true;
     }

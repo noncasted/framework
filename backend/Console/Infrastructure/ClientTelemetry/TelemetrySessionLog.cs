@@ -26,6 +26,7 @@ public sealed class TelemetrySessionLog
     private TelemetrySessionSummary? _liveSummary;
     private bool _changed;
 
+    public Guid Id => _id;
     public TelemetrySessionInfo? Info { get; private set; }
     public bool IsLive => Info is { Status: TelemetrySessionStatus.Live };
     public IReadOnlyList<TelemetryStoredSample> Samples => _samples;
