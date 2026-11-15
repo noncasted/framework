@@ -122,6 +122,11 @@ var name = await _state.Read(s => s.Name);
 
 Inside a transaction `Write()` only records the change; it is committed with the transaction.
 
+A state held by an open transaction (from its first `Read` in the transaction to its commit or rollback) throws
+`InvalidOperationException` on `Read` / `Write` (`EventState`: `Read` / `Append` / `Write`) outside a transaction: the memory
+holds the uncommitted changes, a direct write would store them even if the transaction rolls back. A grain whose
+non-transactional methods may run while a transaction is open on it (`[Reentrant]`) makes them transactional or retries them.
+
 ### Event-sourced state
 
 ```csharp
