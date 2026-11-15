@@ -11,6 +11,12 @@ updated: 2026-11-16
 Unity: открыт только редактор gamejam-autobattler (не наш, не трогается); тесты фреймворка — batchmode в worktree. Кластер: не нужен.
 
 ### Требуют внимания
+1. Ветка `audit-client-2026-11-16` не слита в main: `git -C /projects/framework merge --no-ff audit-client-2026-11-16` (в main чужие незакоммиченные правки `client/measurements`, они не пересекаются).
+2. BREAKING для игр (шаги в `releases/unreleased.md`): `MockEntry.Process` -> `UniTask`; удалены поворотная анимация спрайтов и мёртвый код core (`FloatValue`, `MoveAnchored`, `CurveDeltaProgression`, `ToLifetimedValue`); генераторы каталогов теперь бросают на сломанном входе; `IPeerSignaling.Open` берёт lifetime, `NetworkConnectionWatchdog.SilenceLimit` -> `ConnectionSilence.Limit` (игры не используют).
+3. V6: в полной reconnectable-сессии чужой больше не занимает место ушедшего игрока (как на бэкенде).
+4. V5: лимит 60 без фокуса ставится только поверх лимита выше 60 / безлимита; выбор 30 не трогается.
+5. Без красного теста (по чтению): V2 Steam, V4 MPPM, V16 macOS. Не исправлены: V10, V18, V19, m10, m27, массовый стиль, `EncodedAudio` (утечка не воспроизвелась), `RootBuilder`.
+6. Флак backend `GrainTransactionHandlerTests.Join_WhileTheLockPassesToAWaiter_TheWaitIsBounded` под нагрузкой (backend не менялся).
 
 ### Решения
 | # | Время | Вопрос | Решение | Альтернативы | Почему | Как откатить |
@@ -25,5 +31,12 @@ Unity: открыт только редактор gamejam-autobattler (не на
 ### Инциденты
 | Время | Что упало / зависло | Признаки | Что сделано | Итог |
 |-------|---------------------|----------|-------------|------|
+| 01:18 | backend-тест в `test-all.sh` | 1693/1694, `Join_WhileTheLockPassesToAWaiter_TheWaitIsBounded`: «Current transaction in progress 0000…», load 26 | 5 повторов по одному — все зелёные; backend/shared/common на ветке не менялись | флак гонки под нагрузкой, не связан с правками |
 
 ### Отложено до пользователя
+
+## Итог
+Аудит: `docs/audits/2026-11-16_client.md` (3 критичных, 19 важных, 41 мелкая). Исправлено 37 находок пятью агентами в ветках `acf-*`,
+слиты в `audit-client-2026-11-16`. `test-all.sh` на объединённом дереве: build PASS, common 96, Verify 172, control 24, telemetry 84,
+EditMode 1246 (4 skipped), PlayMode 124 (24 skipped) — все PASS; backend 1693/1694 (флак, см. инциденты).
+Unity: открытых редакторов фреймворка нет, batchmode-процессы завершены. Кластер не запускался.
