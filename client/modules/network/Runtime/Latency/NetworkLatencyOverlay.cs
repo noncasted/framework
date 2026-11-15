@@ -134,10 +134,16 @@ namespace Internal
                 _label.text = text;
         }
 
-        // N typed into a text field (the chat, the room code) is a letter.
+        // N typed into a text field (the chat, the room code) is a letter. A scene without an EventSystem has no field in
+        // focus.
         private static bool IsTyping()
         {
-            var selected = EventSystem.current.currentSelectedGameObject;
+            var system = EventSystem.current;
+
+            if (system == null)
+                return false;
+
+            var selected = system.currentSelectedGameObject;
 
             if (selected == null)
                 return false;
