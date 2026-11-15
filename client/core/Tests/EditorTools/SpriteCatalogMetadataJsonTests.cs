@@ -15,6 +15,23 @@ namespace Internal.EditorTests
             Assert.Throws<InvalidOperationException>(() => SpriteCatalogMetadataJson.Read(catalog));
         }
 
+        // A speed without its fps is baked as a zero duration and written back for good.
+        [Test]
+        public void Read_TagSpeedWithoutFps_Throws()
+        {
+            var catalog = JObject.Parse(@"{ ""tagSpeeds"": [ { ""tag"": ""Idle"" } ] }");
+
+            Assert.Throws<InvalidOperationException>(() => SpriteCatalogMetadataJson.Read(catalog));
+        }
+
+        [Test]
+        public void Read_TagSpeed_KeepsFps()
+        {
+            var catalog = JObject.Parse(@"{ ""tagSpeeds"": [ { ""tag"": ""Idle"", ""fps"": 6 } ] }");
+
+            Assert.AreEqual(6f, SpriteCatalogMetadataJson.Read(catalog).TagSpeeds[0].FramesPerSecond);
+        }
+
         // An animation of no tag is never found by the tag it was meant for and is written back for good.
         [Test]
         public void Read_AnimationWithoutTag_Throws()

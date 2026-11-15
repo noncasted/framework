@@ -123,7 +123,7 @@ namespace Internal
                 if (item is not JObject speed)
                     continue;
 
-                speeds.Add(new SpriteCatalogTagSpeed(Required(speed, "tag"), speed.Value<float>("fps")));
+                speeds.Add(new SpriteCatalogTagSpeed(Required(speed, "tag"), RequiredFloat(speed, "fps")));
             }
 
             return speeds;
@@ -134,6 +134,13 @@ namespace Internal
         private static string Required(JObject entry, string key)
         {
             return entry.Value<string>(key)
+                   ?? throw new InvalidOperationException($"An entry of the sprite markup has no {key}: {entry}");
+        }
+
+        // A speed without its value is read as 0 and baked as the duration of every frame: a broken markup, not a default.
+        private static float RequiredFloat(JObject entry, string key)
+        {
+            return entry.Value<float?>(key)
                    ?? throw new InvalidOperationException($"An entry of the sprite markup has no {key}: {entry}");
         }
 
