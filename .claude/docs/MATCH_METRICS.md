@@ -66,8 +66,9 @@ Sending (`Sending/MatchMetricsSender`, `Writing/MatchMetricsBuffer`):
   and pumps the senders.
 - One request in flight per stream, the head of the buffer first; `Seq` from 1. A new link of the socket opens the stream
   again with the same `WriterId` and drops the batches the server already has (`LastSeq`).
-- No answer (a lost socket, a server error) - the batch stays and goes again with its `Seq`. `Closed`, `NotInMatch`,
-  `Rejected` stop the sending of this stream with a log.
+- No answer (a lost socket, a server error, a timeout) - the batch stays and goes again with its `Seq`: at once on a new link,
+  after `SendIntervalMs` on the same one (the last batch of an ended stream too). A server error or a timeout is a warning in
+  the log once per link, a lost socket is silent. `Closed`, `NotInMatch`, `Rejected` stop the sending of this stream with a log.
 - Over `BufferedBatches` (20 x 30 s - ten minutes without the server) the oldest unnumbered batch is dropped with an error.
 
 Transport: `AddSocketMatchMetrics()` registers `MatchMetricsSocketTransport` over `IMatchMetricsSocket.Connection` (the

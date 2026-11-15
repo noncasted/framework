@@ -21,7 +21,8 @@ namespace Global.MatchMetrics
             BufferedBatches = bufferedBatches;
         }
 
-        // A batch of a stream every this much real time, and one at its end.
+        // A batch of a stream every this much real time, and one at its end; a request without an answer on a live link is
+        // tried again after it.
         public double SendIntervalMs { get; }
 
         // The real time between the checks of the streams: the stopped clocks, the batches due, a socket back.
