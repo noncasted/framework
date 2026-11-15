@@ -98,9 +98,15 @@ namespace Global.Inputs
             if (_substitute != null)
                 throw new InvalidOperationException("The gamepad reader is substituted already");
 
+            // The state of this frame is read again: a substitute is seen by the next read, not the next frame.
             _substitute = sample;
+            _frame = -1;
 
-            lifetime.Listen(() => _substitute = null);
+            lifetime.Listen(() =>
+            {
+                _substitute = null;
+                _frame = -1;
+            });
         }
 
         private GamepadState Sample()
