@@ -32,7 +32,6 @@ public class ClientTelemetryStartup : Grain, IClientTelemetryStartup
     {
         DeactivateOnIdle();
 
-        // A failed write dropped the value of the state.
         await _startup.Read();
 
         if (_startup.Value.Final)
@@ -58,8 +57,13 @@ public class ClientTelemetryStartup : Grain, IClientTelemetryStartup
 
         await _startup.Read();
 
+        // No row or a fresh one: a host that missed the push of a delete or a write keeps its entry until it hears again, and
+        // its sweep is what comes here for it.
         if (!_startup.Value.IsStored || _startup.Value.UpdatedAt > _time.UtcNow - TimeSpan.FromDays(_options.RetentionDays))
+        {
+            await Notify();
             return;
+        }
 
         await _storage.Delete(new StateDeleteRequest { Identities = [_storage.IdentityOf<TelemetryStartupState>(Id), _storage.IdentityOf<TelemetryStartupTraceState>(Id)] });
 

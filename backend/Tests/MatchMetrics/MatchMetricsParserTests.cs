@@ -85,6 +85,9 @@ public class MatchMetricsParserTests
         Rejects(Batch(Guid.Empty, 1, chunks: [Chunk(0, 0, new float[MatchMetricsLimits.MaxValues + 1])]), _known);
         Rejects(Batch(Guid.Empty, 1, chunks: Enumerable.Range(0, MatchMetricsLimits.MaxChunks + 1).Select(i => Chunk(0, i, 1)).ToArray()), _known);
 
+        // Start + count wraps around an int to a negative end.
+        Rejects(Batch(Guid.Empty, 1, chunks: [Chunk(0, int.MaxValue - 47, new float[100])]), _known);
+
         var old = Chunk(0, 0, 1);
         old.AgeMs = MatchMetricsLimits.MaxAgeMs + 1;
         Rejects(Batch(Guid.Empty, 1, chunks: [old]), _known);

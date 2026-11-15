@@ -29,7 +29,9 @@ MemoryPack messages over the meta socket of a client (`shared/MatchMetrics/Share
   twice; `Kind` `Counter` or `Gauge`. The same name and tags (in any order) are one series of the game; another kind for them
   is rejected. A series is in one slot of a stream: declared twice in a batch or again in another slot - rejected.
 - `Chunks`: a declared slot, at least one value, buckets `Start .. Start + n` within 0..86400, up to 4096 chunks and 65536
-  values a batch; the chunks of one slot in a batch do not overlap (no bucket twice, no two with one `Start`); no infinity; `NaN` only in a gauge (unchanged in the bucket); `AgeMs` 0..86 400 000.
+  values a batch; the chunks of one slot in a batch do not overlap (no bucket twice, no two with one `Start`); between batches
+  the server does not check it: a bucket sent again in a later batch is stored again, a counter sums both, a gauge shows either
+  of them as its point (the chunks are read without an order) and counts both in its totals (a client sends a bucket once); no infinity; `NaN` only in a gauge (unchanged in the bucket); `AgeMs` 0..86 400 000.
 - `Events`: up to 1024, `Time` finite 0..86400, up to 8 fields with distinct keys, a number finite or a text.
 
 ## Storage (`MatchMetricsSchema`)

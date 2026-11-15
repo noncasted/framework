@@ -31,7 +31,7 @@ internal sealed class MatchMetricsWriter : IMatchMetricsWriter
     public IMatchMetricsServerStream Open(IReadOnlyLifetime lifetime, Guid matchId)
     {
         var stream = new MatchMetricsServerStream(matchId, _streams, _writer, _dictionary, _time, _logger);
-        stream.Start(lifetime, _options.ServerFlush);
+        stream.Start(lifetime, _options);
 
         return stream;
     }

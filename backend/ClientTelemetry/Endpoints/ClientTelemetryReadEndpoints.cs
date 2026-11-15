@@ -1,8 +1,10 @@
+using System.Data.Common;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Orleans.Runtime;
 
 namespace Game.ClientTelemetry;
 
@@ -26,7 +28,7 @@ public static class ClientTelemetryReadEndpoints
     {
         var group = endpoints.MapGroup(ClientTelemetryRoutes.Prefix);
 
-        group.AddEndpointFilter(AnswerUnavailable);
+        group.AddEndpointFilter(AnswerErrors);
 
         group.MapGet("/sessions", GetSessions);
         group.MapGet("/sessions/{id:guid}", GetSession);
@@ -41,14 +43,15 @@ public static class ClientTelemetryReadEndpoints
         return group;
     }
 
-    // The boundary of the cluster: a grain or the database could not answer, the reader may repeat.
-    private static async ValueTask<object?> AnswerUnavailable(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
+    // The database could not answer (Npgsql throws DbException), a call timed out or the silo of a grain is gone - 503, the reader
+    // may repeat. Anything else is a bug of the server: it goes on to the host, 500.
+    private static async ValueTask<object?> AnswerErrors(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         try
         {
             return await next(context);
         }
-        catch (Exception exception) when (exception is not OperationCanceledException)
+        catch (Exception exception) when (exception is DbException or TimeoutException or OrleansMessageRejectionException)
         {
             var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(ClientTelemetryReadEndpoints));
             logger.LogWarning(exception, "[ClientTelemetry] A reading failed");
@@ -78,12 +81,19 @@ public static class ClientTelemetryReadEndpoints
         if (metric == null && (averageBelow != null || averageAbove != null))
             return Results.BadRequest("averageBelow and averageAbove go with metric");
 
-        if (status != null && !_statuses.ContainsKey(status))
-            return Results.BadRequest("status is live, ended or lost");
+        TelemetrySessionStatus? statusFilter = null;
+
+        if (status != null)
+        {
+            if (!_statuses.TryGetValue(status, out var known))
+                return Results.BadRequest("status is live, ended or lost");
+
+            statusFilter = known;
+        }
 
         var filter = new TelemetrySessionFilter
         {
-            Status = status == null ? null : _statuses[status],
+            Status = statusFilter,
             Platform = platform,
             BuildVersion = build,
             Tags = tag ?? [],
