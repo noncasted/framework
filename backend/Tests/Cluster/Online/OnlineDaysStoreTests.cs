@@ -61,4 +61,37 @@ public class OnlineDaysStoreTests(OrleansTestClusterFixture fixture)
         summary.Days[^1].UniqueUsers.Should().Be(2);
         summary.Current.Should().Be(1);
     }
+
+    // Two coordinators overlap for a while during a deploy: each writes the day from its own counter, and neither
+    // write may drop the users or the peak the other has stored.
+    [Fact]
+    public async Task OverlappingCoordinators_WritesOfTheSameDay_AreMerged()
+    {
+        var hour = new DateTime(2026, 11, 9, 14, 0, 0, DateTimeKind.Utc).AddDays(Random.Shared.Next(1000, 100000));
+        var a = Guid.NewGuid();
+        var b = Guid.NewGuid();
+        var c = Guid.NewGuid();
+
+        var old = new OnlineCounter([]);
+        var replacing = new OnlineCounter([]);
+
+        old.Apply(new HashSet<Guid> { a, b }, hour.AddMinutes(1));
+        replacing.Apply(new HashSet<Guid> { c }, hour.AddMinutes(2));
+
+        await Store.Write(replacing.TakeChanged());
+        await Store.Write(old.TakeChanged());
+
+        replacing.Apply(new HashSet<Guid>(), hour.AddMinutes(3));
+        await Store.Write(replacing.TakeChanged());
+
+        var day = OnlineCounter.DayOf(hour);
+        var read = await Store.Read(day, day);
+
+        read.Should().ContainSingle();
+        read[0].Users.Should().BeEquivalentTo([a, b, c]);
+        read[0].Peak.Should().Be(2);
+        read[0].FindHour(14)!.Users.Should().BeEquivalentTo([a, b, c]);
+        read[0].FindHour(14)!.UniqueUsers.Should().Be(3);
+        read[0].FindHour(14)!.Peak.Should().Be(2);
+    }
 }

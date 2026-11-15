@@ -61,6 +61,28 @@ public class OnlineDayState : IDirectStateValue
         return Hours.Find(entry => entry.Hour == hour);
     }
 
+    // The same day written by another coordinator (two of them overlap during a deploy): nothing either has counted
+    // is lost.
+    public OnlineDayState MergedWith(OnlineDayState other)
+    {
+        if (other.Day != Day)
+            throw new InvalidOperationException($"Online day {Day} merged with day {other.Day}");
+
+        var hours = Hours.Concat(other.Hours)
+                         .GroupBy(hour => hour.Hour)
+                         .Select(group => group.Aggregate((merged, hour) => merged.MergedWith(hour)))
+                         .OrderBy(hour => hour.Hour)
+                         .ToList();
+
+        return new OnlineDayState
+        {
+            Day = Day,
+            Peak = Math.Max(Peak, other.Peak),
+            Users = new HashSet<Guid>(Users.Concat(other.Users)),
+            Hours = hours
+        };
+    }
+
     public OnlineDayState Copy()
     {
         return new OnlineDayState

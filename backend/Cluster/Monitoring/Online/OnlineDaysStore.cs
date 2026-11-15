@@ -28,14 +28,22 @@ public class OnlineDaysStore : IOnlineDaysStore
         return stored.Values.OrderBy(day => day.Day).ToList();
     }
 
-    public Task Write(IReadOnlyList<OnlineDayState> days)
+    // Merged into the stored rows: the coordinators of two deploys overlap until the old one leaves its deploy, and
+    // a whole-row write of one would drop what the other has counted. Not atomic: two writes of the same day in the
+    // same moment may still lose one of them, the next flush of the loser writes its counter again.
+    public async Task Write(IReadOnlyList<OnlineDayState> days)
     {
         if (days.Count == 0)
-            return Task.CompletedTask;
+            return;
 
-        return _storage.Write(new StateWriteRequest
+        var stored = await _storage.ReadBatch<long, OnlineDayState>(days.Select(day => Identity(day.Day)).ToList());
+        var storedByDay = stored.Values.ToDictionary(day => day.Day);
+
+        await _storage.Write(new StateWriteRequest
         {
-            Records = days.ToDictionary(day => Identity(day.Day), IStateValue (day) => day)
+            Records = days.ToDictionary(
+                day => Identity(day.Day),
+                IStateValue (day) => storedByDay.TryGetValue(day.Day, out var row) ? day.MergedWith(row) : day)
         });
     }
 
