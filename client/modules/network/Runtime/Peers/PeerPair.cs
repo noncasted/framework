@@ -127,9 +127,26 @@ namespace Internal
             CancelRetry();
             EndAttempt();
 
+            // The attempt is the current one at once: a link that fails to build ends it with its signaling channel.
             var attempt = _lifetime.Child();
-            var signaling = _control.Signaling.Open(attempt, _remoteIndex);
-            var link = new WebRtcPeerLink(_role, signaling, _options, attempt);
+            _attempt = attempt;
+
+            WebRtcPeerLink link;
+
+            try
+            {
+                link = new WebRtcPeerLink(_role, _control.Signaling.Open(attempt, _remoteIndex), _options, attempt);
+            }
+            // The platform can't build the connection (no peer, a layout of channels it does not carry): the pair
+            // plays through the server as after a failed negotiation.
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+                EndAttempt();
+                FallbackAfterDirect($"the direct connection can't be created: {exception.Message}");
+                return;
+            }
+
             var inbox = new PeerLinkInbox(_options.Channels.Count, attempt);
 
             for (var i = 0; i < link.Channels.Count; i++)
@@ -138,7 +155,6 @@ namespace Internal
                 link.Channels[i].Received.Advise(attempt, frame => inbox.Receive(channel, frame));
             }
 
-            _attempt = attempt;
             _direct = link;
             _state = PeerPairState.ConnectingDirect;
             link.Closed.Advise(attempt, info => OnDirectClosed(link, info));
