@@ -3,7 +3,7 @@
   "displayName": "Framework Platform Telegram",
   "version": "0.1.0",
   "unity": "7000.0",
-  "description": "Telegram Mini App: the init data of the user, the language and the BackButton through window.telegramShell of the WebGL template (namespace Global.Publisher.Telegram).",
+  "description": "Telegram Mini App: the init data of the user and the BackButton through window.telegramShell of the WebGL template (namespace Global.Publisher.Telegram).",
   "dependencies": {
     "com.noncasted.framework.core": "0.1.0",
     "com.noncasted.framework.publish": "0.1.0",
