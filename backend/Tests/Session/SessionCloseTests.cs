@@ -1,4 +1,8 @@
+using System.Net.WebSockets;
+using Common.Network;
 using FluentAssertions;
+using Framework.Tests.Network;
+using Microsoft.Extensions.Logging.Abstractions;
 using Game.Session;
 using Shared;
 using Xunit;
@@ -316,6 +320,28 @@ public class SessionCloseTests
         session.RunTask.IsCompleted.Should().BeTrue();
         session.Session.AllUsersConnected.IsCanceled.Should().BeTrue();
         TestSession.Sent<SharedSessionPlayer.LocalUpdate>(first).Should().BeEmpty();
+    }
+
+    // The session is aborted before it runs the socket of a joined user: the gateway awaiting Closed of the socket returns,
+    // and the client gets the close frame.
+    [Fact]
+    public async Task ExpectedUserNeverJoins_TheSocketOfTheJoinedUserIsClosed()
+    {
+        var timeout = TimeSpan.FromSeconds(10);
+        var session = TestSession.Create(expectedUsers: 2, joinTimeout: timeout);
+        var userId = Guid.NewGuid();
+        var socket = new ScriptedSocket();
+        var connection = new Connection(socket, session.Lifetime, NullLogger.Instance);
+
+        session.Reserve(userId).Should().BeTrue();
+        session.Session.TryAccept(userId).Should().BeTrue();
+        session.Join(userId, connection);
+
+        session.Advance(timeout);
+
+        session.Lifetime.IsTerminated.Should().BeTrue();
+        await connection.Closed.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        socket.SentCloseStatus.Should().Be(WebSocketCloseStatus.NormalClosure);
     }
 
     [Fact]

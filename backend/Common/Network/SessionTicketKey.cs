@@ -1,7 +1,7 @@
 namespace Common.Network;
 
 // The HMAC key of SessionTickets, shared by the meta and the game gateways (SESSION_TICKET_SECRET,
-// base64, at least 32 bytes). Read by Orchestration.SessionTicketsExtensions.
+// base64, at least 32 bytes). Read from the configuration by the game, which registers it for both.
 public sealed class SessionTicketKey
 {
     public SessionTicketKey(byte[] value)

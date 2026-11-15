@@ -222,6 +222,19 @@ public class SessionRequester : ISessionRequester
         return _tickets.Issue(userId, sessionId);
     }
 
+    // The values of the wire are pinned: the client switches on them.
+    public static SharedSessionRequests.EntryStatus ToWire(LobbyJoinStatus status)
+    {
+        return status switch
+        {
+            LobbyJoinStatus.Ok => SharedSessionRequests.EntryStatus.Ok,
+            LobbyJoinStatus.NotFound => SharedSessionRequests.EntryStatus.NotFound,
+            LobbyJoinStatus.Full => SharedSessionRequests.EntryStatus.Full,
+            LobbyJoinStatus.Started => SharedSessionRequests.EntryStatus.Started,
+            _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unknown lobby join status")
+        };
+    }
+
     // The registry entry of the code and its game server; null when the code leads nowhere.
     private async Task<(LobbyRegistryEntry Entry, GameServerOverview Server)?> FindLobby(string code)
     {
@@ -240,19 +253,6 @@ public class SessionRequester : ISessionRequester
             return null;
 
         return (entry, server);
-    }
-
-    // The values of the wire are pinned: the client switches on them.
-    public static SharedSessionRequests.EntryStatus ToWire(LobbyJoinStatus status)
-    {
-        return status switch
-        {
-            LobbyJoinStatus.Ok => SharedSessionRequests.EntryStatus.Ok,
-            LobbyJoinStatus.NotFound => SharedSessionRequests.EntryStatus.NotFound,
-            LobbyJoinStatus.Full => SharedSessionRequests.EntryStatus.Full,
-            LobbyJoinStatus.Started => SharedSessionRequests.EntryStatus.Started,
-            _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Unknown lobby join status")
-        };
     }
 
     private SharedSessionRequests.Result Accepted(Guid userId, Guid sessionId, string serverUrl, string code)

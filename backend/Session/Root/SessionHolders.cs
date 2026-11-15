@@ -16,7 +16,8 @@ internal class SessionHolders
     private readonly Dictionary<Guid, DateTime> _reservations = new();
     private readonly Dictionary<Guid, int> _joining = new();
 
-    // Away seats by user: the end of their reconnect window. Removed by a return or by TryExpireAway only.
+    // Away seats by user: the end of their reconnect window. Removed by a return (its TryStartJoining or its join) or by
+    // TryExpireAway only.
     private readonly Dictionary<Guid, DateTime> _away = new();
 
     // Joined connections by user: a reconnecting user may hold two for a moment (the stale one is being dropped).
@@ -63,6 +64,10 @@ internal class SessionHolders
         // A user may join without TryAccept (tests): then it only consumes its own reservation, if there is one.
         if (RemoveJoining(userId) == false)
             _reservations.Remove(userId);
+
+        // A return accepted while its old connection was still joined: the old one may be lost before this join, and
+        // its seat is back here, not away. The timer of that window finds no away mark of it and ends.
+        _away.Remove(userId);
 
         _joined[userId] = _joined.GetValueOrDefault(userId) + 1;
         _joinedCount++;

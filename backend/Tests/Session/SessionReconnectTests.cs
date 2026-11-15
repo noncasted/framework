@@ -190,6 +190,41 @@ public class SessionReconnectTests
         session.Lifetime.IsTerminated.Should().BeTrue();
     }
 
+    // The old connection is lost between the TryAccept of a return and its join: the join takes the seat back from away,
+    // the others see it again, and a later loss is an ordinary one with its own window.
+    [Fact]
+    public void ReturnAccepted_OldConnectionLostBeforeTheJoin_SeatBack_LaterLossIsAnOrdinaryOne()
+    {
+        var (session, first, second) = CreateOfTwo();
+        var userId = first.BackendId;
+
+        session.Session.TryAccept(userId).Should().BeTrue();
+        session.Lose(first);
+        session.Admission.IsAway(userId).Should().BeTrue();
+        session.ClearSent();
+
+        var returned = session.Join(userId);
+
+        session.Admission.IsAway(userId).Should().BeFalse();
+        TestSession.Sent<SharedSessionPlayer.RemoteUpdate>(second).Select(update => update.Index).Should().Contain(first.Index);
+
+        session.Advance(TimeSpan.FromSeconds(10));
+        session.Lose(returned);
+
+        session.Admission.IsAway(userId).Should().BeTrue();
+        TestSession.Sent<SharedSessionPlayer.RemoteAway>(second).Should().ContainSingle();
+
+        // The window of the first loss ends at 60, the one of the second at 70.
+        session.Advance(Window - TimeSpan.FromSeconds(1));
+        session.Seats.Entries.Should().ContainKey(userId);
+
+        session.Advance(TimeSpan.FromSeconds(1));
+        session.Seats.Entries.Should().NotContainKey(userId);
+
+        session.Leave(second);
+        session.Lifetime.IsTerminated.Should().BeTrue();
+    }
+
     [Fact]
     public void Return_IgnoresLimitAndSeal()
     {

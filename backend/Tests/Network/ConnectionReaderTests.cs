@@ -85,6 +85,31 @@ public class ConnectionReaderTests
         seen.Should().Equal("oneway 1", "request 7");
     }
 
+    // The server has sent its close: the reader reads on to the close of the client (a socket disposed before it resets
+    // the connection), and what the client sent in between is not handled any more.
+    [Fact]
+    public async Task ConnectionReader_CloseSent_ReadsToTheCloseOfTheClient_HandlesNothingMore()
+    {
+        var socket = new ScriptedSocket();
+        socket.Enqueue(Pack(new OneWayMessageFromClient { Context = new SharedSessionLatency.Ping { Id = 1 } }), true);
+        socket.Enqueue(Pack(new OneWayMessageFromClient { Context = new SharedSessionLatency.Ping { Id = 2 } }), true);
+        socket.EnqueueClose();
+
+        var reader = new ConnectionReader(socket, NullLogger.Instance);
+        var lifetime = new Lifetime();
+        var seen = new List<int>();
+
+        reader.OneWay.Advise(lifetime, message => {
+            seen.Add(((SharedSessionLatency.Ping)message.Context).Id);
+            socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None);
+        });
+
+        await reader.Run(lifetime);
+
+        seen.Should().Equal(1);
+        socket.PendingParts.Should().Be(0);
+    }
+
     [Fact]
     public async Task ConnectionReader_TerminatedLifetime_Throws()
     {

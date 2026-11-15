@@ -39,7 +39,9 @@ public class ConnectionReader : IConnectionReader
 
         var reader = new WebSocketMessageReader();
 
-        while (_webSocket.State == WebSocketState.Open && lifetime.IsTerminated == false)
+        // After the close of the server (CloseSent) the loop reads on to the close of the client: a socket disposed
+        // before it resets the connection. The wait is bounded by the close timeout of Connection (lifetime).
+        while (_webSocket.State is (WebSocketState.Open or WebSocketState.CloseSent) && lifetime.IsTerminated == false)
         {
             WebSocketReadStatus status;
 
@@ -78,6 +80,10 @@ public class ConnectionReader : IConnectionReader
                     _webSocket.CloseStatusDescription);
                 break;
             }
+
+            // The server has closed: what the client sent before its answer is not handled (nor limited: the close is made).
+            if (_webSocket.State == WebSocketState.CloseSent)
+                continue;
 
             if (status == WebSocketReadStatus.TooBig)
             {
