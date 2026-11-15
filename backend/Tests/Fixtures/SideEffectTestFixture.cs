@@ -26,6 +26,3 @@ public class SideEffectTestFixture : OrleansTestClusterFixture
             new SideEffectExecution(storage, transactions, orleans, config, logger), config);
     }
 }
-
-[CollectionDefinition(nameof(SideEffectIntegrationCollection))]
-public class SideEffectIntegrationCollection : ICollectionFixture<SideEffectTestFixture>;

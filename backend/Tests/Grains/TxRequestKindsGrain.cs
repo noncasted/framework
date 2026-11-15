@@ -4,16 +4,6 @@ using Orleans.Concurrency;
 
 namespace Framework.Tests.Grains;
 
-[GenerateSerializer]
-public enum TxRequestMode
-{
-    Completed,
-    Delayed,
-    Faulted,
-    ThrowsAtCall,
-    ThrowsAfterDelay
-}
-
 // A [Transaction] method of every return type the attribute maps to its own request class, in every way a method ends.
 public interface ITxRequestKindsGrain : IGrainWithGuidKey
 {

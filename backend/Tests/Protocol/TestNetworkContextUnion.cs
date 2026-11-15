@@ -59,34 +59,3 @@ namespace Framework.Tests.Protocol;
 public partial class TestNetworkContextUnion
 {
 }
-
-// The payload unions a project declares next to its payload types: here only the framework members.
-[MemoryPackUnionFormatter(typeof(IEntityPayload))]
-[MemoryPackUnion(0, typeof(TestEntityPayload))]
-public partial class TestEntityPayloadUnion
-{
-}
-
-[MemoryPackUnionFormatter(typeof(IStatePayload))]
-[MemoryPackUnion(StatePayloadTags.Empty, typeof(EmptyStatePayload))]
-public partial class TestStatePayloadUnion
-{
-}
-
-[MemoryPackUnionFormatter(typeof(IEventPayload))]
-[MemoryPackUnion(0, typeof(TestEventPayload))]
-public partial class TestEventPayloadUnion
-{
-}
-
-[MemoryPackable]
-public partial class TestEntityPayload : IEntityPayload
-{
-    public int Kind { get; set; }
-}
-
-[MemoryPackable]
-public partial class TestEventPayload : IEventPayload
-{
-    public int Value { get; set; }
-}

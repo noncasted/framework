@@ -208,6 +208,3 @@ public class OrleansTestClusterFixture : IAsyncLifetime
         await Database.DisposeAsync();
     }
 }
-
-[CollectionDefinition(nameof(OrleansIntegrationCollection))]
-public class OrleansIntegrationCollection : ICollectionFixture<OrleansTestClusterFixture>;
