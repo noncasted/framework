@@ -27,7 +27,7 @@ namespace Internal
 
             void Callback(float progress)
             {
-                callback.Invoke(Easing.Evaluate(ease, Mathf.Clamp01(progress)));
+                callback.Invoke(Easing.Evaluate(ease, progress));
             }
         }
 
@@ -49,7 +49,7 @@ namespace Internal
 
             void Callback(float progress)
             {
-                callback.Invoke(curve.Evaluate(Mathf.Clamp01(progress)));
+                callback.Invoke(curve.Evaluate(progress));
             }
         }
 
@@ -126,20 +126,6 @@ namespace Internal
                 position.x = Mathf.LerpUnclamped(start, x, factor);
                 target.localPosition = position;
             }
-        }
-
-        public static UniTask MoveAnchored(
-            this IUpdater updater,
-            IReadOnlyLifetime lifetime,
-            RectTransform target,
-            Vector2 position,
-            float time,
-            EaseType ease = EaseType.OutQuad)
-        {
-            var start = target.anchoredPosition;
-
-            return updater.Tween(lifetime, time, ease,
-                factor => target.anchoredPosition = Vector2.LerpUnclamped(start, position, factor));
         }
 
         // The rotation takes the shortest arc.

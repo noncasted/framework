@@ -91,6 +91,25 @@ namespace Internal.Tests
             Assert.AreEqual(UniTaskStatus.Canceled, wait.Status);
         }
 
+        // A long last frame passes the end of the time: the callback still gets exactly 1, not more.
+        [Test]
+        public void Progression_LongLastFrame_EndsWithOne()
+        {
+            var lifetime = new Lifetime();
+            var updater = new ManualUpdater();
+            var progress = new List<float>();
+
+            var wait = updater.Progression(lifetime, 1f, progress.Add);
+
+            updater.Tick(0.5f);
+            updater.Tick(0.9f);
+
+            Assert.AreEqual(UniTaskStatus.Succeeded, wait.Status);
+            CollectionAssert.AreEqual(new[] { 0.5f, 1f }, progress);
+
+            lifetime.Terminate();
+        }
+
         [Test]
         public void Progression_ZeroTime_CompletesWithFullProgress()
         {

@@ -80,7 +80,8 @@ namespace Internal
             _currentTime += delta;
 
             // A progression of zero time is done on its first update: the division would give NaN and never reach 1.
-            var progress = _targetTime > 0f ? _currentTime / _targetTime : 1f;
+            // A long last frame passes the end of the time: the callback gets exactly 1 there, never more.
+            var progress = _targetTime > 0f ? Math.Min(_currentTime / _targetTime, 1f) : 1f;
 
             // The error ends the wait: repeated each frame it would never reach the end of the time.
             try
