@@ -1,7 +1,7 @@
 using Cluster.Deploy;
 using Cluster.Monitoring;
 using FluentAssertions;
-using Game.Hosting;
+using Game.Hosting.Collection;
 using Game.Session;
 using Framework.Tests.Session;
 using Internal;

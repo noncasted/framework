@@ -7,6 +7,7 @@ using FluentAssertions;
 using Framework.Tests.Fixtures;
 using Framework.Tests.Session;
 using Game.Hosting;
+using Game.Hosting.Collection;
 using Game.Lobbies;
 using Game.Session;
 using Internal;

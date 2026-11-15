@@ -1,4 +1,4 @@
-using Game.Hosting;
+using Game.Hosting.Collection;
 using Game.Session;
 using Microsoft.Extensions.Logging;
 using Shared;
