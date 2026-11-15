@@ -5,7 +5,7 @@ using UnityEngine.EventSystems;
 namespace Global.UI
 {
     // The input of the uGUI event system (StandaloneInputModule.inputOverride), added to the object of the event
-    // system by UINavigation.
+    // system by UINavigation for the lifetime of its scope.
     // - The navigation of the module comes from the gamepad by meaning (IGamepadReader): the d-pad and the left stick
     //   move the selection (GamepadNavigation), A submits, B cancels. A substituted reader drives the UI too, and the
     //   d-pad works on every platform (its axes differ). The keyboard does not navigate: the menus never had it, and
