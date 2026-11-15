@@ -9,6 +9,12 @@
             <span class="text-sm font-medium text-muted-foreground">Throughput (UTC)</span>
         </div>
         <div class="flex items-center gap-4 text-xs text-muted-foreground">
+            @if (MissingServices > 0)
+            {
+                <span class="text-destructive" title="The services that did not answer are not in the sum">
+                    partial: @MissingServices service(s) missing
+                </span>
+            }
             @if (History.Count > 0)
             {
                 var last = History[^1];
@@ -37,6 +43,7 @@
 
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<SideEffectsThroughputEntry> History { get; set; } = [];
+    [Parameter, EditorRequired] public int MissingServices { get; set; }
 
     private List<ThroughputRow> _chartData = [];
 
@@ -50,7 +57,8 @@
 
     protected override void OnParametersSet()
     {
-        _chartData = History.Select(e => new ThroughputRow {
+        _chartData = History.Select(e => new ThroughputRow
+        {
             key = e.Timestamp.ToString("HH:mm:ss"),
             processed = (int)e.Processed,
             failed = (int)e.Failed
