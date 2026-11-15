@@ -24,11 +24,12 @@ public interface ISideEffectsStorage
     // Delete from side_effects_processing standalone (for simple ISideEffect)
     Task CompleteProcessing(Guid id);
 
-    // Move from side_effects_processing → side_effects_retry_queue (or dead letter if max retries exceeded)
+    // Move from side_effects_processing → side_effects_retry_queue, or to the dead letter when this failure is attempt
+    // maxAttempts (retryCount: the failed attempts before it)
     Task FailProcessing(
         Guid id,
         int retryCount,
-        int maxRetryCount,
+        int maxAttempts,
         float incrementalRetryDelaySeconds,
         string? errorMessage = null);
 
@@ -91,11 +92,11 @@ public class SideEffectsStorage : ISideEffectsStorage
     public Task FailProcessing(
         Guid id,
         int retryCount,
-        int maxRetryCount,
+        int maxAttempts,
         float incrementalRetryDelaySeconds,
         string? errorMessage = null)
     {
-        return _processing.FailProcessing(id, retryCount, maxRetryCount, incrementalRetryDelaySeconds, errorMessage);
+        return _processing.FailProcessing(id, retryCount, maxAttempts, incrementalRetryDelaySeconds, errorMessage);
     }
 
     public Task TouchProcessing(IReadOnlyCollection<Guid> ids) => _processing.TouchProcessing(ids);

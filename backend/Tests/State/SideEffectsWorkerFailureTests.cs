@@ -28,14 +28,14 @@ public class SideEffectsWorkerFailureTests
         {
             ScanDelay = 50,
             EmptyScanDelay = 50,
-            MaxRetryCount = 0
+            MaxRetryCount = 1
         });
 
         await worker.StartAsync(TestContext.Current.CancellationToken);
-        var hasCause = await WaitDeadLetter(marker);
+        var error = await SideEffectRows.WaitDeadLetterError(Database.DataSource, marker);
         await worker.StopAsync(TestContext.Current.CancellationToken);
 
-        hasCause.Should().BeTrue("the dead letter must keep the error of the effect");
+        error.Should().Contain(marker, "the dead letter must keep the error of the effect");
     }
 
     [Fact]
@@ -68,26 +68,6 @@ public class SideEffectsWorkerFailureTests
 
         RecordingSideEffect.Executions.ContainsKey(trackingId).Should().BeTrue("a taken entry must not hang in processing");
         await storage.Received(1).CompleteProcessing(entryId);
-    }
-
-    private async Task<bool> WaitDeadLetter(string marker)
-    {
-        var deadline = DateTime.UtcNow.AddSeconds(10);
-
-        while (DateTime.UtcNow < deadline)
-        {
-            await using var connection = await Database.DataSource.OpenConnectionAsync(TestContext.Current.CancellationToken);
-            await using var command = connection.CreateCommand();
-            command.CommandText = "SELECT error_message FROM side_effects_dead_letter WHERE payload::text LIKE @marker";
-            command.Parameters.AddWithValue("marker", $"%{marker}%");
-
-            if (await command.ExecuteScalarAsync(TestContext.Current.CancellationToken) is string message)
-                return message.Contains(marker);
-
-            await Task.Delay(50, TestContext.Current.CancellationToken);
-        }
-
-        throw new TimeoutException("No dead letter entry");
     }
 
     private SideEffectsWorker CreateWorker(ISideEffectsStorage storage, SideEffectsOptions options)

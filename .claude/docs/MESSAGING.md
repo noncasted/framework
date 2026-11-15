@@ -33,7 +33,7 @@ Push path: `PushTransactional` (inside a transaction) / `PushDirect` writes a `D
 | Outcome of `Push` | Side effect |
 |-------------------|-------------|
 | Every current observer accepted | completed, removed from the queue |
-| No observers, or one of them failed | `Push` throws, side effect goes to the retry queue (`IncrementalRetryDelay`), after `MaxRetryCount` - dead letter table. The retry goes only to the observers that have not got the message (remembered in the activation for an hour) and keeps failing while an observer that failed has not resubscribed or removed itself |
+| No observers, or one of them failed | `Push` throws, side effect goes to the retry queue (`IncrementalRetryDelay`), after `MaxRetryCount` attempts - dead letter table. The retry goes only to the observers that have not got the message (remembered in the activation for an hour) and keeps failing while an observer that failed has not resubscribed or removed itself |
 
 Consequences:
 - **Delivered = received by the observers attached at the time.** A failed observer is removed and gets the message on a retry after it resubscribes (the retries fail until then, an observer that never comes back sends the message to the dead letter table); an observer attached after the push completed never gets it. Do not use a durable queue as a guaranteed broadcast to several processes.

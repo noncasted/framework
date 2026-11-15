@@ -130,26 +130,29 @@ public class SideEffectTests(SideEffectTestFixture fixture) : IntegrationTestBas
         FailingTestSideEffect.GetAttemptCount(targetId).Should().Be(3);
     }
 
+    // MaxRetryCount is the number of attempts: the last failed one moves the entry to the dead letter.
     [Fact]
-    public async Task SideEffect_MaxRetriesExceeded_Dropped()
+    public async Task SideEffect_AlwaysFails_MaxRetryCountAttemptsThenDeadLetter()
     {
-        var trackingId = Guid.NewGuid();
+        var targetId = Guid.NewGuid();
         var storage = GetSiloService<ISideEffectsStorage>();
-        var config = GetSiloService<ISideEffectsConfig>();
-        var maxRetries = config.Value.MaxRetryCount;
+        var maxAttempts = GetSiloService<ISideEffectsConfig>().Value.MaxRetryCount;
 
-        await storage.Write(new AlwaysFailingSideEffect { TrackingId = trackingId });
+        await storage.Write(new FailingTestSideEffect { TargetGrainId = targetId, FailCount = int.MaxValue });
 
-        // Pump + force-expire retry for each attempt
-        for (var i = 0; i < maxRetries + 1; i++)
+        for (var i = 0; i < maxAttempts + 1; i++)
         {
             await Pipeline!.PumpOnce();
             await ForceExpireRetryQueue();
         }
 
-        // After max retries, the entry should be deleted — no more work
-        var finalPump = await Pipeline!.PumpOnce();
-        finalPump.IsEmpty.Should().BeTrue();
+        FailingTestSideEffect.GetAttemptCount(targetId).Should().Be(maxAttempts);
+
+        var marker = targetId.ToString();
+        (await SideEffectRows.Count(Database.DataSource, "side_effects_dead_letter", marker)).Should().Be(1);
+        (await SideEffectRows.Count(Database.DataSource, "side_effects_processing", marker)).Should().Be(0);
+        (await SideEffectRows.Count(Database.DataSource, "side_effects_retry_queue", marker)).Should().Be(0);
+        (await SideEffectRows.Count(Database.DataSource, "side_effects_queue", marker)).Should().Be(0);
     }
 
     [Fact]
