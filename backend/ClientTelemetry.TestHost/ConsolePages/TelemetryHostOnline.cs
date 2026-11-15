@@ -5,7 +5,7 @@ using Internal;
 namespace Framework.ClientTelemetry.TestHost.ConsolePages;
 
 // A stand-in for the online statistics of a coordinator: this host tracks no users, the online page and widget show a fixed sample.
-public class TelemetryHostOnline : ViewableProperty<OnlineStatsLiveData>, IDeploymentState<OnlineStatsLiveData>
+public class TelemetryHostOnline : SharedViewableProperty<OnlineStatsLiveData>, IDeploymentState<OnlineStatsLiveData>
 {
     public TelemetryHostOnline() : base(Sample(DateTime.UtcNow))
     {

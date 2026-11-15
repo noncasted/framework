@@ -25,11 +25,12 @@ public class SideEffectsAggregatorService : IHostedService, ISideEffectsAggregat
     private readonly IServiceDiscovery _discovery;
     private readonly ILogger<SideEffectsAggregatorService> _logger;
 
-    private readonly ViewableProperty<SideEffectsAggregate> _aggregate = new(new SideEffectsAggregate());
+    // Set from the loop on the thread pool, viewed by the pages from their circuits.
+    private readonly SharedViewableProperty<SideEffectsAggregate> _aggregate = new(new SideEffectsAggregate());
     private readonly CancellationTokenSource _cts = new();
     private Task? _loop;
 
-    public IViewableProperty<SideEffectsAggregate> Aggregate => _aggregate;
+    public ISharedViewableProperty<SideEffectsAggregate> Aggregate => _aggregate;
 
     public Task StartAsync(CancellationToken cancellationToken)
     {

@@ -45,7 +45,7 @@ public class OnlineTrackerEpochTests
         serviceLifetime.Terminate();
     }
 
-    private class FakeDeploymentState<T>(T value) : ViewableProperty<T>(value), IDeploymentState<T> where T : class, new()
+    private class FakeDeploymentState<T>(T value) : SharedViewableProperty<T>(value), IDeploymentState<T> where T : class, new()
     {
         public bool IsInitialized => true;
 
