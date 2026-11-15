@@ -6,13 +6,13 @@ using Microsoft.Extensions.Logging;
 
 namespace Cluster.Deploy;
 
-public interface IDeploymentState<T> : IViewableProperty<T> where T : class, new()
+public interface IDeploymentState<T> : ISharedViewableProperty<T> where T : class, new()
 {
     bool IsInitialized { get; }
     Task SetValue(T value);
 }
 
-public class DeploymentState<T> : ViewableProperty<T>, IDeploymentState<T>, IDeployAware where T : class, new()
+public class DeploymentState<T> : SharedViewableProperty<T>, IDeploymentState<T>, IDeployAware where T : class, new()
 {
     public DeploymentState(
         IOrleans orleans,
@@ -28,13 +28,12 @@ public class DeploymentState<T> : ViewableProperty<T>, IDeploymentState<T>, IDep
     private readonly IMessaging _messaging;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
 
-    // Values are applied from the loading epoch, own writes and channel deliveries, on different threads.
-    // Set is not thread-safe (the listeners and value lifetimes are plain lists): concurrent Sets threw
-    // "Collection was modified" and the watermark check-then-set let an older value overwrite a newer one.
-    // Taken only around the synchronous apply (epoch check + watermark + Set + listeners), never across an await.
-    private readonly object _applyLock = new();
-
-    // The deploy epoch the value belongs to, replaced under _applyLock by OnDeployChanged. A write or a read started
+    // Values are applied from the loading epoch, own writes and channel deliveries, on different threads, and the pages of
+    // the console subscribe on theirs: _gate of SharedViewableProperty is taken around the synchronous apply (epoch check +
+    // watermark + Set + listeners), never across an await. Without it the watermark check-then-set let an older value
+    // overwrite a newer one.
+    //
+    // The deploy epoch the value belongs to, replaced under _gate by OnDeployChanged. A write or a read started
     // in one epoch applies its result only while that epoch is still the current one.
     private Epoch? _epoch;
     private volatile bool _isInitialized;
@@ -71,7 +70,7 @@ public class DeploymentState<T> : ViewableProperty<T>, IDeploymentState<T>, IDep
 
         var epoch = new Epoch(newDeployId, CreateStateIdentity(newDeployId), new DeploymentStateChannelId<T>(newDeployId));
 
-        lock (_applyLock)
+        lock (_gate)
         {
             _epoch = epoch;
             _deployId = newDeployId;
@@ -90,7 +89,7 @@ public class DeploymentState<T> : ViewableProperty<T>, IDeploymentState<T>, IDep
     {
         var state = await _orleans.StateStorage.Read<AddressableStateValue>(epoch.Identity);
 
-        lock (_applyLock)
+        lock (_gate)
         {
             if (_epoch != epoch)
                 return;
@@ -116,7 +115,7 @@ public class DeploymentState<T> : ViewableProperty<T>, IDeploymentState<T>, IDep
             Epoch epoch;
             DateTime previous;
 
-            lock (_applyLock)
+            lock (_gate)
             {
                 epoch = _epoch ?? throw new InvalidOperationException("DeploymentState is not initialized with a deploy yet.");
                 previous = epoch.LastApplied;
@@ -128,7 +127,7 @@ public class DeploymentState<T> : ViewableProperty<T>, IDeploymentState<T>, IDep
             // The value becomes visible only once it is in the database: a failed write leaves the old one.
             await _orleans.StateStorage.Write(epoch.Identity, state);
 
-            lock (_applyLock)
+            lock (_gate)
             {
                 if (_epoch == epoch && state.UpdateDate > epoch.LastApplied)
                 {
@@ -158,7 +157,7 @@ public class DeploymentState<T> : ViewableProperty<T>, IDeploymentState<T>, IDep
     // A state of the current epoch (a delivery of its channel).
     protected bool TryApplyUpdate(AddressableStateValue state)
     {
-        lock (_applyLock)
+        lock (_gate)
         {
             var epoch = _epoch ?? throw new InvalidOperationException("DeploymentState is not initialized with a deploy yet.");
             return ApplyLocked(epoch, state);
@@ -168,7 +167,7 @@ public class DeploymentState<T> : ViewableProperty<T>, IDeploymentState<T>, IDep
     // A state written to the row of the given deploy: dropped when the epoch has changed since the write started.
     protected bool TryApplyUpdate(Guid deployId, AddressableStateValue state)
     {
-        lock (_applyLock)
+        lock (_gate)
         {
             if (_epoch == null || _epoch.DeployId != deployId)
                 return false;
@@ -225,7 +224,7 @@ public class DeploymentState<T> : ViewableProperty<T>, IDeploymentState<T>, IDep
         // UpdateDate of the last state applied to Value in this epoch (from the load, SetValue, or a channel
         // update). Channel updates include our own publishes echoed back with messaging latency: without this
         // watermark an old echo rolls Value back and the next read-modify-write (ClusterFeatures.Apply) publishes a
-        // state computed from the stale base, clobbering newer flags cluster-wide. Changed under _applyLock.
+        // state computed from the stale base, clobbering newer flags cluster-wide. Changed under _gate.
         public DateTime LastApplied { get; private set; }
 
         public void MarkApplied(DateTime updateDate)

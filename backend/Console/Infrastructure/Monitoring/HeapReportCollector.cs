@@ -8,11 +8,6 @@ namespace Console.Monitoring;
 
 public class HeapReportCollector
 {
-    private readonly IMessaging _messaging;
-    private readonly IServiceDiscovery _discovery;
-    private readonly IHeapReportStorage _storage;
-    private readonly ILogger<HeapReportCollector> _logger;
-
     public HeapReportCollector(
         IMessaging messaging,
         IServiceDiscovery discovery,
@@ -25,6 +20,11 @@ public class HeapReportCollector
         _logger = logger;
     }
 
+    private readonly IMessaging _messaging;
+    private readonly IServiceDiscovery _discovery;
+    private readonly IHeapReportStorage _storage;
+    private readonly ILogger<HeapReportCollector> _logger;
+
     public async Task<HeapReport> CollectAll(bool deep)
     {
         var services = _discovery.Entries.Values.ToList();
@@ -32,7 +32,8 @@ public class HeapReportCollector
         _logger.LogInformation("[HeapReport] Collecting {Mode} snapshots from {Count} services",
             deep ? "deep" : "quick", services.Count);
 
-        var tasks = services.Select(async svc => {
+        var tasks = services.Select(async svc =>
+        {
             try
             {
                 var pipeId = new MessagePipeServiceRequestId(svc, typeof(HeapSnapshotRequest));

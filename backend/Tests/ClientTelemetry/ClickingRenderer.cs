@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Components.Web;
@@ -16,20 +17,45 @@ public sealed class ClickingRenderer : Renderer
 
     private readonly List<ulong> _clicks = [];
 
+    private int _pageId;
+
     public override Dispatcher Dispatcher { get; } = Dispatcher.CreateDefault();
 
-    public Task RenderPage(Type page, Dictionary<string, object?> parameters)
+    public Task<IComponent> RenderPage(Type page, Dictionary<string, object?> parameters)
     {
-        return Dispatcher.InvokeAsync(() =>
+        return Dispatcher.InvokeAsync(async () =>
         {
-            var id = AssignRootComponentId(InstantiateComponent(page));
-            return RenderRootComponentAsync(id, ParameterView.FromDictionary(parameters));
+            var component = InstantiateComponent(page);
+            _pageId = AssignRootComponentId(component);
+            await RenderRootComponentAsync(_pageId, ParameterView.FromDictionary(parameters));
+            return component;
         });
+    }
+
+    // New parameters for the page already rendered, as the router gives them on a link to the same route.
+    public Task SetPageParameters(Dictionary<string, object?> parameters)
+    {
+        return Dispatcher.InvokeAsync(() => RenderRootComponentAsync(_pageId, ParameterView.FromDictionary(parameters)));
     }
 
     public Task ClickFirstButton()
     {
         return Dispatcher.InvokeAsync(() => DispatchEventAsync(_clicks[0], null, new MouseEventArgs()));
+    }
+
+    // Calls a private handler of the page the way an event does: a render after its synchronous part and after its end.
+    public Task Handle(IComponent component, string handler)
+    {
+        var method = component.GetType().GetMethod(handler, BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var render = typeof(ComponentBase).GetMethod("StateHasChanged", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        return Dispatcher.InvokeAsync(async () =>
+        {
+            var task = (Task)method.Invoke(component, null)!;
+            render.Invoke(component, null);
+            await task;
+            render.Invoke(component, null);
+        });
     }
 
     protected override void HandleException(Exception exception)

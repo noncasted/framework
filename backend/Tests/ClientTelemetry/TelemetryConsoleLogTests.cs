@@ -40,6 +40,25 @@ public class TelemetryConsoleLogTests
         Assert.Equal(TelemetrySessionLog.PageRows * 2 + 2, log.Samples.Count);
     }
 
+    // The samples of a closed session came before the read of the errors failed: the next refresh still gives them to the page.
+    [Fact]
+    public async Task Refresh_AfterAPartlyFailedOne_ReportsTheRowsItTookBefore()
+    {
+        var reader = new FakeTelemetryReader();
+        var session = SessionOf(TelemetrySessionStatus.Ended);
+        reader.Set(session);
+        reader.Samples.AddRange([Sample(1, 1000, 1), Sample(2, 2000, 2)]);
+        reader.FailNextErrorRead(new InvalidOperationException("database down"));
+
+        var log = new TelemetrySessionLog(reader, session.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(log.Refresh);
+
+        Assert.True(await log.Refresh());
+        Assert.Equal(2, log.Samples.Count);
+        Assert.False(await log.Refresh());
+    }
+
     [Fact]
     public async Task Samples_GoInTheOrderOfTime_WhateverTheOrderOfSeq()
     {

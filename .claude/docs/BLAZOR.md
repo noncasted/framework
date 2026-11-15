@@ -132,6 +132,10 @@ lifetime in `Dispose`). Example below is `backend/Console/Home/FeaturesStatusWid
 }
 ```
 
+A singleton a page subscribes to is shared by every circuit, each on its own thread, while the host sets it from another one:
+it is a `SharedViewableProperty<T>` (`backend/Common/Reactive`, one lock around the value, the subscriptions and their ends;
+`DeploymentState` and the side effects aggregator are), never a plain `ViewableProperty`, which is not thread-safe.
+
 When to use `UiComponent`:
 - Page subscribes to `ViewableProperty`, `ViewableList`, or `EventSource`
 - Page needs Lifetime-managed subscriptions

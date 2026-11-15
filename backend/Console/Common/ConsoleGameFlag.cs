@@ -14,7 +14,7 @@ public class ConsoleGameFlag
     public required string StatusLabel { get; init; }
 }
 
-public static class ConsoleGameFlagsExtensions
+public static class ConsoleGameFlagExtensions
 {
     public static IHostApplicationBuilder AddConsoleGameFlag(this IHostApplicationBuilder builder, ConsoleGameFlag flag)
     {

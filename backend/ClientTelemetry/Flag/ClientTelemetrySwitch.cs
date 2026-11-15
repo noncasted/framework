@@ -13,23 +13,31 @@ public class ClientTelemetrySwitch : IClientTelemetrySwitch, IOrleansStarted
     }
 
     private readonly AddressableState<ClientTelemetrySettingsState> _state;
-    private readonly ViewableProperty<bool> _isLoaded = new(false);
+
+    // The pages of the console view the switch from their circuits while the channel applies the row: the row has one
+    // subscriber, this switch, and the pages subscribe to these shared values.
+    private readonly SharedViewableProperty<bool> _isLoaded = new(false);
+    private readonly SharedViewableProperty<bool> _isEnabled = new(false);
 
     public bool IsLoaded => _isLoaded.Value;
-    public bool IsEnabled => _state.Value.IsEnabled;
+    public bool IsEnabled => _isEnabled.Value;
 
     // A failed read stops the start of the host, like any AddressableState.
     public async Task OnOrleansStarted(IReadOnlyLifetime lifetime)
     {
+        // Before the read: the row is applied only from inside it and from the channel it starts listening to.
+        _state.Advise(lifetime, (_, state) => _isEnabled.Set(state.IsEnabled));
+
         await _state.OnOrleansStarted(lifetime);
         _isLoaded.Set(true);
     }
 
     public void View(IReadOnlyLifetime lifetime, Action listener)
     {
-        listener();
+        // Subscribed first: a change between the subscriptions and the first call is not lost, at worst it is told twice.
         _isLoaded.Advise(lifetime, (_, _) => listener());
-        _state.Advise(lifetime, (_, _) => listener());
+        _isEnabled.Advise(lifetime, (_, _) => listener());
+        listener();
     }
 
     public Task Set(bool enabled)

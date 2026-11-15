@@ -13,7 +13,7 @@ public class ConsoleInfrastructureCard
     public required string Target { get; init; }
 }
 
-public static class ConsoleInfrastructureCardsExtensions
+public static class ConsoleInfrastructureCardExtensions
 {
     public static IHostApplicationBuilder AddConsoleInfrastructureCard(
         this IHostApplicationBuilder builder,
