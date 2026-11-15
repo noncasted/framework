@@ -13,6 +13,7 @@
 `git grep -n '5f70cb9f93b24939b6397c2d7338017b' -- client/Assets` (ассеты `FloatValue`). Найденное заменить своим кодом игры:
 `MoveAnchored` - `updater.Tween(lifetime, time, ease, f => target.anchoredPosition = Vector2.LerpUnclamped(start, end, f))`,
 `ToLifetimedValue` - `LifetimedValue<T>` и `UnityEvent<T>.Listen(lifetime, ...)`.
+
 ### Генераторы каталогов падают на сломанном входе
 
 Кого касается: клиент, все игры с каталогами (префабы, ассеты, звук, спрайты, сцены).
@@ -22,6 +23,7 @@
 `InvalidOperationException` с путём до любой записи, и каталог не обновляется, пока вход не исправлен (группа, имя файла, импорт,
 настройки Addressables). Файл в Assets без импортера (не импортирован) тоже ошибка; папки, которые Unity не импортирует (`~`, скрытые), пропускаются.
 Также спрайт с `tagSpeeds` без `fps` теперь ошибка разметки, а не 0.
+
 ### Анимации: удалена поворотная анимация спрайтов (BREAKING)
 
 Кого касается: клиент, игры с модулем `animations` (peace-data-reborn, pixel-swarm; ни одна её не использует).
