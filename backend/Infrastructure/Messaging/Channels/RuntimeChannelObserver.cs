@@ -27,6 +27,10 @@ public class RuntimeChannelObserver : IRuntimeChannelObserver
     private List<object> _bufferedMessages = new();
     private bool _isBuffering;
 
+    // A delivery failed: the messages after it are not taken until a catch-up replays from the last seen sequence,
+    // otherwise the last seen sequence would skip the failed one and the catch-up would not find it. Under _deliveryGate.
+    private bool _needsCatchUp;
+
     public Guid Id { get; } = Guid.NewGuid();
     public long LastSeenSequence { get; private set; }
 
@@ -49,7 +53,9 @@ public class RuntimeChannelObserver : IRuntimeChannelObserver
         try
         {
             foreach (var message in messages)
-                await SendLocked(message);
+                await Deliver(message);
+
+            _needsCatchUp = false;
         }
         finally
         {
@@ -72,18 +78,17 @@ public class RuntimeChannelObserver : IRuntimeChannelObserver
 
         try
         {
+            // The catch-up of the next resubscribe brings them again.
+            if (_needsCatchUp)
+                return;
+
             foreach (var message in bufferedMessages)
-                await SendLocked(message);
+                await Deliver(message);
         }
         finally
         {
             _deliveryGate.Release();
         }
-    }
-
-    public void ResetLastSeen(long lastSeenSequence)
-    {
-        LastSeenSequence = lastSeenSequence;
     }
 
     public void ResetLastSeen(Guid epoch, long lastSeenSequence)
@@ -107,11 +112,28 @@ public class RuntimeChannelObserver : IRuntimeChannelObserver
 
         try
         {
-            await SendLocked(message);
+            // Thrown to the grain: it drops the observer, the next resubscribe catches up.
+            if (_needsCatchUp)
+                throw new InvalidOperationException($"Channel observer {Id} waits for a catch-up after a failed delivery");
+
+            await Deliver(message);
         }
         finally
         {
             _deliveryGate.Release();
+        }
+    }
+
+    private async Task Deliver(object message)
+    {
+        try
+        {
+            await SendLocked(message);
+        }
+        catch
+        {
+            _needsCatchUp = true;
+            throw;
         }
     }
 
