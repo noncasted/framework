@@ -17,14 +17,12 @@ public class LobbyListing
 
     // Id 4 removed, kept for stored values.
 
-    // False when the lobby can't be entered now: a lobby that is starting its match, a match that is ending.
-    [Id(5)] public bool IsJoinable { get; init; }
+    // Id 5 removed (IsJoinable: when a running match is entered is decided by ILobbyEntryPolicy), kept for stored values.
 
     // The places of the lobby (and of its match): the game decides (LobbyOptions.MaxUsers).
     [Id(6)] public int MaxPlayers { get; init; }
 
     public bool IsListed => IsOpen == true &&
-                            IsJoinable == true &&
                             PlayersCount > 0 &&
                             PlayersCount < MaxPlayers &&
                             LeaderUserId != Guid.Empty;

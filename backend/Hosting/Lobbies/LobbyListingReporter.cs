@@ -53,8 +53,7 @@ internal class LobbyListingReporter
             LeaderUserId = owner?.BackendId ?? Guid.Empty,
             PlayersCount = _users.CountPlayers(),
             MaxPlayers = _info.MaxUsers,
-            IsRunning = false,
-            IsJoinable = true
+            IsRunning = false
         });
     }
 

@@ -125,7 +125,7 @@ internal class RunningMatchEntry
             _entryPolicy.IsMatchOver(matchSessionId) == true)
             return LobbyJoinStatus.NotFound;
 
-        if (lobbySessionId != Guid.Empty && _codeLeases.IsMatchJoinable(lobbySessionId) == false)
+        if (lobbySessionId != Guid.Empty && _codeLeases.IsPassedToMatch(lobbySessionId) == false)
             return LobbyJoinStatus.Started;
 
         if (match.HasFreePlace(userId) == false)

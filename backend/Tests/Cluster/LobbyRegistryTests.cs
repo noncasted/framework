@@ -224,8 +224,7 @@ public class LobbyRegistryTests(OrleansTestClusterFixture fixture) : Integration
             IsOpen = isOpen,
             LeaderUserId = leader,
             PlayersCount = players,
-            MaxPlayers = MaxPlayers,
-            IsJoinable = true
+            MaxPlayers = MaxPlayers
         };
     }
 
@@ -253,9 +252,9 @@ public class LobbyRegistryTests(OrleansTestClusterFixture fixture) : Integration
             LobbyCode.IsValid(LobbyCodeGenerator.Generate()).Should().BeTrue();
     }
 
-    // The listing rule the game servers report against: open, enterable, somebody in it, a free place, a leader.
+    // The listing rule the game servers report against: open, somebody in it, a free place, a leader.
     [Fact]
-    public void Listing_IsListed_NeedsOpenJoinablePlayersFreePlaceAndLeader()
+    public void Listing_IsListed_NeedsOpenPlayersFreePlaceAndLeader()
     {
         Listing(Guid.NewGuid(), isOpen: true, players: 1).IsListed.Should().BeTrue();
         Listing(Guid.NewGuid(), isOpen: false, players: 1).IsListed.Should().BeFalse();
@@ -263,17 +262,8 @@ public class LobbyRegistryTests(OrleansTestClusterFixture fixture) : Integration
         Listing(Guid.NewGuid(), isOpen: true, players: MaxPlayers).IsListed.Should().BeFalse();
         Listing(Guid.Empty, isOpen: true, players: 1).IsListed.Should().BeFalse();
 
-        new LobbyListing
-        {
-            IsOpen = true,
-            IsJoinable = false,
-            PlayersCount = 1,
-            MaxPlayers = MaxPlayers,
-            LeaderUserId = Guid.NewGuid()
-        }.IsListed.Should().BeFalse();
-
         // A listing without the places of its lobby is never shown.
-        new LobbyListing { IsOpen = true, IsJoinable = true, PlayersCount = 1, LeaderUserId = Guid.NewGuid() }
+        new LobbyListing { IsOpen = true, PlayersCount = 1, LeaderUserId = Guid.NewGuid() }
             .IsListed.Should().BeFalse();
     }
 }

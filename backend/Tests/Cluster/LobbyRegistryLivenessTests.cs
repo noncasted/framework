@@ -54,7 +54,6 @@ public class LobbyRegistryLivenessTests(OrleansTestClusterFixture fixture)
         await registry.UpdateListing(code, sessionId, new LobbyListing
         {
             IsOpen = true,
-            IsJoinable = true,
             LeaderUserId = Guid.NewGuid(),
             PlayersCount = 1,
             MaxPlayers = 4

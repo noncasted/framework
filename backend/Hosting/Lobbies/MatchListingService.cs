@@ -7,8 +7,8 @@ namespace Game.Lobbies;
 
 // Backend-only service of a match started by a lobby: reports the match to the list of open lobbies by the code of
 // its lobby (ILobbyListings) - players and owner. No properties: clients never fetch it.
-// The game decides when a running match can't be entered any more (ILobbyEntryPolicy); the listing says the match
-// can be entered: a late player waits in the lobby of the late players, a match that is over answers NotFound.
+// When a running match can be entered is decided by the game (ILobbyEntryPolicy), not by the listing: a late player
+// waits in the lobby of the late players, a match that is over answers NotFound.
 public class MatchListingService : Service
 {
     public MatchListingService(
@@ -57,8 +57,7 @@ public class MatchListingService : Service
             LeaderUserId = owner?.BackendId ?? Guid.Empty,
             PlayersCount = _users.CountPlayers(),
             MaxPlayers = _info.MaxUsers,
-            IsRunning = true,
-            IsJoinable = true
+            IsRunning = true
         });
     }
 }

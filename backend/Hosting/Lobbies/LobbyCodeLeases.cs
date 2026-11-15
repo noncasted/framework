@@ -22,9 +22,9 @@ public interface ILobbyCodeLeases
     // Called from the queue of the lobby session, while the lobby is alive.
     void PassToMatch(Guid lobbySessionId, ISession match);
 
-    // The match of the lobby can take a new player now (the last listing its match has reported). False for a
-    // lobby that has not started or whose code is released.
-    bool IsMatchJoinable(Guid lobbySessionId);
+    // The code of the lobby leads to its running match. False for a lobby that has not started or whose code is
+    // released; whether the match takes a new player now is up to ILobbyEntryPolicy.
+    bool IsPassedToMatch(Guid lobbySessionId);
 }
 
 public class LobbyCodeLeases : ILobbyCodeLeases, ILobbyListings
@@ -70,8 +70,7 @@ public class LobbyCodeLeases : ILobbyCodeLeases, ILobbyListings
             {
                 IsOpen = lease.Listing?.IsOpen ?? false,
                 MaxPlayers = lease.Listing?.MaxPlayers ?? 0,
-                IsRunning = true,
-                IsJoinable = true
+                IsRunning = true
             });
         }
 
@@ -94,7 +93,7 @@ public class LobbyCodeLeases : ILobbyCodeLeases, ILobbyListings
         });
     }
 
-    public bool IsMatchJoinable(Guid lobbySessionId)
+    public bool IsPassedToMatch(Guid lobbySessionId)
     {
         lock (_lock)
         {
@@ -103,7 +102,7 @@ public class LobbyCodeLeases : ILobbyCodeLeases, ILobbyListings
                 lease.IsReleased == true)
                 return false;
 
-            return lease.Listing!.IsJoinable == true;
+            return true;
         }
     }
 

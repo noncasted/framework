@@ -428,27 +428,6 @@ public class LobbyListingTests
         world.Lobbies.JoinLate(match.Session.Id, Guid.NewGuid()).Status.Should().Be(LobbyJoinStatus.NotFound);
     }
 
-    // The match reports it can't take a new player: Started, for the code and for the match itself.
-    [Fact]
-    public async Task MatchReportedNotJoinable_LatePlayer_GetsStarted()
-    {
-        var world = new HostingTestWorld();
-        var (lobby, match, code) = await StartMatch(world, isOpen: true);
-        var lobbyId = lobby.Session.Session.Id;
-        var late = Guid.NewGuid();
-
-        world.Leases.Report(lobbyId, new LobbyListing
-        {
-            IsOpen = true,
-            MaxPlayers = 4,
-            IsRunning = true,
-            IsJoinable = false
-        });
-
-        world.Lobbies.Join(lobbyId, match.Session.Id, code, late).Status.Should().Be(LobbyJoinStatus.Started);
-        world.Lobbies.JoinMatch(lobbyId, match.Session.Id, late).Should().Be(LobbyJoinStatus.Started);
-    }
-
     // The lobby of the late players holds no place in the match: it fills up on its own.
     [Fact]
     public void LobbyOfLatePlayers_IsFull_NextPlayerGetsFull()
