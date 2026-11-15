@@ -2,3 +2,10 @@
 
 Шаги для игр из коммитов после последнего тега, формат в [README](README.md). Новый шаг дописывается в конец в том же коммите, что
 и изменение. При релизе шаги переходят в `<версия>.md`, здесь остаётся только этот заголовок.
+
+### Анимации: удалена поворотная анимация спрайтов (BREAKING)
+
+Кого касается: клиент, игры с модулем `animations` (peace-data-reborn, pixel-swarm; ни одна её не использует).
+Поиск: `git grep -nE 'RotatableSpriteAnimation|RotatableFrameProvider|IAnimationRotationProvider|FiveAnimationDirection' -- 'client/Assets/*.cs'`
+Сделать: удалены `RotatableSpriteAnimation`, `RotatableFrameProvider`, `IAnimationRotationProvider`, `FiveAnimationDirection`;
+`SpriteAnimationVariants.cs` переименован в `ForwardSpriteAnimation.cs` (guid тот же). Если поиск что-то нашёл, держать свою копию в игре.
