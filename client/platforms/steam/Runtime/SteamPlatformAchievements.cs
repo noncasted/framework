@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using Internal;
 #if UNITY_STANDALONE
 using Steamworks;
@@ -82,15 +83,29 @@ namespace Global.Publisher.Steam
             if (_pending.Count == 0)
                 return;
 
+            // Every waiting name is set apart: an unknown one does not stop the others, the set ones are stored and the
+            // queue is emptied whatever failed; the first failure is thrown after that.
             var isChanged = false;
+            ExceptionDispatchInfo failure = null;
 
             foreach (var name in _pending)
-                isChanged |= Set(name);
+            {
+                try
+                {
+                    isChanged |= Set(name);
+                }
+                catch (Exception exception)
+                {
+                    failure ??= ExceptionDispatchInfo.Capture(exception);
+                }
+            }
 
             _pending.Clear();
 
             if (isChanged == true && SteamUserStats.StoreStats() == false)
                 throw new InvalidOperationException("[Steam] The stats are not stored after the waiting achievements");
+
+            failure?.Throw();
         }
 #endif
     }
