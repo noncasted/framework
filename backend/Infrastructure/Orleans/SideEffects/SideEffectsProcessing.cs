@@ -54,7 +54,7 @@ internal class SideEffectsProcessing
             insertCmd.Transaction = deadLetterTx;
 
             insertCmd.CommandText = $@"
-                INSERT INTO {DbLookup.SE_DeadLetter} (id, payload, retry_count, created_at, failed_at, error_message)
+                INSERT INTO {SideEffectTables.DeadLetter} (id, payload, retry_count, created_at, failed_at, error_message)
                 SELECT id, payload, retry_count, created_at, now(), @errorMessage
                 FROM side_effects_processing
                 WHERE id = @id
