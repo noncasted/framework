@@ -131,12 +131,6 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
         session.Leave(user);
     }
 
-    // The socket is lost without a leave.
-    public void LoseConnection(TestSession session, IUser user)
-    {
-        session.Lose(user);
-    }
-
     public void DrainAll()
     {
         List<TestSession> sessions;

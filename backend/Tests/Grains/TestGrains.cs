@@ -436,11 +436,6 @@ public class LabelChanged
     public string Label { get; init; } = string.Empty;
 }
 
-public class BadEvent
-{
-    public string Data { get; init; } = string.Empty;
-}
-
 public class NoApplyEvent
 {
     public int Value { get; init; }

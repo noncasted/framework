@@ -134,12 +134,6 @@ public static class DrainResultExtensions
             throw new Exception("Drain completed but no work was executed");
     }
 
-    public static void AssertAllSucceeded(this DrainResult result)
-    {
-        if (!result.AllSucceeded)
-            throw new Exception($"Not all tasks succeeded: {FormatTrace(result)}");
-    }
-
     private static string FormatTrace(DrainResult result)
     {
         var failures = result.ExecutionTrace.Where(e => !e.Success).ToList();
