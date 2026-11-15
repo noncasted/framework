@@ -16,7 +16,12 @@ public class LobbyRegistryState : IDirectStateValue, IDeployScopedState
     // Version of the last pushed OpenLobbies.
     [Id(1)] [JsonProperty] public long ListingVersion { get; private set; }
 
+    // The servers whose listed lobbies were left out of the list as gone from the discovery when the version was
+    // last advanced for a change of the servers (LobbyRegistry.CheckListedServers).
+    [Id(2)] [JsonProperty(nameof(HiddenServers))] private HashSet<Guid> _hiddenServers = new();
+
     [JsonIgnore] public IReadOnlyDictionary<string, LobbyRegistryEntry> Entries => _entries;
+    [JsonIgnore] public IReadOnlySet<Guid> HiddenServers => _hiddenServers;
 
     public int Version => 0;
 
@@ -28,6 +33,11 @@ public class LobbyRegistryState : IDirectStateValue, IDeployScopedState
     public void Remove(string code)
     {
         _entries.Remove(code);
+    }
+
+    public void HideServers(IEnumerable<Guid> servers)
+    {
+        _hiddenServers = servers.ToHashSet();
     }
 
     public void AdvanceListingVersion()

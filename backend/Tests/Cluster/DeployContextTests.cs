@@ -48,6 +48,61 @@ public class DeployContextTests
         await failing.Received(1).OnDeployChanged(deployId, Arg.Any<IReadOnlyLifetime>());
     }
 
+    // A second switch that comes while a slow subscriber holds the first one must not let the first one go on
+    // afterwards and hand its old deploy to the subscribers after the slow one.
+    [Fact]
+    public async Task Set_SecondDuringSlowFirst_SubscribersEndOnTheSecondDeploy()
+    {
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var slowFirst = new TaskCompletionSource();
+
+        var slow = Substitute.For<IDeployAware>();
+        slow.OnDeployChanged(first, Arg.Any<IReadOnlyLifetime>()).Returns(slowFirst.Task);
+        slow.OnDeployChanged(second, Arg.Any<IReadOnlyLifetime>()).Returns(Task.CompletedTask);
+
+        var seen = new List<(Guid DeployId, bool IsTerminated)>();
+        var next = Substitute.For<IDeployAware>();
+        next.OnDeployChanged(Arg.Any<Guid>(), Arg.Any<IReadOnlyLifetime>()).Returns(call => {
+            seen.Add((call.ArgAt<Guid>(0), call.ArgAt<IReadOnlyLifetime>(1).IsTerminated));
+            return Task.CompletedTask;
+        });
+
+        var context = new DeployContext([slow, next], NullLogger<DeployContext>.Instance);
+        var parent = new Lifetime();
+
+        var firstSet = context.Set(first, parent);
+        var secondSet = context.Set(second, parent);
+
+        slowFirst.SetResult();
+        await Task.WhenAll(firstSet, secondSet);
+
+        context.DeployId.Should().Be(second);
+        context.DeployLifetime.IsTerminated.Should().BeFalse();
+        seen.Should().NotContain(entry => entry.IsTerminated, "a subscriber must not get an epoch that has already ended");
+        seen[^1].DeployId.Should().Be(second);
+    }
+
+    [Fact]
+    public async Task Set_LeftDuringSlowSubscriber_StopsBeforeTheNextOne()
+    {
+        var deployId = Guid.NewGuid();
+        var slowSet = new TaskCompletionSource();
+
+        var slow = Substitute.For<IDeployAware>();
+        slow.OnDeployChanged(deployId, Arg.Any<IReadOnlyLifetime>()).Returns(slowSet.Task);
+
+        var next = Substitute.For<IDeployAware>();
+        var context = new DeployContext([slow, next], NullLogger<DeployContext>.Instance);
+
+        var set = context.Set(deployId, new Lifetime());
+        context.Leave();
+        slowSet.SetResult();
+        await set;
+
+        await next.DidNotReceive().OnDeployChanged(Arg.Any<Guid>(), Arg.Any<IReadOnlyLifetime>());
+    }
+
     [Fact]
     public async Task DeploymentState_LoadFails_ThrowsAndIsNotInitialized()
     {

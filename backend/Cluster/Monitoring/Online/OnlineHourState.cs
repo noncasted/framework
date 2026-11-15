@@ -34,6 +34,26 @@ public class OnlineHourState
         Users.Clear();
     }
 
+    // The same hour counted by another coordinator: a closed hour has lost its ids, so its count is a lower bound.
+    public OnlineHourState MergedWith(OnlineHourState other)
+    {
+        if (other.Hour != Hour)
+            throw new InvalidOperationException($"Online hour {Hour} merged with hour {other.Hour}");
+
+        var isClosed = IsClosed || other.IsClosed;
+        var users = isClosed ? new HashSet<Guid>() : new HashSet<Guid>(Users.Concat(other.Users));
+        var uniqueUsers = isClosed ? Math.Max(UniqueUsers, other.UniqueUsers) : users.Count;
+
+        return new OnlineHourState
+        {
+            Hour = Hour,
+            Peak = Math.Max(Peak, other.Peak),
+            UniqueUsers = uniqueUsers,
+            IsClosed = isClosed,
+            Users = users
+        };
+    }
+
     public OnlineHourState Copy()
     {
         return new OnlineHourState

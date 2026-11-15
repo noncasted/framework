@@ -20,6 +20,7 @@ public class DeployHealthCheckerTests : LifetimeTest
     private readonly IDeployManagement _deployGrain = Substitute.For<IDeployManagement>();
     private readonly IDeployContext _deployContext = Substitute.For<IDeployContext>();
     private readonly IMessaging _messaging = Substitute.For<IMessaging>();
+    private readonly Dictionary<Guid, DateTime> _createdAt = new();
     private DateTime _lastHeartbeat;
 
     public DeployHealthCheckerTests()
@@ -31,9 +32,11 @@ public class DeployHealthCheckerTests : LifetimeTest
             return Task.CompletedTask;
         });
 
+        _createdAt[_deployId] = DateTime.UtcNow - TimeSpan.FromMinutes(10);
+
         _deployGrain.GetState().Returns(_ => {
             var state = new DeployState();
-            state.Init(_deployId, _lastHeartbeat);
+            state.Init(_deployId, _createdAt[_deployId]);
             state.MarkCoordinatorReady(_lastHeartbeat);
             return state;
         });
@@ -99,7 +102,7 @@ public class DeployHealthCheckerTests : LifetimeTest
     {
         _lastHeartbeat = DateTime.UtcNow;
 
-        var newDeployId = Guid.NewGuid();
+        var newDeployId = AddDeploy(TimeSpan.FromMinutes(1));
         _messaging.RuntimePipe.Send<DeployIdResponse>(Arg.Any<IRuntimePipeId>(), Arg.Any<object>())
                   .Returns(_ => new DeployIdResponse { DeployId = newDeployId });
         _deployContext.Set(newDeployId, Arg.Any<IReadOnlyLifetime>())
@@ -115,7 +118,7 @@ public class DeployHealthCheckerTests : LifetimeTest
     {
         _lastHeartbeat = DateTime.UtcNow;
 
-        var newDeployId = Guid.NewGuid();
+        var newDeployId = AddDeploy(TimeSpan.FromMinutes(1));
         _messaging.RuntimePipe.Send<DeployIdResponse>(Arg.Any<IRuntimePipeId>(), Arg.Any<object>())
                   .Returns(_ => new DeployIdResponse { DeployId = newDeployId });
 
@@ -131,13 +134,70 @@ public class DeployHealthCheckerTests : LifetimeTest
         _lastHeartbeat = DateTime.UtcNow;
 
         _messaging.RuntimePipe.Send<DeployIdResponse>(Arg.Any<IRuntimePipeId>(), Arg.Any<object>())
-                  .Returns(_ => new DeployIdResponse { DeployId = Guid.NewGuid() });
+                  .Returns(_ => new DeployIdResponse { DeployId = AddDeploy(TimeSpan.FromMinutes(1)) });
 
         await CreateChecker(ServiceTag.Coordinator).Poll(TestLifetime);
 
         await _clusterFeatures.Received(1).SetAcceptingConnections(false);
         _deployContext.Received(1).Leave();
         await _deployContext.DidNotReceive().Set(Arg.Any<Guid>(), Arg.Any<IReadOnlyLifetime>());
+    }
+
+    [Fact]
+    public async Task ReplacedCoordinatorAnswersPipe_NewerCoordinatorStaysInItsDeploy()
+    {
+        _lastHeartbeat = DateTime.UtcNow;
+
+        // The pipe is answered by the last bind: the replaced coordinator keeps rebinding its handler, so the
+        // answers alternate between the old deploy and the deploy of this coordinator.
+        var olderDeployId = AddDeploy(TimeSpan.FromMinutes(30));
+        var answers = 0;
+        _messaging.RuntimePipe.Send<DeployIdResponse>(Arg.Any<IRuntimePipeId>(), Arg.Any<object>())
+                  .Returns(_ => new DeployIdResponse { DeployId = answers++ % 2 == 0 ? olderDeployId : _deployId });
+
+        var checker = CreateChecker(ServiceTag.Coordinator);
+
+        for (var i = 0; i < 4; i++)
+            await checker.Poll(TestLifetime);
+
+        _deployContext.DidNotReceive().Leave();
+        await _clusterFeatures.DidNotReceive().SetAcceptingConnections(Arg.Any<bool>());
+    }
+
+    [Fact]
+    public async Task ReplacedCoordinatorAnswersPipe_ServiceDoesNotSwitchToOlderDeploy()
+    {
+        _lastHeartbeat = DateTime.UtcNow;
+
+        var olderDeployId = AddDeploy(TimeSpan.FromMinutes(30));
+        _messaging.RuntimePipe.Send<DeployIdResponse>(Arg.Any<IRuntimePipeId>(), Arg.Any<object>())
+                  .Returns(_ => new DeployIdResponse { DeployId = olderDeployId });
+
+        await CreateChecker(TestRoles.Meta).Poll(TestLifetime);
+
+        await _deployContext.DidNotReceive().Set(Arg.Any<Guid>(), Arg.Any<IReadOnlyLifetime>());
+    }
+
+    private Guid AddDeploy(TimeSpan age)
+    {
+        var deployId = Guid.NewGuid();
+        _createdAt[deployId] = DateTime.UtcNow - age;
+        return deployId;
+    }
+
+    private IDeployManagement DeployGrain(Guid deployId)
+    {
+        if (deployId == _deployId)
+            return _deployGrain;
+
+        var grain = Substitute.For<IDeployManagement>();
+        grain.GetState().Returns(_ => {
+            var state = new DeployState();
+            state.Init(deployId, _createdAt[deployId]);
+            state.MarkCoordinatorReady(DateTime.UtcNow);
+            return state;
+        });
+        return grain;
     }
 
     private DeployHealthChecker CreateChecker(ServiceTag tag)
@@ -149,7 +209,8 @@ public class DeployHealthCheckerTests : LifetimeTest
         discovery.Self.Returns(self);
 
         var orleans = Substitute.For<IOrleans>();
-        orleans.Client.GetGrain<IDeployManagement>(Arg.Any<Guid>(), Arg.Any<string?>()).Returns(_deployGrain);
+        orleans.Client.GetGrain<IDeployManagement>(Arg.Any<Guid>(), Arg.Any<string?>())
+               .Returns(call => DeployGrain(call.ArgAt<Guid>(0)));
 
         var options = Options.Create(new CoordinatorHealthOptions { StaleThreshold = TimeSpan.FromSeconds(15) });
 
