@@ -81,7 +81,8 @@ namespace Global.Telemetry.Tests
         [UnityTest]
         public IEnumerator ATraceLeftByADeadPage_IsReportedOnce_WithTheTimeSinceIt() => UniTask.ToCoroutine(async () =>
         {
-            var dead = new TelemetryFixture();
+            // A dead page samples no more: its own sampling would write its trace again over the shared store.
+            var dead = new TelemetryFixture(sampleIntervalSeconds: 100f);
             dead.Telemetry.StartSession(new Lifetime(), "menu", "second");
             dead.Clock.Set(30500);
             dead.Telemetry.Mark("webgl.context_lost");
@@ -111,6 +112,41 @@ namespace Global.Telemetry.Tests
 
             Assert.IsNull(PreviousOf(next, 1));
             last.Terminate();
+        });
+
+        // The session that reported the trace closed before its start was answered: it opens no trace of its own, and the
+        // reported one must still be gone, or the next start reports the same lost session again.
+        [UnityTest]
+        public IEnumerator ATraceReportedByASessionClosedBeforeItsAnswer_IsReportedOnce() => UniTask.ToCoroutine(async () =>
+        {
+            // A dead page samples no more: its own sampling would write its trace again over the shared store.
+            var dead = new TelemetryFixture(sampleIntervalSeconds: 100f);
+            dead.Telemetry.StartSession(new Lifetime(), "run");
+
+            var transport = new GatedTransport();
+            var next = new TelemetryFixture(transport: transport, sendIntervalSeconds: 100f, traceStore: dead.TraceStore);
+            var lobby = new Lifetime();
+
+            next.Telemetry.StartSession(new Lifetime(), "menu");
+            await UniTask.WaitUntil(() => transport.Calls.Count == 1).Timeout(TimeSpan.FromSeconds(10));
+            Assert.IsNotNull(transport.Calls[0].Start.Previous);
+
+            next.Telemetry.StartSession(lobby, "lobby");
+
+            await UniTask.WaitUntil(() =>
+            {
+                if (transport.InFlight > 0)
+                    transport.Answer();
+
+                return transport.Calls.Count(call => call.Kind == TelemetryCallKind.Start) == 2;
+            }).Timeout(TimeSpan.FromSeconds(10));
+
+            var start = transport.Calls.Last(call => call.Kind == TelemetryCallKind.Start).Start;
+            Assert.AreEqual("lobby", start.Tags.Single());
+            Assert.IsNull(start.Previous);
+
+            transport.Answer();
+            lobby.Terminate();
         });
 
         [Test]
