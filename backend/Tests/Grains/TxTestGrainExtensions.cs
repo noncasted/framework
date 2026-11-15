@@ -11,4 +11,11 @@ public static class TxTestGrainExtensions
         await grain.Deactivate();
         await TestWait.Until(async () => await grain.GetActivationId() != activation);
     }
+
+    public static async Task DeactivateAndWaitNewActivation(this ITxRequestKindsGrain grain)
+    {
+        var activation = await grain.GetActivationId();
+        await grain.Deactivate();
+        await TestWait.Until(async () => await grain.GetActivationId() != activation);
+    }
 }

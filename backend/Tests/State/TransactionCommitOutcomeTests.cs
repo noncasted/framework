@@ -27,8 +27,7 @@ public class TransactionCommitOutcomeTests
 
         result.IsSuccess.Should().BeTrue("the change is in the database: a failure result makes the caller apply it again");
 
-        await grain.Deactivate();
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+        await grain.DeactivateAndWaitNewActivation();
         (await grain.Get()).Should().Be(1);
     }
 

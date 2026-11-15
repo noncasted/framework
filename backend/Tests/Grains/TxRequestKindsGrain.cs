@@ -34,6 +34,7 @@ public interface ITxRequestKindsGrain : IGrainWithGuidKey
     Task IncrementThenThrow();
 
     Task<int> Get();
+    Task<Guid> GetActivationId();
     Task Deactivate();
 }
 
@@ -49,6 +50,7 @@ public class TxRequestKindsGrain : Grain, ITxRequestKindsGrain
     public const string Failure = "request kind failed";
 
     private readonly State<TxTestState> _state;
+    private readonly Guid _activationId = Guid.NewGuid();
 
     public ValueTask ValueTaskVoid(TxRequestMode mode)
     {
@@ -99,6 +101,11 @@ public class TxRequestKindsGrain : Grain, ITxRequestKindsGrain
     public Task<int> Get()
     {
         return _state.Read(s => s.Value);
+    }
+
+    public Task<Guid> GetActivationId()
+    {
+        return Task.FromResult(_activationId);
     }
 
     public Task Deactivate()
