@@ -30,20 +30,18 @@ public class SessionEndpoints : ICoordinatorSetupCompleted
     private readonly ILobbySessions _lobbySessions;
     private readonly IServiceDiscovery _serviceDiscovery;
 
-    public Task OnCoordinatorSetupCompleted(IReadOnlyLifetime lifetime)
+    public async Task OnCoordinatorSetupCompleted(IReadOnlyLifetime lifetime)
     {
-        Listen<SessionPayloads.Create.Request, SessionPayloads.Create.Response>(lifetime, Create);
-        Listen<SessionPayloads.Search.Request, SessionPayloads.Search.Response>(lifetime, Search);
-        Listen<SessionPayloads.LobbyCreate.Request, SessionPayloads.LobbyCreate.Response>(lifetime, CreateLobby);
-        Listen<SessionPayloads.LobbyJoin.Request, SessionPayloads.LobbyJoin.Response>(lifetime, JoinLobby);
-        Listen<SessionPayloads.MatchJoin.Request, SessionPayloads.MatchJoin.Response>(lifetime, JoinMatch);
-
-        return Task.CompletedTask;
+        await Listen<SessionPayloads.Create.Request, SessionPayloads.Create.Response>(lifetime, Create);
+        await Listen<SessionPayloads.Search.Request, SessionPayloads.Search.Response>(lifetime, Search);
+        await Listen<SessionPayloads.LobbyCreate.Request, SessionPayloads.LobbyCreate.Response>(lifetime, CreateLobby);
+        await Listen<SessionPayloads.LobbyJoin.Request, SessionPayloads.LobbyJoin.Response>(lifetime, JoinLobby);
+        await Listen<SessionPayloads.MatchJoin.Request, SessionPayloads.MatchJoin.Response>(lifetime, JoinMatch);
     }
 
-    private void Listen<TRequest, TResponse>(IReadOnlyLifetime lifetime, Func<TRequest, Task<TResponse>> handler)
+    private Task Listen<TRequest, TResponse>(IReadOnlyLifetime lifetime, Func<TRequest, Task<TResponse>> handler)
     {
-        _messaging.AddPipeRequestHandler(
+        return _messaging.AddPipeRequestHandler(
             lifetime,
             new MessagePipeServiceRequestId(_serviceDiscovery.Self, typeof(TRequest)),
             handler);
