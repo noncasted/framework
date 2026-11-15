@@ -8,25 +8,34 @@ namespace Global.MatchMetrics
 {
     // The sending of one stream: one request in flight, the head of the buffer first. The stream is opened on every new link
     // of the transport (the same writer, so the server gives the same stream and its last Seq); a batch without an answer
-    // stays and goes again with its Seq. A link that failed is not tried again until a new batch or a new link. Closed,
-    // NotInMatch and Rejected end the sending for good.
+    // stays and goes again with its Seq. A link that failed is tried again after the retry interval, at once on a new batch
+    // or a new link: the last batch of an ended stream is not lost on a live socket. Closed, NotInMatch and Rejected end the
+    // sending for good.
     public class MatchMetricsSender
     {
-        public MatchMetricsSender(IMatchMetricsTransport transport, IMatchMetricsTicks ticks, MatchMetricsBuffer buffer, SharedMatchMetrics.Open open)
+        public MatchMetricsSender(
+            IMatchMetricsTransport transport,
+            IMatchMetricsTicks ticks,
+            MatchMetricsBuffer buffer,
+            SharedMatchMetrics.Open open,
+            double retryMs)
         {
             _transport = transport;
             _ticks = ticks;
             _buffer = buffer;
             _open = open;
+            _retryMs = retryMs;
         }
 
         private readonly IMatchMetricsTransport _transport;
         private readonly IMatchMetricsTicks _ticks;
         private readonly MatchMetricsBuffer _buffer;
         private readonly SharedMatchMetrics.Open _open;
+        private readonly double _retryMs;
 
         private object _openedLink;
         private object _failedLink;
+        private double _failedAtMs;
         private Guid _streamId;
         private bool _isSending;
 
@@ -52,7 +61,10 @@ namespace Global.MatchMetrics
 
             var link = _transport.Link;
 
-            if (link == null || link == _failedLink)
+            if (link == null)
+                return;
+
+            if (link == _failedLink && _ticks.NowMs - _failedAtMs < _retryMs)
                 return;
 
             Send(link).NoAwait();
@@ -81,7 +93,7 @@ namespace Global.MatchMetrics
 
                     if (result == null)
                     {
-                        _failedLink = link;
+                        Fail(link);
                         return;
                     }
 
@@ -105,7 +117,7 @@ namespace Global.MatchMetrics
 
             if (opened == null)
             {
-                _failedLink = link;
+                Fail(link);
                 return false;
             }
 
@@ -142,6 +154,12 @@ namespace Global.MatchMetrics
                     Debug.LogError($"[MatchMetrics] The batch {seq} of the match {_open.MatchId} is {status}: the stream stops");
                     break;
             }
+        }
+
+        private void Fail(object link)
+        {
+            _failedLink = link;
+            _failedAtMs = _ticks.NowMs;
         }
 
         private void Stop()

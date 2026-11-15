@@ -33,6 +33,8 @@ namespace Global.Telemetry
         // The top of the handling of errors: whatever breaks here, the game goes on.
         public static void Guard(Action action)
         {
+            var wasInside = _isInside;
+
             _isInside = true;
 
             try
@@ -45,7 +47,7 @@ namespace Global.Telemetry
             }
             finally
             {
-                _isInside = false;
+                _isInside = wasInside;
             }
         }
     }

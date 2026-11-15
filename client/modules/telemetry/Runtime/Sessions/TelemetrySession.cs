@@ -160,6 +160,8 @@ namespace Global.Telemetry
 
             if (_isOver == false)
                 OpenTrace(answer.SessionId);
+            else if (_previous != null)
+                _trace.Forget();
 
             while (_isOver == false)
             {

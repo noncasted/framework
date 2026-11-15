@@ -29,7 +29,9 @@ namespace Global.Telemetry
                     max = value;
             }
 
+            // Reset stops the collection as well: started again, or every take after the first one sees no frames.
             _recorder.Reset();
+            _recorder.Start();
 
             return count;
         }

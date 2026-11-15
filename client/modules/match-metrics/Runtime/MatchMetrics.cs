@@ -40,7 +40,7 @@ namespace Global.MatchMetrics
             };
 
             var stream = new MatchMetricsStream(clock, _ticks);
-            var sender = new MatchMetricsSender(_transport, _ticks, new MatchMetricsBuffer(_options.BufferedBatches), open);
+            var sender = new MatchMetricsSender(_transport, _ticks, new MatchMetricsBuffer(_options.BufferedBatches), open, _options.SendIntervalMs);
             var entry = new MatchMetricsEntry(stream, sender, _ticks.NowMs);
 
             _entries.Add(entry);

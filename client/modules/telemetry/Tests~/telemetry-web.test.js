@@ -50,6 +50,7 @@ function load({ userAgent = chromeAndroid, cores = 8, deviceMemory = 4, canvas =
     const library = {};
     const reads = new Set();
     const strings = new Map();
+    const created = { count: 0 };
     let nextPointer = 16;
 
     // Null is a field the browser does not have.
@@ -68,7 +69,7 @@ function load({ userAgent = chromeAndroid, cores = 8, deviceMemory = 4, canvas =
         navigator,
         window: bridge === undefined ? { devicePixelRatio: 2.625 } : { devicePixelRatio: 2.625, [bridge]: {} },
         screen: { width: 412, height: 915 },
-        document: { createElement: () => canvas },
+        document: { createElement: () => { created.count++; return canvas; } },
         performance: memory === undefined ? {} : { memory },
         HEAP8: { length: heap },
         lengthBytesUTF8: text => Buffer.byteLength(text),
@@ -78,9 +79,16 @@ function load({ userAgent = chromeAndroid, cores = 8, deviceMemory = 4, canvas =
 
     vm.runInContext(jslib, context);
 
+    // The $ entries as emscripten puts them: globals of the module.
+    for (const key of Object.keys(library).filter(key => key.startsWith('$') && !key.endsWith('__deps'))) {
+        const value = library[key];
+        vm.runInContext(`var ${key.slice(1)} = ${typeof value === 'function' ? value.toString() : JSON.stringify(value)};`, context);
+    }
+
     return {
         library,
         reads,
+        created,
         readDevice: () => JSON.parse(strings.get(library.TelemetryWebReadDevice())),
         readDeviceText: () => strings.get(library.TelemetryWebReadDevice())
     };
@@ -174,6 +182,25 @@ test('gpu: the model behind the debug extension, and the context is given back',
 
     assert.strictEqual(load({ canvas }).readDevice().gpu, 'ANGLE (Qualcomm, Adreno (TM) 730, OpenGL ES 3.2)');
     assert.strictEqual(canvas.gl.lost, true);
+});
+
+// Every session start and startup trace reads the device: a context per read would push the game's own one out of the
+// limit of the page.
+test('gpu: read once per page, one context for every read', () => {
+    const page = load({ canvas: canvasWith('WebKit WebGL', 'Adreno (TM) 730') });
+
+    assert.strictEqual(page.readDevice().gpu, 'Adreno (TM) 730');
+    assert.strictEqual(page.readDevice().gpu, 'Adreno (TM) 730');
+    assert.strictEqual(page.readDevice().gpu, 'Adreno (TM) 730');
+    assert.strictEqual(page.created.count, 1);
+});
+
+test('gpu: no webgl is read once too', () => {
+    const page = load({ canvas: canvasWith(undefined) });
+
+    assert.strictEqual(page.readDevice().gpu, '');
+    assert.strictEqual(page.readDevice().gpu, '');
+    assert.strictEqual(page.created.count, 1);
 });
 
 test('gpu: no debug extension gives the renderer of the context', () => {

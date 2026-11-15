@@ -162,14 +162,15 @@ namespace Global.MatchMetrics.Tests
             Assert.AreEqual(0, _metrics.Count);
         }
 
-        // A request without an answer on a live link (a timeout): no new try on that link until a new batch or a new link.
+        // A request without an answer on a live link (a timeout, an error of the server): the same link is tried again after
+        // the interval of the sending, at once on a new link.
         [Test]
-        public void FailedLink_NotRetriedUntilNewLink()
+        public void FailedLink_RetriedAfterTheInterval_AtOnceOnNewLink()
         {
             Play(30);
             _transport.AnswerOpen();
             _transport.FailBatch();
-            _metrics.Tick();
+            _clock.Wait(1f);
             _metrics.Tick();
 
             Assert.AreEqual(1, _transport.Batches.Count);
@@ -178,6 +179,38 @@ namespace Global.MatchMetrics.Tests
             _metrics.Tick();
 
             Assert.AreEqual(2, _transport.Opens.Count);
+        }
+
+        // The end of the stream cuts its last batch once: a failure after it is tried again on the same link, nothing else
+        // would send it before a reconnect.
+        [Test]
+        public void FailedLink_StreamEnded_SameBatchAgainAfterTheInterval()
+        {
+            Play(30);
+            _transport.AnswerOpen();
+            Play(5);
+            _lifetime.Terminate();
+            _transport.FailBatch();
+            _clock.Wait(29f);
+            _metrics.Tick();
+
+            Assert.AreEqual(1, _transport.Batches.Count);
+
+            _clock.Wait(1f);
+            _metrics.Tick();
+
+            Assert.AreEqual(2, _transport.Batches.Count);
+            Assert.AreEqual(1, _transport.Batches[1].Seq);
+
+            _transport.AnswerBatch();
+
+            Assert.AreEqual(3, _transport.Batches.Count);
+            Assert.AreEqual(2, _transport.Batches[2].Seq);
+
+            _transport.AnswerBatch();
+            _metrics.Tick();
+
+            Assert.AreEqual(0, _metrics.Count);
         }
     }
 }

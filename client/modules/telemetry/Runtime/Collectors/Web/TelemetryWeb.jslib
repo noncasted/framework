@@ -1,4 +1,11 @@
 mergeInto(LibraryManager.library, {
+    // The GPU does not change during the life of a page: read once, null until then.
+    $telemetryWebState: {
+        gpu: null
+    },
+
+    TelemetryWebReadDevice__deps: ['$telemetryWebState'],
+
     // The closed list of the device as JSON. The user agent stays here: only the names and the major versions leave, a
     // full one holds the model of the phone and the build of its system.
     TelemetryWebReadDevice: function () {
@@ -73,8 +80,17 @@ mergeInto(LibraryManager.library, {
             return { name: '', major: -1 };
         }
 
-        // The form the server takes: a value out of it would be dropped whole.
+        // Once per page: every session start and startup trace reads the device, and a context per read would push the
+        // game's own one out of the limit of the page.
         function readGpu() {
+            if (telemetryWebState.gpu === null)
+                telemetryWebState.gpu = readRenderer();
+
+            return telemetryWebState.gpu;
+        }
+
+        // The form the server takes: a value out of it would be dropped whole.
+        function readRenderer() {
             const gl = document.createElement('canvas').getContext('webgl');
 
             if (gl === null)
