@@ -42,6 +42,9 @@ namespace Internal
             if (SpriteArtRoots.HasExistingFolder == false)
                 return;
 
+            // Missing settings stop the run before anything is written.
+            CatalogAddressablesSync.RequireSettings();
+
             var groups = new List<SpriteGroupDefinition>();
             var sources = SpriteSourceCollector.CollectSources();
 

@@ -4,7 +4,6 @@ using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.AddressableAssets.Settings.GroupSchemas;
-using UnityEngine;
 
 namespace Internal
 {
@@ -21,23 +20,13 @@ namespace Internal
             if (FrameworkSettings.WithoutAddressables)
                 return;
 
-            var settings = AddressableAssetSettingsDefaultObject.Settings;
-
-            if (settings == null)
-            {
-                Debug.LogError($"[{logTag}] Addressable settings are missing.");
-                return;
-            }
-
+            var settings = RequireSettings();
             var usedGroups = new HashSet<string>(StringComparer.Ordinal);
 
             foreach (var group in groups)
             {
                 var assetPath = $"{groupsFolder}/{group.Name}.asset";
-                var address = MarkGroupAsset(settings, logTag, groupPrefix, assetPath, group.Name);
-
-                if (string.IsNullOrEmpty(address) == false)
-                    group.SetAddress(address);
+                group.SetAddress(MarkGroupAsset(settings, logTag, groupPrefix, assetPath, group.Name));
 
                 usedGroups.Add(groupPrefix + group.Name);
             }
@@ -46,6 +35,17 @@ namespace Internal
 
             // Catalog references may have changed, and with them the set of shared assets.
             SharedAddressablesSync.ScheduleSync();
+        }
+
+        // Checked by a generator before it writes anything: found missing after the group assets, the run would leave
+        // them without their addressable groups. Null in a project without Addressables.
+        public static AddressableAssetSettings RequireSettings()
+        {
+            if (FrameworkSettings.WithoutAddressables)
+                return null;
+
+            return AddressableAssetSettingsDefaultObject.Settings
+                   ?? throw new InvalidOperationException("Addressable settings are missing: the catalogue is not generated");
         }
 
         // The group is packed into one bundle: all of its content is loaded together.
@@ -71,7 +71,7 @@ namespace Internal
             }
 
             if (group == null)
-                return null;
+                throw new InvalidOperationException($"Failed to create addressable group '{groupName}'");
 
             var schema = group.GetSchema<BundledAssetGroupSchema>();
 
@@ -99,23 +99,11 @@ namespace Internal
             var guid = AssetDatabase.AssetPathToGUID(assetPath);
 
             if (string.IsNullOrEmpty(guid))
-            {
-                Debug.LogError($"[{logTag}] Missing GUID for {assetPath}");
-                return string.Empty;
-            }
+                throw new InvalidOperationException($"[{logTag}] The group asset {assetPath} has no GUID");
 
             var addressableGroup = GetOrCreatePackedGroup(settings, groupPrefix + groupName);
-
-            if (addressableGroup == null)
-                return guid;
-
-            var entry = settings.CreateOrMoveEntry(guid, addressableGroup, false, false);
-
-            if (entry == null)
-            {
-                Debug.LogError($"[{logTag}] Failed to mark {assetPath} addressable.");
-                return guid;
-            }
+            var entry = settings.CreateOrMoveEntry(guid, addressableGroup, false, false)
+                        ?? throw new InvalidOperationException($"[{logTag}] Failed to mark {assetPath} addressable");
 
             if (entry.address != guid)
                 entry.SetAddress(guid, false);

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
@@ -7,8 +8,6 @@ namespace Internal
 {
     internal static class AssetSourceCollector
     {
-        private const string LogTag = "AssetCatalogGenerator";
-
         internal static List<AssetSource> CollectSources()
         {
             var sources = new List<AssetSource>();
@@ -29,7 +28,7 @@ namespace Internal
                 if (string.IsNullOrEmpty(path))
                     continue;
 
-                var importer = AssetImporter.GetAtPath(path);
+                var importer = CatalogPaths.SourceImporter(path);
 
                 if (importer == null)
                     continue;
@@ -43,26 +42,17 @@ namespace Internal
                 var groupName = CatalogNaming.ToGroupName(metadata.Group);
 
                 if (string.IsNullOrEmpty(groupName))
-                {
-                    Debug.LogError($"[{LogTag}] Included asset has empty group: {path}");
-                    continue;
-                }
+                    throw new InvalidOperationException($"Included asset has empty group: {path}");
 
                 var propertyName = CatalogNaming.ToGroupName(Path.GetFileNameWithoutExtension(path));
 
                 if (string.IsNullOrEmpty(propertyName))
-                {
-                    Debug.LogError($"[{LogTag}] Identifier is empty for {path}");
-                    continue;
-                }
+                    throw new InvalidOperationException($"Identifier of the asset is empty: {path}");
 
                 var asset = AssetDatabase.LoadAssetAtPath<EnvAsset>(path);
 
                 if (asset == null)
-                {
-                    Debug.LogError($"[{LogTag}] {path} is marked for the catalog but is not an EnvAsset");
-                    continue;
-                }
+                    throw new InvalidOperationException($"{path} is marked for the catalog but is not an EnvAsset");
 
                 sources.Add(new AssetSource(path, groupName, propertyName, asset));
             }

@@ -11,7 +11,8 @@ using Object = UnityEngine.Object;
 namespace Internal.EditorTests
 {
     // The deferred generators and syncs run half a second after an import, inside whichever test is running then. A
-    // project declared without Addressables has nothing to sync; any other project without the settings gets the error.
+    // project declared without Addressables has nothing to sync; any other project without the settings throws before it
+    // writes anything.
     public class SharedAddressablesSyncTests
     {
         private const string PrefabPath = "Assets/SharedAddressablesSyncTests.prefab";
@@ -49,30 +50,29 @@ namespace Internal.EditorTests
         }
 
         [Test]
-        public void SharedSync_NotDeclaredAndNoSettings_LogsTheError()
+        public void SharedSync_NotDeclaredAndNoSettings_Throws()
         {
             RequireNoSettings();
-            LogAssert.Expect(LogType.Error, "[SharedAddressablesSync] Addressable settings are missing.");
 
-            SharedAddressablesSync.Sync();
+            Assert.Throws<InvalidOperationException>(SharedAddressablesSync.Sync);
         }
 
         [Test]
-        public void CatalogSync_NotDeclaredAndNoSettings_LogsTheError()
+        public void CatalogSync_NotDeclaredAndNoSettings_Throws()
         {
             RequireNoSettings();
-            LogAssert.Expect(LogType.Error, "[Catalog] Addressable settings are missing.");
 
-            CatalogAddressablesSync.Sync("Catalog", "Catalog_", "Assets/Catalog", Array.Empty<ICatalogGroupDefinition>());
+            Assert.Throws<InvalidOperationException>(() =>
+                CatalogAddressablesSync.Sync("Catalog", "Catalog_", "Assets/Catalog", Array.Empty<ICatalogGroupDefinition>()));
         }
 
         [Test]
-        public void ScenesSync_NotDeclaredAndNoSettings_LogsTheError()
+        public void ScenesSync_NotDeclaredAndNoSettings_Throws()
         {
             RequireNoSettings();
-            LogAssert.Expect(LogType.Error, "[ScenesAddressablesSync] Addressable settings are missing.");
 
-            ScenesAddressablesSync.Sync(new[] { ("Scene", "00000000000000000000000000000000") });
+            Assert.Throws<InvalidOperationException>(() =>
+                ScenesAddressablesSync.Sync(new[] { ("Scene", "00000000000000000000000000000000") }));
         }
 
         // No frame passes with the flag off: a sync scheduled by an earlier test does not run in between.

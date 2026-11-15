@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
@@ -27,7 +28,7 @@ namespace Internal
                 if (string.IsNullOrEmpty(path))
                     continue;
 
-                var importer = AssetImporter.GetAtPath(path);
+                var importer = CatalogPaths.SourceImporter(path);
 
                 if (importer == null)
                     continue;
@@ -41,26 +42,17 @@ namespace Internal
                 var groupName = CatalogNaming.ToGroupName(metadata.Group);
 
                 if (string.IsNullOrEmpty(groupName))
-                {
-                    Debug.LogError($"[PrefabCatalogGenerator] Included prefab has empty group: {path}");
-                    continue;
-                }
+                    throw new InvalidOperationException($"Included prefab has empty group: {path}");
 
                 var propertyName = CatalogNaming.ToGroupName(Path.GetFileNameWithoutExtension(path));
 
                 if (string.IsNullOrEmpty(propertyName))
-                {
-                    Debug.LogError($"[PrefabCatalogGenerator] Identifier is empty for {path}");
-                    continue;
-                }
+                    throw new InvalidOperationException($"Identifier of the prefab is empty: {path}");
 
                 var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
 
                 if (prefab == null)
-                {
-                    Debug.LogError($"[PrefabCatalogGenerator] Failed to load prefab at {path}");
-                    continue;
-                }
+                    throw new InvalidOperationException($"Failed to load the prefab of the catalogue: {path}");
 
                 sources.Add(new PrefabSource(
                     path,

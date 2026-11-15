@@ -69,6 +69,9 @@ namespace Internal
 
         private static void GenerateInternal()
         {
+            // Missing settings stop the run before anything is written.
+            CatalogAddressablesSync.RequireSettings();
+
             var groups = AudioGroupBuilder.BuildGroups(AudioSourceCollector.CollectSources());
 
             AssetDatabase.StartAssetEditing();

@@ -48,7 +48,7 @@ namespace Internal.EditorTests
         }
 
         [Test]
-        public void Sprite_WithoutGroup_IsReported()
+        public void Sprite_WithoutGroup_Throws()
         {
             const string folder = "Assets/SpriteWithoutGroupTests";
             var settingsFile = Path.Combine(Path.GetDirectoryName(Application.dataPath), FrameworkSettings.SettingsPath);
@@ -74,8 +74,9 @@ namespace Internal.EditorTests
                 metadata.SetGroup(string.Empty);
                 SpriteCatalogMetadata.Write(importer, metadata);
 
-                LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("Hero.png.*no group"));
-                Invoke(typeof(SpriteSourceCollector), "ResolveMetadata", importer);
+                // Left out of the catalogue, the sprite would lose its member and the stale cleanup its group.
+                var exception = Assert.Throws<InvalidOperationException>(() => SpriteSourceCollector.ResolveMetadata(importer));
+                StringAssert.Contains(path, exception.Message);
             }
             finally
             {

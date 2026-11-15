@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
@@ -39,13 +40,7 @@ namespace Internal
             if (FrameworkSettings.WithoutAddressables)
                 return;
 
-            var settings = AddressableAssetSettingsDefaultObject.Settings;
-
-            if (settings == null)
-            {
-                Debug.LogError($"[{LogTag}] Addressable settings are missing.");
-                return;
-            }
+            var settings = CatalogAddressablesSync.RequireSettings();
 
             var targets = SharedAddressablesTargets.Collect(settings);
             var changed = ApplyTargets(settings, targets);
@@ -66,12 +61,6 @@ namespace Internal
             {
                 var group = CatalogAddressablesSync.GetOrCreatePackedGroup(settings, target.Value);
 
-                if (group == null)
-                {
-                    Debug.LogError($"[{LogTag}] Failed to create group '{target.Value}'.");
-                    continue;
-                }
-
                 var entry = settings.FindAssetEntry(target.Key);
 
                 if (entry != null && entry.parentGroup == group)
@@ -79,9 +68,8 @@ namespace Internal
 
                 if (settings.CreateOrMoveEntry(target.Key, group, false, false) == null)
                 {
-                    Debug.LogError(
-                        $"[{LogTag}] Failed to mark {AssetDatabase.GUIDToAssetPath(target.Key)} addressable.");
-                    continue;
+                    throw new InvalidOperationException(
+                        $"[{LogTag}] Failed to mark {AssetDatabase.GUIDToAssetPath(target.Key)} addressable");
                 }
 
                 changed = true;
