@@ -25,7 +25,7 @@ client/
                         localization, settings, lobbies, telemetry, ...
   platforms/            platform implementations of modules/publish: web, website, itch, telegram, steam
   packages/             forks of third-party packages (render pipelines, uGUI, web stripping tool, UniTask, MemoryPack,
-                        unity-mcp), see FORK.md in each; no Addressables since 0.7
+                        unity-mcp), see FORK.md in each; no Addressables since 0.8
   measurements/         the size of the WebGL build per Unity version: a template project, stripping variants
                         (base: the list of pixel-swarm; aggressive: no uGUI / TMP), tools/measure.py <version> generates
                         projects/<version>-<variant> (git-ignored), builds, measures, runs it headless; RESULTS.md, ANALYSIS.md
@@ -163,7 +163,7 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   layer, planeDistance)` (Screen Space - Camera: the whole canvas on the layer, the camera asked on every show) or, explicitly,
   `AddScreenCanvasOverlay()`. Without one the scope that builds them does not resolve. The Overlay mode lost its projection on
   iPadOS 18.2 Safari; the camera and its drawing stay in the game.
-- **Content.** AssetBundles of the engine (`CONTENT.md`) instead of the content directory (until 0.8) and Addressables (until 0.7):
+- **Content.** AssetBundles of the engine (`CONTENT.md`) instead of Addressables (until 0.8; the content directory of the 0.7 release candidates never shipped):
   a bundle is a `ContentBundle` asset (roots, `IsPreloaded`, `IsGzip`) holding its roots and what they reach directly and lazily,
   except the roots of other bundles (dependencies). `ContentBuild` lays them out and checks every dependency has one owner
   (`ContentBundleLayout`), builds them with every player build (an `IPlayerBuildStep` and a `BuildPlayerProcessor`;
