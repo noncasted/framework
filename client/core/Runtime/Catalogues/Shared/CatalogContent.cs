@@ -32,7 +32,7 @@ namespace Internal
             return Root.Group(guid);
         }
 
-        // At most one ContentRoot among the roots of the directory; a directory without one has no catalogues. The files
+        // At most one ContentRoot among the roots of the main bundle; a main bundle without one has no catalogues. The files
         // of the preloaded groups are fetched here, so their first access is synchronous.
         internal static async UniTask Bind(IReadOnlyLifetime lifetime, IContentLoader loader, IReadOnlyList<ContentRoot> roots)
         {
@@ -40,7 +40,7 @@ namespace Internal
                 throw new InvalidOperationException("[CatalogContent] The catalogues are bound already: one root scope with AddContent at a time");
 
             if (roots.Count > 1)
-                throw new InvalidOperationException($"[CatalogContent] The content directory has {roots.Count} ContentRoot assets among its roots, one expected");
+                throw new InvalidOperationException($"[CatalogContent] The main content bundle has {roots.Count} ContentRoot assets among its roots, one expected");
 
             _loader = loader;
             _lifetime = lifetime;
@@ -67,7 +67,7 @@ namespace Internal
 
                 if (_root == null)
                     throw new InvalidOperationException(
-                        "[CatalogContent] The content directory has no ContentRoot: add the generated ContentRoot asset to Content.Roots of ProjectSettings/Framework.json");
+                        "[CatalogContent] The main content bundle has no ContentRoot: add the generated ContentRoot asset to the roots of the ContentBundle named by ContentOptions.Name");
 
                 return _root;
             }

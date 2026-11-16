@@ -10,8 +10,8 @@ namespace Internal
     // Writes the ContentRoot of the catalogues into the content folder of the game: a lazy reference to every group asset
     // of the catalogues (env assets, prefabs, audio, sprites; the preloaded ones of the registries apart) and every scene
     // of the scene folders outside the Build Settings. Runs after every catalogue that changes its group assets, in
-    // Regenerate All and before every build of the content directory (ContentRootBuildStep). The directory takes it as a
-    // root only when Content.Roots of ProjectSettings/Framework.json lists Path.
+    // Regenerate All and before every build of the content bundles (ContentRootBuildStep). A bundle holds it only when
+    // Path is among its roots: the main ContentBundle of the game (ContentOptions.Name) lists it.
     [NoAutoStaticsCleanup]
     public static class ContentRootGenerator
     {

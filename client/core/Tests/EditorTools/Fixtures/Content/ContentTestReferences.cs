@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Internal.EditorTests.Content
 {
-    // A root of the content directory of the loader tests: a content reference to the target and a content scene.
+    // A root of the content bundle of the loader tests: a content reference to the target and a content scene.
     public sealed class ContentTestReferences : ScriptableObject
     {
         [SerializeField] private ContentReference<ContentTestTarget> _target;

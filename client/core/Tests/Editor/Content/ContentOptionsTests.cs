@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Internal.Tests
 {
-    // The options of the content directory: the scenes of a game saved before MaxFetches get its default, a limit below
+    // The options of the content (ContentOptions): the scenes of a game saved before MaxFetches get its default, a limit below
     // one fetch is refused.
     public class ContentOptionsTests
     {

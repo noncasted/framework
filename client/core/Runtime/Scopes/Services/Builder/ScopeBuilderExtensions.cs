@@ -6,7 +6,7 @@ namespace Internal
 {
     public static class ScopeBuilderExtensions
     {
-        // A scene of the content directory, loaded as a batch through WhenAll (a concurrent span), its name known after
+        // A scene of a content bundle, loaded as a batch through WhenAll (a concurrent span), its name known after
         // the load. The generator merges in the services of its SceneServicesFactory (Scenes.X).
         [ContainerPrimitive(ContainerPrimitive.SceneServices)]
         public static async UniTask FindOrLoadSceneWithServices(

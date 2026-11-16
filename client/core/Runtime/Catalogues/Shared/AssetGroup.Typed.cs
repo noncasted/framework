@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Internal
 {
-    // A group whose content lives in a single ScriptableObject of the content directory, referenced by the ContentRoot
+    // A group whose content lives in a single ScriptableObject of a content bundle, referenced by the ContentRoot
     // under the GUID of the asset: the load lifetime is held here, the generated classes only have to unpack the fields.
     public abstract class AssetGroup<TAsset> : AssetGroup where TAsset : ScriptableObject
     {

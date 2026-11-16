@@ -3,9 +3,9 @@ using UnityEngine;
 
 namespace Internal
 {
-    // The root asset of the catalogues in the content directory, written by ContentRootGenerator into the content
-    // folder of the game: the group assets of the catalogues and the scenes of the scene folders, all lazy. It holds no
-    // direct reference: the registration of the directory opens the files of its roots, so a root stays thin.
+    // The root asset of the catalogues, a root of the main content bundle (ContentOptions.Name), written by
+    // ContentRootGenerator into the content folder of the game: the group assets of the catalogues and the scenes of the
+    // scene folders, all lazy. It holds no direct reference: a registered bundle is loaded whole and held, so a root stays thin.
     // The generated catalogues find their entries by the GUID of the asset (CatalogContent).
     public sealed class ContentRoot : ScriptableObject
     {

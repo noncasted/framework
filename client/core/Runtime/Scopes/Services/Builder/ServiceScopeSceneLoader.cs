@@ -20,7 +20,7 @@ namespace Internal
 
         public IReadOnlyList<ILoadedScene> Results => _results;
 
-        // A scene of the content directory, loaded on the lifetime of the scope; the dispose of the scope waits for its unload.
+        // A scene of a content bundle, loaded on the lifetime of the scope; the dispose of the scope waits for its unload.
         public async UniTask<ILoadedScene> Load(ContentScene scene, bool isMain = false)
         {
             var result = await _content.Loader.LoadScene(_lifetime, scene, isMain);

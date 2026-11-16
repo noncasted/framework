@@ -203,7 +203,7 @@ builder.RequestAudioGroup(SfxAudio.Group);
 await builder.LoadEnvAssetGroup(GlobalAssets.Group);  // loaded now: needed while registering
 ```
 
-`Request*` defers loading to the before-build step; `Load*` awaits immediately and is used only when `Construct` itself reads the assets. Generated getters throw if the group is not loaded. Do not call `group.Retain()` from gameplay code; one asset of the content directory is `builder.RequestContent(reference, out var slot)` / `await builder.LoadContent(reference)` in a scope, or `IContentLoader.Load(lifetime, reference)` during the game (`CONTENT.md`). Code: `client/Assets/Common/Internal/Runtime/Catalogues/*/*Extensions.cs`, `.../Catalogues/Shared/AssetGroupBuilderExtensions.cs`.
+`Request*` defers loading to the before-build step; `Load*` awaits immediately and is used only when `Construct` itself reads the assets. Generated getters throw if the group is not loaded. Do not call `group.Retain()` from gameplay code; one lazy asset of a content bundle is `builder.RequestContent(reference, out var slot)` / `await builder.LoadContent(reference)` in a scope, or `IContentLoader.Load(lifetime, reference)` during the game (`CONTENT.md`). Code: `client/Assets/Common/Internal/Runtime/Catalogues/*/*Extensions.cs`, `.../Catalogues/Shared/AssetGroupBuilderExtensions.cs`.
 
 ## Runtime Access
 

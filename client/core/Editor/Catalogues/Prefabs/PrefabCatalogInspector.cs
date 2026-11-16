@@ -87,7 +87,7 @@ namespace Internal
                 Apply(importers, metadata => metadata.SetIncluded(included));
         }
 
-        // The setting is shared by the whole group: a preloaded group is fetched with the content directory and
+        // The setting is shared by the whole group: a preloaded group is fetched by AddContent and
         // read synchronously, for all of its prefabs at once.
         private static void DrawPreloaded(string group)
         {

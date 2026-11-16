@@ -2,7 +2,7 @@ using Cysharp.Threading.Tasks;
 
 namespace Internal
 {
-    // The services scene is a scene of the content directory with content the scope needs.
+    // The services scene is a scene of a content bundle (ContentScene) with content the scope needs.
     public class ContentAssetScene : IScopeServiceSceneLoader
     {
         public ContentAssetScene(ContentScene scene)

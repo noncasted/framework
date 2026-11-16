@@ -3,8 +3,8 @@ using UnityEngine;
 namespace Internal
 {
     /// <summary>
-    /// Quitting the application (or Play mode) has already begun: Unity unloads the scenes itself, and in the editor the
-    /// content directories are gone by then (the engine drops them on entering and leaving Play mode). The
+    /// Quitting the application (or Play mode) has already begun: Unity unloads the scenes and the loaded AssetBundles
+    /// itself, so the content releases nothing by then. The
     /// root scope sets the flag before it terminates the lifetimes (see <see cref="RootScopeExtensions"/>).
     /// </summary>
     public static class ApplicationQuit

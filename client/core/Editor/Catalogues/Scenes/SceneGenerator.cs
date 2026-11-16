@@ -23,7 +23,7 @@ namespace Internal
             if (AssetDatabase.IsAssetImportWorkerProcess())
                 return;
 
-            // Build Settings scenes stay in the player, outside the content directory, so their list is also a generation input.
+            // Build Settings scenes stay in the player, outside the content bundles, so their list is also a generation input.
             EditorBuildSettings.sceneListChanged += Runner.Schedule;
             Runner.RunDelayed();
         }
@@ -83,7 +83,7 @@ namespace Internal
 
             foreach (var guid in guids)
             {
-                // A scene of the player (Startup) is loaded by the engine, not through the content directory.
+                // A scene of the player (Startup) is loaded by the engine, not from a content bundle.
                 if (playerScenes.Contains(guid))
                     continue;
 

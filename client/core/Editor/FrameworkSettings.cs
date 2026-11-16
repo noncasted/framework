@@ -85,7 +85,8 @@ namespace Internal
 
             Require(data.ContentAssembly, nameof(Data.ContentAssembly));
 
-            // The content directories of 0.7: their roots are ContentBundle assets now, a file that still lists them would build nothing.
+            // The sections of the content directory (0.7, removed in 0.8): the roots are those of the ContentBundle assets now, a
+            // file that still lists them would build nothing, so it throws.
             if (data.Content != null || data.ExtraContent != null)
                 throw new InvalidOperationException(
                     $"[FrameworkSettings] {SettingsPath} has \"Content\" / \"ExtraContent\": the content is ContentBundle assets now " +

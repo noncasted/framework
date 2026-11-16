@@ -528,7 +528,7 @@ switcher does. A test after the game has hung the GPU measures the stuck browser
   `deploy-client`, 6f49c1df).
 
 ### B6. Addressables built for the editor target
-- **Before 0.7** (Addressables are gone since; a content directory is built with the player for its target, B15).
+- **Before 0.7** (Addressables are gone since; the content bundles are built with every player for its target, B15).
 - A build profile started while the editor was on another target switched the player to WebGL but built the Addressables for the
   old one: the catalog pointed at `aa/StandaloneLinux64/` and the page failed with "Failed to decompress data for the AssetBundle".
   Switch the editor to WebGL first; check the catalog of the output.
@@ -546,7 +546,7 @@ switcher does. A test after the game has hung the GPU measures the stuck browser
   given back; run heap 174-209 -> 138 MiB (not checked on phones).
 
 ### B9. Bundle caches keep old bytes
-- **Before 0.7** (`BundleUrlVersioning` is gone; the files of a content directory are named by their hash, B15).
+- **Before 0.7** (`BundleUrlVersioning` is gone; the files of the content bundles are named by their hash, B15).
 - A bundle name with Append Hash is computed from its input assets, not from its bytes: a Unity upgrade changes the bytes under the
   same name (`unitybuiltinassets`), and two caches served the old file -> "CRC Mismatch": the Addressables cache
   (`UseAssetBundleCache: 0`, `UniqueBundleIds: 1`) and the UnityCache of the WebGL loader in IndexedDB keyed by URL, with bundles

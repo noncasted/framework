@@ -28,7 +28,7 @@ namespace Internal
             // extension: in the trace they go under the stage that the scope itself opened.
             using var stage = GameProfiler.Scope($"Scope: {sceneName}");
 
-            // The lifetime comes first: the scenes of the content directory are loaded on it.
+            // The lifetime comes first: the scenes of the content bundles are loaded on it.
             var lifetime = options.Parent == null ? new Lifetime() : options.Parent.Lifetime.Child();
             var content = new ScopeContent(options.Parent);
             var sceneLoader = new ServiceScopeSceneLoader(lifetime, content);
