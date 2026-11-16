@@ -3,6 +3,13 @@
 Шаги для игр из коммитов после последнего тега, формат в [README](README.md). Новый шаг дописывается в конец в том же коммите, что
 и изменение. При релизе шаги переходят в `<версия>.md`, здесь остаётся только этот заголовок.
 
+Шаги написаны для игры на `v0.7.0` (Addressables). Ветка прошла промежуточную схему content directories (`v0.7.0-rc.*`, `ExtraContent`,
+`AddContentDirectory`, Range-запросы архива, индекс, порядок загрузок): её нет ни в `main`, ни здесь, игре на `v0.7.0` она не нужна.
+Единственная игра на ней (gamejam-autobattler, ветка `no-addressables`) берёт из шагов контента только сноски для `v0.7.0-rc.*` в
+«Контент 1» (`Framework.json`) и «Контент 8» (переименования).
+
+## Шаги
+
 ### ContainerGenerator: сборка без копии в Analyzers
 
 Кого касается: игры, чей скрипт тестов собирает `ContainerGenerator` в Release (или запускает `ContainerGenerator.Verify` в
@@ -14,84 +21,167 @@ EditMode, Unity запрашивает компиляцию скриптов, к
 только по таймауту тест-фреймворка (180 с). Новое свойство `-p:SkipAnalyzersCopy=true` (для `dotnet run` -
 `--property:SkipAnalyzersCopy=true`) собирает без копии; без него поведение прежнее.
 
-Проверка: `Tools/Framework/Codegen/Regenerate All` (`-executeMethod Internal.RegenerateAll.Run`), затем
-`grep -n "is already generated into" client/Logs/*.log` (или лог редактора). На каждую строку: вернуть ассет под сборку файла
-(`git mv` вместе с `.meta`) либо перенести файл `*.g.cs` с его `.meta` по пути из ошибки.
+Проверка: `grep -rn "ContainerGenerator" tools/scripts/*.sh .github/workflows/*.yml`; там, где сборка идёт рядом с Unity на том же
+дереве, добавить свойство.
 
-Заодно Regenerate All заново привязывает bindings с пустой ссылкой (`{fileID: 0}`), у которых код не менялся: в логе
-предупреждение `holds N empty references: binding again`, префаб пересохраняется. Действий не требует, изменённые префабы закоммитить.
+### Контент: с Addressables на AssetBundles движка, порядок шагов (BREAKING)
 
-### Bindings: Regenerate All заканчивается валидатором
+Кого касается: клиент всех игр. Контент после старта (группы каталогов, сцены скоупов, свои ленивые ссылки) - бандлы движка
+(`com.unity.modules.assetbundle`), собранные Scriptable Build Pipeline (`com.unity.scriptablebuildpipeline` 4.0.1) с каждой сборкой
+плеера. Форк `com.unity.addressables` и всё, что на нём держалось, удалены. Модель и API: `.claude/docs/CONTENT.md`.
 
-Кого касается: клиент, все игры с bindings.
+Порядок. Форка больше нет в `tools/framework/client/packages`, поэтому вместе с указателем сразу убрать Addressables из манифеста
+(«Контент 5»), затем довести код до компиляции (шаги 2-5), Regenerate All (шаг 3), ассеты `ContentBundle` (шаг 1), ссылки (шаг 4),
+`AddressableAssetsData` - последней. Значения полей `AssetReference` сами не переносятся: до правки записать их
+(`grep -rn "m_AssetGUID" client/Assets --include='*.asset' --include='*.prefab' --include='*.unity'`; после пересохранения ассета
+старое значение есть в `git show <до обновления>:<файл>`).
 
-После прохода привязки Regenerate All прогоняет `HierarchyBindingsValidator` по всем префабам с bindings и загруженным сценам.
-Раньше валидатор вызывался только из `RegeneratePrefabs` и из меню, поэтому старые находки (вариант убрал компонент базы, пустая
-ссылка, устаревшая структура, bindings не в списке view) теперь появятся ошибками в консоли; последняя строка
-`Regenerate All: N prefabs and M scenes validated in T ms, E validation errors` - ошибка при `E > 0`.
+### Контент 1. Ассеты `ContentBundle`, сборка плеера собирает бандлы (BREAKING)
 
-Проверка: Regenerate All, в batchmode или без фокуса редактора затем `HierarchyBindingsGenerator.PumpPending()` до `Idle.`;
-`grep -n "HierarchyBindingsValidator\|validation errors" <лог редактора>`. Каждую находку исправить, как сказано в её тексте
-(Regenerate в ассете, Scan на view, вернуть компонент в варианте). Скрипты игры, которые ждут конца Regenerate All по
-`HierarchyBindingsGenerator.HasPending()`, учитывают, что он остаётся `true` до этой проверки.
+Любая сборка плеера (`Internal.WebGlBuild.Build`, `deploy-client`, окно сборки, `-build*Player`) собирает каждый ассет `ContentBundle`
+проекта (`ContentBuild`: `IPlayerBuildStep` и `BuildPlayerProcessor`); `WebGlBuild` больше не вызывает `SharedAddressablesSync.Sync()`.
 
-## Окно реконнекта у сессии хоста-клиента
+Поиск: `grep -rln "ContentBundle" client/Assets --include='*.asset'` (пусто - шаг нужен).
 
-Кому: играм с P2P-матчами (`LocalSessionServer` как хост матча). Действие необязательно, без него поведение прежнее.
+Сделать:
+- Create > Framework > Content Bundle - основной бандл; имя ассета = имя бандла = `ContentOptions._name` (шаг 2), буквы, цифры, `_`,
+  `-`. Корень - сгенерированный `<ContentFolder>/Runtime/Catalogues/ContentRoot.asset` (шаг 3). `IsPreloaded` - бандл в `.data`
+  WebGL (без запросов, больше первая загрузка); `IsGzip` - WebGL-плеер качает `<file>.gz` и распаковывает его на странице.
+- Основной бандл (и каждый бандл `AddContentBundle`) грузится целиком и держится до конца корневого скоупа. В бандл входят его корни
+  и всё, чего они достигают прямыми и ленивыми ссылками, кроме корней других бандлов: без других бандлов все группы каталогов едут
+  в основном и грузятся на старте. Тяжёлое (группы уровней, музыка, сцены) - корнями отдельных бандлов `ContentBundle`: они
+  грузятся на lifetime загрузки и выгружаются после неё, а основной держать тонким.
+- Сборка падает на корне двух бандлов, на ассете, которого два бандла достигают напрямую и который не назначен ни одному (сделать
+  его корнем одного из них или общего бандла), на ленивой цели без корня, которой достигают два бандла, на пустой или битой ленивой
+  ссылке, на ссылке на дочерний объект префаба.
+- `Assets/FrameworkContentStamp` в `.gitignore` игры: каталог бандлов (`Resources/Content/catalog.json`) пишется туда на время сборки
+  и удаляется после неё (остаётся, только если редактор упал посреди сборки).
+- Из `ProjectSettings/Framework.json` убрать `WithoutAddressables`, `SharedCommonPaths`, `GroupPhases` (лишние ключи игнорируются).
+  Секции `Content` / `ExtraContent` (только у игр на `v0.7.0-rc.*`) - ошибка редактора: на каждую директорию ассет `ContentBundle`
+  с её `Roots` и `IsPreloaded` (`IsArchiveGzip` -> `IsGzip`).
 
-- `LocalSessionServer.Create(id, type, maxUsers, services, reconnectWindow)`: при ненулевом окне потеря соединения гостя без
-  `Leave` не завершает его слот: остальные получают `RemoteAway`, гость с билетом того же пользователя возвращается в слот со
-  своими сущностями (`LocalUpdate.IsReturn`, `SeatEntities`), по истечении окна слот завершается (`RemoteDisconnect`).
-- `SessionCore(..., isReconnectable)`, `SeatAway`, `ExpireAway`: то же для своего хоста без `LocalSessionServer`.
-- Поиск мест: `grep -rn "LocalSessionServer\|new SessionCore(" client/Assets`.
+Проверка: сборка логирует `[ContentBuild] N content bundles for <target>: ...` и `[ContentBuild] <name>: ...` по каждому бандлу (файлы,
+байты, как плеер его получает, зависимости, корни, ассеты, которые движок скопировал внутрь; предупреждение про встроенные ресурсы);
+в `StreamingAssets/Content` сборки только `<name>.<hash>.bundle[.gz]` (у бандла со сценами ещё `<name>.scenes.<hash>.bundle[.gz]`).
 
-### Новый модуль match-metrics: игровые данные матча
+### Контент 2. `AddContent` в корневом скоупе, скоупы через `IContentLoader` (BREAKING)
 
-Кого касается: клиент и протокол игр, которые хотят писать ряды и события матча (модуль необязательный).
+Поиск: `grep -rn ": IScopeBuilder\|new ServiceScopeSceneLoader\|WithAssetScene\|FindOrLoadScene\|LoadRoot" client/Assets --include='*.cs'`
 
-Модуль `client/modules/match-metrics` (сборка `Internal.MatchMetrics`, namespace `Global.MatchMetrics`): поток на забег
-`IMatchMetrics.Open(lifetime, matchId, IMatchMetricsClock)`, ряды `Counter` / `Gauge` с тегами (`MatchTags`, до 4), события
-`Event(name, MatchEventField...)`, корзины 1 с часов забега, порции раз в 30 с по мета-сокету, одна в полёте, повтор после
-реконнекта. Протокол - `shared/MatchMetrics/SharedMatchMetrics.cs`, теги `NetworkContextTags.MatchMetrics*` 220-223 (диапазон 220-229).
+Сделать:
+- Корневой `Construct`: `await builder.AddContent(options.Content)` один раз, до первой загрузки (`IContentLoader`, `IContentBundles`,
+  каталоги привязаны, предзагруженные группы скачаны). `ContentOptions` - поле опций игры: `_name` (шаг 1), `_remoteUrl` для CDN
+  (пусто - `StreamingAssets` страницы), `_maxFetches` (64, сколько файлов WebGL качает одновременно).
+- Скоупы: `FindOrLoadSceneWithServices(ContentScene)`, `FindOrLoadScene<T>(ContentScene)`, `ScopeLoadOptions.WithAssetScene(ContentScene)`,
+  `await builder.LoadContent(reference)`, `builder.RequestContent(reference, out var slot)` (`slot.Value` после сборки скоупа); во время
+  игры `[Inject] IContentLoader`: `Load`, `LoadScene`, `Fetch`, `Progress`, `LoadNow` на lifetime владельца (конец lifetime освобождает).
+- `IScopeBuilder` получил `ScopeContent Content`, конструктор `ServiceScopeSceneLoader` - `(lifetime, content)`: свои реализации (тесты)
+  добавляют свойство. Без `AddContent` сборка скоупа с контентом бросает.
 
-Что сделать игре, которая берёт модуль: `client/Packages/manifest.json` - `"com.noncasted.framework.match-metrics":
-"file:../../tools/framework/client/modules/match-metrics"`; в union игры (`grep -n "TelemetryStartupTraceResult"
-shared/Protocol/NetworkContextUnion.cs`) - четыре строки `SharedMatchMetrics.Open/Opened/Batch/BatchResult`, затем обновить
-golden и хеш протокола; мета-бэкенд регистрируется как `IMatchMetricsSocket`, в его скоупе `AddSocketMatchMetrics()`; офлайн
-мета отвечает на `Open` - `Opened { Ok }`, на `Batch` - `BatchResult { Ok }`. Бэкенд приёма - следующим шагом. Игре без модуля -
-ничего (теги в её union не обязательны).
+### Контент 3. Каталоги на бандлах: `ContentRoot`, `IsPreloaded`, `Scenes.X` - `ContentScene` (BREAKING)
 
-### match-metrics на бэкенде: приём и хранилище
+Группы каталогов (env assets, prefabs, audio, sprites) грузятся через `IContentLoader` по ссылкам сгенерированного `ContentRoot`
+(группы, предзагруженные группы, сцены папок сцен вне Build Settings). API групп прежний (`Retain` / `Release`, `RequestAssetGroup`,
+`LoadAssetGroup`, `EnsureLoaded`). Удалены `StaticScene` и перегрузки сцен скоупов с `AssetReference`: `ServiceScopeSceneLoader.Load(AssetReference)`,
+`AssetScene`, `WithAssetScene(AssetReference)`, `LoadTyped` / `FindOrLoadScene` / `FindOrLoadSceneWithServices(AssetReference)`, `LoadedScene`.
 
-Кого касается: игры с модулем `match-metrics` (бэкенд приёма). Игре без модуля - ничего.
+Поиск: `grep -rnE "IsAddressable|SetAddressable|Scenes\.[A-Za-z0-9]+\.Value|StaticScene|\.Address\b|ResourcePath|SetAddress\(" client/Assets --include='*.cs'; grep -rln nonAddressable client/Assets`
 
-Проект `backend/MatchMetrics` (сборка `Framework.MatchMetrics`, namespace `Game.MatchMetrics`, правила - `Contract/CONTRACT.md`):
-потоки клиентов по мета-сокету (`IMatchMetricsConnections.Of(session.Lifetime, session.UserId)`: `Open`, `Accept`), парсер с
-лимитами (`MatchMetricsBatchParser`), поток сервера (`IMatchMetricsWriter.Open(lifetime, matchId)`), хранилище - 6 своих таблиц
-Postgres через `IDbSource` (`MatchMetricsSchema`), не состояния грейнов. Кто может писать в матч - ответ игры (`IMatchMetricsAdmission`).
+Сделать:
+- В json-списках групп ключ `nonAddressable` -> `preloaded` (старый ключ - исключение генератора `nonAddressable is replaced by
+  preloaded`); `IsAddressable` -> `IsPreloaded` с обратным смыслом (`true` у бывших групп из `Resources`).
+- Regenerate All (шаг `Content root` вместо `Shared addressables`; генератор `ContentRoot` ещё и перед каждой сборкой бандлов). Ассеты
+  групп из `.../Resources/AssetGroups`, `.../Resources/PrefabGroups` он удаляет и пишет заново в папку каталога; пустые папки `Resources`
+  удалить. `ContentRoot.asset` руками не править.
+- Сгенерированные классы групп: `AssetGuid` вместо `Address` / `ResourcePath`; свои определения групп (`ICatalogGroupDefinition`) -
+  `Guid` / `SetGuid` вместо `Address` / `SetAddress`. `AssetGroup<TAsset>` требует `TAsset : ScriptableObject`.
+- `Scenes.X.Value` -> `Scenes.X` (`ContentScene`), читается только после `AddContent`. Сцен Build Settings (`Startup`) в `Scenes` нет.
 
-Что сделать игре:
-- csproj мета-гейтвея, deploy setup и тестов - `ProjectReference` на `tools/framework/backend/MatchMetrics/MatchMetrics.csproj`,
-  в `.slnx` игры - проект.
-- Мета-гейтвей: `builder.AddMatchMetrics()` (или свой `AddMatchMetricsCommands` с командами `SharedMatchMetrics.Open` / `Batch`
-  поверх `IMatchMetricsConnections`, id пользователя - из сессии сокета) и `builder.AddMatchMetricsAdmission<T>()` - своя
-  реализация `IMatchMetricsAdmission.Check(matchId, userId)` (`MatchMetricsAdmit(IsPlayer, ClosedAt)`); без неё хост не собирает
-  команды.
-- Deploy setup: `await MatchMetricsSchema.Create(connection)` (рядом с `AuditLogTable.Create`).
-- Хост, который пишет поток сервера (игровой сервер): `builder.AddMatchMetricsWriter()`.
+### Контент 4. Свои ссылки: `AssetReference` -> `ContentReference<T>` / `ContentScene` (BREAKING)
 
-### match-metrics на бэкенде: чтение
+Кого касается: игры со своими ссылками Addressables (уровни, финалы забега, моки).
 
-Кого касается: игры с модулем `match-metrics` (консоль, агенты, история матчей). Игре без модуля - ничего.
+Поиск: `grep -rnE "AssetReference(T|GameObject|Sprite)?\b|Addressables\.|LoadAssetAsync|InstantiateAsync|AsyncOperationHandle" client/Assets --include='*.cs'`
 
-`IMatchMetricsReader` (`backend/MatchMetrics/Reading`): потоки матча, словарь рядов, точки матча по группам тегов (шаг 1 / 10 /
-60 с, ось часов забега или серверная), итоги матча и между матчами, события матча. GET эндпоинты `/api/match-metrics/...`
-(`MapMatchMetricsRead`), контракт чтения - раздел «Reading» в `Contract/CONTRACT.md`. Таблицы те же, схема не менялась.
+Сделать:
+- Поле `AssetReference` сцены -> `ContentScene`, ассета -> `ContentReference<T>` (`AssetReferenceT<T>` -> `ContentReference<T>`;
+  ссылка на компонент - на его префаб, загрузчик отдаёт компонент). Значения назначить заново (записанные GUID, см. «Порядок») в
+  инспекторе или генератором (`ContentReferenceFields.AssignObject` / `AssignScene` редактора); пустую ссылку сборка перечислит.
+- `Addressables.LoadAssetAsync` / `Release` -> `IContentLoader.Load(lifetime, reference)` (освобождение - конец lifetime), в `Construct`
+  скоупа - `LoadContent` / `RequestContent`. Ссылки работают везде, в сцене плеера (`Startup`) тоже: каталог знает бандл цели.
+- Моки: `reference.EditorAsset`, `scene.EditorPath` вместо `editorAsset` / пути `AssetReference`.
 
-Что сделать игре: в хосте с чтением (мета-гейтвей) `builder.AddMatchMetricsReader()` и
-`app.MapMatchMetricsRead().RequireConsoleToken()` (токен - свой у игры, как у `MapClientTelemetryRead`).
+### Контент 5. Addressables удалены из фреймворка (BREAKING)
 
-### uGUI вне ядра: сборка `Internal.UGUI`
+Форк `com.unity.addressables` удалён, `com.noncasted.framework.core` зависит от `com.unity.modules.assetbundle` и
+`com.unity.scriptablebuildpipeline` 4.0.1 (раньше SBP приходил через Addressables), сборки `Internal`, `Internal.Editor` на
+`Unity.Addressables` / `Unity.ResourceManager` / `Unity.Addressables.Editor` не ссылаются. Удалены синхронизации групп
+(`CatalogAddressablesSync`, `ScenesAddressablesSync`, `SharedAddressablesSync`, `SharedAddressablesTargets`,
+`SharedAddressablesPostprocessor`), `BundleUrlVersioning`, настройки `WithoutAddressables`, `SharedCommonPaths`, `GroupPhases`.
+
+Поиск: `grep -rnE "addressables|Addressab|AssetReference|ResourceManagement|BundleUrlVersioning|WithoutAddressables|SharedCommonPaths|GroupPhases" client/Packages client/Assets client/ProjectSettings/Framework.json --include='*.json' --include='*.asmdef' --include='*.cs' --include='*.xml'; ls -d client/Assets/AddressableAssetsData`
+
+Сделать:
+- `client/Packages/manifest.json`: строку `com.unity.addressables` убрать (`file:` на форк больше не разрешится); `packages-lock.json`
+  перепишет Unity, закоммитить (`grep -n scriptablebuildpipeline client/Packages/packages-lock.json` - пакет на месте).
+- Из своих asmdef - ссылки на `Unity.Addressables`, `Unity.ResourceManager`, `Unity.Addressables.Editor` (GUID
+  `9e24947de15b9834991c9d8411ea37cf`, `84651a3751eca9349aac36a66bba901b`, `69448af7b92c7f342b298e06a37122aa`).
+- Вызов `BundleUrlVersioning.Setup()` убрать; `link.xml` игры - записи `Unity.Addressables` / `Unity.ResourceManager`.
+- `Assets/AddressableAssetsData` удалить последним, после шага 4.
+
+### Контент 6. Шаблоны WebGL, сервер и скрипт деплоя (BREAKING)
+
+Кого касается: клиент игр с WebGL.
+
+Поиск: `grep -rnE "\.bundle|UnityCache|aa/|catalog\.bin|Addressables" client/Assets/WebGLTemplates client/deploy tools/scripts`
+
+Сделать:
+- Шаблоны: ветку `cacheControl` для `.bundle` убрать - файлы бандлов качает `WebContentFetch` сам (`fetch` + Cache API `content`, ключ -
+  URL, при старте записи файлов другой сборки удаляются), не загрузчик Unity и не UnityCache. Нужен `DecompressionStream` браузера
+  для `.gz` бандлов (`IsGzip`).
+- Сервер (`nginx.conf`): правила для `StreamingAssets/aa` заменить на `StreamingAssets/Content/`: файлы `.bundle` и `.gz` как есть
+  (`.gz` с `Content-Encoding: gzip` или без, обычный `.bundle` сервер может сжать сам), `Cache-Control: "public, max-age=31536000,
+  immutable"` (имена - хэши сборки), `try_files $uri =404` (иначе отсутствующий файл приходит `index.html` 200). Для вложенной сборки
+  (`/tg/`) то же внутри её `^~`-блока. Range-запросы не нужны.
+- Скрипт деплоя игры: проверку `StreamingAssets/aa/catalog.bin` (pixel-swarm `tools/scripts/deploy-webgl.sh`) удалить - она отклонит
+  каждую сборку.
+
+### Контент 7. `deploy-client` проверяет бандлы, нужен `brotli` (BREAKING для машины сборки)
+
+Кого касается: игры с `deploy-client`. `verify.sh` вместо `StreamingAssets/aa/catalog.bin` и дублей бандлов проверяет бандлы сборки:
+каждый файл `Library/ContentShipped` этой сборки лежит в `StreamingAssets/Content` или предзагружен, назван каталогом в `.data`,
+является бандлом (`UnityFS`, `.gz` - его gzip), чужих файлов рядом нет. `deploy-client.json` не меняется.
+
+Поиск: `command -v brotli` - без него проверка падает (`brotli is not installed: the content bundles are not checked`), поставить пакет.
+
+### Контент 8. Дополнительные бандлы со своими корнями (необязательно)
+
+Кого касается: игры, которым нужен свой загрузчик рядом с основным (музыка меню, которая качается после старта). Без шага ничего не
+меняется.
+
+В корневом скоупе после `AddContent`: `builder.AddContentBundle(name)` (в фоне, корень и скоупы после него не ждут) или
+`builder.AddContentBundle(name, ContentRegistration.OnFirstWait)` (ничего не качается до первого `Wait`). Загрузчик:
+`await [Inject] IContentBundles.Wait(lifetime, name)`, корни - `RootAssets<T>()`; `Get(name)` бросает до регистрации, ошибка
+регистрации - в лог и в каждый `Wait`. Каталоги к нему не привязываются; любой загрузчик грузит любую ссылку.
+
+Игра на `v0.7.0-rc.*`: `AddContentDirectory(new ContentOptions(name), registration)` -> `AddContentBundle(name, registration)`,
+`IContentDirectories` -> `IContentBundles` (`Get` / `Wait` те же), `ContentOptions` без `rangeGap`; `ContentReference` без `Id` и `Loadable`
+(конструктор `(guid, localId)`), `ContentReferenceFields.SyncObject` / `SyncScene` удалены, `IContentBuildStep.BeforeContentBuild()`
+без параметра. Сериализованные ссылки rc переносятся сами (`_guid` / `_localId`).
+
+### Лямбда как корень скоупа - ошибка компиляции `CINGR017` (BREAKING)
+
+Кого касается: клиент всех игр. Лямбда или анонимный метод на месте корня скоупа (`Func<IScopeBuilder, UniTask>`,
+`Func<IEntityBuilder, UniTask>`: `new ScopeLoadOptions(parent, b => ...)`, `LoadRoot(b => ...)`, `construct` у `IEntityScopeLoader.Load`)
+раньше компилировалась и роняла каждую загрузку скоупа (`Scope root must be a method group or a local function`); теперь это ошибка
+генератора `CINGR017` с местом лямбды.
+
+Поиск: `grep -rnE "(ScopeLoadOptions\(|LoadRoot\(|\.Load\()[^;]*=>" client/Assets --include='*.cs'`
+
+Сделать: корень - method group или локальная функция (она замыкает те же значения); корень с одним аргументом -
+`ScopeLoadOptions.Create(parent, Construct, arg)`.
+
+### uGUI вне ядра: сборка `Internal.UGUI` (BREAKING)
 
 Кого касается: клиент, все игры, которые вызывают `ListenClick`, `SetAlpha` (`Image`), `ToLifetimedValue` (`Slider`) или `ButtonSounds`.
 
@@ -103,7 +193,7 @@ Postgres через `IDbSource` (`MatchMetricsSchema`), не состояния 
 найденной сборки добавить `"GUID:1a5b96d3d6de4210867a24fe0a1f3fcb"` в `references`. Ошибка без этого: CS1061 `'Button' does not contain a
 definition for 'ListenClick'`.
 
-### Ядро без `Framework.Shared`: `StableHash` в `Framework.Common`
+### Ядро без `Framework.Shared`: `StableHash` в `Framework.Common` (BREAKING)
 
 Кого касается: клиент, все игры.
 
@@ -115,7 +205,7 @@ definition for 'ListenClick'`.
 backend shared --include=*.cs`: asmdef каждой такой сборки ссылается на `Framework.Common` (`GUID:3ea5c3f1172040daa713d5ad71728b78`),
 csproj - на `framework.common.csproj`; без этого CS0103 `The name 'StableHash' does not exist`.
 
-### Декодер mp3 аудио-групп в сборке `Internal.EncodedAudio`
+### Декодер mp3 аудио-групп в сборке `Internal.EncodedAudio` (BREAKING)
 
 Кого касается: клиент, игры, которые вызывают `EncodedAudio` из своего кода (редакторские инструменты аудио).
 
@@ -127,7 +217,7 @@ csproj - на `framework.common.csproj`; без этого CS0103 `The name 'Sta
 
 Проверка: `grep -rn "EncodedAudio\." client/Assets --include=*.cs` - заменить по списку выше.
 
-### Телеметрия клиента: сокетный транспорт в сборке `Internal.Telemetry.Socket`, транспорт по HTTP
+### Телеметрия клиента: сокетный транспорт в сборке `Internal.Telemetry.Socket`, транспорт по HTTP (BREAKING)
 
 Кого касается: клиент, все игры с модулем `telemetry`; бэкенд - только игры, которые хотят телеметрию без мета-сокета.
 
@@ -145,22 +235,7 @@ GUID `802942ed80b040b1af69d20046688f31`, компилируется только
 `telemetry`, указывает их в `client/Packages/manifest.json` сама (`grep -n '"com.noncasted.framework.network"\|"com.noncasted.framework.shared"'
 client/Packages/manifest.json`).
 
-### Дополнительные content directories (`ExtraContent`, `AddContentDirectory`)
-
-Кого касается: клиент; обязательных шагов нет, только игры, которые хотят отдельную директорию (например музыку, которая качается по
-сети при входе в меню, рядом с предзагруженной основной), и игры со своей реализацией `IContentLoader`.
-
-`ProjectSettings/Framework.json` принимает список `"ExtraContent": [ { "Name": "Stream", "Roots": [ ... ], "IsPreloaded": false } ]`;
-каждая директория собирается с каждым плеером (`StreamingAssets/Content/<name>`, свой штамп, свой report directory для линкера), ассет,
-достижимый из двух директорий, валит сборку. Корневой скоуп после `AddContent` вызывает `await builder.AddContentDirectory(options)`;
-загрузчик директории - `[Inject] IContentDirectories` -> `Get(name)`, ассеты - из её корней: `loader.RootAssets<T>()`, затем
-`Load(lifetime, reference)`. Каталоги остаются на основной директории. `IContentLoader` получил `RootAssets<T>()`,
-`ContentBuild.Prepare` / `ContentBuild.Current` - список директорий. Кэш страницы (Cache API) чистится по каждой директории отдельно.
-
-Проверка: `grep -rn ": IContentLoader\|ContentBuild\.\(Prepare\|Current\)" client/Assets --include=*.cs` - своя реализация добавляет
-`RootAssets<T>()`, вызовы `ContentBuild` берут список.
-
-### Лейауты в пакете `com.noncasted.framework.layout` (сборка `Internal.Layout`)
+### Лейауты в пакете `com.noncasted.framework.layout` (сборка `Internal.Layout`) (BREAKING)
 
 Кого касается: клиент, `BREAKING` для сборок, которые используют лейаут из кода (в том числе сгенерированные `*Bindings.g.cs`):
 mines-leader (`GamePlay`, `Menu`), peace-data-reborn (`GamePlay`). Сцены и префабы не трогать: GUID скриптов, namespace
@@ -180,7 +255,7 @@ uGUI / TMP / inputs), инспекторы - в `Internal.Layout.Editor`, тес
 - Ссылка на `Internal.UI.Editor` (GUID `221aaddb19c647fab6fe86dcb68ac643`) в asmdef игры, если есть, удаляется
   (`grep -rln "221aaddb19c647fab6fe86dcb68ac643\|\"Internal.UI.Editor\"" client/Assets --include=*.asmdef`).
 
-### Локализация без TMP (`LocalizedLabel` в сборке `Internal.Localization.Tmp`)
+### Локализация без TMP (`LocalizedLabel` в сборке `Internal.Localization.Tmp`) (BREAKING)
 
 Кого касается: клиент, `BREAKING` для сборок игры, которые используют `LocalizedLabel` фреймворка. Сейчас ни одна игра пакет
 `com.noncasted.framework.localization` не подключает (у pixel-swarm и peace-data-reborn свои `LocalizedLabel` в `client/Assets`,
@@ -198,176 +273,26 @@ uGUI / TMP / inputs), инспекторы - в `Internal.Layout.Editor`, тес
 - Игре без `com.unity.ugui` пакет теперь доступен: `"com.noncasted.framework.localization": "file:../../tools/framework/client/modules/localization"`
   в `client/Packages/manifest.json` (core и common уже должны там быть).
 
-### Content: доп. каталог регистрируется в фоне, индекс предзагруженного - в Resources
+## Проверить поведение
 
-Кого касается: клиент, `BREAKING` для игр с `AddContentDirectory` (gamejam-autobattler); всех игр с WebGL и `IsPreloaded` - без
-действий.
+Контент (шаги «Контент»):
 
-- `builder.AddContentDirectory(options)` теперь `void` и не ждёт регистрации: индекс, заголовок и корни доп. каталога грузятся в
-  фоне, скоупы после корня не ждут его запросов. Загрузчик - `await IContentDirectories.Wait(lifetime, name)`; `Get(name)` бросает,
-  пока каталог регистрируется. Ошибка регистрации - в лог и в каждый `Wait`.
-- Индекс каталога с `IsPreloaded` в WebGL-сборке лежит TextAsset'ом `Resources/Content/<name>.index` рядом со штампом (в `.data`),
-  без запроса на старте; индекс пишется без отступов (было 60% байт). Спаны `Content: index`, `Content: register <name>`.
+- Play Mode: ничего не собирается и не грузится, ссылка отдаёт ассет проекта (`AssetDatabase`), корни - из ассета `ContentBundle`
+  (нет ассета с именем `ContentOptions._name` - `No ContentBundle asset <name>`); освобождение ничего не уничтожает.
+- Конец lifetime загрузки освобождает объект / выгружает сцену; ожидающий получает `OperationCanceledException`. Бандл выгружается
+  с последней загрузкой: пока его держит другая загрузка или регистрация, освобождённая ссылка `IsLoaded == false`, а объект жив.
+- `Progress(...).Total` 0 у бандлов на устройстве (standalone, Android, предзагруженные, Play Mode).
+- `LoadNow` / `EnsureLoaded` бросают (`... needs a fetch: load it with Load`) для бандла, которого нет на устройстве, кроме
+  предзагруженных групп (их качает `AddContent`); ссылка, созданная в коде мимо сборки - `... is in no content bundle`.
+- Веб: второе открытие не делает ни одного запроса к `Content/` (Cache API); по http Cache API нет.
+- Сцена с `m_LightingDataAsset {fileID: 20201}` (данные освещения по умолчанию) тянет встроенный кубмап в бандл: предупреждение
+  `[ContentBuild]` про встроенные ресурсы - очистить поле у сцен без запечённого света.
+- Стартовый трейс: `Content: catalog`, `Content: bundle <name>`, `Content: roots <name>`, `Content: bind catalogues`, `Group: <name>`,
+  `Content: load <type>`; загрузки - `AssetLoads` с ключом `Content: <name>`.
 
-Сделать: `grep -rn "AddContentDirectory\|IContentDirectories" client/Assets --include=*.cs` - убрать `await` перед
-`AddContentDirectory`, `_directories.Get(name)` в коде после старта заменить на `await _directories.Wait(lifetime, name)`.
+## Без действий
 
-### Контент: предзагруженный каталог WebGL без индекса
-
-Кого касается: клиент, игры с `"IsPreloaded": true` каталога (`Content` / `ExtraContent` в `ProjectSettings/Framework.json`) на WebGL.
-`BREAKING` только для кода, который читает `IContentLoader.Progress(...)` предзагруженного контента или собирает `ContentDirectory` /
-`FetchedContentStore` сам (тесты).
-
-Индекс предзагруженного каталога больше не кладётся в `.data` (`Resources/Content/<name>.index` удалён, `ContentIndex.FromResource`,
-`ContentPaths.IndexResource`, `ContentBuildFiles.IndexAsset` / `WriteIndex` удалены): все файлы реальны с начала, загрузке нечего
-скачивать, а разбор JSON индекса стоил ~120 мс старта на Mali-телефоне (`.data` меньше на размер индекса, у autobattler -83 КБ gzip).
-Плеер берёт `PreloadedContentFiles`: пустые списки файлов, поэтому `Progress(...)` предзагруженного объекта / сцены теперь
-`Total` 0 (как у контента на диске standalone и в Play Mode). Ссылка другого каталога, загруженная лоадером предзагруженного,
-падает теперь в движке (`The engine did not load ...`), а не `KeyNotFoundException` индекса. `IContentStore.Prepare(lifetime)` без
-индекса, `FetchedContentStore` получает индекс в конструкторе (`new FetchedContentStore(source, folder, gap, index)`).
-
-Сделать: ничего, если игра не показывает прогресс предзагруженного контента. Проверка:
-`grep -rn "\.Progress(" client/Assets --include=*.cs` - полоса загрузки по предзагруженному объекту или сцене должна принимать
-`Total == 0` (`IsDone` сразу true). Новые спаны стартового трейса: `Content: stamp`, `Content: index validate`, `Content: bind catalogues`,
-`Group: <name>` (синхронный первый доступ к предзагруженной группе), `Content: load <type>` (`LoadNow`).
-### Бэкенд: владелец соединения ждёт его закрытия, сервер не шлёт запросы клиенту
-
-Кого касается: бэкенд всех игр (meta- и game-шлюзы, свои реализации соединений и копии тестов сети).
-
-`Connection.Run` без подписчика у `Reader` закрывает сокет и бросает исключение. `IConnection.Closed` - задача «сокет закрыт», после
-неё владелец выходит из обработчика (иначе Kestrel рвёт сокет вместе с close frame, клиент видит 1006). Серверных запросов к клиенту
-больше нет: `WriteRequest`, `Responses`, `OnRequestHandled`, `PendingRequestsCount` удалены. Непринятое сообщение клиента
-(не читается, null, ответ клиента) закрывает соединение (`InvalidPayloadData` / `ProtocolError`). Handshake ограничен 16 KiB.
-
-- Meta-шлюз: `grep -rn "connection.Run().NoAwait()" backend/Orchestration`. Сначала подписать dispatcher
-  (`_entryPoint.OnConnected` / `UserCommandsDispatcher.Run`), затем `var run = connection.Run();`; после конца сессии
-  `lifetime.Terminate()` и `await connection.Closed`, только потом выход из middleware.
-- Game-шлюз: `grep -n "user.Lifetime.Listen" backend/Orchestration/GameGateway/SessionGate.cs` - в `Join` после конца lifetime
-  пользователя `await ((IHostedUser)user).Socket.Closed`.
-- Dispatcher: `grep -rn "reader.Responses\|OnRequestHandled" backend` - удалить подписку на `Responses` и `HandleResponse`.
-- Свои `IConnection` / `IConnectionReader` / `IConnectionWriter` (тестовые миры pixel-swarm `SessionTestWorld`, storytale
-  `ConstructorTestWorld`): `grep -rn "IConnectionWriter\b\|: IConnection" backend` - добавить `Task Closed`, удалить `Responses`,
-  `WriteRequest`, `OnRequestHandled`.
-- Копии тестов сети (mines-leader, peace-data-reborn): `grep -rn "WriteRequest\|PendingRequestsCount\|RequestTimeout\|Responses" backend/Tools/Tests`
-  - удалить тесты серверных запросов; нечитаемый payload теперь закрывает соединение.
-
-### Бэкенд: `OperationProgress` ушёл из framework
-
-Кого касается: mines-leader, pixel-swarm, peace-data-reborn (бенчмарки, `Console/Infrastructure/Benchmark/BenchmarkEntry.razor`).
-
-`grep -rln "IOperationProgress\|OperationProgress\|OperationStatus" backend` - перенести копию `IOperationProgress` /
-`OperationStatus` / `OperationProgress` (из `git show v0.6.0:backend/Common/Extensions/OperationProgress.cs` framework) в
-`Tools/Benchmarks/Common` игры, в сборку, которую видит её консоль. При переносе: `Release` семафора в `finally`, `Set` вне lock
-(иначе подписчик, который бросает, вешает следующий `SetStatus`).
-
-### Бэкенд: резервирование места в сессии возвращает причину
-
-Кого касается: бэкенд всех игр с сессиями.
-
-`grep -rn "TryReserve\|IsHeldOnlyBy" backend --include=*.cs`. `session.TryReserve(id)` -> `session.Reserve(id)`, результат
-`SessionReservation` (`Reserved`, `Sealed`, `Closed`, `Full`, `HeldOnlyByOwnStale`): `== true` -> `== SessionReservation.Reserved`;
-моки - `.Reserve(...).Returns(SessionReservation.X)`; `SessionAdmission.TryReserve(id, max, now)` -> `Reserve(id, max, now)`;
-`ISessionAdmission.IsHeldOnlyBy` удалён. `HeldOnlyByOwnStale` - сессия, которую держит только зависшее соединение самого
-пользователя: она сейчас закроется, лобби отвечает `NotFound`.
-
-`LobbyJoinStatus` переехал в `Game.Lobbies` (`Hosting/Lobbies/LobbyJoinStatus.cs`): `grep -rln "LobbyJoinStatus" backend --include=*.cs`
-- добавить `using Game.Lobbies;`. `SessionPayloads` стал `static`.
-
-### Бэкенд: состояния кластера меняются методами, координатор выходит из старого деплоя
-
-Кого касается: бэкенд всех игр (тесты, код, который трогает состояния кластера).
-
-- `grep -rn "IsDevelopment = " backend/Tools/Tests` - удалить `IsDevelopment = true,` (`IServiceEnvironment.IsDevelopment` удалён).
-- `grep -rnE "\.Slices\[[^]]+\] =|Slices = \{|Members = new|Entries\.(Add|Remove)|GameFlags\[" backend` - вместо прямой записи
-  `SetSlice(id, slice)` / `RemoveSlice(id)`, `ServiceDiscoveryStorageState.Set(overview)` / `Remove(id)`,
-  `LobbyRegistryState.Add` / `Remove`, флаги через `SetGameFlag`. Известное место: peace-data-reborn `Tools/Tests/Meta/GameServerBalancerTests.cs:113`.
-- Свои `IDeployContext` реализуют `Leave()` (`grep -rn ": IDeployContext" backend`). Заменённый координатор теперь выходит из
-  деплоя: всё, что игра повесила на `DeployLifetime`, у него останавливается.
-- Список открытых лобби не показывает лобби серверов, которых нет в discovery.
-
-### Бэкенд: метрики и трейсы регистрируют сами фичи, `RequeueStuck` удалён
-
-Кого касается: бэкенд всех игр.
-
-- `grep -rn 'TraceExtensions.AllSources\|AddMeter("Backend")\|BackendMetrics' backend --include=*.cs` - в
-  `Orchestration/Extensions/ServiceDefaultsExtensions.cs` убрать `foreach (var source in TraceExtensions.AllSources) ...` и
-  `.AddMeter("Backend")`: их регистрируют `AddOrleansUtils`, `AddMessaging`, `AddTaskScheduling`. `BackendMetrics.X` ->
-  `<Feature>Telemetry.X` (`TransactionTelemetry`, `SideEffectTelemetry`, `DurableQueueTelemetry`, ...). Имена метров и
-  инструментов прежние.
-- storytale-workshop: `grep -rn 'TraceExtensions.PlayerEndpoints' backend --include=*.cs` - свой `ActivitySource("Player.Endpoints")`
-  в игре, `builder.AddTraceSource(source)`; `.Start(name)` остался в `Common.Extensions`.
-- `grep -rn 'RequeueStuck()' backend --include=*.cs` - удалить `await _sideEffectsStorage.RequeueStuck();` из
-  `Orchestration/Coordinator/ClusterCoordinator.cs` (он возвращал в очередь эффекты, которые silo выполняли, и они выполнялись
-  дважды; записи упавшего worker-а возвращает сам `SideEffectsWorker` через `RequeueStuckOlderThan`). В
-  `Tools/Tests/State/SideEffectTests.cs` -> `RequeueStuckOlderThan(TimeSpan.Zero)`.
-- Удалены `CommonGrain`, `OrleansUtils.Iterate`, `AsSetupLoopStage`, `PostgresJsonbConverter`, `AddEnvironmentOptions`: игры их не используют.
-- `DurableQueue`: повтор ждёт наблюдателя, у которого доставка упала; если он не вернулся, сообщение уходит в dead letter после
-  `MaxRetryCount`. `AddressableState.SetValue` повторяет publish сохранённого значения. `IsOrleansStarted` становится `true` на
-  стадии `Active`. `StateStorageReader.ReadPage` бросает вместо пустой страницы.
-
-### Консоль: `AddConsoleInfrastructure`, таблица аудита из framework
-
-Кого касается: игры с консолью (mines-leader, peace-data-reborn, pixel-swarm, storytale-workshop, gamejam-autobattler).
-
-- `grep -rn "AuditLogStorage\|HeapReportStorage\|HeapReportCollector\|SideEffectsAggregatorService" backend/Orchestration/ConsoleGateway/Program.cs`
-  - шесть строк регистрации заменить на `builder.AddConsoleInfrastructure(new ConsoleInfrastructureOptions { CoordinatorConfigFolder = ... })`.
-  Папку конфигов координатора для кнопки Write JSON игра передаёт сама (прежнее значение -
-  `Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Coordinator")`, например только в Development); без неё кнопки нет.
-- `grep -rln "audit_log" backend/Tools/DeploySetup` - удалить `AuditLogSetup.cs`, в `PostResourcesSetup` вызвать
-  `await AuditLogTable.Create(connection)`.
-- `grep -n "downloadFileFromBase64" backend/Orchestration/ConsoleGateway/App.razor` - удалить функцию: Monitoring импортирует
-  `_content/Console/file-download.js` сам.
-- `IAuditLogStorage.Write` / `GetPage` бросают при сбое базы, конструктор `AuditLogStorage` без logger:
-  `grep -rn "IAuditLogStorage" backend/Console` - на своих страницах try/catch с toast или `AuditLog.Report(...)`.
-- Удалены `OperationView.razor`, `HomeGridButton.razor`, `IHeapReportStorage.TryGet`: игры их не используют.
-
-### match-metrics: имена и лимиты в shared, поток сервера после конца бросает
-
-Кого касается: игры с модулем `match-metrics` (pixel-swarm).
-
-- `grep -rn "MatchMetricsLimits\.\|MatchMetricNames\." client/Assets backend` - `Shared.SharedMatchMetricsLimits` /
-  `Shared.SharedMatchMetricNames` (`IsName`, `IsKey`, `IsValue`); клиентский `MatchMetricsLimits`, `MatchMetricNames.IsValid` и
-  серверный `Game.MatchMetrics.MatchMetricNames` удалены. Типы хранения и парсер бэкенда стали `internal`.
-- `grep -rn "IMatchMetricsServerStream" backend` - `Event` / `Gauge` после конца lifetime потока бросают: не писать после конца сессии.
-- Парсер отклоняет (`Rejected`) пересекающиеся чанки одного слота и ряд, объявленный в двух слотах.
-
-### Content: встроенные AssetBundles вместо content directory (BREAKING)
-
-Кого касается: клиент, все игры с `Content` / `ExtraContent` в `ProjectSettings/Framework.json`.
-
-Контент теперь - бандлы движка (`com.unity.modules.assetbundle`, зависимость пакета core; без Addressables и UnityWebRequest,
-+~40 KB br к `Build/` против голого плеера). Бандл задаётся ассетом `ContentBundle` (Create > Framework > Content Bundle): корни,
-`IsPreloaded` (в `.data` WebGL), `IsGzip` (WebGL качает `<file>.gz`, распаковывает страница). В бандл входят корни и всё, чего они
-достигают прямыми и ленивыми ссылками, кроме корней других бандлов (на них - зависимость, грузится вместе). Сборка падает на корне
-двух бандлов, на ассете, который нужен двум бандлам напрямую и не назначен ни одному, на ленивой цели двух бандлов без корня, на
-пустой / битой ленивой ссылке. Range, индекс, архив, порядок загрузок (`ContentLoadOrder`, меню Record Load Order) удалены.
-
-Что сделать игре:
-- Секции `Content` и `ExtraContent` из `Framework.json` убрать (с ними редактор бросает исключение) и на каждую директорию создать
-  ассет `ContentBundle` с её `Roots` и `IsPreloaded` (`IsArchiveGzip` -> `IsGzip`; `Fetch` не нужен: бандл всегда качается целиком).
-  Имя ассета = имя бандла.
-- `builder.AddContentDirectory(new ContentOptions(name), registration)` -> `builder.AddContentBundle(name, registration)`;
-  `IContentDirectories` -> `IContentBundles` (`Get` / `Wait` те же). `ContentOptions` без `rangeGap`.
-- Зарегистрированный бандл держится до конца рут-скоупа и не выгружает свои объекты: держать его тонким (только ленивые ссылки), а
-  тяжёлое - корнями отдельных бандлов: они грузятся на лайфтайм загрузки и выгружаются после неё.
-- Сериализованные ссылки переносятся сами (`_guid` / `_localId` остались, `_loadable` / `_id` больше не читаются). `ContentReference`
-  без `Id` и `Loadable`: конструктор `(guid, localId)`, `ContentScene(guid)`; `ContentReferenceFields.SyncObject` / `SyncScene`
-  удалены (`Target` / `TargetScene` вместо них). `IContentBuildStep.BeforeContentBuild()` без параметра.
-- Сервер: файлы `StreamingAssets/Content/<name>.<hash>.bundle[.gz]` как есть, Range не нужен.
-
-Проверка: `grep -rn "AddContentDirectory\|IContentDirectories\|ExtraContent" client/ProjectSettings client/Assets` пусто; сборка
-игры логирует `[ContentBuild] <name>: ...` по каждому бандлу; в `StreamingAssets/Content` только файлы `<name>.<hash>.bundle[.gz]`.
-
-### Content: бандлы собирает Scriptable Build Pipeline
-
-Кого касается: клиент, все игры на content bundles (0.8).
-
-`ContentBundleBuilder` собирает бандлы через `ContentPipeline.BuildAssetBundles` пакета `com.unity.scriptablebuildpipeline` 4.0.1
-(новая зависимость `com.noncasted.framework.core`), а не через `BuildPipeline.BuildAssetBundles`. Тот пишет type trees в бандлы сцен
-при любых опциях, и первая сцена из бандла на телефоне грузилась на ~100 мс дольше. Бандлы сцен стали меньше примерно вдвое, хэши
-всех бандлов один раз меняются.
-
-Проверка: открыть проект (Unity ставит пакет сам), `grep -n scriptablebuildpipeline client/Packages/packages-lock.json`, собрать
-клиент; в логе `[ContentBuild] N asset bundles ... built`. Закоммитить изменённый `packages-lock.json`.
-Проверка: `grep -rn "ContainerGenerator" tools/scripts/*.sh .github/workflows/*.yml`; там, где сборка идёт рядом с Unity на том же
-дереве, добавить свойство.
+- `CINGR001` для сцены без сервисов называет причину: asmdef сцены не ссылается на content-сборку (`FrameworkSettings.ContentAssembly`)
+  или карту ассетов нужно перегенерировать (`Tools/Framework/Codegen/Container Asset Map`).
+- `ScopeArgumentRoot` вызывает корень через `Invoke`: нет `CINGR016` на обобщённой обёртке.
+- Игра без uGUI собирает ядро: модули движка объявлены в пакете, тесты uGUI отдельно.

@@ -154,8 +154,8 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   assembly too. Keys of the game's local storage live in the game (`LocalStorageKeys.Get(name)`).
 - **Project layout for the editor tools.** `ProjectSettings/Framework.json` (`FrameworkSettings`, required: no game
   defaults, `ContentAssembly` and `ContentFolder` must be set): content folder and
-  assembly, module roots, scene folders, art and audio folders, favorite scenes, player assemblies to strip, the content
-  directory (`Content`: `Name`, `Roots`, `IsPreloaded`, `Fetch` `Ranges` / `Whole`, `IsArchiveGzip`; required by a player build only). A game without the settings gets
+  assembly, module roots, scene folders, art and audio folders, favorite scenes, player assemblies to strip (the bundles of the content
+  are `ContentBundle` assets, not settings: a file with `Content` / `ExtraContent` throws). A game without the settings gets
   the error. The live graphs write into `<ContentFolder>/Editor/Transient`: the project ignores `Transient*`
   there in git. Editor assets of the framework are loaded from `FrameworkSettings.Package(...)`.
 - **Screen canvases.** The canvases the framework builds from code (the latency overlay of `network`, the outdated
