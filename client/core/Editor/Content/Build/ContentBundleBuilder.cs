@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Content;
 using UnityEditor.Build.Pipeline;
+using UnityEditor.Build.Pipeline.Interfaces;
 using UnityEngine.Build.Pipeline;
 using UnityEngine;
 
@@ -51,7 +52,11 @@ namespace Internal
                 parameters.ContentBuildFlags |= ContentBuildFlags.DisableWriteTypeTree;
 
             var started = DateTime.Now;
-            var code = ContentPipeline.BuildAssetBundles(parameters, new BundleBuildContent(builds), out var results);
+            ReturnCode code;
+            IBundleBuildResults results;
+
+            using (ContentBuildSelection.Of(target, group))
+                code = ContentPipeline.BuildAssetBundles(parameters, new BundleBuildContent(builds), out results);
 
             if (code < ReturnCode.Success)
                 throw new BuildFailedException($"[ContentBuild] The content bundles were not built into {output}: {code} (the reason is in the log above)");
