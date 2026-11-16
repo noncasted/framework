@@ -10,6 +10,7 @@
     "com.unity.nuget.newtonsoft-json": "3.2.2",
     "com.unity.render-pipelines.core": "file:../../packages/com.unity.render-pipelines.core",
     "com.unity.render-pipelines.universal": "file:../../packages/com.unity.render-pipelines.universal",
+    "com.unity.scriptablebuildpipeline": "4.0.1",
     "com.unity.sdk.linux-x86_64": "1.1.1",
     "com.unity.test-framework": "1.9.0",
     "com.unity.toolchain.linux-x86_64-linux": "1.1.1",

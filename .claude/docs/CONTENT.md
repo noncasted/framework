@@ -110,9 +110,12 @@ var icon = _content.LoadNow(lifetime, reference);                         // the
 
 1. calls every `IContentBuildStep` (the `ContentRoot` generator);
 2. lays out every `ContentBundle` of the project and checks it (`ContentBundleLayout`, above);
-3. builds them with `BuildPipeline.BuildAssetBundles` into `Temp/ContentBundles/<target>` (LZ4 by chunks, strict mode, no load by file
-   name, no type trees: about a third of the bytes, safe because the bundles are built with every player; the editor loads no bundle
-   without them, so the tests keep them). Not `Library`: the engine refuses it. Kept between the builds of one editor session;
+3. builds them with the Scriptable Build Pipeline (`ContentPipeline.BuildAssetBundles`, package `com.unity.scriptablebuildpipeline`,
+   a dependency of the core) into `Temp/ContentBundles/<target>` (LZ4 by chunks, no type trees: about a third of the bytes, safe
+   because the bundles are built with every player; the editor loads no bundle without them, so the tests keep them). Its cache
+   (`Library/BuildCache`) builds again only what changed. Not `BuildPipeline.BuildAssetBundles`: it writes the type trees into
+   every scene bundle whatever the options, and the player then checks each type against them and compiles that code of the wasm
+   on the first scene (+100 ms on the menu scene of the autobattler on a phone, `docs/STARTUP_OPTIMIZATION.md` there);
 4. ships the files under the names of the build into `Library/ContentShipped` (`ContentShipment`): as they are, a fetched `IsGzip`
    bundle of WebGL as `<file>.gz` alone (gzip at the smallest size);
 5. writes the catalog into `Assets/FrameworkContentStamp/Resources/Content/catalog.json` (deleted after the build) and, for the
@@ -120,7 +123,7 @@ var icon = _content.LoadNow(lifetime, reference);                         // the
    (`Library/PlayerDataCache/WebGLPreloadedStreamingAssets/framework-content.manifest`);
 6. writes `Library/ContentBundles.link.xml`, the types of every object of the bundles (`ContentLinkXml`, `preserve="nothing"`), and gives
    it to the linker (`ContentLinkerProcessor`, an `IUnityLinkerProcessor`): a type only a bundle uses (a collider of a level, a
-   component of a prefab) is not stripped, the engine keeps its native class. `BuildAssetBundles` writes no build report for
+   component of a prefab) is not stripped, the engine keeps its native class. The bundle build writes no build report for
    `AddPreviousBuildReportDirectory`, and `BuildPlayerContext.BuildPlayerOptions` (`assetBundleManifestPath`) is read only;
 7. gives the shipped folder to the player as `StreamingAssets/Content` (`AddAdditionalPathToStreamingAssets`, nothing in `Assets`);
    a preloaded bundle of WebGL is in the `.data` file instead.

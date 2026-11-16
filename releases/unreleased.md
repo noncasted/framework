@@ -355,3 +355,15 @@ uGUI / TMP / inputs), инспекторы - в `Internal.Layout.Editor`, тес
 
 Проверка: `grep -rn "AddContentDirectory\|IContentDirectories\|ExtraContent" client/ProjectSettings client/Assets` пусто; сборка
 игры логирует `[ContentBuild] <name>: ...` по каждому бандлу; в `StreamingAssets/Content` только файлы `<name>.<hash>.bundle[.gz]`.
+
+### Content: бандлы собирает Scriptable Build Pipeline
+
+Кого касается: клиент, все игры на content bundles (0.8).
+
+`ContentBundleBuilder` собирает бандлы через `ContentPipeline.BuildAssetBundles` пакета `com.unity.scriptablebuildpipeline` 4.0.1
+(новая зависимость `com.noncasted.framework.core`), а не через `BuildPipeline.BuildAssetBundles`. Тот пишет type trees в бандлы сцен
+при любых опциях, и первая сцена из бандла на телефоне грузилась на ~100 мс дольше. Бандлы сцен стали меньше примерно вдвое, хэши
+всех бандлов один раз меняются.
+
+Проверка: открыть проект (Unity ставит пакет сам), `grep -n scriptablebuildpipeline client/Packages/packages-lock.json`, собрать
+клиент; в логе `[ContentBuild] N asset bundles ... built`. Закоммитить изменённый `packages-lock.json`.

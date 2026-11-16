@@ -159,6 +159,16 @@
         "com.unity.render-pipelines.core": "17.7.0"
       }
     },
+    "com.unity.scriptablebuildpipeline": {
+      "version": "4.0.1",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.test-framework": "1.4.5",
+        "com.unity.modules.assetbundle": "1.0.0"
+      },
+      "url": "https://packages.unity.com"
+    },
     "com.unity.sdk.linux-x86_64": {
       "version": "1.1.1",
       "depth": 0,
