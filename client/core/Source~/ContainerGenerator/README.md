@@ -18,6 +18,10 @@ dotnet build client/core/Source~/ContainerGenerator/ContainerGenerator.csproj -c
 
 The `CopyToAnalyzers` post-build target copies `ContainerGenerator.dll` into
 `client/core/Analyzers/`; every Unity project using the framework picks it up on the next script compile. Do not copy `Microsoft.CodeAnalysis*.dll` next to it.
+`-p:SkipAnalyzersCopy=true` (also for `dotnet run` of the harness, which builds the generator) builds without the copy:
+a check next to a Unity that tests the same tree must use it. A new analyzer under a running batchmode test run requests a
+script compilation; while it is pending `EditorApplication.isCompiling` stays true, the UniTask loop of the editor stops
+and every test that awaits a frame or a timeout ends only by the 180 s timeout of the test framework.
 
 Pin is `Microsoft.CodeAnalysis.CSharp` **4.3.0** (Unity-compatible 4.x), target `netstandard2.0`.
 

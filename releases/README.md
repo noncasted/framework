@@ -14,7 +14,7 @@
 | [0.5.0](0.5.0.md) | 2026-11-06 | Модули `resolution` и `framerate`, `Internal.TestTools`, пакеты бэкенда, WebRTC с каналами и `PeerMesh`, спрайты из модулей, `audit-swarm` | Да: модули из pixel-swarm, `Aspire.AppHost.Sdk`, `InjectGameObject` |
 | [0.5.1](0.5.1.md) | 2026-11-07 | `deploy-client`: аргумент `--platforms=` | Нет |
 | [0.6.0](0.6.0.md) | 2026-11-09 | Консоль: онлайн по уникальным пользователям, Home без инфраструктурных карточек; попытки подключения к Postgres; offer пира в `PeerMesh`; хуки `deploy-client` | Да: `HomeInfrastructureSection` -> `HomeClusterSection`, `AddOnlineTracker`, `OnlineWidget`, тесты состояний |
-| [0.7.0](0.7.0.md) | 2026-11-09 | Release candidate `v0.7.0-rc.6`: content directory вместо Addressables, в вебе архив с Range-загрузками (параллельно, мимо HTTP-кэша, порядок записанных загрузок), индекс отдельным файлом и очередь загрузок (`IContentLoader`, `ContentReference<T>`, `ContentScene`, `ContentRoot`), форк Addressables удалён | Да: `Framework.json` `Content`, `AddContent`, ссылки, удаление Addressables, шаблоны WebGL и nginx (Range `.archive`, `.br` индекса), `brotli`, `jq`; по желанию — запись порядка загрузок |
+| [0.7.0](0.7.0.md) | 2026-11-15 | Аудит бэкенда: контракт соединения, `Reserve` с причиной, состояния кластера через методы, метры у фич, `AddConsoleInfrastructure`; модуль `match-metrics`; окно реконнекта хоста; Regenerate All с валидатором | Да: шлюзы и `Closed`, `Reserve`, `OperationProgress`, `ServiceDefaults`, `RequeueStuck`, консоль, тесты бэкенда, bindings |
 
 ## Версии
 

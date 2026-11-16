@@ -3,14 +3,16 @@
 Шаги для игр из коммитов после последнего тега, формат в [README](README.md). Новый шаг дописывается в конец в том же коммите, что
 и изменение. При релизе шаги переходят в `<версия>.md`, здесь остаётся только этот заголовок.
 
-### Bindings: класс уже сгенерирован в другой папке
+### ContainerGenerator: сборка без копии в Analyzers
 
-Кого касается: клиент, игры с префабами или сценами, чьи `*Bindings.g.cs` лежат не в `Generated` той сборки, куда их сейчас
-определяет генератор (префаб перенесён в папку другой сборки, файл bindings перенесён руками).
+Кого касается: игры, чей скрипт тестов собирает `ContainerGenerator` в Release (или запускает `ContainerGenerator.Verify` в
+Release) в том же дереве, где в это время идут тесты Unity.
 
-Раньше генератор молча писал второй файл того же класса (CS0101 / два класса с одним именем), теперь отказывает с ошибкой
-`... is already generated into <файл>, and this object resolves to <новый путь>`, а Regenerate All падает с
-`N bindings failed to regenerate`.
+Release-сборка копирует `ContainerGenerator.dll` в `client/core/Analyzers`. Если это происходит во время batchmode-прогона
+EditMode, Unity запрашивает компиляцию скриптов, которая не может пройти до конца прогона; пока она висит,
+`EditorApplication.isCompiling == true`, цикл UniTask в редакторе стоит, и каждый тест, который ждёт кадр или таймаут, заканчивается
+только по таймауту тест-фреймворка (180 с). Новое свойство `-p:SkipAnalyzersCopy=true` (для `dotnet run` -
+`--property:SkipAnalyzersCopy=true`) собирает без копии; без него поведение прежнее.
 
 Проверка: `Tools/Framework/Codegen/Regenerate All` (`-executeMethod Internal.RegenerateAll.Run`), затем
 `grep -n "is already generated into" client/Logs/*.log` (или лог редактора). На каждую строку: вернуть ассет под сборку файла
@@ -367,3 +369,5 @@ uGUI / TMP / inputs), инспекторы - в `Internal.Layout.Editor`, тес
 
 Проверка: открыть проект (Unity ставит пакет сам), `grep -n scriptablebuildpipeline client/Packages/packages-lock.json`, собрать
 клиент; в логе `[ContentBuild] N asset bundles ... built`. Закоммитить изменённый `packages-lock.json`.
+Проверка: `grep -rn "ContainerGenerator" tools/scripts/*.sh .github/workflows/*.yml`; там, где сборка идёт рядом с Unity на том же
+дереве, добавить свойство.
