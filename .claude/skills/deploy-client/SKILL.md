@@ -86,7 +86,8 @@ A full run takes several minutes (the longest build plus the uploads). Environme
 The `checks <t>` stage (`tools/scripts/deploy-client/verify.sh`) also checks the content bundles of the build (the
 `ContentBundle` assets, `CONTENT.md`): `Library/ContentShipped` of the copy written by this run, every file of it in
 `StreamingAssets/Content` of the output exactly as shipped or preloaded into the `.data`, named by the catalog inside the
-`.data` (unpacked with `brotli`, which must be installed: without it the check fails), each a bundle (`UnityFS`, a `.gz`
+`.data` (unpacked with `brotli`, which must be installed: without it the check fails; the catalog is in `data.unity3d`, a UnityFS
+archive of LZ4 blocks, which `deploy-client/webdata.py` unpacks for the search), each a bundle (`UnityFS`, a `.gz`
 unpacking into one), no file of another build next to them. Its detail is `content N bundle files (P preloaded, B bytes
 shipped)`. A failure here is a broken build: report it, do not upload by hand.
 

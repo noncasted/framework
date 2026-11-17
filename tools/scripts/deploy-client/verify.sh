@@ -72,11 +72,18 @@ content_check() {
         return
     fi
 
-    # The .data file once, unpacked: the catalog (Resources) names every file, the preloaded ones are in it.
+    # The .data file once, unpacked: the catalog (Resources) names every file, the preloaded ones are in it. Resources
+    # are in data.unity3d, a UnityFS archive of LZ4 blocks inside the .data: webdata.py unpacks it for the search.
     data="$(find "$output/Build" -maxdepth 1 -name '*.data.br' 2>/dev/null | head -1)"
     [[ -n "$data" ]] || return # reported by the payload check
     text="$(mktemp)"
-    brotli -dc "$data" > "$text"
+    brotli -dc "$data" > "$text.data"
+    if ! python3 -I "$LIB/webdata.py" "$text.data" "$text"; then
+        failures+=("the .data file could not be unpacked by webdata.py")
+        rm -f "$text" "$text.data"
+        return
+    fi
+    rm -f "$text.data"
 
     streaming="$output/StreamingAssets/Content"
     for file in "$shipped"/*; do
