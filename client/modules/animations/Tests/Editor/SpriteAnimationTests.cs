@@ -95,6 +95,21 @@ namespace Internal.Tests
             newer.Terminate();
         }
 
+        // Four frames of 0.25 s: 0.1 s in - frame 0; one long delta of 2 s jumps over the last frame - it is drawn anyway.
+        [Test]
+        public void PlayAsync_LongDeltaPastEnd_EndsOnLastFrame()
+        {
+            var (animation, renderer, frames, lifetime) = Create(4);
+
+            animation.PlayAwaited(lifetime, 1f).Forget();
+            animation.OnUpdate(0.1f);
+            animation.OnUpdate(2f);
+
+            Assert.IsFalse(animation.IsPlaying);
+            Assert.AreSame(frames[3], renderer.Sprite, "the animation ended before its last frame");
+            lifetime.Terminate();
+        }
+
         [Test]
         public void Play_DrawsFirstFrameAtOnce()
         {

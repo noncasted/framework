@@ -57,8 +57,12 @@ namespace Internal
                 if (_index < _frameProvider.FrameCount)
                     continue;
 
+                // A long delta may jump over the last frame: the animation still ends on it.
                 if (isLooped == false)
+                {
+                    _renderer.SetSprite(_frameProvider.GetFrame(_frameProvider.FrameCount - 1));
                     return true;
+                }
 
                 _index = 0;
             }
