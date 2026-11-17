@@ -65,6 +65,7 @@ namespace Internal
             }
 
             load.Finish($"Content: scene {loaded.Scene.name}");
+            span.SetName($"Content: scene {loaded.Scene.name}");
 
             if (lifetime.IsTerminated)
             {

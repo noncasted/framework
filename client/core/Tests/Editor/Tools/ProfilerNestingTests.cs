@@ -63,6 +63,28 @@ namespace Internal.Tests
             AssertParent(trace, "Inner", "Load");
         }
 
+        // A background branch is a root of its own; what it measures under its ambient nests into it, the late records keep
+        // their stage.
+        [Test]
+        public void Background_IsARoot_OffTheStackAndNotAStage()
+        {
+            using var stage = GameProfiler.Stage("Meta");
+            var branch = GameProfiler.Background("Music");
+
+            using (GameProfiler.Ambient(branch))
+                GameProfiler.Concurrent("Bundle").Dispose();
+
+            GameProfiler.Scope("Inner").Dispose();
+            branch.Dispose();
+            GameProfiler.Scope("Late").Dispose();
+
+            var trace = Finish();
+            Assert.AreEqual(-1, Span(trace, "Music").ParentId);
+            AssertParent(trace, "Bundle", "Music");
+            AssertParent(trace, "Inner", "Meta");
+            AssertParent(trace, "Late", "Meta");
+        }
+
         // Every stage is a root, wherever the main chain is.
         [Test]
         public void Stage_IsARootEvenInsideAnotherStage()

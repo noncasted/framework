@@ -130,6 +130,22 @@ namespace Internal
             return scope;
         }
 
+        /// <summary>
+        /// A branch nothing waits for (a load that is used when it is ready): a root of the trace of its own, not a stage and
+        /// not on the stack, so it neither holds a stage open in the trace nor takes the late records. What it measures after
+        /// its synchronous part is created inside <see cref="Ambient"/> of it.
+        /// </summary>
+        public static IProfilerScope Background(string name)
+        {
+            if (Current == null)
+                return NullProfilerScope.Instance;
+
+            var scope = Current.CreateScope(name);
+            scope.Start();
+
+            return scope;
+        }
+
         private static IProfilerScope CurrentParent => _stack.Count > 0 ? _stack[^1] : _stage;
 
         private static IProfilerScope Create(string name, IProfilerScope parent)

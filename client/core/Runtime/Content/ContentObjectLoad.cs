@@ -101,7 +101,9 @@ namespace Internal
                 return;
             }
 
+            // The name of the asset is known only now: the span started under the type.
             load.Finish($"Content: {target.name}");
+            span.SetName($"Content: {target.name}");
 
             // Every holder ended during the load: End has let the bundle go.
             if (_phase == ContentLoadPhase.Over)
