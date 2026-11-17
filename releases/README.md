@@ -18,6 +18,7 @@
 | [0.8.0](0.8.0.md) | 2026-11-16 | Контент на AssetBundles движка вместо Addressables (`ContentBundle`, `IContentLoader`, `ContentReference` / `ContentScene`); ядро без uGUI и `Framework.Shared`; телеметрия по HTTP; пакет `layout`; `CINGR017` | Да: контент и манифест, asmdef `Internal.UGUI` / `Internal.Layout` / `Internal.Telemetry.Socket`, шаблоны WebGL и nginx, `brotli` |
 | [0.9.0](0.9.0.md) | 2026-11-17 | Контент: бандлы вне сборки (`build.Exclude`), общие бандлы игры (`IContentSharedBundles`), ошибка грязной сцены; `moves` в `update-override-packages` | Да: `BeforeContentBuild(ContentBuildContext)`, свой синк общих бандлов -> `IContentSharedBundles` |
 | [0.9.1](0.9.1.md) | 2026-11-17 | `deploy-client`: проверка контента читает каталог из распакованного `data.unity3d` | Нет |
+| [0.9.2](0.9.2.md) | 2026-11-17 | Раскладка контента: ассет, нужный ассетам и сценам одного бандла и другому бандлу, - дубль, а не скрытая зависимость от бандла со сценами | Да: пересинк общих бандлов, снять ручные корни preloaded-бандла |
 
 ## Версии
 
