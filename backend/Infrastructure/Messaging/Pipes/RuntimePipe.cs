@@ -68,9 +68,11 @@ public class RuntimePipe : Grain, IRuntimePipe
         if (observer == null || observerId == null)
             return false;
 
+        var ping = observer.Ping();
+
         try
         {
-            await observer.Ping().WaitAsync(LivenessCheckTimeout);
+            await ping.WaitAsync(LivenessCheckTimeout);
             return true;
         }
         catch (TimeoutException e)
@@ -78,6 +80,10 @@ public class RuntimePipe : Grain, IRuntimePipe
             // The ping of an observer busy with a request waits behind it: slow is not dead, the observer stays.
             _logger.LogWarning(e,
                 "[Messaging] [RuntimePipe] Observer {ObserverId} on pipe {PipeId} did not answer the liveness check in time",
+                observerId, this.GetPrimaryKeyString());
+
+            LateTasks.Observe(ping, _logger,
+                "[Messaging] [RuntimePipe] A timed out liveness check of observer {ObserverId} on pipe {PipeId} failed later",
                 observerId, this.GetPrimaryKeyString());
             return false;
         }
@@ -118,10 +124,12 @@ public class RuntimePipe : Grain, IRuntimePipe
             throw new InvalidOperationException($"{NoObserverPrefix} for pipe {pipeId}");
         }
 
+        var request = observer.Send<TResponse>(message);
+
         try
         {
             var timeout = TimeSpan.FromSeconds(_config.Value.SendTimeoutSeconds);
-            var response = await observer.Send<TResponse>(message).WaitAsync(timeout);
+            var response = await request.WaitAsync(timeout);
 
             _logger.LogTrace(
                 "[Messaging] [RuntimePipe] Successfully received response {ResponseType} for message {MessageType} on pipe {PipeId} from observer {ObserverId}",
@@ -136,6 +144,10 @@ public class RuntimePipe : Grain, IRuntimePipe
 
             _logger.LogError(ex,
                 "[Messaging] [RuntimePipe] Timed out processing request-response message {MessageType} on pipe {PipeId} with observer {ObserverId}",
+                message.GetType().Name, pipeId, observerId);
+
+            LateTasks.Observe(request, _logger,
+                "[Messaging] [RuntimePipe] A timed out request {MessageType} on pipe {PipeId} failed later in observer {ObserverId}",
                 message.GetType().Name, pipeId, observerId);
             throw;
         }

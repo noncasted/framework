@@ -24,7 +24,7 @@ internal class SideEffectsMonitorQueries
                 (SELECT COUNT(*)::int FROM side_effects_queue) AS queue_count,
                 (SELECT COUNT(*)::int FROM side_effects_processing) AS processing_count,
                 (SELECT COUNT(*)::int FROM side_effects_retry_queue) AS retry_count,
-                (SELECT COUNT(*)::int FROM {DbLookup.SE_DeadLetter}) AS dead_letter_count
+                (SELECT COUNT(*)::int FROM {SideEffectTables.DeadLetter}) AS dead_letter_count
         ";
 
         await using var reader = await command.ExecuteReaderAsync();

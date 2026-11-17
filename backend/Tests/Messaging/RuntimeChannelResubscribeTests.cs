@@ -74,7 +74,7 @@ public class RuntimeChannelResubscribeTests
         for (var i = 1; i <= 3; i++)
             await messaging.PublishChannel(channelId, new TestMessage { Text = $"old-{i}" });
 
-        await TestWait.Until(() => Count(received) == 3);
+        await TestWait.Until(() => received.LockedCount() == 3);
 
         // A new activation numbers its messages from 1 again: the listener has seen up to 3.
         await channel.Cast<IGrainManagementExtension>().DeactivateOnIdle();
@@ -85,7 +85,7 @@ public class RuntimeChannelResubscribeTests
 
         await listener.Resubscribe();
 
-        await TestWait.Until(() => Count(received) == 6);
+        await TestWait.Until(() => received.LockedCount() == 6);
 
         lock (received)
             received.Should().Equal("old-1", "old-2", "old-3", "new-1", "new-2", "new-3");
@@ -173,7 +173,7 @@ public class RuntimeChannelResubscribeTests
         gaps.Should().Be(0);
 
         await GetSiloService<IMessaging>().PublishChannel(channelId, new TestMessage { Text = "new" });
-        await TestWait.Until(() => Count(received) == 1);
+        await TestWait.Until(() => received.LockedCount() == 1);
 
         lock (received)
             received.Should().Equal("new");
@@ -210,6 +210,99 @@ public class RuntimeChannelResubscribeTests
         listener.Cleanup();
     }
 
+    // The handler fails on a message of the catch-up: the rest of the catch-up is dropped, so nothing after it may be
+    // taken before the next catch-up replays it, or the last seen sequence skips the dropped ones without a gap.
+    [Fact]
+    public async Task CatchUpHandlerFailed_LaterMessage_DroppedMessagesReplayed()
+    {
+        var (listener, published, received) = CreateFailingOnce("b");
+        var epoch = Guid.NewGuid();
+
+        await listener.Resubscribe();
+        await listener.ObserverSource.Send(Publish(published, epoch, "a"));
+        Publish(published, epoch, "b");
+        Publish(published, epoch, "c");
+
+        var failedCatchUp = await Record.ExceptionAsync(() => listener.Resubscribe());
+        failedCatchUp.Should().BeOfType<AggregateException>("the only handler failed");
+
+        await Record.ExceptionAsync(() => listener.ObserverSource.Send(Publish(published, epoch, "d")));
+        await listener.Resubscribe();
+
+        received.Should().Equal("a", "b", "c", "d");
+    }
+
+    [Fact]
+    public async Task CatchUpHandlerFailed_BufferedMessage_DroppedMessagesReplayed()
+    {
+        var (listener, published, received) = CreateFailingOnce("b");
+        var epoch = Guid.NewGuid();
+
+        await listener.Resubscribe();
+        await listener.ObserverSource.Send(Publish(published, epoch, "a"));
+        Publish(published, epoch, "b");
+        Publish(published, epoch, "c");
+
+        // A message of the channel comes while the resubscribe binds: it waits in the buffer of the observer.
+        var bind = new TaskCompletionSource<ChannelPosition>();
+        listener.Channel.AddObserver(default, default!).ReturnsForAnyArgs(bind.Task);
+        var failing = listener.Resubscribe();
+        await listener.ObserverSource.Send(Publish(published, epoch, "d"));
+        bind.SetResult(new ChannelPosition { Epoch = epoch });
+
+        (await Record.ExceptionAsync(() => failing)).Should().BeOfType<AggregateException>("the only handler failed");
+
+        listener.Channel.AddObserver(default, default!).ReturnsForAnyArgs(new ChannelPosition { Epoch = epoch });
+        await listener.Resubscribe();
+
+        received.Should().Equal("a", "b", "c", "d");
+    }
+
+    private static (RuntimeChannelClient.Listener Listener, List<SequencedMessage> Published, List<string> Received)
+        CreateFailingOnce(string failing)
+    {
+        var published = new List<SequencedMessage>();
+        var received = new List<string>();
+        var channel = Substitute.For<IRuntimeChannel>();
+
+        channel.AddObserver(default, default!).ReturnsForAnyArgs(_ => new ChannelPosition
+        {
+            Epoch = published.Count == 0 ? Guid.Empty : published[0].Epoch,
+            Sequence = published.Count
+        });
+
+        channel.CatchUp(default).ReturnsForAnyArgs(call => new CatchUpResult
+        {
+            Messages = published.Where(m => m.Sequence > call.Arg<long>()).ToArray(),
+            CurrentSequence = published.Count,
+            Epoch = published[0].Epoch
+        });
+
+        var listener = new RuntimeChannelClient.Listener(new RuntimeChannelId("catch-up-failure"), channel,
+            Substitute.For<IOrleans>(), NullLogger.Instance, new RuntimeChannelOptions());
+        var failed = false;
+
+        listener.AddHandler(message => {
+            if ((string)message == failing && failed == false)
+            {
+                failed = true;
+                throw new InvalidOperationException($"the first delivery of {failing} fails");
+            }
+
+            received.Add((string)message);
+            return Task.CompletedTask;
+        }, null);
+
+        return (listener, published, received);
+    }
+
+    private static SequencedMessage Publish(List<SequencedMessage> published, Guid epoch, string payload)
+    {
+        var message = new SequencedMessage { Sequence = published.Count + 1, Payload = payload, Epoch = epoch };
+        published.Add(message);
+        return message;
+    }
+
     private (TestChannelId Id, IRuntimeChannel Channel, RuntimeChannelClient.Listener Listener) CreateListener()
     {
         var channelId = new TestChannelId(Guid.NewGuid().ToString());
@@ -217,11 +310,5 @@ public class RuntimeChannelResubscribeTests
 
         return (channelId, channel, new RuntimeChannelClient.Listener(channelId, channel,
             GetSiloService<IOrleans>(), NullLogger.Instance, new RuntimeChannelOptions()));
-    }
-
-    private static int Count(List<string> received)
-    {
-        lock (received)
-            return received.Count;
     }
 }

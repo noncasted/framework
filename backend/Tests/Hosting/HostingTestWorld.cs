@@ -7,6 +7,7 @@ using FluentAssertions;
 using Framework.Tests.Fixtures;
 using Framework.Tests.Session;
 using Game.Hosting;
+using Game.Hosting.Collection;
 using Game.Lobbies;
 using Game.Session;
 using Internal;
@@ -40,11 +41,11 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
             Url = ServerUrl
         };
 
-        Servers.Add(ServerId, Self);
+        _servers.Add(ServerId, Self);
 
         Discovery = Substitute.For<IServiceDiscovery>();
         Discovery.Self.Returns(Self);
-        Discovery.Entries.Returns(Servers);
+        Discovery.Entries.Returns(_servers);
 
         Collection = new SessionsCollection(
             Substitute.For<IServiceSlicedState<LiveSessionsData, List<LiveSessionEntry>>>(),
@@ -78,8 +79,6 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     public readonly Guid ServerId = Guid.NewGuid();
     public readonly GameServerOverview Self;
 
-    // What the service discovery knows (the meta reads it): this server, until a test removes it.
-    public readonly Dictionary<Guid, IServiceOverview> Servers = new();
     public readonly IServiceDiscovery Discovery;
     public readonly LobbyOptions Options;
     public readonly SessionsCollection Collection;
@@ -87,7 +86,10 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     public readonly LobbyCodeLeases Leases;
     public readonly TestLobbyEntryPolicy EntryPolicy = new();
     public readonly LobbySessions Lobbies;
-    public readonly Dictionary<Guid, TestSession> Sessions = new();
+
+    // What the service discovery knows (the meta reads it): this server, until a test removes it.
+    private readonly Dictionary<Guid, IServiceOverview> _servers = new();
+    private readonly Dictionary<Guid, TestSession> _sessions = new();
 
     // Not null: the lobby factory of the game fails with it.
     private Exception? _lobbyCreationFailure;
@@ -97,6 +99,22 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     public Guid MatchLeaderId { get; private set; }
 
     public string WebSocketUrl => ServerUrl.ServerUrlToWebSocket();
+
+    // A copy: the sessions are added from the queues of the sessions too.
+    public IReadOnlyDictionary<Guid, TestSession> Sessions
+    {
+        get
+        {
+            lock (_sessions)
+                return new Dictionary<Guid, TestSession>(_sessions);
+        }
+    }
+
+    // The game server leaves the service discovery: the meta knows no server.
+    public void RemoveServers()
+    {
+        _servers.Clear();
+    }
 
     // The place check of the gateway path (after the ticket): null is the refusal.
     public IUser? Enter(Guid sessionId, Guid userId)
@@ -113,18 +131,12 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
         session.Leave(user);
     }
 
-    // The socket is lost without a leave.
-    public void LoseConnection(TestSession session, IUser user)
-    {
-        session.Lose(user);
-    }
-
     public void DrainAll()
     {
         List<TestSession> sessions;
 
-        lock (Sessions)
-            sessions = Sessions.Values.ToList();
+        lock (_sessions)
+            sessions = _sessions.Values.ToList();
 
         foreach (var session in sessions)
             session.Queue.Drain();
@@ -297,8 +309,8 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     {
         var session = new TestSession(options, configure);
 
-        lock (Sessions)
-            Sessions.Add(session.Session.Id, session);
+        lock (_sessions)
+            _sessions.Add(session.Session.Id, session);
 
         Collection.Add(session.Session);
         var created = session.Queue.SetupServices(session.ServiceFactory);
@@ -307,302 +319,5 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
         session.Run();
 
         return session;
-    }
-}
-
-// When a running match lets a late player in: the tests switch it.
-public class TestLobbyEntryPolicy : ILobbyEntryPolicy
-{
-    // The matches that have ended (NotFound for their late players).
-    public readonly HashSet<Guid> OverMatches = new();
-
-    // False: no running match can be entered now (Started).
-    private bool _canEnter = true;
-
-    public void SetCanEnter(bool canEnter)
-    {
-        _canEnter = canEnter;
-    }
-
-    public bool IsMatchOver(Guid matchSessionId)
-    {
-        lock (OverMatches)
-            return OverMatches.Contains(matchSessionId);
-    }
-
-    public bool CanEnterMatchNow(Guid matchSessionId)
-    {
-        return _canEnter;
-    }
-}
-
-public static class HostingTestSessionExtensions
-{
-    // The lobby service of a lobby session.
-    public static LobbyService LobbyService(this TestSession session)
-    {
-        return session.Provider.GetServices<IService>().OfType<LobbyService>().Single();
-    }
-
-    // The listing service of a match started by a lobby; null for any other session.
-    public static MatchListingService? MatchListing(this TestSession session)
-    {
-        return session.Provider.GetServices<IService>().OfType<MatchListingService>().SingleOrDefault();
-    }
-
-    public static LobbySessionInfo LobbyInfo(this TestSession session)
-    {
-        return session.Provider.GetRequiredService<LobbySessionInfo>();
-    }
-
-    // A join by the code of a lobby that has not started its match (what the meta sends then).
-    public static LobbyJoinStatus JoinLobby(this LobbySessions lobbies, Guid sessionId, Guid userId)
-    {
-        return lobbies.Join(sessionId, Guid.Empty, string.Empty, userId).Status;
-    }
-
-    public static T Read<T>(this IService service, int propertyId)
-    {
-        return MemoryPackSerializer.Deserialize<T>(service.Properties[propertyId].RawValue)!;
-    }
-}
-
-// The registry grain without the cluster: same rules (LobbyRegistry), one dictionary.
-public class FakeLobbyCodes : ILobbyCodes
-{
-    public readonly Dictionary<string, LobbyRegistryEntry> Entries = new();
-
-    // Null: real random codes.
-    private Func<string>? _generator;
-
-    // Not null: the registry answers MarkStarted only when the gate is completed (a slow grain call).
-    public TaskCompletionSource? MarkStartedGate { get; private set; }
-
-    // Every registry call in the order the registry got them: "Mark CODE", "Listing CODE", "Release CODE".
-    public readonly List<string> Calls = new();
-
-    public void SetGenerator(Func<string> generator)
-    {
-        _generator = generator;
-    }
-
-    public void HoldMarkStarted(TaskCompletionSource gate)
-    {
-        MarkStartedGate = gate;
-    }
-
-    public Task UpdateListing(string code, Guid sessionId, LobbyListing listing)
-    {
-        lock (Entries)
-        {
-            if (Entries.TryGetValue(code, out var entry) == false || entry.SessionId != sessionId)
-                throw new InvalidOperationException($"Lobby code {code} is not held by session {sessionId}");
-
-            entry.UpdateListing(listing);
-            Calls.Add($"Listing {code}");
-            return Task.CompletedTask;
-        }
-    }
-
-    public Task<OpenLobbies> GetOpenLobbies()
-    {
-        lock (Entries)
-        {
-            var lobbies = new OpenLobbies();
-
-            foreach (var (code, entry) in Entries)
-            {
-                if (entry.Listing.IsListed == true)
-                {
-                    lobbies.Entries.Add(new OpenLobby
-                    {
-                        Code = code,
-                        ServerId = entry.ServerId,
-                        Listing = entry.Listing
-                    });
-                }
-            }
-
-            return Task.FromResult(lobbies);
-        }
-    }
-
-    // The open lobby of the code, null if it is not listed.
-    public LobbyListing? FindListed(string code)
-    {
-        lock (Entries)
-        {
-            if (Entries.TryGetValue(code, out var entry) == false || entry.Listing.IsListed == false)
-                return null;
-
-            return entry.Listing;
-        }
-    }
-
-    public Task<string> Register(Guid serverId, Guid sessionId)
-    {
-        lock (Entries)
-        {
-            var code = LobbyCodeGenerator.GenerateUnique(Entries.ContainsKey, _generator ?? LobbyCodeGenerator.Generate);
-
-            Entries.Add(code, new LobbyRegistryEntry
-            {
-                ServerId = serverId,
-                SessionId = sessionId
-            });
-
-            return Task.FromResult(code);
-        }
-    }
-
-    public Task<LobbyRegistryEntry?> Find(string code)
-    {
-        lock (Entries)
-            return Task.FromResult(Entries.GetValueOrDefault(code));
-    }
-
-    public async Task MarkStarted(string code, Guid sessionId, Guid matchSessionId)
-    {
-        if (MarkStartedGate != null)
-            await MarkStartedGate.Task;
-
-        lock (Entries)
-        {
-            if (Entries.TryGetValue(code, out var entry) == false || entry.SessionId != sessionId)
-                throw new InvalidOperationException($"Lobby code {code} is not held by session {sessionId}");
-
-            if (entry.MatchSessionId != Guid.Empty)
-                throw new InvalidOperationException($"Lobby code {code} is already marked as started");
-
-            entry.MarkStarted(matchSessionId);
-            Calls.Add($"Mark {code}");
-        }
-    }
-
-    public Task Release(string code, Guid sessionId)
-    {
-        lock (Entries)
-        {
-            if (Entries.TryGetValue(code, out var entry) == false || entry.SessionId != sessionId)
-                throw new InvalidOperationException($"Lobby code {code} is not held by session {sessionId}");
-
-            Entries.Remove(code);
-            Calls.Add($"Release {code}");
-            return Task.CompletedTask;
-        }
-    }
-}
-
-// A lobby session of HostingTestWorld with its users connected: the start of the lobby is driven the way the client
-// of the leader and the clock of the server do it.
-public class TestLobby
-{
-    private TestLobby(HostingTestWorld world, TestSession session, IReadOnlyList<IUser> users)
-    {
-        World = world;
-        Session = session;
-        Users = users;
-    }
-
-    public readonly HostingTestWorld World;
-    public readonly TestSession Session;
-
-    // The creator (the leader) first, then the guests in the order they entered.
-    public readonly IReadOnlyList<IUser> Users;
-
-    public LobbyService Service => Session.LobbyService();
-    public LobbyState State => Service.Read<LobbyState>(SharedLobbyService.LobbyPropertyId);
-    public LobbyStartState Start => Service.Read<LobbyStartState>(SharedLobbyService.StartPropertyId);
-    public LobbyCountdownState Countdown => Service.Read<LobbyCountdownState>(SharedLobbyService.CountdownPropertyId);
-    public LobbyGameState Game => Service.Read<LobbyGameState>(SharedLobbyService.GamePropertyId);
-    public string Code => State.Code;
-
-    public static Task<TestLobby> Create(int guests)
-    {
-        return Create(new HostingTestWorld(), guests);
-    }
-
-    public static async Task<TestLobby> Create(HostingTestWorld world, int guests)
-    {
-        var creator = Guid.NewGuid();
-
-        var created = await world.Lobbies.Create(creator);
-        var users = new List<IUser> { world.Enter(created.SessionId, creator)! };
-
-        for (var i = 0; i < guests; i++)
-        {
-            var guest = Guid.NewGuid();
-
-            world.Lobbies.Join(created.SessionId, Guid.Empty, created.Code, guest).Status.Should().Be(LobbyJoinStatus.Ok);
-            users.Add(world.Enter(created.SessionId, guest)!);
-        }
-
-        return new TestLobby(world, world.Sessions[created.SessionId], users);
-    }
-
-    // A write of the leader's client: the real SetPropertyCommand in the session queue.
-    public void WriteStart(bool isStarting)
-    {
-        WriteStart(isStarting, Session.Owner.Owner.Value!);
-    }
-
-    public void WriteVisibility(bool isOpen)
-    {
-        WriteVisibility(isOpen, Session.Owner.Owner.Value!);
-    }
-
-    public void WriteVisibility(bool isOpen, IUser writer)
-    {
-        Write(writer, SharedLobbyService.VisibilityPropertyId, new LobbyVisibilityState
-        {
-            IsOpen = isOpen
-        });
-    }
-
-    public void WriteStart(bool isStarting, IUser writer)
-    {
-        Write(writer, SharedLobbyService.StartPropertyId, new LobbyStartState
-        {
-            IsStarting = isStarting
-        });
-    }
-
-    public void Write<T>(IUser writer, int propertyId, T value)
-    {
-        EnqueueWrite(writer, propertyId, value);
-        Session.Queue.Drain();
-    }
-
-    // Only queued: the test decides what runs after it.
-    public void EnqueueWrite<T>(IUser writer, int propertyId, T value)
-    {
-        var context = new SharedSessionObject.SetProperty
-        {
-            ObjectId = Service.Id,
-            PropertyId = propertyId,
-            Value = MemoryPackSerializer.Serialize(value)
-        };
-
-        Session.Queue.Enqueue(() => Session.Execute(writer, context));
-    }
-
-    // In steps of 100 ms: a countdown step schedules the next one when it runs.
-    public void Advance(TimeSpan time)
-    {
-        var step = TimeSpan.FromMilliseconds(100);
-
-        for (var passed = TimeSpan.Zero; passed < time; passed += step)
-        {
-            World.Time.Advance(step);
-            Session.Queue.Drain();
-        }
-    }
-
-    public void RunCountdown()
-    {
-        WriteStart(true);
-        Advance(LobbyService.CountdownStep * LobbyCountdownState.Seconds);
-
-        Game.SessionId.Should().NotBe(Guid.Empty);
     }
 }

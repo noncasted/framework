@@ -2,6 +2,7 @@ using Cluster.Coordination;
 using Cluster.Discovery;
 using Cluster.Lobbies;
 using Common.Extensions;
+using Game.Hosting.Collection;
 using Game.Lobbies;
 using Infrastructure;
 using Microsoft.Extensions.DependencyInjection;

@@ -160,8 +160,7 @@ without a grain.
   repeats), of equal counts by `lastSeenAt`. `{ totalGroups, countedSessions, sessionsWithoutDigest, omittedGroups, omittedCount,
   droppedErrors, groups: [{ fingerprint, level, message, count, sessions, firstSeenAt, lastSeenAt, sessionIds }] }`. `message` is
   cut to 120 characters, `sessionIds` holds up to 20 of the freshest sessions, `sessions` counts them all. A session counts from its
-  close: a live one and one lost in a crash have no digest (`sessionsWithoutDigest`), and a session that comes back leaves the
-  list until it closes again.
+  close: a live one and one lost in a crash have no digest (`sessionsWithoutDigest`).
 
 - `GET /api/client-telemetry/startups?limit=`: the records, newest first: `{ id, device, name, final, receivedAt, updatedAt, durationMs, frames,
   spanCount, depth, unfinishedSpans, droppedSpans, rejectedSpans, cutNames }`.
@@ -226,4 +225,6 @@ row as `lost` without a log and a digest; the client gets `Enabled` false.
 and `TelemetryStartupTraceState` (the spans), written together on every message and read without a grain. It goes `RetentionDays` after its last write, by the sweep.
 
 **The sweep** (`ClientTelemetrySweep`, every hour on each silo): sessions the collection knows as open go to their grains, a live grain
-ignores it and the others close as above; both states of a session closed more than `RetentionDays` (7) ago are deleted.
+ignores it and the others close as above; both states of a session closed more than `RetentionDays` (7) ago are deleted. A grain
+the sweep reaches tells the hosts about its row also when nothing changes (closed and not expired, no row, a fresh startup record): a
+host that missed a notification (a failed push after the write or the delete) learns the row by its next pass.

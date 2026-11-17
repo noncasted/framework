@@ -187,12 +187,12 @@ public class DurableQueueTests(SideEffectTestFixture fixture) : IntegrationTestB
 
         result.IsSuccess.Should().BeFalse();
 
-        // Drain — should find nothing because transaction rolled back
+        // The drain is the signal: a transactional push is delivered only through a side effect, and none was written.
         var drain = await Pipeline!.DrainUntilQuiet();
         drain.TotalTasks.Should().Be(0);
 
-        await Task.Delay(200, TestContext.Current.CancellationToken);
-        received.Should().BeEmpty();
+        lock (received)
+            received.Should().BeEmpty();
     }
 
     [Fact]

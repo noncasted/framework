@@ -150,18 +150,12 @@ public class RuntimeChannelBufferOverflowTests
         release.SetResult();
 
         // The queue is delivered in order, so a message queued after the drop would come after the last one of it.
-        await TestWait.Until(() => Count(received) == delivered);
+        await TestWait.Until(() => received.LockedCount() == delivered);
 
         lock (received)
             received.Should().Equal(Enumerable.Range(1, delivered));
 
         var result = await channel.CatchUp(overflowing);
         result.Messages.Select(message => ((TestMessage)message.Payload).Sequence).Should().Equal(overflowing + 1);
-    }
-
-    private static int Count(List<int> received)
-    {
-        lock (received)
-            return received.Count;
     }
 }

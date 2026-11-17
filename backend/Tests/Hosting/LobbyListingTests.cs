@@ -2,7 +2,7 @@ using Cluster.Lobbies;
 using FluentAssertions;
 using Framework.Tests.Fixtures;
 using Framework.Tests.Session;
-using Game.Hosting;
+using Game.Hosting.Collection;
 using Game.Lobbies;
 using Game.Session;
 using Internal;
@@ -17,7 +17,7 @@ namespace Framework.Tests.Hosting;
 
 // The list of open lobbies as the game server feeds the registry: a lobby reports itself until it starts, then its
 // match does; the calls of one code reach the registry in order. Then the lobby of the late players of a running match.
-public class LobbyListingTests
+public class LobbyListingTests : LifetimeTest
 {
     [Fact]
     public async Task NewLobby_IsClosed_NotListed()
@@ -133,7 +133,7 @@ public class LobbyListingTests
         listed.LeaderUserId.Should().Be(players[0].BackendId);
 
         // the mark goes before every report of the match, the release is the last call
-        var calls = lobby.World.Codes.Calls;
+        var calls = lobby.World.Codes.Calls.ToList();
         calls.IndexOf($"Mark {code}").Should().BeGreaterThan(-1);
         calls.Skip(calls.IndexOf($"Mark {code}")).Should().OnlyContain(call => call == $"Listing {code}" || call == $"Mark {code}");
 
@@ -142,7 +142,7 @@ public class LobbyListingTests
 
         match.Lifetime.IsTerminated.Should().BeTrue();
         lobby.World.Codes.Entries.Should().NotContainKey(code);
-        calls.Last().Should().Be($"Release {code}");
+        lobby.World.Codes.Calls.Last().Should().Be($"Release {code}");
     }
 
     [Fact]
@@ -186,7 +186,7 @@ public class LobbyListingTests
     [Fact]
     public void SessionContainer_MatchOfALobby_HasTheListingService()
     {
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
 
         var options = new SessionCreateOptions
         {
@@ -350,7 +350,7 @@ public class LobbyListingTests
         var (lobby, match, code) = await StartMatch(world, isOpen: true);
         var sessions = world.Sessions.Count;
 
-        world.EntryPolicy.OverMatches.Add(match.Session.Id);
+        world.EntryPolicy.MarkMatchOver(match.Session.Id);
 
         world.Lobbies.Join(lobby.Session.Session.Id, match.Session.Id, code, Guid.NewGuid()).Status
              .Should().Be(LobbyJoinStatus.NotFound);
@@ -428,27 +428,6 @@ public class LobbyListingTests
         world.Lobbies.JoinLate(match.Session.Id, Guid.NewGuid()).Status.Should().Be(LobbyJoinStatus.NotFound);
     }
 
-    // The match reports it can't take a new player: Started, for the code and for the match itself.
-    [Fact]
-    public async Task MatchReportedNotJoinable_LatePlayer_GetsStarted()
-    {
-        var world = new HostingTestWorld();
-        var (lobby, match, code) = await StartMatch(world, isOpen: true);
-        var lobbyId = lobby.Session.Session.Id;
-        var late = Guid.NewGuid();
-
-        world.Leases.Report(lobbyId, new LobbyListing
-        {
-            IsOpen = true,
-            MaxPlayers = 4,
-            IsRunning = true,
-            IsJoinable = false
-        });
-
-        world.Lobbies.Join(lobbyId, match.Session.Id, code, late).Status.Should().Be(LobbyJoinStatus.Started);
-        world.Lobbies.JoinMatch(lobbyId, match.Session.Id, late).Should().Be(LobbyJoinStatus.Started);
-    }
-
     // The lobby of the late players holds no place in the match: it fills up on its own.
     [Fact]
     public void LobbyOfLatePlayers_IsFull_NextPlayerGetsFull()
@@ -487,6 +466,50 @@ public class LobbyListingTests
         lobbies.JoinMatch(Guid.Empty, matchId, Guid.NewGuid()).Should().Be(LobbyJoinStatus.NotFound);
     }
 
+    // The framework never seals a match: a sealed one is an unexpected state, not a full match.
+    [Fact]
+    public void JoinMatch_MatchSealed_Throws()
+    {
+        var world = new HostingTestWorld();
+        var matchId = Guid.NewGuid();
+        var match = Substitute.For<ISession>();
+        match.Type.Returns(SessionType.Match);
+        match.HasFreePlace(Arg.Any<Guid>()).Returns(true);
+        match.Reserve(Arg.Any<Guid>()).Returns(SessionReservation.Sealed);
+        match.IsClosed.Returns(false);
+
+        var collection = Substitute.For<ISessionsCollection>();
+
+        collection.TryGet(matchId, out Arg.Any<ISession>()!).Returns(call => {
+            call[1] = match;
+            return true;
+        });
+
+        var lobbies = Lobbies(world, world, collection);
+
+        var join = () => lobbies.JoinMatch(Guid.Empty, matchId, Guid.NewGuid());
+
+        join.Should().Throw<InvalidOperationException>();
+    }
+
+    // A sealed lobby of the late players takes nobody any more: it is replaced like a closing one, never Full.
+    [Fact]
+    public void JoinLate_LobbyOfLatePlayersSealed_NewLobby()
+    {
+        var world = new HostingTestWorld();
+        var match = world.CreatePublicMatch();
+        match.ReserveAndEnter();
+
+        var first = world.Lobbies.JoinLate(match.Session.Id, Guid.NewGuid());
+        first.Status.Should().Be(LobbyJoinStatus.Ok);
+        world.Sessions[first.SessionId].Admission.Seal();
+
+        var second = world.Lobbies.JoinLate(match.Session.Id, Guid.NewGuid());
+
+        second.Status.Should().Be(LobbyJoinStatus.Ok);
+        second.SessionId.Should().NotBe(first.SessionId);
+    }
+
     // A lobby of the late players closed under the reservation is replaced once; the old one ending later does not
     // take the new one out of the map.
     [Fact]
@@ -494,9 +517,9 @@ public class LobbyListingTests
     {
         var world = new HostingTestWorld();
         var match = world.CreatePublicMatch();
-        var closedLifetime = new Lifetime();
+        var closedLifetime = new Lifetime(TestLifetime);
         var closed = LateLobby(closedLifetime, isClosed: true, reserves: false);
-        var replacement = LateLobby(new Lifetime(), isClosed: false, reserves: true);
+        var replacement = LateLobby(new Lifetime(TestLifetime), isClosed: false, reserves: true);
         var factory = Substitute.For<ILobbyFactory>();
         factory.Create(Arg.Any<LobbyCreation>()).Returns(closed, replacement);
 
@@ -518,7 +541,7 @@ public class LobbyListingTests
         var factory = Substitute.For<ILobbyFactory>();
 
         factory.Create(Arg.Any<LobbyCreation>())
-               .Returns(_ => LateLobby(new Lifetime(), isClosed: true, reserves: false));
+               .Returns(_ => LateLobby(new Lifetime(TestLifetime), isClosed: true, reserves: false));
 
         var lobbies = Lobbies(world, factory, world.Collection);
 

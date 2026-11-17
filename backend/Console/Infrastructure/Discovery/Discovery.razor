@@ -10,6 +10,16 @@
 <PageTitle>Discovery</PageTitle>
 <PageHeader Title="Discovery"/>
 
+@if (_services.Count == 0)
+{
+    <div class="container mx-auto max-w-5xl px-4 py-4">
+        <div class="rounded-lg border p-8 text-center text-muted-foreground">
+            No services discovered
+        </div>
+    </div>
+    return;
+}
+
 <div class="container mx-auto max-w-5xl px-4 py-4 flex flex-col gap-6">
 
     <div class="flex items-center gap-3">
@@ -21,14 +31,6 @@
             <span class="text-sm text-muted-foreground ml-2">services</span>
         </div>
     </div>
-
-    @if (_services.Count == 0)
-    {
-        <div class="rounded-lg border p-8 text-center text-muted-foreground">
-            No services discovered
-        </div>
-        return;
-    }
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         @foreach (var service in _services)

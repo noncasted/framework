@@ -16,12 +16,4 @@ public static class TraceExtensions
             return builder;
         }
     }
-
-    extension(ActivitySource source)
-    {
-        public Activity Start(string name)
-        {
-            return source.StartActivity(name)!;
-        }
-    }
 }

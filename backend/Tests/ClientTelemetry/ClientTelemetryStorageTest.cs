@@ -1,6 +1,7 @@
 using Framework.Tests.Fixtures;
 using Game.ClientTelemetry;
 using Infrastructure;
+using Internal;
 using Npgsql;
 using Shared;
 using Xunit;
@@ -8,7 +9,8 @@ using Xunit;
 namespace Framework.Tests.ClientTelemetry;
 
 // A real cluster and database shared by the classes of the collection (they run one by one): a test works with its own sessions
-// and the parser stands in front of them, so what reaches the grain is what a gateway will pass.
+// and the parser stands in front of them, so what reaches the grain is what a gateway will pass. The connections of a test live on
+// its lifetime, ended in DisposeAsync, so none of them stays in the shared silo after it.
 public abstract class ClientTelemetryStorageTest : IAsyncLifetime
 {
     protected ClientTelemetryStorageTest(ClientTelemetryClusterFixture cluster)
@@ -16,8 +18,11 @@ public abstract class ClientTelemetryStorageTest : IAsyncLifetime
         Cluster = cluster;
     }
 
+    private readonly Lifetime _lifetime = new();
+
     protected ClientTelemetryClusterFixture Cluster { get; }
     protected IClientTelemetryReader Reader => Cluster.Reader;
+    protected ILifetime TestLifetime => _lifetime;
 
     public ValueTask InitializeAsync()
     {
@@ -27,6 +32,7 @@ public abstract class ClientTelemetryStorageTest : IAsyncLifetime
 
     public virtual ValueTask DisposeAsync()
     {
+        _lifetime.Terminate();
         Cluster.Storage.FailWrites(false);
         return ValueTask.CompletedTask;
     }

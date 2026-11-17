@@ -1,3 +1,4 @@
+using Framework.Tests.Fixtures;
 using System.Net.WebSockets;
 using Common.Network;
 using Internal;
@@ -11,7 +12,7 @@ namespace Framework.Tests.Network;
 
 // F8.5: WebSocketMessageReader assembles a message from its parts and limits its size; ConnectionReader routes
 // the messages by kind (a message it cannot read: ConnectionProtocolErrorTests).
-public class ConnectionReaderTests
+public class ConnectionReaderTests : LifetimeTest
 {
     [Fact]
     public async Task MessageReader_PartsAreJoinedUpToEndOfMessage()
@@ -75,7 +76,7 @@ public class ConnectionReaderTests
         socket.EnqueueClose();
 
         var reader = new ConnectionReader(socket, NullLogger.Instance);
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
         var seen = new List<string>();
         reader.OneWay.Advise(lifetime, message => seen.Add($"oneway {((SharedSessionLatency.Ping)message.Context).Id}"));
         reader.Requests.Advise(lifetime, message => seen.Add($"request {message.RequestId}"));
@@ -83,6 +84,31 @@ public class ConnectionReaderTests
         await reader.Run(lifetime);
 
         seen.Should().Equal("oneway 1", "request 7");
+    }
+
+    // The server has sent its close: the reader reads on to the close of the client (a socket disposed before it resets
+    // the connection), and what the client sent in between is not handled any more.
+    [Fact]
+    public async Task ConnectionReader_CloseSent_ReadsToTheCloseOfTheClient_HandlesNothingMore()
+    {
+        var socket = new ScriptedSocket();
+        socket.Enqueue(Pack(new OneWayMessageFromClient { Context = new SharedSessionLatency.Ping { Id = 1 } }), true);
+        socket.Enqueue(Pack(new OneWayMessageFromClient { Context = new SharedSessionLatency.Ping { Id = 2 } }), true);
+        socket.EnqueueClose();
+
+        var reader = new ConnectionReader(socket, NullLogger.Instance);
+        var lifetime = new Lifetime(TestLifetime);
+        var seen = new List<int>();
+
+        reader.OneWay.Advise(lifetime, message => {
+            seen.Add(((SharedSessionLatency.Ping)message.Context).Id);
+            socket.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None);
+        });
+
+        await reader.Run(lifetime);
+
+        seen.Should().Equal(1);
+        socket.PendingParts.Should().Be(0);
     }
 
     [Fact]

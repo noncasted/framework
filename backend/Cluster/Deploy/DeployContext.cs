@@ -29,6 +29,10 @@ public class DeployContext : IDeployContext
     private readonly IReadOnlyList<IDeployAware> _subscribers;
     private readonly ILogger<DeployContext> _logger;
 
+    // One switch at a time: a switch that came during a slow subscriber of the previous one would otherwise let the
+    // previous one go on and hand its deploy to the subscribers after the slow one.
+    private readonly SemaphoreSlim _setLock = new(1, 1);
+
     private ILifetime? _deployLifetime;
     private Guid _deployId;
 
@@ -38,6 +42,33 @@ public class DeployContext : IDeployContext
         _deployLifetime ?? throw new InvalidOperationException("Deploy not initialized");
 
     public async Task Set(Guid deployId, IReadOnlyLifetime parentLifetime)
+    {
+        await _setLock.WaitAsync();
+
+        try
+        {
+            await Switch(deployId, parentLifetime);
+        }
+        finally
+        {
+            _setLock.Release();
+        }
+    }
+
+    // Not under the lock of Set: it only ends the current epoch, and a switch in progress stops at its next subscriber.
+    public void Leave()
+    {
+        if (_deployLifetime == null)
+            throw new InvalidOperationException("Deploy not initialized");
+
+        if (_deployLifetime.IsTerminated == true)
+            return;
+
+        _logger.LogWarning("[DeployContext] Left deploy {DeployId}", _deployId);
+        _deployLifetime.Terminate();
+    }
+
+    private async Task Switch(Guid deployId, IReadOnlyLifetime parentLifetime)
     {
         if (_deployId == deployId && _deployLifetime is { IsTerminated: false })
             return;
@@ -55,6 +86,14 @@ public class DeployContext : IDeployContext
 
         foreach (var subscriber in _subscribers)
         {
+            // Left (or the host stops) during a slow subscriber: the rest would attach to an epoch that has ended.
+            if (newLifetime.IsTerminated == true)
+            {
+                _logger.LogWarning("[DeployContext] Deploy {DeployId} ended during its switch, {Subscriber} and the next skipped",
+                    deployId, subscriber.GetType().Name);
+                return;
+            }
+
             try
             {
                 await subscriber.OnDeployChanged(deployId, newLifetime);
@@ -69,17 +108,5 @@ public class DeployContext : IDeployContext
                 throw;
             }
         }
-    }
-
-    public void Leave()
-    {
-        if (_deployLifetime == null)
-            throw new InvalidOperationException("Deploy not initialized");
-
-        if (_deployLifetime.IsTerminated == true)
-            return;
-
-        _logger.LogWarning("[DeployContext] Left deploy {DeployId}", _deployId);
-        _deployLifetime.Terminate();
     }
 }

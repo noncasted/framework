@@ -38,11 +38,14 @@ internal class SideEffectsProcessing
     public async Task FailProcessing(
         Guid id,
         int retryCount,
-        int maxRetryCount,
+        int maxAttempts,
         float incrementalRetryDelaySeconds,
         string? errorMessage = null)
     {
-        if (retryCount >= maxRetryCount)
+        // retryCount counts the failed attempts before this one.
+        var attempt = retryCount + 1;
+
+        if (attempt >= maxAttempts)
         {
             await using var connection = await _dbSource.Value.OpenConnectionAsync();
             await using var deadLetterTx = await connection.BeginTransactionAsync();
@@ -51,7 +54,7 @@ internal class SideEffectsProcessing
             insertCmd.Transaction = deadLetterTx;
 
             insertCmd.CommandText = $@"
-                INSERT INTO {DbLookup.SE_DeadLetter} (id, payload, retry_count, created_at, failed_at, error_message)
+                INSERT INTO {SideEffectTables.DeadLetter} (id, payload, retry_count, created_at, failed_at, error_message)
                 SELECT id, payload, retry_count, created_at, now(), @errorMessage
                 FROM side_effects_processing
                 WHERE id = @id
@@ -71,14 +74,14 @@ internal class SideEffectsProcessing
 
             SideEffectTelemetry.DeadLetter.Add(1);
 
-            _logger.LogError("[SideEffects] Effect {Id} moved to dead letter after {RetryCount} retries: {Error}",
-                id, retryCount, errorMessage);
+            _logger.LogError("[SideEffects] Effect {Id} moved to dead letter after {Attempts} attempts: {Error}",
+                id, attempt, errorMessage);
             return;
         }
 
-        var delaySeconds = (retryCount + 1) * incrementalRetryDelaySeconds;
+        var delaySeconds = attempt * incrementalRetryDelaySeconds;
         var retryAfter = DateTime.UtcNow.AddSeconds(delaySeconds);
-        var newRetryCount = retryCount + 1;
+        var newRetryCount = attempt;
 
         await using var conn = await _dbSource.Value.OpenConnectionAsync();
         await using var tx = await conn.BeginTransactionAsync();

@@ -4,6 +4,7 @@ using System.Net.WebSockets;
 using Common.Network;
 using Internal;
 using FluentAssertions;
+using Framework.Tests.Fixtures;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -38,8 +39,8 @@ public class SessionKeepAliveTests
         server.Stopwatch.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(5));
 
         // An expected loss of a client, not an error of the server.
-        server.Logger.Entries.Should().ContainSingle(entry => entry.Contains("keep-alive"), string.Join(" || ", server.Logger.Entries));
-        server.Logger.Entries.Should().NotContain(entry => entry.StartsWith(nameof(LogLevel.Error)));
+        server.Logger.Entries.Should().ContainSingle(entry => entry.Message.Contains("keep-alive"), string.Join(" || ", server.Logger.Entries));
+        server.Logger.Entries.Should().NotContain(entry => entry.Level == LogLevel.Error);
     }
 
     [Fact]
@@ -81,7 +82,7 @@ public class SessionKeepAliveTests
             Task connected,
             Task disconnected,
             Stopwatch stopwatch,
-            RecordingLogger logger)
+            RecordingLogger<Connection> logger)
         {
             _app = app;
             Logger = logger;
@@ -94,7 +95,7 @@ public class SessionKeepAliveTests
         private readonly WebApplication _app;
 
         public Uri Uri { get; }
-        public RecordingLogger Logger { get; }
+        public RecordingLogger<Connection> Logger { get; }
         public Task Connected { get; }
         public Task Disconnected { get; }
 
@@ -110,7 +111,7 @@ public class SessionKeepAliveTests
             var connected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var disconnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var stopwatch = new Stopwatch();
-            var logger = new RecordingLogger();
+            var logger = new RecordingLogger<Connection>();
 
             app.UseWebSockets();
 
@@ -152,41 +153,6 @@ public class SessionKeepAliveTests
         {
             await _app.StopAsync();
             await _app.DisposeAsync();
-        }
-    }
-
-    // "Level: message (exception type: exception message)".
-    private class RecordingLogger : ILogger
-    {
-        private readonly List<string> _entries = new();
-
-        public IReadOnlyList<string> Entries
-        {
-            get
-            {
-                lock (_entries)
-                    return _entries.ToList();
-            }
-        }
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(
-            LogLevel logLevel,
-            EventId eventId,
-            TState state,
-            Exception? exception,
-            Func<TState, Exception?, string> formatter)
-        {
-            var entry = $"{logLevel}: {formatter(state, exception)}";
-
-            if (exception != null)
-                entry += $" ({exception.GetType().Name}: {exception.Message} / {exception.InnerException?.GetType().Name})";
-
-            lock (_entries)
-                _entries.Add(entry);
         }
     }
 }

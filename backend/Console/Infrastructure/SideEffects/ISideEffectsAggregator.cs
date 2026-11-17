@@ -4,5 +4,5 @@ namespace Console;
 
 public interface ISideEffectsAggregator
 {
-    IViewableProperty<SideEffectsAggregate> Aggregate { get; }
+    ISharedViewableProperty<SideEffectsAggregate> Aggregate { get; }
 }

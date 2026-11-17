@@ -27,7 +27,7 @@ public class ClientTelemetryPreviousSessionTests : ClientTelemetryStorageTest
     {
         _switch.IsEnabled.Returns(true);
 
-        return new ClientTelemetryConnections(_switch, Cluster.Orleans, NullLogger<ClientTelemetryConnection>.Instance).Of(new Lifetime());
+        return new ClientTelemetryConnections(_switch, Cluster.Orleans, NullLogger<ClientTelemetryConnection>.Instance).Of(TestLifetime.Child());
     }
 
     private static SharedClientTelemetry.PreviousSession Previous(Guid id)

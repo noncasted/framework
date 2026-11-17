@@ -110,7 +110,8 @@ Storage (`Storage/`, Npgsql over `IDbSource`, not grain states):
 Server stream: `IMatchMetricsWriter.Open(lifetime, matchId)` -> `IMatchMetricsServerStream` (`Event`, `Gauge`). Kind
 `Server`, user `Guid.Empty`, the axis is the server time since the open (the server has no clock of the run). Flushed every
 `ServerFlush` (30 s) and at the end of the lifetime; a write after the last flush throws. A failed write sends the same batch
-again first. A gauge whose name the dictionary has as a counter is dropped with its values (logged), a later write of it
+again first; a failed last flush is tried again every `ServerLastWriteRetry` (5 s) for `CloseGrace`. A gauge added while a flush
+resolves the new series waits for the next flush. A gauge whose name the dictionary has as a counter is dropped with its values (logged), a later write of it
 throws. Only what the clients cannot see (the host of a session, a lost seat).
 
 Reading:

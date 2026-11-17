@@ -11,16 +11,16 @@
 
     <div class="grid grid-cols-4 gap-4">
         <SideEffectsCountTile Icon="inbox" IconBackground="bg-blue-500/15" IconColor="text-blue-400" Title="Queue"
-                              Caption="Pending effects" Value="_aggregate.QueueCount"/>
+                              Caption="Pending effects" Value="_aggregate.QueueCount" Known="_aggregate.HasCounts"/>
         <SideEffectsCountTile Icon="loader" IconBackground="bg-orange-500/15" IconColor="text-orange-400" Title="Processing"
-                              Caption="In-flight effects" Value="_aggregate.ProcessingCount"/>
+                              Caption="In-flight effects" Value="_aggregate.ProcessingCount" Known="_aggregate.HasCounts"/>
         <SideEffectsCountTile Icon="alert-triangle" IconBackground="bg-red-500/15" IconColor="text-red-400" Title="Retry"
-                              Caption="Failed effects awaiting retry" Value="_aggregate.RetryCount"/>
+                              Caption="Failed effects awaiting retry" Value="_aggregate.RetryCount" Known="_aggregate.HasCounts"/>
         <SideEffectsCountTile Icon="skull" IconBackground="bg-purple-500/15" IconColor="text-purple-400" Title="Dead Letter"
-                              Caption="Permanently failed effects" Value="_aggregate.DeadLetterCount" Alarming="true"/>
+                              Caption="Permanently failed effects" Value="_aggregate.DeadLetterCount" Known="_aggregate.HasCounts" Alarming="true"/>
     </div>
 
-    <SideEffectsThroughputCard History="_aggregate.AggregatedHistory"/>
+    <SideEffectsThroughputCard History="_aggregate.AggregatedHistory" MissingServices="_aggregate.MissingServices"/>
 
     @if (_aggregate.Services.Count > 0)
     {
@@ -114,7 +114,8 @@
     protected override Task OnSetup(IReadOnlyLifetime lifetime)
     {
         // View: the page shows the last aggregate at once, not after the next collect.
-        Aggregator.Aggregate.View(lifetime, value => {
+        Aggregator.Aggregate.View(lifetime, value =>
+        {
             _aggregate = value;
             InvokeAsync(StateHasChanged).NoAwait();
         });

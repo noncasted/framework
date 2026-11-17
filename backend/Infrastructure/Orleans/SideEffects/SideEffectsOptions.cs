@@ -15,7 +15,3 @@ public record SideEffectsOptions
     public int StuckCheckIntervalSeconds { get; init; } = 60; // how often to touch the own entries and requeue the stuck ones; well below StuckThresholdMinutes
     public float StuckThresholdMinutes { get; init; } = 5; // entries in processing not touched by their worker for this long are stuck
 }
-
-public interface ISideEffectsConfig : IAddressableState<SideEffectsOptions>
-{
-}

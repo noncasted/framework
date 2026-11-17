@@ -65,7 +65,14 @@ public class OnlineCounter
     // Copies of the days changed since the last call, to be written while the counter goes on.
     public IReadOnlyList<OnlineDayState> TakeChanged()
     {
-        var changed = _changed.Where(_days.ContainsKey).Select(day => _days[day].Copy()).ToList();
+        var changed = new List<OnlineDayState>(_changed.Count);
+
+        foreach (var dayNumber in _changed)
+        {
+            if (_days.TryGetValue(dayNumber, out var day) == true)
+                changed.Add(day.Copy());
+        }
+
         _changed.Clear();
         return changed;
     }

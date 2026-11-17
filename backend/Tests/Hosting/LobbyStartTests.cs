@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Framework.Tests.Fixtures;
 using Framework.Tests.Session;
 using Game.Hosting;
 using Game.Lobbies;
@@ -460,10 +461,7 @@ public class LobbyStartTests
         gate.SetResult();
 
         // the release follows the mark on a continuation
-        for (var i = 0; i < 500 && await lobby.World.Codes.Find(code) != null; i++)
-            await Task.Delay(10);
-
-        (await lobby.World.Codes.Find(code)).Should().BeNull();
+        await TestWait.Until(async () => await lobby.World.Codes.Find(code) == null);
     }
 
     [Fact]

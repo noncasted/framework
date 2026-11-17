@@ -121,7 +121,7 @@ public class OrleansTestClusterFixture : IAsyncLifetime
 
                 // Cluster participant context — mock as initialized
                 var participantContext = Substitute.For<IClusterParticipantContext>();
-                participantContext.IsInitialized.Returns(new ViewableProperty<bool>(true));
+                participantContext.IsInitialized.Returns(new SharedViewableProperty<bool>(true));
                 services.AddSingleton(participantContext);
 
                 // Cluster flags — all enabled
@@ -208,6 +208,3 @@ public class OrleansTestClusterFixture : IAsyncLifetime
         await Database.DisposeAsync();
     }
 }
-
-[CollectionDefinition(nameof(OrleansIntegrationCollection))]
-public class OrleansIntegrationCollection : ICollectionFixture<OrleansTestClusterFixture>;

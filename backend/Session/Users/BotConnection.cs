@@ -6,6 +6,8 @@ namespace Game.Session;
 
 public class BotConnection : IConnection, IConnectionWriter, IConnectionReader
 {
+    private TaskCompletionSource? _closed;
+
     public required IReadOnlyLifetime Lifetime { get; init; }
     public IConnectionReader Reader => this;
     public IConnectionWriter Writer => this;
@@ -15,8 +17,6 @@ public class BotConnection : IConnection, IConnectionWriter, IConnectionReader
     public IViewableDelegate<RequestMessageFromClient> Requests { get; } =
         new ViewableDelegate<RequestMessageFromClient>();
 
-    private TaskCompletionSource? _closed;
-
     // A bot has no socket: it is closed when its lifetime ends.
     public Task Closed => (_closed ??= ListenEnd()).Task;
 
@@ -25,16 +25,8 @@ public class BotConnection : IConnection, IConnectionWriter, IConnectionReader
         return Closed;
     }
 
-    private TaskCompletionSource ListenEnd()
-    {
-        var completion = new TaskCompletionSource();
-        Lifetime.Listen(() => completion.TrySetResult());
-        return completion;
-    }
-
     public void ForceDisconnect()
     {
-
     }
 
     public void WriteOneWay(INetworkContext context)
@@ -43,5 +35,12 @@ public class BotConnection : IConnection, IConnectionWriter, IConnectionReader
 
     public void WriteResponse(INetworkContext context, int requestId)
     {
+    }
+
+    private TaskCompletionSource ListenEnd()
+    {
+        var completion = new TaskCompletionSource();
+        Lifetime.Listen(() => completion.TrySetResult());
+        return completion;
     }
 }

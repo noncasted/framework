@@ -129,7 +129,7 @@ public class SideEffectsStorageTests(SideEffectTestFixture fixture)
         var entry = await WriteAndRead();
         var before = DateTime.UtcNow;
 
-        await Storage.FailProcessing(entry.Id, retryCount: 1, maxRetryCount: 5, incrementalRetryDelaySeconds: 100f, "ignored");
+        await Storage.FailProcessing(entry.Id, retryCount: 1, maxAttempts: 5, incrementalRetryDelaySeconds: 100f, "ignored");
 
         var stats = await Storage.GetStats();
         stats.ProcessingCount.Should().Be(0);
@@ -149,7 +149,7 @@ public class SideEffectsStorageTests(SideEffectTestFixture fixture)
         var logger = new RecordingLogger<SideEffectsStorage>();
         var storage = new SideEffectsStorage(GetSiloService<IDbSource>(), GetSiloService<IStateSerializer>(), logger);
 
-        await storage.FailProcessing(entry.Id, retryCount: 5, maxRetryCount: 5, incrementalRetryDelaySeconds: 1f, "the error");
+        await storage.FailProcessing(entry.Id, retryCount: 4, maxAttempts: 5, incrementalRetryDelaySeconds: 1f, "the error");
 
         var stats = await Storage.GetStats();
         stats.ProcessingCount.Should().Be(0);
@@ -164,7 +164,7 @@ public class SideEffectsStorageTests(SideEffectTestFixture fixture)
 
         logger.Entries.Should().ContainSingle(e =>
             e.Level == LogLevel.Error
-            && e.Message == $"[SideEffects] Effect {entry.Id} moved to dead letter after 5 retries: the error");
+            && e.Message == $"[SideEffects] Effect {entry.Id} moved to dead letter after 5 attempts: the error");
     }
 
     [Fact]
@@ -172,7 +172,7 @@ public class SideEffectsStorageTests(SideEffectTestFixture fixture)
     {
         var entry = await WriteAndRead();
 
-        await Storage.FailProcessing(entry.Id, retryCount: 5, maxRetryCount: 5, incrementalRetryDelaySeconds: 1f);
+        await Storage.FailProcessing(entry.Id, retryCount: 4, maxAttempts: 5, incrementalRetryDelaySeconds: 1f);
 
         await using var connection = await Database.DataSource.OpenConnectionAsync(TestContext.Current.CancellationToken);
         await using var command = connection.CreateCommand();

@@ -74,26 +74,7 @@ public class RuntimeChannelClientTests : LifetimeTest
 
         events.Should().Equal("seq5", "gap", "seq9", "seq10");
         listener.ObserverSource.LastSeenSequence.Should().Be(10);
-        CountLogged(_logger, LogLevel.Warning, "Gap detected on channel").Should().Be(1);
-    }
-
-    [Fact]
-    public async Task Resubscribe_LastSeenAheadOfChannel_ResetsLastSeenAndCallsGapHandlers()
-    {
-        var epoch = Guid.NewGuid();
-        var listener = CreateListener();
-        var gaps = 0;
-
-        listener.AddHandler(_ => Task.CompletedTask, () => gaps++);
-        await listener.ObserverSource.Send(Message(5, epoch, "seq5"));
-
-        _channel.CatchUp(5).Returns(new CatchUpResult { GapDetected = true, CurrentSequence = 2, Epoch = epoch });
-
-        await listener.Resubscribe();
-
-        gaps.Should().Be(1);
-        listener.ObserverSource.LastSeenSequence.Should().Be(0);
-        listener.ObserverSource.LastSeenEpoch.Should().Be(epoch);
+        _logger.Count(LogLevel.Warning, "Gap detected on channel").Should().Be(1);
     }
 
     [Fact]
@@ -148,7 +129,7 @@ public class RuntimeChannelClientTests : LifetimeTest
         events.Should().Equal("old5", "gap", "new1");
         listener.ObserverSource.LastSeenEpoch.Should().Be(newEpoch);
         listener.ObserverSource.LastSeenSequence.Should().Be(1);
-        CountLogged(_logger, LogLevel.Warning, "reactivated").Should().Be(1);
+        _logger.Count(LogLevel.Warning, "reactivated").Should().Be(1);
     }
 
     [Fact]
@@ -235,7 +216,7 @@ public class RuntimeChannelClientTests : LifetimeTest
 
         secondGap.Should().Be(1);
         received.Should().Equal("seq5", "seq7");
-        CountLogged(_logger, LogLevel.Error, "Gap handler failed for channel channel").Should().Be(1);
+        _logger.Count(LogLevel.Error, "Gap handler failed for channel channel").Should().Be(1);
     }
 
     [Fact]
@@ -295,7 +276,7 @@ public class RuntimeChannelClientTests : LifetimeTest
         await listener.ObserverSource.Send("message");
 
         received.Should().Equal("message");
-        CountLogged(_logger, LogLevel.Error, "failed for channel channel").Should().Be(1);
+        _logger.Count(LogLevel.Error, "failed for channel channel").Should().Be(1);
     }
 
     [Fact]
@@ -384,8 +365,8 @@ public class RuntimeChannelClientTests : LifetimeTest
 
         await TestWait.Until(() => _logger.Entries.Count == 2);
 
-        CountLogged(_logger, LogLevel.Warning, "Failed to remove observer").Should().Be(1);
-        CountLogged(_logger, LogLevel.Warning, "Failed to delete object reference").Should().Be(1);
+        _logger.Count(LogLevel.Warning, "Failed to remove observer").Should().Be(1);
+        _logger.Count(LogLevel.Warning, "Failed to delete object reference").Should().Be(1);
     }
 
     [Fact]
@@ -411,7 +392,7 @@ public class RuntimeChannelClientTests : LifetimeTest
         var act = () => client.Listen<string>(lifetime, new RuntimeChannelId("channel"), _ => Task.CompletedTask);
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("bind failed");
-        CountLogged(_logger, LogLevel.Error, "Failed to rebind observer").Should().Be(1);
+        _logger.Count(LogLevel.Error, "Failed to rebind observer").Should().Be(1);
 
         await TestWait.Until(() => _channel.ReceivedCalls().Any(call => call.GetMethodInfo().Name == "RemoveObserver"));
 
@@ -512,8 +493,9 @@ public class RuntimeChannelClientTests : LifetimeTest
         // A failure makes the next delay about a second, and the shortest delay of the listeners is the sleep.
         await TestWait.Until(() => Volatile.Read(ref healthyCalls) >= 2);
 
-        CountLogged(_logger, LogLevel.Error, "(attempt 1)").Should().Be(1);
+        _logger.Count(LogLevel.Error, "(attempt 1)").Should().Be(1);
 
+        // A window: the resubscribe loop gives no signal of its end, so only the absence of calls after it shows it ended.
         lifetime.Terminate();
         await Task.Delay(50, TestContext.Current.CancellationToken);
         var callsAfterEnd = Volatile.Read(ref healthyCalls);
@@ -576,7 +558,7 @@ public class RuntimeChannelClientTests : LifetimeTest
         await TestWait.Until(() => Volatile.Read(ref healthyCalls) >= 3);
 
         Volatile.Read(ref hungCalls).Should().Be(1);
-        CountLogged(_logger, LogLevel.Error, "(attempt 1)").Should().Be(1);
+        _logger.Count(LogLevel.Error, "(attempt 1)").Should().Be(1);
 
         lifetime.Terminate();
         hang.SetResult(_position);

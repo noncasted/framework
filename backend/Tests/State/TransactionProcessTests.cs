@@ -119,8 +119,7 @@ public class TransactionProcessTests
         await rejecting.DidNotReceive().OnSuccess(Arg.Any<Guid>());
         (await grain.Get()).Should().Be(0);
 
-        await grain.Deactivate();
-        await Task.Delay(100, TestContext.Current.CancellationToken);
+        await grain.DeactivateAndWaitNewActivation();
         (await grain.Get()).Should().Be(0);
     }
 

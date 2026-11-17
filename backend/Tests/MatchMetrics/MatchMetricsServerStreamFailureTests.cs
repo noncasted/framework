@@ -27,6 +27,19 @@ public class MatchMetricsServerStreamFailureTests : IClassFixture<MatchMetricsDa
             ("m", _match));
     }
 
+    private static bool Throws(Action action)
+    {
+        try
+        {
+            action();
+            return false;
+        }
+        catch (ArgumentException)
+        {
+            return true;
+        }
+    }
+
     [Fact]
     public async Task A_gauge_of_a_name_the_dictionary_has_as_a_counter_is_dropped_and_the_rest_is_written()
     {
@@ -53,6 +66,83 @@ public class MatchMetricsServerStreamFailureTests : IClassFixture<MatchMetricsDa
         lifetime.Terminate();
 
         await TestWait.Until(async () => await Chunks() == 2);
+    }
+
+    [Fact]
+    public async Task A_failed_last_write_is_tried_again_until_it_goes()
+    {
+        var db = new SwitchableDbSource(_database);
+        var lifetime = new Lifetime();
+        var options = new MatchMetricsOptions { ServerFlush = TimeSpan.FromHours(1), ServerLastWriteRetry = TimeSpan.FromMilliseconds(50) };
+        var server = _database.ServerWriter(options, db).Open(lifetime, _match);
+
+        server.Gauge("session.users", 2);
+        db.Fail();
+        lifetime.Terminate();
+        await TestWait.Until(() => db.Failures >= 1);
+
+        db.Recover();
+
+        await TestWait.Until(async () => await Chunks() == 1);
+    }
+
+    [Fact]
+    public async Task The_tries_of_the_last_write_end_after_the_close_grace()
+    {
+        var db = new SwitchableDbSource(_database);
+        var lifetime = new Lifetime();
+        var options = new MatchMetricsOptions
+        {
+            ServerFlush = TimeSpan.FromHours(1),
+            ServerLastWriteRetry = TimeSpan.FromMilliseconds(20),
+            CloseGrace = TimeSpan.FromMilliseconds(300)
+        };
+        var server = _database.ServerWriter(options, db).Open(lifetime, _match);
+
+        server.Gauge("session.users", 2);
+        db.Fail();
+        lifetime.Terminate();
+        await Task.Delay(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+
+        var failures = db.Failures;
+        await Task.Delay(TimeSpan.FromMilliseconds(500), TestContext.Current.CancellationToken);
+
+        failures.Should().BeGreaterThan(1, "the last write is tried again");
+        db.Failures.Should().Be(failures, "the tries are over");
+    }
+
+    // A gauge added while the write resolves the new series and a second over before it takes the values: it waits for the next
+    // write, which finds it is a counter of the game and drops it, instead of failing every write of the stream.
+    [Fact]
+    public async Task A_gauge_of_a_counter_name_added_during_a_write_waits_for_the_next_one()
+    {
+        var counter = "players." + Guid.NewGuid().ToString("N")[..16];
+        var user = Guid.NewGuid();
+        _database.Admission.Add(_match, user);
+
+        var client = _database.Connect(user);
+        var stream = (await client.Open(Open(_match, Guid.NewGuid()))).StreamId;
+        (await client.Accept(Batch(stream, 1, [Series(0, counter, Kind.Counter)], [Chunk(0, 0, 1)]))).Status.Should().Be(Status.Ok);
+
+        var db = new SwitchableDbSource(_database);
+        var lifetime = new Lifetime();
+        var server = _database.ServerWriter(new MatchMetricsOptions { ServerFlush = TimeSpan.FromMilliseconds(100) }, db).Open(lifetime, _match);
+
+        server.Gauge("session.users", 1);
+        await TestWait.Until(async () => await Chunks() == 1);
+
+        db.OnNextAccess(() =>
+        {
+            server.Gauge(counter, 4);
+            Thread.Sleep(TimeSpan.FromSeconds(1.1));
+        });
+        server.Gauge("session." + Guid.NewGuid().ToString("N")[..16], 2);
+
+        await TestWait.Until(async () => await Chunks() == 2);
+
+        var again = () => server.Gauge(counter, 5);
+        await TestWait.Until(() => Throws(again));
+        lifetime.Terminate();
     }
 
     [Fact]

@@ -50,6 +50,20 @@ public class LobbyRegistry : Grain, ILobbyRegistry
     private readonly IMessaging _messaging;
     private readonly ILogger<LobbyRegistry> _logger;
 
+    // How often the servers of the listed lobbies are checked in the discovery of the deploy.
+    public static readonly TimeSpan ListedServersCheckInterval = TimeSpan.FromSeconds(5);
+
+    // A server that stops without releasing its lobbies (a crash) changes no entry, so nothing would advance the
+    // version and the watchers would keep its lobbies. Kept alive: a deactivated registry would miss the crash.
+    public override Task OnActivateAsync(CancellationToken cancellationToken)
+    {
+        this.RegisterGrainTimer(
+            CheckListedServers,
+            new GrainTimerCreationOptions(ListedServersCheckInterval, ListedServersCheckInterval) { KeepAlive = true });
+
+        return Task.CompletedTask;
+    }
+
     public async Task<string> Register(Guid serverId, Guid sessionId)
     {
         var code = string.Empty;
@@ -150,6 +164,43 @@ public class LobbyRegistry : Grain, ILobbyRegistry
         return CreateOpenLobbies();
     }
 
+    private async Task CheckListedServers(CancellationToken cancellation)
+    {
+        try
+        {
+            var state = await _state.ReadValue();
+            var listedServers = state.Entries.Values
+                                     .Where(entry => entry.Listing.IsListed)
+                                     .Select(entry => entry.ServerId)
+                                     .ToHashSet();
+
+            if (listedServers.Count == 0 && state.HiddenServers.Count == 0)
+                return;
+
+            var members = await GrainFactory.GetGrain<IServiceDiscoveryStorage>(this.GetPrimaryKey()).Get();
+            var aliveSince = DateTime.UtcNow - ServiceDiscoveryStorage.StaleThreshold;
+            var goneServers = listedServers.Where(server => IsAlive(members, server, aliveSince) == false).ToHashSet();
+
+            if (goneServers.SetEquals(state.HiddenServers))
+                return;
+
+            await _state.Write(value => {
+                value.HideServers(goneServers);
+                value.AdvanceListingVersion();
+            });
+
+            _logger.LogInformation("[LobbyRegistry] Servers gone from the list of open lobbies: {Servers}",
+                string.Join(", ", goneServers));
+
+            await PublishOpenLobbies();
+        }
+        catch (Exception e)
+        {
+            // The next tick repeats the check.
+            _logger.LogWarning(e, "[LobbyRegistry] Check of the servers of the listed lobbies failed");
+        }
+    }
+
     private async Task PublishOpenLobbies()
     {
         var lobbies = await CreateOpenLobbies();
@@ -176,7 +227,7 @@ public class LobbyRegistry : Grain, ILobbyRegistry
             if (entry.Listing.IsListed == false)
                 continue;
 
-            if (members.TryGetValue(entry.ServerId, out var server) == false || server.UpdateTime < aliveSince)
+            if (IsAlive(members, entry.ServerId, aliveSince) == false)
                 continue;
 
             lobbies.Entries.Add(new OpenLobby
@@ -188,5 +239,10 @@ public class LobbyRegistry : Grain, ILobbyRegistry
         }
 
         return lobbies;
+    }
+
+    private static bool IsAlive(Dictionary<Guid, IServiceOverview> members, Guid serverId, DateTime aliveSince)
+    {
+        return members.TryGetValue(serverId, out var server) && server.UpdateTime >= aliveSince;
     }
 }

@@ -113,7 +113,7 @@ internal static class MatchMetricsBatchParser
             if (values > MatchMetricsLimits.MaxValues)
                 throw Reject($"Values over {MatchMetricsLimits.MaxValues}");
 
-            if (chunk.Start < 0 || chunk.Start + chunk.Values.Length > MatchMetricsLimits.MaxBucket)
+            if (chunk.Start < 0 || (long)chunk.Start + chunk.Values.Length > MatchMetricsLimits.MaxBucket)
                 throw Reject($"The buckets {chunk.Start}+{chunk.Values.Length} out of 0..{MatchMetricsLimits.MaxBucket}");
 
             RequireAge(chunk.AgeMs);
@@ -143,7 +143,7 @@ internal static class MatchMetricsBatchParser
             var previous = ordered[i - 1];
             var chunk = ordered[i];
 
-            if (chunk.Slot == previous.Slot && chunk.Start < previous.Start + previous.Values.Length)
+            if (chunk.Slot == previous.Slot && chunk.Start < (long)previous.Start + previous.Values.Length)
                 throw Reject($"The chunks of the slot {chunk.Slot} from {previous.Start} and {chunk.Start} overlap");
         }
     }

@@ -122,6 +122,11 @@ var name = await _state.Read(s => s.Name);
 
 Inside a transaction `Write()` only records the change; it is committed with the transaction.
 
+A state held by an open transaction (from its first `Read` in the transaction to its commit or rollback) throws
+`InvalidOperationException` on `Read` / `Write` (`EventState`: `Read` / `Append` / `Write`) outside a transaction: the memory
+holds the uncommitted changes, a direct write would store them even if the transaction rolls back. A grain whose
+non-transactional methods may run while a transaction is open on it (`[Reentrant]`) makes them transactional or retries them.
+
 ### Event-sourced state
 
 ```csharp
@@ -371,7 +376,7 @@ Task<string> ReadRawJson(StateIdentity identity);
 | `backend/Tools/Generators/StatesLookupGenerator.cs` | Generates `StatesLookup` and `GeneratedStatesRegistration` |
 | `backend/Orchestration/Extensions/ProjectsSetupExtensions.cs` | Cluster services by host kind, `AddStates()` builds `GrainStatesRegistry` |
 | `backend/Orchestration/GameComposition/GameModule.cs` | Composition root: game services by role, `CreateGameComposition()` |
-| `backend/Infrastructure/Orleans/State/StatesRegistry.cs` | `IGrainStatesRegistry`, `GrainStateInfo` |
+| `backend/Infrastructure/Orleans/State/GrainStatesRegistry.cs` | `IGrainStatesRegistry`, `GrainStatesRegistry` |
 | `backend/Infrastructure/Orleans/State/Direct/State.cs` | `State<T>` implementation |
 | `backend/Infrastructure/Orleans/State/Events/EventState.cs` | `EventState<T>` implementation |
 | `backend/Infrastructure/Orleans/State/StateExtensions.cs` | `Update()`, `Write()`, `ReadValue()`, `Read()` helpers |

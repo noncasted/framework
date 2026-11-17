@@ -1,3 +1,4 @@
+using Framework.Tests.Fixtures;
 using Internal;
 using FluentAssertions;
 using Game.Session;
@@ -9,7 +10,7 @@ namespace Framework.Tests.Session;
 // A session with a reconnect window (SessionCreateOptions.ReconnectWindow): a user whose connection is lost keeps its
 // seat (index, entities) for the window and returns to it; a leave or the end of the window ends the seat. Without
 // a window a lost connection is a leave. Real sessions on manual time and queues: see TestSession.
-public class SessionReconnectTests
+public class SessionReconnectTests : LifetimeTest
 {
     private static readonly TimeSpan Window = TimeSpan.FromSeconds(60);
 
@@ -187,6 +188,41 @@ public class SessionReconnectTests
         session.Leave(second);
         session.Leave(returned);
 
+        session.Lifetime.IsTerminated.Should().BeTrue();
+    }
+
+    // The old connection is lost between the TryAccept of a return and its join: the join takes the seat back from away,
+    // the others see it again, and a later loss is an ordinary one with its own window.
+    [Fact]
+    public void ReturnAccepted_OldConnectionLostBeforeTheJoin_SeatBack_LaterLossIsAnOrdinaryOne()
+    {
+        var (session, first, second) = CreateOfTwo();
+        var userId = first.BackendId;
+
+        session.Session.TryAccept(userId).Should().BeTrue();
+        session.Lose(first);
+        session.Admission.IsAway(userId).Should().BeTrue();
+        session.ClearSent();
+
+        var returned = session.Join(userId);
+
+        session.Admission.IsAway(userId).Should().BeFalse();
+        TestSession.Sent<SharedSessionPlayer.RemoteUpdate>(second).Select(update => update.Index).Should().Contain(first.Index);
+
+        session.Advance(TimeSpan.FromSeconds(10));
+        session.Lose(returned);
+
+        session.Admission.IsAway(userId).Should().BeTrue();
+        TestSession.Sent<SharedSessionPlayer.RemoteAway>(second).Should().ContainSingle();
+
+        // The window of the first loss ends at 60, the one of the second at 70.
+        session.Advance(Window - TimeSpan.FromSeconds(1));
+        session.Seats.Entries.Should().ContainKey(userId);
+
+        session.Advance(TimeSpan.FromSeconds(1));
+        session.Seats.Entries.Should().NotContainKey(userId);
+
+        session.Leave(second);
         session.Lifetime.IsTerminated.Should().BeTrue();
     }
 
@@ -379,7 +415,7 @@ public class SessionReconnectTests
     [Fact]
     public void Seat_EntityOutOfItsRange_Throws()
     {
-        var seat = new SessionSeat(Guid.NewGuid(), Guid.NewGuid(), 2, new Lifetime());
+        var seat = new SessionSeat(Guid.NewGuid(), Guid.NewGuid(), 2, new Lifetime(TestLifetime));
 
         var create = () => seat.OnEntityCreated(SharedEntityIds.Create(3, 1));
         create.Should().Throw<InvalidOperationException>();

@@ -6,13 +6,6 @@ namespace Console.Monitoring;
 
 public class HeapReportStorage : IHeapReportStorage
 {
-    private const string FilePrefix = "heap-report-";
-    private const string FileSuffix = ".txt";
-
-    private readonly string _directory;
-    private readonly ILogger<HeapReportStorage> _logger;
-    private readonly object _lock = new();
-
     public HeapReportStorage(ILogger<HeapReportStorage> logger)
     {
         _logger = logger;
@@ -20,6 +13,13 @@ public class HeapReportStorage : IHeapReportStorage
         System.IO.Directory.CreateDirectory(_directory);
         _logger.LogInformation("[HeapReport] Storage directory: {Directory}", _directory);
     }
+
+    private const string FilePrefix = "heap-report-";
+    private const string FileSuffix = ".txt";
+
+    private readonly string _directory;
+    private readonly ILogger<HeapReportStorage> _logger;
+    private readonly object _lock = new();
 
     public string Directory => _directory;
 
@@ -32,12 +32,12 @@ public class HeapReportStorage : IHeapReportStorage
 
             return System.IO.Directory
                          .EnumerateFiles(_directory, $"{FilePrefix}*{FileSuffix}")
-                         .Select(path => {
+                         .Select(path =>
+                         {
                              var info = new FileInfo(path);
                              return new HeapReport
                              {
                                  FileName = info.Name,
-                                 FilePath = info.FullName,
                                  Timestamp = info.LastWriteTimeUtc,
                                  SizeBytes = info.Length,
                              };
@@ -65,7 +65,6 @@ public class HeapReportStorage : IHeapReportStorage
         return new HeapReport
         {
             FileName = info.Name,
-            FilePath = info.FullName,
             Timestamp = info.LastWriteTimeUtc,
             SizeBytes = info.Length,
         };

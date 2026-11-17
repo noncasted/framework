@@ -1,18 +1,19 @@
 using FluentAssertions;
+using Framework.Tests.Fixtures;
 using Internal;
 using Xunit;
 
 namespace Framework.Tests.Common;
 
 // The Task waits of the backend over the reactive primitives; the primitives themselves are tested in common/Tests~.
-public class ReactiveTaskExtensionsTests
+public class ReactiveTaskExtensionsTests : LifetimeTest
 {
     [Fact]
     public async Task WaitTrue_CompletesOnTrue()
     {
         var property = new ViewableProperty<bool>(false);
 
-        var wait = property.WaitTrue(new Lifetime());
+        var wait = property.WaitTrue(new Lifetime(TestLifetime));
         wait.IsCompleted.Should().BeFalse();
 
         property.Set(true);
@@ -25,14 +26,14 @@ public class ReactiveTaskExtensionsTests
     {
         var property = new ViewableProperty<bool>(true);
 
-        property.WaitTrue(new Lifetime()).IsCompletedSuccessfully.Should().BeTrue();
+        property.WaitTrue(new Lifetime(TestLifetime)).IsCompletedSuccessfully.Should().BeTrue();
     }
 
     [Fact]
     public async Task WaitTrue_LifetimeEnds_IsCancelled()
     {
         var property = new ViewableProperty<bool>(false);
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
 
         var wait = property.WaitTrue(lifetime);
         lifetime.Terminate();
@@ -45,7 +46,7 @@ public class ReactiveTaskExtensionsTests
     {
         var source = new ViewableDelegate<int>();
 
-        var wait = source.WaitInvoke(new Lifetime());
+        var wait = source.WaitInvoke(new Lifetime(TestLifetime));
         source.Invoke(42);
 
         (await wait).Should().Be(42);
@@ -55,7 +56,7 @@ public class ReactiveTaskExtensionsTests
     public async Task WaitInvoke_LifetimeEnds_IsCancelled()
     {
         var source = new ViewableDelegate();
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
 
         var wait = source.WaitInvoke(lifetime);
         lifetime.Terminate();

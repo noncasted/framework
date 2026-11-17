@@ -22,7 +22,7 @@ public class ClientTelemetryCloseRetryTests : ClientTelemetryStorageTest
     private ClientTelemetryConnection Open()
     {
         _switch.IsEnabled.Returns(true);
-        return new ClientTelemetryConnections(_switch, Cluster.Orleans, NullLogger<ClientTelemetryConnection>.Instance).Of(new Lifetime());
+        return new ClientTelemetryConnections(_switch, Cluster.Orleans, NullLogger<ClientTelemetryConnection>.Instance).Of(TestLifetime.Child());
     }
 
     [Fact]
@@ -34,9 +34,11 @@ public class ClientTelemetryCloseRetryTests : ClientTelemetryStorageTest
 
         Cluster.Storage.FailWrites(true);
         await connection.End(new SharedClientTelemetry.SessionEnd { SessionId = id });
-        Cluster.Storage.FailWrites(false);
 
+        // Checked while the writes still fail: the timer of the grain ticks every 10 ms of real time and may store the retry
+        // right after the writes come back.
         (await Session(id)).Status.Should().Be(TelemetrySessionStatus.Live, "nothing is stored yet");
+        Cluster.Storage.FailWrites(false);
 
         // Past LostAfter too: the retry must not turn into the close of a silent client.
         Cluster.Clock.Advance(Cluster.Options.LostAfter + TimeSpan.FromSeconds(1));

@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Framework.Tests.Fixtures;
 using Game.Session;
 using Internal;
 using Shared;
@@ -9,7 +10,7 @@ namespace Framework.Tests.Session;
 // SessionCore: the session of a host client (P2P match, offline) without a container, on the same parts and commands
 // as the backend session. Users are introduced to each other, entities and property writes go to the others, a write
 // of a restricted property by another user is dropped, a leave ends the seat for the others.
-public class SessionCoreTests
+public class SessionCoreTests : LifetimeTest
 {
     [Fact]
     public void Connect_UsersIntroducedToEachOther()
@@ -286,9 +287,9 @@ public class SessionCoreTests
         connection.OneWay.OfType<SharedSessionLatency.Pong>().Single().Id.Should().Be(3);
     }
 
-    private static SessionCore Create(bool start = true, bool isReconnectable = false)
+    private SessionCore Create(bool start = true, bool isReconnectable = false)
     {
-        var core = new SessionCore(Guid.NewGuid(), SessionType.Match, new Lifetime(), new NullSessionLog(), isReconnectable);
+        var core = new SessionCore(Guid.NewGuid(), SessionType.Match, new Lifetime(TestLifetime), new NullSessionLog(), isReconnectable);
 
         if (start == true)
             core.Start();

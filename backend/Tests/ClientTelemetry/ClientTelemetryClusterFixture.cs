@@ -87,6 +87,3 @@ public class ClientTelemetryClusterFixture : SideEffectTestFixture
     }
 
 }
-
-[CollectionDefinition(nameof(ClientTelemetryCollection))]
-public class ClientTelemetryCollection : ICollectionFixture<ClientTelemetryClusterFixture>;

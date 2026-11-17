@@ -11,6 +11,9 @@ internal sealed class ScriptedSocket : WebSocket
     // The status of the close frame the server sent, null before it.
     public WebSocketCloseStatus? SentCloseStatus { get; private set; }
 
+    // The parts not received yet.
+    public int PendingParts => _parts.Count;
+
     public override WebSocketCloseStatus? CloseStatus => null;
     public override string? CloseStatusDescription => null;
     public override WebSocketState State => _state;

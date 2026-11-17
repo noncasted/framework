@@ -125,15 +125,7 @@ public class RuntimePipeTests
 
         lifetime.Terminate();
 
-        var exists = true;
-
-        for (var i = 0; i < 20 && exists; i++)
-        {
-            await Task.Delay(50, TestContext.Current.CancellationToken);
-            exists = await messaging.IsPipeExists(pipeId);
-        }
-
-        exists.Should().BeFalse();
+        await TestWait.Until(async () => await messaging.IsPipeExists(pipeId) == false);
     }
 
     [Fact]

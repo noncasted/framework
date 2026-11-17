@@ -8,7 +8,7 @@ using Xunit;
 namespace Framework.Tests.MatchMetrics;
 
 // The stream of the server: no admission, user Guid.Empty, its values written by the flush timer and at its end.
-public class MatchMetricsServerStreamTests : IClassFixture<MatchMetricsDatabase>
+public class MatchMetricsServerStreamTests : LifetimeTest, IClassFixture<MatchMetricsDatabase>
 {
     public MatchMetricsServerStreamTests(MatchMetricsDatabase database)
     {
@@ -65,7 +65,7 @@ public class MatchMetricsServerStreamTests : IClassFixture<MatchMetricsDatabase>
     [Fact]
     public void A_bad_name_throws()
     {
-        var stream = _database.ServerWriter(new MatchMetricsOptions()).Open(new Lifetime(), _match);
+        var stream = _database.ServerWriter(new MatchMetricsOptions()).Open(TestLifetime, _match);
 
         var write = () => stream.Event("Session Host");
         write.Should().Throw<ArgumentException>();

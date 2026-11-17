@@ -33,7 +33,7 @@ Push path: `PushTransactional` (inside a transaction) / `PushDirect` writes a `D
 | Outcome of `Push` | Side effect |
 |-------------------|-------------|
 | Every current observer accepted | completed, removed from the queue |
-| No observers, or one of them failed | `Push` throws, side effect goes to the retry queue (`IncrementalRetryDelay`), after `MaxRetryCount` - dead letter table. The retry goes only to the observers that have not got the message (remembered in the activation for an hour) and keeps failing while an observer that failed has not resubscribed or removed itself |
+| No observers, or one of them failed | `Push` throws, side effect goes to the retry queue (`IncrementalRetryDelay`), after `MaxRetryCount` attempts - dead letter table. The retry goes only to the observers that have not got the message (remembered in the activation for an hour) and keeps failing while an observer that failed has not resubscribed or removed itself |
 
 Consequences:
 - **Delivered = received by the observers attached at the time.** A failed observer is removed and gets the message on a retry after it resubscribes (the retries fail until then, an observer that never comes back sends the message to the dead letter table); an observer attached after the push completed never gets it. Do not use a durable queue as a guaranteed broadcast to several processes.
@@ -48,6 +48,7 @@ Consequences:
 - **Per-observer queues.** Each observer has its own ordered queue and delivery loop: a slow observer delays only itself.
 - An observer is removed when a send fails, exceeds `DeliveryTimeoutSeconds`, or its queue overflows (`CatchUpBufferSize` pending messages).
 - **Catch-up.** The first bind tells the client where the channel stands (`AddObserver` returns `ChannelPosition`): the history before it is not replayed, a message after it that failed or was lost is. On resubscribe the client calls `CatchUp(lastSeenSequence)` and replays missed messages from the buffer; duplicates are dropped by sequence. If the buffer no longer has them (or the activation was recreated) the client gets `GapDetected` and `onGapDetected` is invoked - the subscriber must reload its state from the source of truth.
+- **A failed delivery waits for a catch-up.** After a handler fails (live, buffered or in a catch-up) the observer takes nothing newer: the rest of the catch-up and the buffer are dropped and the next `Send` throws, so the grain drops the observer; the next resubscribe replays from the last delivered message.
 - Order is preserved per observer; there is no ordering between different observers.
 - Keep-alive: `AddObserver` keeps the activation for `ObserverKeepAliveMinutes`, `Publish` for `DeliveryTimeoutSeconds`. `DelayDeactivation` inside `OnDeactivateAsync` has no effect (deactivation already started), so keep-alive is requested on these calls instead. On deactivation the already queued messages are delivered first.
 

@@ -22,29 +22,31 @@ public class SideEffectsMonitorService : ILocalSetupCompleted
         _logger = logger;
     }
 
+    private const int MaxHistorySize = 120;
+
     private readonly ISideEffectsStorage _storage;
     private readonly IMessaging _messaging;
     private readonly IServiceDiscovery _discovery;
     private readonly ILogger<SideEffectsMonitorService> _logger;
-
     private readonly ViewableProperty<SideEffectsLiveData> _current = new(new SideEffectsLiveData());
+    private readonly List<SideEffectsThroughputEntry> _history = new();
 
     private long _processedAccumulator;
     private long _failedAccumulator;
-    private readonly List<SideEffectsThroughputEntry> _history = new();
-    private const int MaxHistorySize = 120;
 
-    public Task OnLocalSetupCompleted(IReadOnlyLifetime lifetime)
+    public async Task OnLocalSetupCompleted(IReadOnlyLifetime lifetime)
     {
         var listener = new MeterListener();
 
-        listener.InstrumentPublished = (instrument, meterListener) => {
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
             if (instrument.Meter.Name == BackendMeter.Name &&
                 instrument.Name is "backend.side_effects.processed" or "backend.side_effects.failed")
                 meterListener.EnableMeasurementEvents(instrument);
         };
 
-        listener.SetMeasurementEventCallback<long>((instrument, value, _, _) => {
+        listener.SetMeasurementEventCallback<long>((instrument, value, _, _) =>
+        {
             if (instrument.Name == "backend.side_effects.processed")
                 Interlocked.Add(ref _processedAccumulator, value);
             else if (instrument.Name == "backend.side_effects.failed")
@@ -56,16 +58,16 @@ public class SideEffectsMonitorService : ILocalSetupCompleted
 
         Loop(lifetime).NoAwait();
 
-        _messaging.AddPipeRequestHandler<SideEffectsSnapshotRequest, SideEffectsSnapshotResponse>(
+        // Awaited: a failed binding of the pipe fails the setup instead of leaving the console without this service.
+        await _messaging.AddPipeRequestHandler<SideEffectsSnapshotRequest, SideEffectsSnapshotResponse>(
             lifetime,
             new MessagePipeServiceRequestId(_discovery.Self, typeof(SideEffectsSnapshotRequest)),
-            _ => Task.FromResult(new SideEffectsSnapshotResponse {
+            _ => Task.FromResult(new SideEffectsSnapshotResponse
+            {
                 ServiceTag = _discovery.Self.Tag.ToString(),
                 ServiceId = _discovery.Self.Id,
                 Data = _current.Value,
             }));
-
-        return Task.CompletedTask;
     }
 
     private async Task Loop(IReadOnlyLifetime lifetime)

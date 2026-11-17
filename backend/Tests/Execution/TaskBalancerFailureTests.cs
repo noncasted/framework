@@ -1,6 +1,5 @@
 using Common.Extensions;
 using FluentAssertions;
-using Framework.Tests.Common;
 using Framework.Tests.Fixtures;
 using Infrastructure.Execution;
 using Internal;
@@ -13,26 +12,8 @@ namespace Framework.Tests.Execution;
 
 // The failure paths of the TaskBalancer: the penalty of a failing task and the drain at the end of the lifetime.
 [Collection(nameof(NoAwaitCollection))]
-public class TaskBalancerFailureTests : LifetimeTest
+public class TaskBalancerFailureTests : NoAwaitHandlerTest
 {
-    public TaskBalancerFailureTests()
-    {
-        _previous = NoAwaitExceptions.Handler;
-        NoAwaitExceptions.SetHandler(e => {
-            lock (_reported)
-                _reported.Add(e);
-        });
-    }
-
-    private readonly Action<Exception>? _previous;
-    private readonly List<Exception> _reported = [];
-
-    public override void Dispose()
-    {
-        base.Dispose();
-        NoAwaitExceptions.SetHandler(_previous);
-    }
-
     [Fact]
     public async Task FailingCriticalTask_PenaltyLetsLowTasksRun()
     {
@@ -93,8 +74,35 @@ public class TaskBalancerFailureTests : LifetimeTest
 
         Volatile.Read(ref finished).Should().Be(Volatile.Read(ref started), "the drain waits for every running task");
 
-        lock (_reported)
-            _reported.Should().BeEmpty("the drain of the execute loop must not fail");
+        Reported.Should().BeEmpty("the drain of the execute loop must not fail");
+    }
+
+    // The lifetime ends in the pause after a failed iteration of the execute loop: the loop still drains.
+    [Fact]
+    public async Task LifetimeEndsInPauseAfterFailedIteration_DrainCompletes()
+    {
+        var queue = Substitute.For<ITaskQueue>();
+        queue.Collect().Returns(Array.Empty<IPriorityTask>());
+
+        // Run reads the config synchronously: the collect loop, the execute loop (its slots, its iteration). The
+        // iteration fails, the pause after it outlasts the test.
+        var options = new TaskBalancerOptions { EmptyDelayMs = 60_000, ConcurrentTasks = 1 };
+        var config = Substitute.For<ITaskBalancerConfig>();
+        var reads = 0;
+
+        config.Value.Returns(_ => Interlocked.Increment(ref reads) == 3
+            ? throw new InvalidOperationException("the iteration fails")
+            : options);
+
+        var logger = new DrainLogger();
+        var balancer = new TaskBalancer(queue, logger, config);
+
+        var lifetime = TestLifetime.Child();
+        await balancer.Run(lifetime);
+        Volatile.Read(ref reads).Should().BeGreaterThanOrEqualTo(4, "the failed iteration has started its pause");
+
+        lifetime.Terminate();
+        await logger.Drained.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
     }
 
     private static TaskBalancer CreateBalancer(ITaskQueue queue, int concurrentTasks)

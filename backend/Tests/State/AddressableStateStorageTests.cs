@@ -11,17 +11,6 @@ using Xunit;
 
 namespace Framework.Tests.State;
 
-[GrainState(Table = "configs", State = "addressable_storage_test_config", Lookup = "AddressableStorageTestConfig",
-    Key = GrainKeyType.String)]
-public class AddressableStorageTestOptions
-{
-    public string Label { get; init; } = string.Empty;
-    public int Limit { get; init; }
-}
-
-public class AddressableStorageTestState(AddressableStateUtils utils)
-    : AddressableState<AddressableStorageTestOptions>(utils);
-
 // The real AddressableState over the database: the stored value survives a restart of the service.
 // Regression: a value loaded from the database was reported as not initialized, so the coordinator overwrote the
 // stored configs with the seed (ConfigsInitializer.Init) on every start.

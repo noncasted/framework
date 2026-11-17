@@ -81,10 +81,16 @@ public class DeployHealthChecker : BackgroundService
     private async Task CheckDeployEpoch(IReadOnlyLifetime lifetime, string serviceName, bool isCoordinator)
     {
         DeployIdResponse response;
+        bool isNewer;
 
         try
         {
             response = await _messaging.SendPipe<DeployIdResponse>(DeployIdPipe.Id, new DeployIdRequest());
+
+            if (response.DeployId == Guid.Empty || response.DeployId == _deployContext.DeployId)
+                return;
+
+            isNewer = await IsNewerThanOwn(response.DeployId);
         }
         catch (Exception e)
         {
@@ -92,11 +98,14 @@ public class DeployHealthChecker : BackgroundService
             return;
         }
 
-        if (response.DeployId == Guid.Empty)
+        // The pipe is answered by the last bind: a replaced coordinator that still answers it must not make the
+        // hosts of the newer deploy go back to its epoch or the newer coordinator leave its own deploy.
+        if (isNewer == false)
+        {
+            _logger.LogWarning("[Health] {Service} deploy id pipe answered older deploy {Older}, staying in {Mine}",
+                serviceName, response.DeployId, _deployContext.DeployId);
             return;
-
-        if (response.DeployId == _deployContext.DeployId)
-            return;
+        }
 
         if (isCoordinator)
         {
@@ -133,6 +142,14 @@ public class DeployHealthChecker : BackgroundService
         {
             _logger.LogWarning(e, "[Health] {Service} discovery push after epoch switch failed", serviceName);
         }
+    }
+
+    private async Task<bool> IsNewerThanOwn(Guid deployId)
+    {
+        var other = await _orleans.GetGrain<IDeployManagement>(deployId).GetState();
+        var own = await _orleans.GetGrain<IDeployManagement>(_deployContext.DeployId).GetState();
+
+        return other.CreatedAt > own.CreatedAt;
     }
 
     private async Task CheckHeartbeat(string serviceName, bool isCoordinator)

@@ -1,5 +1,6 @@
 using Cluster.Deploy;
 using Cluster.Monitoring;
+using Framework.Tests.Fixtures;
 using Internal;
 using FluentAssertions;
 using Infrastructure;
@@ -13,7 +14,7 @@ namespace Framework.Tests.Cluster;
 // a channel update that does not deserialize fails loudly instead of leaving a silently stale value.
 // updates from the channel and from the own writes arrive on different threads: they are applied one
 // at a time and the newest one wins.
-public class DeploymentStateUpdateTests
+public class DeploymentStateUpdateTests : LifetimeTest
 {
     [Fact]
     public async Task Update_DeserializationFails_Throws()
@@ -27,7 +28,7 @@ public class DeploymentStateUpdateTests
 
         var initial = new LiveSessionsData();
         var state = new TestState(orleans, initial);
-        await state.OnDeployChanged(Guid.NewGuid(), new Lifetime());
+        await state.OnDeployChanged(Guid.NewGuid(), new Lifetime(TestLifetime));
 
         var update = new AddressableStateValue
         {
@@ -56,7 +57,7 @@ public class DeploymentStateUpdateTests
                .Returns(call => new Marker { Id = call.Arg<string>() });
 
         var state = new MarkerState(orleans);
-        var lifetime = new Lifetime();
+        var lifetime = new Lifetime(TestLifetime);
         await state.OnDeployChanged(Guid.NewGuid(), lifetime);
 
         var active = 0;
@@ -107,6 +108,31 @@ public class DeploymentStateUpdateTests
         errors.Should().BeEmpty();
         overlaps.Should().Be(0, "a value is applied only after the previous one is fully applied");
         state.Value.Id.Should().Be((threads * perThread - 1).ToString());
+
+        lifetime.Terminate();
+    }
+
+    // The pages of the console subscribe and leave on the threads of their circuits while the updates apply.
+    [Fact]
+    public async Task ConcurrentSubscriptions_WhileUpdatesApply_LoseNothing()
+    {
+        var orleans = Substitute.For<IOrleans>();
+
+        orleans.StateStorage.Read<AddressableStateValue>(Arg.Any<StateIdentity>())
+               .Returns(Task.FromResult(new AddressableStateValue()));
+        orleans.Serializer.Deserialize<Marker>(Arg.Any<string>())
+               .Returns(call => new Marker { Id = call.Arg<string>() });
+
+        var state = new MarkerState(orleans);
+        var lifetime = new Lifetime(TestLifetime);
+        await state.OnDeployChanged(Guid.NewGuid(), lifetime);
+        var start = DateTime.UtcNow;
+
+        await SubscriptionStress.Run<Marker>(
+            (subscriber, listener) => state.View(subscriber, listener),
+            index => state.Receive(new AddressableStateValue { IsInitialized = true, UpdateDate = start.AddTicks(index), Value = index.ToString() }),
+            // A circuit that views before the first update gets the initial marker, without an id.
+            marker => marker.Id == string.Empty ? 0 : int.Parse(marker.Id));
 
         lifetime.Terminate();
     }

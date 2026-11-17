@@ -22,9 +22,9 @@ public class TelemetryConsoleLogTests
         var reader = new FakeTelemetryReader();
         var session = SessionOf(TelemetrySessionStatus.Live);
         reader.Set(session);
-        reader.Samples.AddRange(Enumerable.Range(1, TelemetrySessionLog.PageRows * 2 + 1).Select(i => Sample(i, i, 1)));
-        reader.Marks.Add(Mark(1, 5, "m"));
-        reader.Errors[session.Id] = [Error(1, 6, "a")];
+        reader.AddSamples(Enumerable.Range(1, TelemetrySessionLog.PageRows * 2 + 1).Select(i => Sample(i, i, 1)).ToArray());
+        reader.AddMarks(Mark(1, 5, "m"));
+        reader.SetErrors(session.Id, Error(1, 6, "a"));
 
         var log = new TelemetrySessionLog(reader, session.Id);
 
@@ -34,10 +34,29 @@ public class TelemetryConsoleLogTests
         Assert.Single(log.Errors);
         Assert.False(await log.Refresh());
 
-        reader.Samples.Add(Sample(100_000, 100_000, 1));
+        reader.AddSamples(Sample(100_000, 100_000, 1));
 
         Assert.True(await log.Refresh());
         Assert.Equal(TelemetrySessionLog.PageRows * 2 + 2, log.Samples.Count);
+    }
+
+    // The samples of a closed session came before the read of the errors failed: the next refresh still gives them to the page.
+    [Fact]
+    public async Task Refresh_AfterAPartlyFailedOne_ReportsTheRowsItTookBefore()
+    {
+        var reader = new FakeTelemetryReader();
+        var session = SessionOf(TelemetrySessionStatus.Ended);
+        reader.Set(session);
+        reader.AddSamples(Sample(1, 1000, 1), Sample(2, 2000, 2));
+        reader.FailNextErrorRead(new InvalidOperationException("database down"));
+
+        var log = new TelemetrySessionLog(reader, session.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(log.Refresh);
+
+        Assert.True(await log.Refresh());
+        Assert.Equal(2, log.Samples.Count);
+        Assert.False(await log.Refresh());
     }
 
     [Fact]
@@ -46,7 +65,7 @@ public class TelemetryConsoleLogTests
         var reader = new FakeTelemetryReader();
         var session = SessionOf(TelemetrySessionStatus.Live);
         reader.Set(session);
-        reader.Samples.AddRange([Sample(1, 2000, 1), Sample(2, 1000, 2)]);
+        reader.AddSamples(Sample(1, 2000, 1), Sample(2, 1000, 2));
 
         var log = new TelemetrySessionLog(reader, session.Id);
         await log.Refresh();
@@ -60,7 +79,7 @@ public class TelemetryConsoleLogTests
         var reader = new FakeTelemetryReader();
         var session = SessionOf(TelemetrySessionStatus.Live);
         reader.Set(session);
-        reader.Samples.AddRange([Sample(1, 0, 60), Sample(1, 1000, 40), Sample(1, 2000, 1, hidden: true)]);
+        reader.AddSamples(Sample(1, 0, 60), Sample(1, 1000, 40), Sample(1, 2000, 1, hidden: true));
 
         var log = new TelemetrySessionLog(reader, session.Id);
         await log.Refresh();
@@ -78,7 +97,7 @@ public class TelemetryConsoleLogTests
         var digest = Digest(metrics: Metric("frame.fps", 33));
         var session = SessionOf(digest: digest);
         reader.Set(session);
-        reader.Samples.Add(Sample(1, 0, 60));
+        reader.AddSamples(Sample(1, 0, 60));
 
         var log = new TelemetrySessionLog(reader, session.Id);
         await log.Refresh();
@@ -108,9 +127,9 @@ public class TelemetryConsoleLogTests
     {
         var reader = new FakeTelemetryReader();
         Guid empty = Guid.NewGuid(), other = Guid.NewGuid(), holder = Guid.NewGuid(), unread = Guid.NewGuid();
-        reader.Errors[other] = [Error(1, 0, "other")];
-        reader.Errors[holder] = [Error(1, 0, "other"), Error(2, 0, "wanted")];
-        reader.Errors[unread] = [Error(1, 0, "wanted")];
+        reader.SetErrors(other, Error(1, 0, "other"));
+        reader.SetErrors(holder, Error(1, 0, "other"), Error(2, 0, "wanted"));
+        reader.SetErrors(unread, Error(1, 0, "wanted"));
 
         var group = Group("wanted", 1, SessionOf().StartedAt, empty, other, holder, unread);
         var found = await TelemetryErrorExample.Find(reader, group);
@@ -125,7 +144,7 @@ public class TelemetryConsoleLogTests
     {
         var reader = new FakeTelemetryReader();
         var session = Guid.NewGuid();
-        reader.Errors[session] = Enumerable.Range(1, TelemetrySessionLog.PageRows + 1).Select(i => Error(i, 0, i == TelemetrySessionLog.PageRows + 1 ? "wanted" : "other")).ToList();
+        reader.SetErrors(session, Enumerable.Range(1, TelemetrySessionLog.PageRows + 1).Select(i => Error(i, 0, i == TelemetrySessionLog.PageRows + 1 ? "wanted" : "other")).ToArray());
 
         Assert.NotNull(await TelemetryErrorExample.Find(reader, Group("wanted", 1, SessionOf().StartedAt, session)));
     }

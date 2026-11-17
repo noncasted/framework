@@ -10,10 +10,12 @@ using Xunit;
 namespace Framework.Tests.MatchMetrics;
 
 // A database of its own with the tables of the collector, the storage over it, the test admission and a manual clock.
-// Every test takes new match ids, so the tests share it.
+// Every test takes new match ids, so the tests share it. A connection opened without a lifetime of its test lives on the
+// lifetime of the database, ended with it.
 public sealed class MatchMetricsDatabase : IAsyncLifetime, IDbSource
 {
     private readonly DatabaseFixture _database = new();
+    private readonly Lifetime _lifetime = new();
 
     public NpgsqlDataSource Value => _database.DataSource;
 
@@ -40,12 +42,21 @@ public sealed class MatchMetricsDatabase : IAsyncLifetime, IDbSource
     public MatchMetricsConnection Connect(Guid userId, ILifetime? lifetime = null)
     {
         var connections = new MatchMetricsConnections(Admission, Streams, Writer, Options, Time, NullLogger<MatchMetricsConnection>.Instance);
-        return connections.Of(lifetime ?? new Lifetime(), userId);
+        return connections.Of(lifetime ?? _lifetime.Child(), userId);
     }
 
     public IMatchMetricsWriter ServerWriter(MatchMetricsOptions options)
     {
         return new MatchMetricsWriter(Streams, Writer, Dictionary, options, TimeProvider.System, NullLogger<MatchMetricsServerStream>.Instance);
+    }
+
+    // A writer over its own storage: a cache of the dictionary of its own and the database the test gives.
+    public IMatchMetricsWriter ServerWriter(MatchMetricsOptions options, IDbSource db)
+    {
+        var dictionary = new MatchMetricSeriesDictionary(db);
+        var writer = new MatchMetricBatchWriter(db, dictionary);
+
+        return new MatchMetricsWriter(new MatchMetricStreamStore(db), writer, dictionary, options, TimeProvider.System, NullLogger<MatchMetricsServerStream>.Instance);
     }
 
     public async Task<T> Scalar<T>(string sql, params (string Name, object Value)[] parameters)
@@ -62,6 +73,7 @@ public sealed class MatchMetricsDatabase : IAsyncLifetime, IDbSource
 
     public async ValueTask DisposeAsync()
     {
+        _lifetime.Terminate();
         await _database.DisposeAsync();
     }
 }

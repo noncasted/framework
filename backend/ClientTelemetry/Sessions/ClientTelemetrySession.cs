@@ -107,9 +107,6 @@ public class ClientTelemetrySession : Grain, IClientTelemetrySession
         }
 
         _closing = status;
-
-        // A failed write dropped the value of the state.
-        await _session.Read();
         await CloseLive(status);
     }
 
@@ -174,8 +171,13 @@ public class ClientTelemetrySession : Grain, IClientTelemetrySession
 
         var session = _session.Value;
 
+        // The notifications of the branches without a change: a host that missed the push of a close or a delete keeps its entry
+        // until it hears again, and its sweep is what comes here for it.
         if (!session.IsStarted)
+        {
+            await Notify();
             return;
+        }
 
         // Open without the memory: a start stored its row and failed after it. Closed like a row a crash left, never deleted.
         if (!session.Closed)
@@ -187,7 +189,10 @@ public class ClientTelemetrySession : Grain, IClientTelemetrySession
         }
 
         if (session.ClosedAt > Now - TimeSpan.FromDays(_options.RetentionDays))
+        {
+            await Notify();
             return;
+        }
 
         await _storage.Delete(new StateDeleteRequest { Identities = [_storage.IdentityOf<TelemetrySessionState>(Id), _storage.IdentityOf<TelemetrySessionLogState>(Id)] });
 

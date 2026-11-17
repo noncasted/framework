@@ -40,7 +40,7 @@ backend/
   Session/              real-time game sessions (assembly Framework.Session, namespace Game.Session)
   Hosting/              the sessions of a game server and the requests of the meta to it: sessions collection, lobby
                         sessions and codes, lobby service, session requester (assembly Framework.Hosting, namespaces
-                        Game.Hosting and Game.Lobbies)
+                        Game.Hosting.Collection below Game.Lobbies below Game.Hosting)
   ClientTelemetry/      telemetry of the clients: sessions and startup traces over the meta socket, storage, read API (namespace
                         Game.ClientTelemetry; rules in Contract/CONTRACT.md; the panel is in Console/Infrastructure/ClientTelemetry)
   ClientTelemetry.TestHost/  the same without a game: Kestrel, a silo, its own PostgreSQL container
@@ -119,7 +119,8 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
 - **Cluster.** Service roles are strings: the project declares its `ServiceTag`s and the required set
   (`ConfigureRequiredServices`); a game server calls `PublishGameServerUrl`. Game configs: `AddAddressableState` +
   an `ICoordinatorSetupCompleted` with `ConfigsInitializer.Init`. Game switches: `IClusterFeatures.SetGameFlag` /
-  `IsGameFlagEnabled`. A replaced coordinator leaves its deploy (`IDeployContext.Leave()`): what runs on `DeployLifetime`
+  `IsGameFlagEnabled`. A replaced coordinator leaves its deploy (`IDeployContext.Leave()`; a host follows the deploy id pipe only to a deploy
+  created after its own, `DeployState.CreatedAt`): what runs on `DeployLifetime`
   stops there (`OnlineTracker`, channel listeners); the rows of a deploy are written through `DeploymentStateRow.Change`.
   A feature registers its own meter and trace source (`AddBackendMeter`, `AddTraceSource`) in its `Add*`.
 - **Console.** A Razor class library: the project keeps its home page and game pages in its own assembly (add both
@@ -330,7 +331,7 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   `Closed`: a socket that ends with the handler takes the close frame with it. The server sends no requests to a client; a
   message it cannot take closes the connection; a handshake is limited to 16 KiB.
 - **Hosting.** `backend/Hosting`. A game server calls `AddSessionHosting(LobbyOptions)`: the sessions collection
-  (`ISessionsCollection`, feeds `LiveSessionsData`), the lobby sessions (`ILobbySessions`: create, join by a code,
+  (`ISessionsCollection` of `Game.Hosting.Collection`, feeds `LiveSessionsData`), the lobby sessions (`ILobbySessions`: create, join by a code,
   the lobby of the late players of a running match), the leases of the lobby codes (`ILobbyCodeLeases`,
   `ILobbyListings`) and the handlers of the meta requests (`SessionEndpoints`, `SessionPayloads` over the message
   pipes). The game registers what builds its sessions: `ILobbyFactory` (a lobby session from `LobbyCreation`),

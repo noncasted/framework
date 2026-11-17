@@ -21,8 +21,7 @@ public class SideEffectsWorker : IHostedService
         ILogger<SideEffectsWorker> logger)
     {
         _storage = storage;
-        _transactions = transactions;
-        _orleans = orleans;
+        _execution = new SideEffectExecution(storage, transactions, orleans, config, logger);
         _loopObserver = loopObserver;
         _config = config;
         _clusterFlags = clusterFlags;
@@ -31,8 +30,7 @@ public class SideEffectsWorker : IHostedService
     }
 
     private readonly ISideEffectsStorage _storage;
-    private readonly ITransactions _transactions;
-    private readonly IOrleans _orleans;
+    private readonly SideEffectExecution _execution;
     private readonly IServiceLoopObserver _loopObserver;
     private readonly ISideEffectsConfig _config;
     private readonly IClusterFlags _clusterFlags;
@@ -85,16 +83,9 @@ public class SideEffectsWorker : IHostedService
         try
         {
             var options = _config.Value;
-            var freeSlots = options.ConcurrentExecutions - _inProgress;
 
-            if (freeSlots <= 0)
-            {
-                await Task.Delay(_config.Value.EmptyScanDelay, lifetime.Token);
-                return;
-            }
-
-            await _storage.RequeueReady();
-
+            // Before the check of the slots: a worker with every slot busy runs the longest effects, and they must
+            // stay touched.
             if ((DateTime.UtcNow - _lastStuckCheck).TotalSeconds >= options.StuckCheckIntervalSeconds)
             {
                 // Every worker touches its own entries at its stuck check: only the entries of a worker that is
@@ -103,6 +94,16 @@ public class SideEffectsWorker : IHostedService
                 await _storage.RequeueStuckOlderThan(TimeSpan.FromMinutes(options.StuckThresholdMinutes));
                 _lastStuckCheck = DateTime.UtcNow;
             }
+
+            var freeSlots = options.ConcurrentExecutions - _inProgress;
+
+            if (freeSlots <= 0)
+            {
+                await Task.Delay(options.EmptyScanDelay, lifetime.Token);
+                return;
+            }
+
+            await _storage.RequeueReady();
 
             var entries = await _storage.Read(freeSlots);
             foundWork = entries.Count > 0;
@@ -141,49 +142,7 @@ public class SideEffectsWorker : IHostedService
 
         try
         {
-            if (entry.Effect is ITransactionalSideEffect)
-            {
-                var result = await _transactions
-                                   .CreateBuilder(() => entry.Effect.Execute(_orleans))
-                                   .WithCallback(npgsqlTransaction =>
-                                       _storage.CompleteProcessing(npgsqlTransaction, entry.Id))
-                                   .Run();
-
-                result.ThrowIfFailed();
-            }
-            else
-            {
-                await entry.Effect.Execute(_orleans);
-                await _storage.CompleteProcessing(entry.Id);
-            }
-
-            SideEffectTelemetry.Processed.Add(1);
-        }
-        catch (Exception e)
-        {
-            var options = _config.Value;
-
-            _logger.LogError(e,
-                "[SideEffects] Effect {Id} failed (attempt {RetryCount}/{MaxRetry})",
-                entry.Id, entry.RetryCount + 1, options.MaxRetryCount);
-
-            if (entry.RetryCount > 0)
-                SideEffectTelemetry.Retry.Add(1);
-
-            SideEffectTelemetry.Failed.Add(1);
-
-            try
-            {
-                await _storage.FailProcessing(entry.Id,
-                    entry.RetryCount,
-                    options.MaxRetryCount,
-                    options.IncrementalRetryDelay,
-                    e.Message);
-            }
-            catch (Exception failEx)
-            {
-                _logger.LogError(failEx, "[SideEffects] Failed to record failure for effect {Id}", entry.Id);
-            }
+            await _execution.Execute(entry);
         }
         finally
         {

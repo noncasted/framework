@@ -54,9 +54,4 @@ public static class MessagingClientStubs
             return action();
         }
     }
-
-    public static int CountLogged<T>(RecordingLogger<T> logger, LogLevel level, string text)
-    {
-        return logger.Entries.Count(entry => entry.Level == level && entry.Message.Contains(text, StringComparison.Ordinal));
-    }
 }
