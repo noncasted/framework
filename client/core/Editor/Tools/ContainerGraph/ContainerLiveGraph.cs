@@ -147,7 +147,9 @@ namespace Internal
 
         private void RebuildNodes()
         {
-            var roots = ContainerGraphRead.List(() => ContainerRegistryDebug.Roots);
+            // Read before the graph is touched: a failure reaches Rebuild with the old nodes in place and nothing saved.
+            var roots = ContainerRegistryDebug.Roots;
+            var children = ContainerGraphTree.ReadChildren(roots);
             var nodes = new Dictionary<IContainerDiagnostics, ContainerNode>();
             var visited = new HashSet<IContainerDiagnostics>();
 
@@ -164,7 +166,7 @@ namespace Internal
                     if (root == null)
                         continue;
 
-                    var height = AddTree(root, null, OriginX, cursorY, nodes, visited);
+                    var height = AddTree(root, null, OriginX, cursorY, children, nodes, visited);
 
                     if (height > 0f)
                         cursorY += height + RootGap;
@@ -194,6 +196,7 @@ namespace Internal
             IContainerDiagnostics parent,
             float x,
             float y,
+            Dictionary<IContainerDiagnostics, IReadOnlyList<IContainerDiagnostics>> children,
             Dictionary<IContainerDiagnostics, ContainerNode> nodes,
             HashSet<IContainerDiagnostics> visited)
         {
@@ -207,15 +210,14 @@ namespace Internal
             node.ApplyPresentation();
             nodes[diagnostics] = node;
 
-            var children = ContainerGraphRead.List(() => diagnostics.Children);
             var childY = y;
 
-            foreach (var child in children)
+            foreach (var child in children[diagnostics])
             {
                 if (child == null)
                     continue;
 
-                var height = AddTree(child, diagnostics, x + ColumnWidth, childY, nodes, visited);
+                var height = AddTree(child, diagnostics, x + ColumnWidth, childY, children, nodes, visited);
 
                 if (height > 0f)
                     childY += height + SiblingGap;

@@ -21,7 +21,7 @@ namespace ContainerGenerator {
         }
 
         public void WalkInvocation(WalkState state, InvocationExpressionSyntax invocation) {
-            var symbol = state.Model.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            var symbol = Bind(state.Model.GetSymbolInfo(invocation));
             var name = symbol != null ? symbol.OriginalDefinition.Name : WalkSyntax.MethodName(invocation);
 
             foreach (var argument in invocation.ArgumentList.Arguments) {
@@ -131,6 +131,16 @@ namespace ContainerGenerator {
             }
 
             _walkDiagnostics.Error(state, invocation, "invocation '" + name + "'");
+        }
+
+        // A private installer called from the harvest copy of its class (HarvestQualifier) is the single inaccessible
+        // candidate: compiled code never has one.
+        private static IMethodSymbol? Bind(SymbolInfo info) {
+            if (info.Symbol != null)
+                return info.Symbol as IMethodSymbol;
+            if (info.CandidateReason == CandidateReason.Inaccessible && info.CandidateSymbols.Length == 1)
+                return info.CandidateSymbols[0] as IMethodSymbol;
+            return null;
         }
 
         private bool IsAddInstaller(string name, WalkState state, InvocationExpressionSyntax invocation) {

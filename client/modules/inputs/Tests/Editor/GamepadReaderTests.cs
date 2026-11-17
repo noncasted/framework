@@ -48,6 +48,8 @@ namespace Global.Inputs.Tests
         [Test]
         public void Construct_AxesOfTheProject_MissingOnesNamedAtOnce()
         {
+            AssumeLayout();
+
             var manager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/InputManager.asset")[0]);
             var axes = manager.FindProperty("m_Axes");
             var names = Enumerable.Range(0, axes.arraySize)
@@ -72,7 +74,7 @@ namespace Global.Inputs.Tests
         [Test]
         public void ReadInput_EveryAxisOfTheLayout_IsRead()
         {
-            var reader = new GamepadReader(_options);
+            var reader = CreateReader();
 
             var state = reader.State;
 
@@ -83,7 +85,7 @@ namespace Global.Inputs.Tests
         [Test]
         public void Substitute_TheStateComesFromTheSample()
         {
-            var reader = new GamepadReader(_options);
+            var reader = CreateReader();
             var lifetime = new Lifetime();
             var sample = new GamepadState();
             sample.SetLeftTrigger(0.25f);
@@ -97,10 +99,43 @@ namespace Global.Inputs.Tests
             lifetime.Terminate();
         }
 
+        // The state of a frame is cached: a substitute set after a read of the same frame is seen by the next read.
+        [Test]
+        public void Substitute_AfterAReadOfTheFrame_IsSeenAtOnce()
+        {
+            var reader = CreateReader();
+            var lifetime = new Lifetime();
+            var sample = new GamepadState();
+            sample.SetLeftTrigger(0.25f);
+
+            Assert.That(reader.LeftTrigger, Is.InRange(0f, 1f));
+            reader.Substitute(lifetime, () => sample);
+
+            Assert.AreEqual(0.25f, reader.LeftTrigger);
+
+            lifetime.Terminate();
+        }
+
+        [Test]
+        public void Substitute_LifetimeEnded_IsDroppedAtOnce()
+        {
+            var reader = CreateReader();
+            var lifetime = new Lifetime();
+            var sample = new GamepadState();
+            sample.SetLeftTrigger(0.25f);
+
+            reader.Substitute(lifetime, () => sample);
+            Assert.AreEqual(0.25f, reader.LeftTrigger);
+
+            lifetime.Terminate();
+
+            Assert.AreNotEqual(0.25f, reader.LeftTrigger);
+        }
+
         [Test]
         public void Substitute_Twice_Throws()
         {
-            var reader = new GamepadReader(_options);
+            var reader = CreateReader();
             var lifetime = new Lifetime();
 
             reader.Substitute(lifetime, () => new GamepadState());
@@ -114,7 +149,7 @@ namespace Global.Inputs.Tests
         [Test]
         public void Substitute_LifetimeEnded_CanBeSubstitutedAgain()
         {
-            var reader = new GamepadReader(_options);
+            var reader = CreateReader();
             var first = new Lifetime();
             var second = new Lifetime();
 
@@ -143,7 +178,7 @@ namespace Global.Inputs.Tests
         [TestCase(RuntimePlatform.IPhonePlayer)]
         public void Layout_OtherPlatforms_HaveNone(RuntimePlatform platform)
         {
-            Assert.IsFalse(GamepadLayout.HasLayout(platform), "AddInput fails while the scope is built on this platform");
+            Assert.IsFalse(GamepadLayout.HasLayout(platform), "AddInput registers NoGamepadReader on this platform");
         }
 
         [Test]
@@ -252,6 +287,19 @@ namespace Global.Inputs.Tests
             Assert.IsFalse(reader.IsPressed(GamepadButton.A));
             Assert.IsFalse(reader.WasPressed(GamepadButton.A));
             Assert.IsFalse(reader.WasReleased(GamepadButton.A));
+        }
+
+        // The reader of the editor exists only where the platform of the editor has a layout (not on macOS).
+        private GamepadReader CreateReader()
+        {
+            AssumeLayout();
+            return new GamepadReader(_options);
+        }
+
+        private static void AssumeLayout()
+        {
+            Assume.That(GamepadLayout.HasLayout(Application.platform), Is.True,
+                $"{Application.platform} has no gamepad layout: AddInput registers NoGamepadReader there");
         }
     }
 }

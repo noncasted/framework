@@ -2,7 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
+using UnityEngine;
 using UnityEngine.TestTools;
 
 namespace Internal.Tests
@@ -73,6 +75,37 @@ namespace Internal.Tests
             Assert.IsFalse(group.IsLoaded);
         }
 
+        // The unload of a failed load throws: the awaiters of Retain still get the error of the load.
+        [Test]
+        public void FailedLoad_UnloadThrows_RetainFails()
+        {
+            var group = new TestGroup();
+            group.FailUnload();
+            LogAssert.Expect(LogType.Exception, new Regex("unload failed"));
+
+            var retain = group.Retain();
+            group.FailLoad();
+
+            Assert.AreEqual(UniTaskStatus.Faulted, retain.Status, "Retain waits for a load that is over");
+            Assert.Throws<InvalidOperationException>(() => retain.GetAwaiter().GetResult());
+            group.Release();
+        }
+
+        // Released while loading, the unload throws: the awaiters of Retain are not left waiting.
+        [Test]
+        public void ReleasedWhileLoading_UnloadThrows_RetainCompletes()
+        {
+            var group = new TestGroup();
+            group.FailUnload();
+            LogAssert.Expect(LogType.Exception, new Regex("unload failed"));
+
+            var retain = group.Retain();
+            group.Release();
+            group.CompleteLoad();
+
+            Assert.AreEqual(UniTaskStatus.Succeeded, retain.Status, "Retain waits for a load that is over");
+        }
+
         [Test]
         public void Release_WithoutRetain_Throws()
         {
@@ -118,8 +151,14 @@ namespace Internal.Tests
         internal sealed class TestGroup : AssetGroup
         {
             private UniTaskCompletionSource _pending;
+            private bool _failsToUnload;
 
             public readonly List<string> Log = new();
+
+            public void FailUnload()
+            {
+                _failsToUnload = true;
+            }
 
             public void CompleteLoad()
             {
@@ -142,6 +181,9 @@ namespace Internal.Tests
             protected override void UnloadGroup()
             {
                 Log.Add("unload");
+
+                if (_failsToUnload == true)
+                    throw new InvalidOperationException("unload failed");
             }
         }
 

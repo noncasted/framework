@@ -77,6 +77,9 @@ namespace Internal
         // As NetworkSession: the server sends the local seat right after the authorization.
         private static readonly TimeSpan LocalSeatTimeout = TimeSpan.FromSeconds(20);
 
+        // As NetworkLatencyMonitor: the answers keep the silence of the server below ConnectionSilence.Limit.
+        private const float PingInterval = 0.5f;
+
         private readonly NetworkConnection _connection;
         private readonly PeerSignaling _signaling;
         private readonly PeerTunnels _tunnels;
@@ -107,6 +110,10 @@ namespace Internal
                 throw new OperationCanceledException("[Network] [Control] The connection is lost before the local seat");
 
             Debug.Log($"[Network] [Control] Local seat {_localIndex}");
+
+            // A network lost without a close ends the match for this player as a closed connection does.
+            Ping(lifetime).NoAwait();
+            ConnectionSilence.Watch(lifetime, _connection).NoAwait();
         }
 
         public async UniTask<SharedSessionService.GetResponse> GetService(
@@ -143,6 +150,28 @@ namespace Internal
             await _connection.ForceSendAll();
         }
 
+        // The server answers Pong (ignored here): the traffic the watch of the silence counts. The time is the one of the
+        // watch, so a stalled frame delays both alike.
+        private async UniTask Ping(IReadOnlyLifetime lifetime)
+        {
+            var id = 0;
+            var timer = 0f;
+
+            while (lifetime.IsTerminated == false && _connection.Writer.IsClosed == false)
+            {
+                await UniTask.Yield(lifetime.Token);
+
+                timer += ConnectionSilence.FrameDelta;
+
+                if (timer < PingInterval)
+                    continue;
+
+                timer = 0f;
+                id++;
+                _connection.OneWay(new SharedSessionLatency.Ping { Id = id });
+            }
+        }
+
         private void OnLocalUpdate(SharedSessionPlayer.LocalUpdate update)
         {
             if (_localIndex != 0)
@@ -153,17 +182,22 @@ namespace Internal
         }
 
         // A known index: the user has returned before the server noticed its loss. Its frames belong to a new connection,
-        // the tunnel of the old one is lost.
+        // the tunnel and the negotiation of the old one are lost. A new index keeps its channel: the first offer of a new
+        // player may come before its update.
         private void OnRemoteUpdate(SharedSessionPlayer.RemoteUpdate update)
         {
+            if (_peers.ContainsKey(update.Index) == true)
+                _signaling.Drop(update.Index);
+
             _tunnels.OnPeerGone(update.Index);
             _peers.Set(update.Index, update.Id);
         }
 
         // The player has lost its connection to the server (its seat waits for its return): no frame of its tunnel comes
-        // any more, the tunnel is lost at once instead of by the silence of the session of the game.
+        // any more, the tunnel and the negotiation are lost at once instead of by the silence of the session of the game.
         private void OnRemoteAway(SharedSessionPlayer.RemoteAway away)
         {
+            _signaling.Drop(away.Index);
             _peers.Remove(away.Index);
             _tunnels.OnPeerGone(away.Index);
         }
@@ -171,6 +205,8 @@ namespace Internal
         // A seat that was away first is already out of the peers.
         private void OnRemoteDisconnect(SharedSessionPlayer.RemoteDisconnect disconnect)
         {
+            _signaling.Drop(disconnect.Index);
+
             if (_peers.ContainsKey(disconnect.Index) == true)
                 _peers.Remove(disconnect.Index);
 

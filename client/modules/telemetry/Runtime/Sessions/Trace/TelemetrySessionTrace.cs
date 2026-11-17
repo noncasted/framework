@@ -124,6 +124,17 @@ namespace Global.Telemetry
             Write();
         }
 
+        // The server has the trace of the previous session from a start whose session was over before the answer: no trace of
+        // its own replaces it, so it goes, or the next start reports the same session again. Sessions start one after another,
+        // so no trace is open here.
+        public void Forget()
+        {
+            if (_isOpen)
+                throw new InvalidOperationException("[Telemetry] A trace is open: it has replaced the previous one already");
+
+            _store.Clear();
+        }
+
         // The session closed on the client: nothing to report.
         public void Close(Guid id)
         {

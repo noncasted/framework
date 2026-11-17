@@ -67,10 +67,7 @@ namespace Internal
                 var sprites = SpriteSheetLoader.CollectSprites(source.Path, source.Kind);
 
                 if (sprites.Length == 0)
-                {
-                    Debug.LogError($"[SpriteGenerator] No sprites found at {source.Path}");
-                    continue;
-                }
+                    throw new InvalidOperationException($"No sprites found in the included source {source.Path}");
 
                 if (source.Kind == SpriteKind.Animation)
                 {

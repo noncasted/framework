@@ -26,7 +26,7 @@ namespace ContainerGenerator {
                     var walkReferences = references;
                     if (harvest != null && string.IsNullOrEmpty(harvest.Source) == false) {
                         walkCompilation = compilation.AddSyntaxTrees(
-                            CSharpSyntaxTree.ParseText(harvest.Source, ParseOptions(compilation), path: "ContainerInstallerHarvest.g.cs"));
+                            CSharpSyntaxTree.ParseText(harvest.Source, ParseOptions(compilation), path: ManifestHarvest.Path));
                         walkReferences = ReferenceSymbols.Create(walkCompilation) ?? references;
                     }
 

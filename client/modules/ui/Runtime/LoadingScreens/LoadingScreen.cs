@@ -35,6 +35,7 @@ namespace Global.UI
 
         public void OnSetup(IReadOnlyLifetime lifetime)
         {
+            _animation.Validate();
             _curveInstance = _curve.CreateInstance();
             _updater.Add(lifetime, this);
         }

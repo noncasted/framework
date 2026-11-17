@@ -14,7 +14,9 @@ namespace Internal
         // opens: a client that starts listening after its entry (a late player) still answers it.
         IViewableDelegate<int> Incoming { get; }
 
-        IWebRtcSignaling Open(IReadOnlyLifetime lifetime, int remoteIndex);
+        // The lifetime belongs to the owner of the channel (its attempt of a connection): the control ends it when the
+        // connection of the user is gone (Drop).
+        IWebRtcSignaling Open(ILifetime lifetime, int remoteIndex);
     }
 
     public class PeerSignaling : IPeerSignaling
@@ -26,12 +28,13 @@ namespace Internal
 
         private readonly INetworkConnection _connection;
         private readonly Dictionary<int, Channel> _channels = new();
+        private readonly Dictionary<int, ILifetime> _owners = new();
         private readonly Dictionary<int, List<WebRtcSignal>> _held = new();
         private readonly ViewableDelegate<int> _incoming = new();
 
         public IViewableDelegate<int> Incoming => _incoming;
 
-        public IWebRtcSignaling Open(IReadOnlyLifetime lifetime, int remoteIndex)
+        public IWebRtcSignaling Open(ILifetime lifetime, int remoteIndex)
         {
             if (_channels.ContainsKey(remoteIndex) == true)
                 throw new InvalidOperationException($"[Network] [Peers] A channel to {remoteIndex} is already open");
@@ -39,9 +42,22 @@ namespace Internal
             _held.Remove(remoteIndex, out var held);
             var channel = new Channel(_connection, remoteIndex, held);
             _channels.Add(remoteIndex, channel);
-            lifetime.Listen(() => _channels.Remove(remoteIndex));
+            _owners.Add(remoteIndex, lifetime);
+            lifetime.Listen(() => {
+                _channels.Remove(remoteIndex);
+                _owners.Remove(remoteIndex);
+            });
 
             return channel;
+        }
+
+        // The connection of the user to the server is gone (it is away, has left, or has returned through a new one):
+        // the negotiation in its channel belongs to that connection, so its owner ends. The next offer of the user
+        // opens a new channel.
+        public void Drop(int remoteIndex)
+        {
+            if (_owners.TryGetValue(remoteIndex, out var owner) == true)
+                owner.Terminate();
         }
 
         public void OnSignal(SharedSessionPeer.Signal context)

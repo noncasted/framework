@@ -11,8 +11,6 @@ namespace Internal
     [NoAutoStaticsCleanup]
     internal static class AudioSourceCollector
     {
-        private const string LogTag = "AudioCatalogGenerator";
-
         // Clips named Name_0, Name_1 are variations of one sound and are collected into a list.
         private static readonly Regex VariationPattern = new(@"^(.+?)_(\d+)$", RegexOptions.CultureInvariant);
 
@@ -35,7 +33,7 @@ namespace Internal
                     continue;
 
                 var path = CatalogPaths.ToAssetPath(projectRoot, file);
-                var importer = AssetImporter.GetAtPath(path);
+                var importer = CatalogPaths.SourceImporter(path);
 
                 if (importer == null)
                     continue;
@@ -46,6 +44,7 @@ namespace Internal
                 yield return new MarkedSource(path, metadata);
             }
         }
+
         internal static List<ClipSource> CollectSources()
         {
             var sources = new List<ClipSource>();
@@ -61,29 +60,20 @@ namespace Internal
                 var groupName = CatalogNaming.ToGroupName(metadata.Group);
 
                 if (string.IsNullOrEmpty(groupName))
-                {
-                    Debug.LogError($"[{LogTag}] Included audio clip has empty group: {path}");
-                    continue;
-                }
+                    throw new InvalidOperationException($"Included audio clip has empty group: {path}");
 
                 var fileName = AudioSourcePaths.GetSourceName(path);
                 var propertyName = CatalogNaming.ToGroupName(fileName);
 
                 if (string.IsNullOrEmpty(propertyName))
-                {
-                    Debug.LogError($"[{LogTag}] Identifier is empty for {path}");
-                    continue;
-                }
+                    throw new InvalidOperationException($"Identifier of the audio clip is empty: {path}");
 
                 var isEncoded = AudioSourcePaths.IsEncodedPath(path);
                 var clip = isEncoded ? null : AssetDatabase.LoadAssetAtPath<AudioClip>(path);
                 var encoded = isEncoded ? AssetDatabase.LoadAssetAtPath<TextAsset>(path) : null;
 
                 if (clip == null && encoded == null)
-                {
-                    Debug.LogError($"[{LogTag}] Failed to load audio clip at {path}");
-                    continue;
-                }
+                    throw new InvalidOperationException($"Failed to load the audio clip of the catalogue: {path}");
 
                 sources.Add(new ClipSource(
                     path,

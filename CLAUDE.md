@@ -218,7 +218,7 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   them). Each has an `Add*` extension of `IScopeBuilder`; prefabs and options come as arguments (the project owns
   the assets and its generated `GlobalPrefabs` / `GlobalAssets`), so the project's global `Construct` calls them:
   - `animations` (`Internal.Animations`, namespace `Internal`, no `Add*`): sprite animations of entities on the
-    updater (`ForwardSpriteAnimation`, `RotatableSpriteAnimation`, `RegisterSpriteForwardAnimation`), the
+    updater (`ForwardSpriteAnimation`, `RegisterSpriteForwardAnimation`), the
     `SpriteAnimationRenderer` component. `ISpriteAnimationData` stays in core (the sprite catalogue returns it).
   - `backend` (`AddBackend`): HTTP get / post / media.
   - `cameras` (`AddCamera(GlobalCamera prefab)`): camera of the global scope, `ICurrentCamera` (the camera of the
