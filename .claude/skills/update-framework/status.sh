@@ -61,8 +61,39 @@ if ! g describe --exact-match --tags "$target^{commit}" >/dev/null 2>&1 || [ "$u
     echo "unreleased: $unreleased steps in releases/unreleased.md of the target"
 fi
 
-if [ -e .claude/skills/update-framework ]; then
-    echo "link:     .claude/skills/update-framework is there"
-else
-    echo "link:     .claude/skills/update-framework is MISSING"
+# Shared skills of the target against .claude/skills of the project. A skill the game does not want is named in
+# .claude/project-skills.md, section `## update-framework`, on a line `Not linked: `a`, `b``.
+framework_only=" release-framework "
+declined=" "
+if [ -f .claude/project-skills.md ]; then
+    declined+="$(awk '/^## /{section=$0} section=="## update-framework" && /^Not linked:/' .claude/project-skills.md \
+        | { grep -o '`[^`]*`' || true; } | tr -d '`' | tr '\n' ' ') "
 fi
+missing=() copies=() others=() skipped=()
+shared=" "
+while read -r name; do
+    [ -n "$name" ] || continue
+    case "$framework_only" in *" $name "*) continue ;; esac
+    shared+="$name "
+    path=".claude/skills/$name"
+    if [ -L "$path" ]; then
+        [ "$(readlink "$path")" = "../../$fw/.claude/skills/$name" ] || others+=("$name -> $(readlink "$path")")
+    elif [ -e "$path" ]; then
+        copies+=("$name")
+    else
+        case "$declined" in *" $name "*) skipped+=("$name") ;; *) missing+=("$name") ;; esac
+    fi
+done < <(g ls-tree -d --name-only "$target" .claude/skills/ | sed 's#^\.claude/skills/##')
+broken=()
+for path in .claude/skills/*; do
+    [ -L "$path" ] || continue
+    name=${path##*/}
+    case "$(readlink "$path")" in "../../$fw/.claude/skills/"*) ;; *) continue ;; esac
+    case "$shared" in *" $name "*) ;; *) broken+=("$name") ;; esac
+done
+echo "skills:   $(echo $shared | wc -w) shared in the target"
+[ ${#missing[@]} = 0 ] || echo "  MISSING links: ${missing[*]}"
+[ ${#copies[@]} = 0 ] || echo "  COPIES instead of links: ${copies[*]}"
+[ ${#others[@]} = 0 ] || echo "  links elsewhere: ${others[*]}"
+[ ${#broken[@]} = 0 ] || echo "  BROKEN links (no such skill in the target): ${broken[*]}"
+[ ${#skipped[@]} = 0 ] || echo "  not linked on purpose (project-skills.md): ${skipped[*]}"

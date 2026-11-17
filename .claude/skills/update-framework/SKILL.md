@@ -19,7 +19,7 @@ git -C tools/framework show "${TARGET}:.claude/skills/update-framework/status.sh
 
 `status.sh` comes from the target, so a pin older than this skill works too. Act on what it prints:
 
-- `pending: none` and no `unreleased`: nothing to update. Do step 6 only if the link is missing, report, stop.
+- `pending: none` and no `unreleased`: nothing to update. Do step 6 if `skills` lists anything, report, stop.
 - `foreign`: the pin holds commits with no identical patch in the target. With a `same subject` twin, compare the files of the commit
   with the target (`git -C tools/framework diff <commit> $TARGET -- <files of the commit>`, and the code it added must still be there);
   nothing lost: go on. Otherwise stop and report them: they must reach `main` of the framework first.
@@ -66,13 +66,21 @@ An error no step explains: fix it in the game, then write it in the report under
 change, so that the notes get fixed. A framework bug: stop and report it, do not patch the submodule from here without being asked.
 A failing test stays a failure in the report even when it looks unrelated; check it on the old pointer before calling it old.
 
-## 6. Link this skill and the shared ones
+## 6. Link the shared skills
 
-```
-ln -s ../../tools/framework/.claude/skills/update-framework .claude/skills/update-framework
-```
+The `skills` part of `status.sh` compares the skills of the target with `.claude/skills` of the project (a new skill of the
+framework needs no step in the notes to reach a game):
 
-Only if it is missing. A step of the notes may ask for more links.
+- `MISSING links`: ask the user which of them the game takes (one question, every name with its description from its `SKILL.md`;
+  in `/auto` link all of them). Link each taken one:
+  `ln -s ../../tools/framework/.claude/skills/<name> .claude/skills/<name>`. Its `SKILL.md` names what the game must give it
+  (`.claude/project-skills.md` § `<name>`, a json of the game, a permission): add that, or write it in the report as left to do.
+  The refused ones go to `.claude/project-skills.md`, section `## update-framework`, on one line `` Not linked: `a`, `b` `` (the
+  reason after the names), so the next update does not ask again.
+- `COPIES instead of links`: a folder of the game under the name of a shared skill. Diff it with the skill of the framework; what
+  only the game has goes to `.claude/project-skills.md` § `<name>`, then the folder is replaced by the link.
+- `BROKEN links`: the skill left the framework; the notes name its replacement. Remove the link.
+- `links elsewhere`: leave them, name them in the report.
 
 ## 7. Commit
 
@@ -88,5 +96,6 @@ Do not push unless asked. If the build or tests stay red, do not commit: leave t
 
 - From which pin to which version, how many commits.
 - Steps done and skipped, by number.
+- Skills linked, refused (`Not linked`), copies replaced.
 - Build and test results, with the failures.
 - What a person must check, what is missing in the notes, the stash if one was made.

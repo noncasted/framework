@@ -26,6 +26,8 @@ The sources, all of them:
 - The `BREAKING:` blocks of the commits.
 - Public members really changed or removed: `git diff $LAST..HEAD -- common shared backend client`. Commit messages miss things.
 - Changes of behaviour, assets and formats, the asmdefs, `Directory.Packages.props`, a new module or skill.
+  A new skill needs no step for its link (`update-framework` offers every shared skill a game has not linked); a step names only
+  what the game must give it (a section of `project-skills.md`, a json, a permission).
 
 Each step has: whom it concerns, the search command (run from the root of a game), the change. A change with no action goes to
 "Без действий" in one line. Do not list the commits of a refactoring one by one.
