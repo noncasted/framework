@@ -1,0 +1,13 @@
+{
+  "extends": "content-directory-scenes",
+  "description": "content-directory-scenes (two directories, every file its own request) with the IL2CPP code generation Optimize Size",
+  "versions": [
+    "7000.0.0a10"
+  ],
+  "parts": [],
+  "packages": {},
+  "profile": {
+    "il2cppCodeGeneration": 1
+  },
+  "smokeReload": true
+}

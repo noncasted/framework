@@ -1,0 +1,16 @@
+{
+  "extends": "aggressive",
+  "description": "aggressive with two content directories of the server (Shared: the content asset; Level: a scene) each fetched as one packed file with Content-Encoding br (one request per directory, unpacked into the file system of the page, the Cache API of the page), no Addressables; IL2CPP code generation Optimize Size",
+  "versions": [
+    "7000.0.0a10"
+  ],
+  "parts": [
+    "content-directory",
+    "content-directory-packed"
+  ],
+  "packages": {},
+  "profile": {
+    "il2cppCodeGeneration": 1
+  },
+  "smokeReload": true
+}

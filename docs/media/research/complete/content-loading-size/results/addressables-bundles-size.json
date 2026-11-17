@@ -1,0 +1,217 @@
+{
+  "unity": "7000.0.0a10",
+  "variant": "addressables-bundles-size",
+  "description": "addressables-bundles with the IL2CPP code generation Optimize Size",
+  "measured": "2026-11-12 07:32 UTC",
+  "build": {
+    "unityVersion": "7000.0.0a10",
+    "result": "Succeeded",
+    "buildSeconds": 69.7858942,
+    "reportedSize": 5633353,
+    "errors": 0,
+    "warnings": 1,
+    "strippedSubmodules": 128,
+    "missingSubmodules": "Ignore",
+    "profiled": false
+  },
+  "strippingSkipped": [
+    "Audio Random Container",
+    "Graphics State Collection Serializer"
+  ],
+  "overrides": [],
+  "files": [
+    {
+      "name": "624bd88f88fa371c45867fe026c4df90.loader.js",
+      "kind": "loader",
+      "compressed": 28175,
+      "raw": 28175
+    },
+    {
+      "name": "a57441ecee6372ded4e6a1d5b6c3da07.wasm.br",
+      "kind": "wasm",
+      "compressed": 1982817,
+      "raw": 6813391,
+      "sections": {
+        "type": 2672,
+        "import": 10466,
+        "function": 30362,
+        "table": 9,
+        "memory": 7,
+        "tag": 3,
+        "global": 9,
+        "export": 482,
+        "element": 66731,
+        "datacount": 2,
+        "code": 5599663,
+        "data": 1102941
+      }
+    },
+    {
+      "name": "bf3e18e5b8809df1ca381d4e67bdac1c.data.br",
+      "kind": "data",
+      "compressed": 725389,
+      "raw": 2255467,
+      "contents": [
+        {
+          "name": "RuntimeInitializeOnLoads.json",
+          "raw": 162,
+          "compressed": 126
+        },
+        {
+          "name": "ScriptingAssemblies.json",
+          "raw": 3775,
+          "compressed": 735
+        },
+        {
+          "name": "data.unity3d",
+          "raw": 350192,
+          "compressed": 243585
+        },
+        {
+          "name": "boot.config",
+          "raw": 114,
+          "compressed": 97
+        },
+        {
+          "name": "Il2CppData/Metadata/global-metadata.dat",
+          "raw": 1436312,
+          "compressed": 368637
+        },
+        {
+          "name": "Resources/unity default resources",
+          "raw": 464672,
+          "compressed": 105869
+        }
+      ]
+    },
+    {
+      "name": "f8bf74155df1521c22c9c4d7d7a42d12.framework.js.br",
+      "kind": "framework",
+      "compressed": 63486,
+      "raw": 321644
+    }
+  ],
+  "wasmBeforeStripping": {
+    "compressed": 2824283,
+    "raw": 11934295
+  },
+  "managed": {
+    "mscorlib.dll": 1277440,
+    "UnityEngine.CoreModule.dll": 347136,
+    "System.dll": 172544,
+    "Unity.ResourceManager.dll": 83456,
+    "UniTask.dll": 75264,
+    "Unity.Addressables.dll": 60416,
+    "MemoryPack.Core.dll": 53760,
+    "UnityEngine.U2DRuntimeModule.dll": 51200,
+    "UnityEngine.ManagedKernelModule.dll": 50176,
+    "Unity.Scripting.dll": 47104,
+    "System.Core.dll": 38912,
+    "UnityEngine.BurstModule.dll": 38400,
+    "UnityEngine.dll": 35328,
+    "UnityEngine.AudioModule.dll": 35328,
+    "UnityEngine.UnityWebRequestModule.dll": 33280,
+    "Measurement.Runtime.dll": 27136,
+    "UnityEngine.ContentLoadModule.dll": 25600,
+    "UnityEngine.ScriptingModule.dll": 24064,
+    "UnityEngine.AssetBundleModule.dll": 19968,
+    "UnityEngine.EntitiesModule.dll": 19968,
+    "UnityEngine.UnityWebRequestAssetBundleModule.dll": 18432,
+    "UnityEngine.JSONSerializeModule.dll": 17920,
+    "Framework.Common.dll": 14336,
+    "UnityEngine.MathematicsModule.dll": 12288,
+    "Measurement.Addressables.dll": 6144,
+    "System.Runtime.CompilerServices.Unsafe.dll": 5120
+  },
+  "smoke": {
+    "status": "timeout",
+    "seconds": 120.4,
+    "errors": [
+      "MissingMethodException: Default constructor not found for type UnityEngine.ResourceManagement.AsyncOperations.GroupOperation\n  at System.RuntimeType.CreateInstanceMono (System.Boolean nonPublic, System.Boolean wrapExceptions) [0x00000] in <00000000000000000000000000000000>:0 \n\n",
+      "Unable to find serialization adapter for type UnityEngine.AddressableAssets.ResourceLocators.ContentCatalogData.\n",
+      "OperationException : Unknown error in AsyncOperation : Resource<ContentCatalogData>(catalog.bin)\n",
+      "ArgumentOutOfRangeException: Index was out of range. Must be non-negative and less than the size of the collection.\nParameter name: index\n\n\n"
+    ],
+    "console": [
+      "log:     \"memorysetup-allocator-temp-initial-block-size-main=262144\"\n",
+      "log:     \"memorysetup-allocator-temp-initial-block-size-worker=262144\"\n",
+      "log:     \"memorysetup-temp-allocator-size-audio-worker=65536\"\n",
+      "log:     \"memorysetup-entities-archetype-allocator-budget=16777216\"\n",
+      "log:     \"memorysetup-entities-query-allocator-budget=16777216\"\n",
+      "log:     \"memorysetup-remapper-allocator-initial-capacity=32768\"\n",
+      "log: CodeReloadManager initialized\n",
+      "log: Loading player data from data.unity3d\n",
+      "log: Initialize engine version: 7000.0.0a10 (4b5f18082ea8)\n",
+      "log: [EntityIdStore] init: page-table path, blockCount=262144, entitiesPerBlock=1024, top-level=2097152 bytes, sizeof(Block)=16512 (lazily allocated per committed block)\n",
+      "log: Creating WebGL 2.0 context.",
+      "log: Renderer: WebKit WebGL\n",
+      "log: Vendor:   WebKit\n",
+      "log: Version:  OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))\n",
+      "log: GLES:     3\n",
+      "log:  EXT_clip_control EXT_color_buffer_float EXT_color_buffer_half_float EXT_conservative_depth EXT_depth_clamp EXT_disjoint_timer_query_webgl2 EXT_float_blend EXT_polygon_offset_clamp EXT_texture_compression_bptc EXT_texture_compression_rgtc EXT_texture_filter_anisotropic NV_shader_noperspective_interp",
+      "log: mpressed_texture_astc GL_WEBGL_compressed_texture_etc GL_WEBGL_compressed_texture_etc1 GL_WEBGL_compressed_texture_s3tc GL_WEBGL_compressed_texture_s3tc_srgb GL_WEBGL_debug_renderer_info GL_WEBGL_debug_shaders GL_WEBGL_lose_context GL_WEBGL_multi_draw GL_WEBGL_polygon_mode\n",
+      "log: OPENGL LOG: Creating OpenGL ES 3.0 graphics device ; Context level  <OpenGL ES 3.0> ; Context handle 1\n",
+      "log: FMOD returns error code 78 (FMOD_ERR_UNIMPLEMENTED) executing setRecordMuted",
+      "log: FMOD returns error code 78 (r) executing setRecordMuted",
+      "log: Input Manager initialize...\n",
+      "log: UnloadTime: 0.400001 ms\n",
+      "log: Audio context resumed after 0.038 seconds.",
+      "log: [measurement] part addressables\n",
+      "warning: [UnityCache] Response is served without Content-Length header. Please reconfigure server to include valid Content-Length for better download performance.",
+      "error: MissingMethodException: Default constructor not found for type UnityEngine.ResourceManagement.AsyncOperations.GroupOperation\n  at System.RuntimeType.CreateInstanceMono (System.Boolean nonPublic, System.Boolean wrapExceptions) [0x00000] in <00000000000000000000000000000000>:0 \n\n",
+      "warning: [UnityCache] Response is served without Content-Length header. Please reconfigure server to include valid Content-Length for better download performance.",
+      "error: Unable to find serialization adapter for type UnityEngine.AddressableAssets.ResourceLocators.ContentCatalogData.\n",
+      "error: OperationException : Unknown error in AsyncOperation : Resource<ContentCatalogData>(catalog.bin)\n",
+      "error: ArgumentOutOfRangeException: Index was out of range. Must be non-negative and less than the size of the collection.\nParameter name: index\n\n\n"
+    ],
+    "requests": [
+      "/",
+      "/Build/624bd88f88fa371c45867fe026c4df90.loader.js",
+      "/Build/f8bf74155df1521c22c9c4d7d7a42d12.framework.js.br",
+      "/Build/a57441ecee6372ded4e6a1d5b6c3da07.wasm.br",
+      "/favicon.ico",
+      "/Build/bf3e18e5b8809df1ca381d4e67bdac1c.data.br",
+      "/StreamingAssets/aa/settings.json",
+      "/StreamingAssets/aa/catalog.bin"
+    ],
+    "screenshot": "/projects/framework/.claude/worktrees/content_loading_size/client/measurements/projects/7000.0.0a10-addressables-bundles-size/smoke.png"
+  },
+  "streamingAssets": [
+    {
+      "name": "aa/AddressablesLink/link.xml",
+      "raw": 1873,
+      "compressed": 304,
+      "fetched": false
+    },
+    {
+      "name": "aa/WebGL/a95c164b58130226ab2729b583520535_monoscripts_65975b85f745a790c32ed14305807338.bundle",
+      "raw": 1744,
+      "compressed": 1377,
+      "fetched": false
+    },
+    {
+      "name": "aa/WebGL/measurement_assets_all_77ceadf28b6c37ad7f08c44a7c069207.bundle",
+      "raw": 16112,
+      "compressed": 14944,
+      "fetched": false
+    },
+    {
+      "name": "aa/catalog.bin",
+      "raw": 2203,
+      "compressed": 903,
+      "fetched": true
+    },
+    {
+      "name": "aa/catalog.hash",
+      "raw": 32,
+      "compressed": 32,
+      "fetched": false
+    },
+    {
+      "name": "aa/settings.json",
+      "raw": 800,
+      "compressed": 355,
+      "fetched": true
+    }
+  ]
+}

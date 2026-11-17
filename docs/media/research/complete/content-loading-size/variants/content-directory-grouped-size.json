@@ -1,0 +1,16 @@
+{
+  "extends": "aggressive",
+  "description": "aggressive with one content directory of the server for the whole game (a root with a Loadable of the content and the LoadableSceneId of a level scene that references the sprite of the content directly), its files packed by the set of loads that need them (boot, level, content, level+content: a shared file in one pack), each pack one request with Content-Encoding br, unpacked into the file system of the page, the Cache API of the page; no Addressables; IL2CPP code generation Optimize Size",
+  "versions": [
+    "7000.0.0a10"
+  ],
+  "parts": [
+    "content-directory",
+    "content-directory-grouped"
+  ],
+  "packages": {},
+  "profile": {
+    "il2cppCodeGeneration": 1
+  },
+  "smokeReload": true
+}

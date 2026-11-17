@@ -1,0 +1,12 @@
+{
+  "extends": "content-directory-grouped-render2d-size",
+  "description": "content-directory-grouped-render2d-size with com.unity.render-pipelines.core in the manifest, as pixel-swarm has it (its pipeline takes only the ShaderLibrary of the package): the cost of the package itself",
+  "versions": [
+    "7000.0.0a10"
+  ],
+  "parts": [],
+  "packages": {
+    "com.unity.render-pipelines.core": "framework:client/packages/com.unity.render-pipelines.core"
+  },
+  "smokeReload": true
+}

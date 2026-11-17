@@ -1,0 +1,14 @@
+{
+  "extends": "aggressive",
+  "description": "aggressive with the sprite and the clip loaded through Addressables from a content directory group (no archive): the files baked into the .data by the WebGL preload manifest, the settings and the catalog still fetched",
+  "versions": [
+    "7000.0.0a10"
+  ],
+  "parts": [
+    "addressables",
+    "addressables-directories"
+  ],
+  "packages": {
+    "com.unity.addressables": "framework:client/packages/com.unity.addressables"
+  }
+}

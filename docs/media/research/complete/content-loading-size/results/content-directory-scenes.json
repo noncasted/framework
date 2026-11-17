@@ -1,0 +1,322 @@
+{
+  "unity": "7000.0.0a10",
+  "variant": "content-directory-scenes",
+  "description": "aggressive with the content split into two content directories of the server, as a game would: Shared (the content asset) and Level (a scene with its own sprite and a Loadable of the content); fetched into the file system of the page through its Cache API, the content loaded through a Loadable of the player scene, the level scene by its LoadableSceneId; the smoke run opens the page twice",
+  "measured": "2026-11-09 12:03 UTC",
+  "build": {
+    "unityVersion": "7000.0.0a10",
+    "result": "Succeeded",
+    "buildSeconds": 23.6068465,
+    "reportedSize": 8587543,
+    "errors": 2,
+    "warnings": 0,
+    "strippedSubmodules": 128,
+    "missingSubmodules": "Ignore",
+    "profiled": false
+  },
+  "strippingSkipped": [
+    "Audio Random Container",
+    "Graphics State Collection Serializer"
+  ],
+  "overrides": [],
+  "files": [
+    {
+      "name": "198207e666b9fe350503b64df490fa66.framework.js.br",
+      "kind": "framework",
+      "compressed": 62557,
+      "raw": 316583
+    },
+    {
+      "name": "6d3164da489ccbde5c9c834ab52b3192.wasm.br",
+      "kind": "wasm",
+      "compressed": 1933956,
+      "raw": 6932839,
+      "sections": {
+        "type": 2669,
+        "import": 10225,
+        "function": 33790,
+        "table": 9,
+        "memory": 7,
+        "tag": 3,
+        "global": 9,
+        "export": 482,
+        "element": 96804,
+        "datacount": 2,
+        "code": 5730336,
+        "data": 1058459
+      }
+    },
+    {
+      "name": "a00e271961c96f965cc5e474477f9ae8.data.br",
+      "kind": "data",
+      "compressed": 734649,
+      "raw": 2186643,
+      "contents": [
+        {
+          "name": "RuntimeInitializeOnLoads.json",
+          "raw": 162,
+          "compressed": 126
+        },
+        {
+          "name": "ScriptingAssemblies.json",
+          "raw": 3695,
+          "compressed": 709
+        },
+        {
+          "name": "data.unity3d",
+          "raw": 343424,
+          "compressed": 237821
+        },
+        {
+          "name": "boot.config",
+          "raw": 114,
+          "compressed": 90
+        },
+        {
+          "name": "Il2CppData/Metadata/global-metadata.dat",
+          "raw": 1374336,
+          "compressed": 377217
+        },
+        {
+          "name": "Resources/unity default resources",
+          "raw": 464672,
+          "compressed": 105869
+        }
+      ]
+    },
+    {
+      "name": "e64d6c06715c4c726a23a318bd1a7669.loader.js",
+      "kind": "loader",
+      "compressed": 28175,
+      "raw": 28175
+    }
+  ],
+  "wasmBeforeStripping": {
+    "compressed": 3029061,
+    "raw": 13339452
+  },
+  "managed": {
+    "mscorlib.dll": 1230336,
+    "UnityEngine.CoreModule.dll": 354816,
+    "System.dll": 107520,
+    "UniTask.dll": 83456,
+    "MemoryPack.Core.dll": 53760,
+    "UnityEngine.U2DRuntimeModule.dll": 51200,
+    "UnityEngine.ManagedKernelModule.dll": 49664,
+    "Unity.Scripting.dll": 47104,
+    "System.Core.dll": 40448,
+    "UnityEngine.BurstModule.dll": 38400,
+    "UnityEngine.AudioModule.dll": 35328,
+    "UnityEngine.dll": 34816,
+    "UnityEngine.ContentLoadModule.dll": 34816,
+    "Measurement.Runtime.dll": 27136,
+    "UnityEngine.ScriptingModule.dll": 26112,
+    "UnityEngine.EntitiesModule.dll": 19968,
+    "Framework.Common.dll": 14336,
+    "UnityEngine.MathematicsModule.dll": 12288,
+    "Measurement.ContentDirectoryScenes.dll": 10752,
+    "Measurement.ContentDirectory.dll": 9216,
+    "System.Runtime.CompilerServices.Unsafe.dll": 5120
+  },
+  "smoke": {
+    "status": "ready",
+    "line": "[measurement] ready content directories with a scene: Circle and Tone in 157 ms (17 fetched, 0 from the cache; scene Level loaded, its own sprite is not the shared one, its Loadable gives another content; the Loadable of the player scene gives no content (Loadable<Measurement.MeasurementContent> { Invalid })); libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames; audio: 0.50 s clip, playing True",
+    "reload": {
+      "status": "ready",
+      "line": "[measurement] ready content directories with a scene: Circle and Tone in 85 ms (0 fetched, 17 from the cache; scene Level loaded, its own sprite is not the shared one, its Loadable gives another content; the Loadable of the player scene gives no content (Loadable<Measurement.MeasurementContent> { Invalid })); libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames; audio: 0.50 s clip, playing True",
+      "requests": [
+        "/",
+        "/Build/e64d6c06715c4c726a23a318bd1a7669.loader.js",
+        "/Build/198207e666b9fe350503b64df490fa66.framework.js.br",
+        "/Build/a00e271961c96f965cc5e474477f9ae8.data.br",
+        "/Build/6d3164da489ccbde5c9c834ab52b3192.wasm.br"
+      ]
+    },
+    "seconds": 3.5,
+    "errors": [
+      "Failed to load LoadableObjectId(GUID: d0d18ee1f4c9351f5ab23c42409d5237, Type: 2, LocalID: 0): no registered content directory contains it.\n",
+      "ObjectLoadOperation<Measurement.MeasurementContent> { Invalid } cannot be loaded. The asset might not exist in the build or it has already been released.\n",
+      "Failed to load LoadableObjectId(GUID: d0d18ee1f4c9351f5ab23c42409d5237, Type: 2, LocalID: 0): no registered content directory contains it.\n",
+      "ObjectLoadOperation<Measurement.MeasurementContent> { Invalid } cannot be loaded. The asset might not exist in the build or it has already been released.\n"
+    ],
+    "console": [
+      "log:     \"memorysetup-temp-allocator-size-audio-worker=65536\"\n",
+      "log:     \"memorysetup-entities-archetype-allocator-budget=16777216\"\n",
+      "log:     \"memorysetup-entities-query-allocator-budget=16777216\"\n",
+      "log:     \"memorysetup-remapper-allocator-initial-capacity=32768\"\n",
+      "log: CodeReloadManager initialized\n",
+      "log: Loading player data from data.unity3d\n",
+      "log: Initialize engine version: 7000.0.0a10 (4b5f18082ea8)\n",
+      "log: [EntityIdStore] init: page-table path, blockCount=262144, entitiesPerBlock=1024, top-level=2097152 bytes, sizeof(Block)=16512 (lazily allocated per committed block)\n",
+      "log: Creating WebGL 2.0 context.",
+      "log: Renderer: WebKit WebGL\n",
+      "log: Vendor:   WebKit\n",
+      "log: Version:  OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))\n",
+      "log: GLES:     3\n",
+      "log:  EXT_clip_control EXT_color_buffer_float EXT_color_buffer_half_float EXT_conservative_depth EXT_depth_clamp EXT_disjoint_timer_query_webgl2 EXT_float_blend EXT_polygon_offset_clamp EXT_texture_compression_bptc EXT_texture_compression_rgtc EXT_texture_filter_anisotropic NV_shader_noperspective_interp",
+      "log: mpressed_texture_astc GL_WEBGL_compressed_texture_etc GL_WEBGL_compressed_texture_etc1 GL_WEBGL_compressed_texture_s3tc GL_WEBGL_compressed_texture_s3tc_srgb GL_WEBGL_debug_renderer_info GL_WEBGL_debug_shaders GL_WEBGL_lose_context GL_WEBGL_multi_draw GL_WEBGL_polygon_mode\n",
+      "log: OPENGL LOG: Creating OpenGL ES 3.0 graphics device ; Context level  <OpenGL ES 3.0> ; Context handle 1\n",
+      "log: FMOD returns error code 78 (FMOD_ERR_UNIMPLEMENTED) executing setRecordMuted",
+      "log: FMOD returns error code 78 (r) executing setRecordMuted",
+      "log: Input Manager initialize...\n",
+      "log: UnloadTime: 0.000000 ms\n",
+      "log: Audio context resumed after 0.018 seconds.",
+      "log: [measurement] part content directories with a scene\n",
+      "error: Failed to load LoadableObjectId(GUID: d0d18ee1f4c9351f5ab23c42409d5237, Type: 2, LocalID: 0): no registered content directory contains it.\n",
+      "error: ObjectLoadOperation<Measurement.MeasurementContent> { Invalid } cannot be loaded. The asset might not exist in the build or it has already been released.\n",
+      "log: [measurement] part libraries\n",
+      "log: [measurement] part sprites\n",
+      "log: [measurement] part audio\n",
+      "log: Trying to get length of sound which is not loaded yet.",
+      "log: Trying to get metadata of sound which is not loaded.",
+      "log: [measurement] ready content directories with a scene: Circle and Tone in 85 ms (0 fetched, 17 from the cache; scene Level loaded, its own sprite is not the shared one, its Loadable gives another content; the Loadable of the player scene gives no content (Loadable<Measurement.MeasurementContent> { In"
+    ],
+    "requests": [
+      "/",
+      "/Build/e64d6c06715c4c726a23a318bd1a7669.loader.js",
+      "/Build/198207e666b9fe350503b64df490fa66.framework.js.br",
+      "/Build/6d3164da489ccbde5c9c834ab52b3192.wasm.br",
+      "/favicon.ico",
+      "/Build/a00e271961c96f965cc5e474477f9ae8.data.br",
+      "/StreamingAssets/Content/Shared/0a4effbcbdd30e2c4d11e8aa548cee51.cf",
+      "/StreamingAssets/Content/Shared/0f1993b3bb0482acbaa375f34f43e0f1.cf",
+      "/StreamingAssets/Content/Shared/4c3324c8e7a9a0966bf689d2f1435bca.cf",
+      "/StreamingAssets/Content/Shared/831286887e15a18b379ccdd50bf6f603.resource",
+      "/StreamingAssets/Content/Shared/bbb82f3f051fb25fd63ee0cf99887fa8.json",
+      "/StreamingAssets/Content/Shared/dbba49769aec7c5cc7e6b073ac7481ce.cf",
+      "/StreamingAssets/Content/Shared/f7f32da8b5e27ca3dcb6ae0f05f79e76.cf",
+      "/StreamingAssets/Content/Level/0a4effbcbdd30e2c4d11e8aa548cee51.cf",
+      "/StreamingAssets/Content/Level/0f1993b3bb0482acbaa375f34f43e0f1.cf",
+      "/StreamingAssets/Content/Level/2732b24d4e669ffe1a5c4495d4e35530.json",
+      "/StreamingAssets/Content/Level/6c385281c14fd6bdb6e7a3ece74c41a9.cf",
+      "/StreamingAssets/Content/Level/7647ca67027a21cb887bba0db990b4ac.cf",
+      "/StreamingAssets/Content/Level/831286887e15a18b379ccdd50bf6f603.resource",
+      "/StreamingAssets/Content/Level/86de2a6d1ff7c81605e951e47aa5c061.cf",
+      "/StreamingAssets/Content/Level/dbba49769aec7c5cc7e6b073ac7481ce.cf",
+      "/StreamingAssets/Content/Level/e556f051a2186683ced73c3caddc3cfe.cf",
+      "/StreamingAssets/Content/Level/f7f32da8b5e27ca3dcb6ae0f05f79e76.cf",
+      "/",
+      "/Build/e64d6c06715c4c726a23a318bd1a7669.loader.js",
+      "/Build/198207e666b9fe350503b64df490fa66.framework.js.br",
+      "/Build/a00e271961c96f965cc5e474477f9ae8.data.br",
+      "/Build/6d3164da489ccbde5c9c834ab52b3192.wasm.br"
+    ],
+    "screenshot": "/projects/framework/.claude/worktrees/content_loading_size/client/measurements/projects/7000.0.0a10-content-directory-scenes/smoke.png"
+  },
+  "streamingAssets": [
+    {
+      "name": "Content/Level/0a4effbcbdd30e2c4d11e8aa548cee51.cf",
+      "raw": 1648,
+      "compressed": 605,
+      "fetched": true
+    },
+    {
+      "name": "Content/Level/0f1993b3bb0482acbaa375f34f43e0f1.cf",
+      "raw": 10852,
+      "compressed": 2680,
+      "fetched": true
+    },
+    {
+      "name": "Content/Level/2732b24d4e669ffe1a5c4495d4e35530.json",
+      "raw": 1634,
+      "compressed": 550,
+      "fetched": true
+    },
+    {
+      "name": "Content/Level/6c385281c14fd6bdb6e7a3ece74c41a9.cf",
+      "raw": 1436,
+      "compressed": 541,
+      "fetched": true
+    },
+    {
+      "name": "Content/Level/7647ca67027a21cb887bba0db990b4ac.cf",
+      "raw": 19164,
+      "compressed": 4838,
+      "fetched": true
+    },
+    {
+      "name": "Content/Level/831286887e15a18b379ccdd50bf6f603.resource",
+      "raw": 10237,
+      "compressed": 9495,
+      "fetched": true
+    },
+    {
+      "name": "Content/Level/86de2a6d1ff7c81605e951e47aa5c061.cf",
+      "raw": 1788,
+      "compressed": 575,
+      "fetched": true
+    },
+    {
+      "name": "Content/Level/BuildManifestHash.txt",
+      "raw": 32,
+      "compressed": 33,
+      "fetched": false
+    },
+    {
+      "name": "Content/Level/dbba49769aec7c5cc7e6b073ac7481ce.cf",
+      "raw": 1400,
+      "compressed": 586,
+      "fetched": true
+    },
+    {
+      "name": "Content/Level/e556f051a2186683ced73c3caddc3cfe.cf",
+      "raw": 554508,
+      "compressed": 65029,
+      "fetched": true
+    },
+    {
+      "name": "Content/Level/f7f32da8b5e27ca3dcb6ae0f05f79e76.cf",
+      "raw": 3528,
+      "compressed": 921,
+      "fetched": true
+    },
+    {
+      "name": "Content/Shared/0a4effbcbdd30e2c4d11e8aa548cee51.cf",
+      "raw": 1648,
+      "compressed": 605,
+      "fetched": true
+    },
+    {
+      "name": "Content/Shared/0f1993b3bb0482acbaa375f34f43e0f1.cf",
+      "raw": 10852,
+      "compressed": 2680,
+      "fetched": true
+    },
+    {
+      "name": "Content/Shared/4c3324c8e7a9a0966bf689d2f1435bca.cf",
+      "raw": 1516,
+      "compressed": 478,
+      "fetched": true
+    },
+    {
+      "name": "Content/Shared/831286887e15a18b379ccdd50bf6f603.resource",
+      "raw": 10237,
+      "compressed": 9495,
+      "fetched": true
+    },
+    {
+      "name": "Content/Shared/BuildManifestHash.txt",
+      "raw": 32,
+      "compressed": 34,
+      "fetched": false
+    },
+    {
+      "name": "Content/Shared/bbb82f3f051fb25fd63ee0cf99887fa8.json",
+      "raw": 1068,
+      "compressed": 410,
+      "fetched": true
+    },
+    {
+      "name": "Content/Shared/dbba49769aec7c5cc7e6b073ac7481ce.cf",
+      "raw": 1400,
+      "compressed": 586,
+      "fetched": true
+    },
+    {
+      "name": "Content/Shared/f7f32da8b5e27ca3dcb6ae0f05f79e76.cf",
+      "raw": 3528,
+      "compressed": 921,
+      "fetched": true
+    }
+  ]
+}

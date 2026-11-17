@@ -1,0 +1,262 @@
+{
+  "unity": "7000.0.0a10",
+  "variant": "content-directory-single",
+  "description": "aggressive with one content directory for the whole game (one root with a Loadable of the content and the LoadableSceneId of a level scene that has its own sprite and a Loadable of the content), on the server; the loader fetches the manifest, registers it, then for each load only the files it needs (found by the build in the manifest), through the Cache API of the page; the smoke run opens the page twice",
+  "measured": "2026-11-09 12:26 UTC",
+  "build": {
+    "unityVersion": "7000.0.0a10",
+    "result": "Succeeded",
+    "buildSeconds": 83.9512442,
+    "reportedSize": 8704448,
+    "errors": 0,
+    "warnings": 0,
+    "strippedSubmodules": 128,
+    "missingSubmodules": "Ignore",
+    "profiled": false
+  },
+  "strippingSkipped": [
+    "Audio Random Container",
+    "Graphics State Collection Serializer"
+  ],
+  "overrides": [],
+  "files": [
+    {
+      "name": "198207e666b9fe350503b64df490fa66.framework.js.br",
+      "kind": "framework",
+      "compressed": 62557,
+      "raw": 316583
+    },
+    {
+      "name": "92a0f491112905ad1cc4188b96ee1a0b.loader.js",
+      "kind": "loader",
+      "compressed": 28175,
+      "raw": 28175
+    },
+    {
+      "name": "d9ea963ccadd515a4c9dcf317d50ed23.data.br",
+      "kind": "data",
+      "compressed": 737803,
+      "raw": 2187203,
+      "contents": [
+        {
+          "name": "RuntimeInitializeOnLoads.json",
+          "raw": 162,
+          "compressed": 126
+        },
+        {
+          "name": "ScriptingAssemblies.json",
+          "raw": 3695,
+          "compressed": 709
+        },
+        {
+          "name": "data.unity3d",
+          "raw": 343440,
+          "compressed": 237493
+        },
+        {
+          "name": "boot.config",
+          "raw": 114,
+          "compressed": 92
+        },
+        {
+          "name": "Il2CppData/Metadata/global-metadata.dat",
+          "raw": 1374880,
+          "compressed": 377220
+        },
+        {
+          "name": "Resources/unity default resources",
+          "raw": 464672,
+          "compressed": 105869
+        }
+      ]
+    },
+    {
+      "name": "e90cf0ecdcaeaeeea0ee2f3d7efd3b11.wasm.br",
+      "kind": "wasm",
+      "compressed": 1946496,
+      "raw": 6922668,
+      "sections": {
+        "type": 2669,
+        "import": 10225,
+        "function": 33739,
+        "table": 9,
+        "memory": 7,
+        "tag": 3,
+        "global": 9,
+        "export": 482,
+        "element": 96204,
+        "datacount": 2,
+        "code": 5721749,
+        "data": 1057526
+      }
+    }
+  ],
+  "wasmBeforeStripping": {
+    "compressed": 3047262,
+    "raw": 13300888
+  },
+  "managed": {
+    "mscorlib.dll": 1230336,
+    "UnityEngine.CoreModule.dll": 354816,
+    "System.dll": 107520,
+    "UniTask.dll": 85504,
+    "MemoryPack.Core.dll": 53760,
+    "UnityEngine.U2DRuntimeModule.dll": 51200,
+    "UnityEngine.ManagedKernelModule.dll": 49664,
+    "Unity.Scripting.dll": 47104,
+    "System.Core.dll": 39424,
+    "UnityEngine.BurstModule.dll": 38400,
+    "UnityEngine.AudioModule.dll": 35328,
+    "UnityEngine.ContentLoadModule.dll": 35328,
+    "UnityEngine.dll": 34816,
+    "Measurement.Runtime.dll": 27136,
+    "UnityEngine.ScriptingModule.dll": 26112,
+    "UnityEngine.EntitiesModule.dll": 19968,
+    "Framework.Common.dll": 14336,
+    "UnityEngine.MathematicsModule.dll": 12288,
+    "Measurement.ContentDirectorySingle.dll": 12288,
+    "Measurement.ContentDirectory.dll": 9216,
+    "System.Runtime.CompilerServices.Unsafe.dll": 5120
+  },
+  "smoke": {
+    "status": "ready",
+    "line": "[measurement] ready one content directory fetched by the load: Circle and Tone in 214 ms (manifest 1, root 2, level 4, content 3 of 10 files; 10 fetched, 0 from the cache; the sprite of the scene is the one of the content, the Loadable of the scene gives the same content); libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames; audio: 0.50 s clip, playing True",
+    "reload": {
+      "status": "ready",
+      "line": "[measurement] ready one content directory fetched by the load: Circle and Tone in 231 ms (manifest 1, root 2, level 4, content 3 of 10 files; 0 fetched, 10 from the cache; the sprite of the scene is the one of the content, the Loadable of the scene gives the same content); libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames; audio: 0.50 s clip, playing True",
+      "requests": [
+        "/",
+        "/Build/92a0f491112905ad1cc4188b96ee1a0b.loader.js",
+        "/Build/198207e666b9fe350503b64df490fa66.framework.js.br",
+        "/Build/d9ea963ccadd515a4c9dcf317d50ed23.data.br",
+        "/Build/e90cf0ecdcaeaeeea0ee2f3d7efd3b11.wasm.br"
+      ]
+    },
+    "seconds": 4.3,
+    "errors": [],
+    "console": [
+      "log: CodeReloadManager initialized\n",
+      "log: Loading player data from data.unity3d\n",
+      "log: Initialize engine version: 7000.0.0a10 (4b5f18082ea8)\n",
+      "log: [EntityIdStore] init: page-table path, blockCount=262144, entitiesPerBlock=1024, top-level=2097152 bytes, sizeof(Block)=16512 (lazily allocated per committed block)\n",
+      "log: Creating WebGL 2.0 context.",
+      "log: Renderer: WebKit WebGL\n",
+      "log: Vendor:   WebKit\n",
+      "log: Version:  OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))\n",
+      "log: GLES:     3\n",
+      "log:  EXT_clip_control EXT_color_buffer_float EXT_color_buffer_half_float EXT_conservative_depth EXT_depth_clamp EXT_disjoint_timer_query_webgl2 EXT_float_blend EXT_polygon_offset_clamp EXT_texture_compression_bptc EXT_texture_compression_rgtc EXT_texture_filter_anisotropic NV_shader_noperspective_interp",
+      "log: mpressed_texture_astc GL_WEBGL_compressed_texture_etc GL_WEBGL_compressed_texture_etc1 GL_WEBGL_compressed_texture_s3tc GL_WEBGL_compressed_texture_s3tc_srgb GL_WEBGL_debug_renderer_info GL_WEBGL_debug_shaders GL_WEBGL_lose_context GL_WEBGL_multi_draw GL_WEBGL_polygon_mode\n",
+      "log: OPENGL LOG: Creating OpenGL ES 3.0 graphics device ; Context level  <OpenGL ES 3.0> ; Context handle 1\n",
+      "log: FMOD returns error code 78 (FMOD_ERR_UNIMPLEMENTED) executing setRecordMuted",
+      "log: FMOD returns error code 78 (r) executing setRecordMuted",
+      "log: Input Manager initialize...\n",
+      "log: UnloadTime: 0.100000 ms\n",
+      "log: Audio context resumed after 0.019 seconds.",
+      "log: [measurement] part one content directory fetched by the load\n",
+      "log: [measurement] single: manifest, 1 files\n",
+      "log: [measurement] single: root, 2 files\n",
+      "log: [measurement] single: placeholders written, registering\n",
+      "log: [measurement] single: registered\n",
+      "log: [measurement] single: level, 4 files\n",
+      "log: [measurement] single: content, 3 files\n",
+      "log: [measurement] part libraries\n",
+      "log: [measurement] part sprites\n",
+      "log: [measurement] part audio\n",
+      "log: Trying to get length of sound which is not loaded yet.",
+      "log: Trying to get metadata of sound which is not loaded.",
+      "log: [measurement] ready one content directory fetched by the load: Circle and Tone in 231 ms (manifest 1, root 2, level 4, content 3 of 10 files; 0 fetched, 10 from the cache; the sprite of the scene is the one of the content, the Loadable of the scene gives the same content); libraries: reactive 165, p"
+    ],
+    "requests": [
+      "/",
+      "/Build/92a0f491112905ad1cc4188b96ee1a0b.loader.js",
+      "/Build/198207e666b9fe350503b64df490fa66.framework.js.br",
+      "/Build/e90cf0ecdcaeaeeea0ee2f3d7efd3b11.wasm.br",
+      "/favicon.ico",
+      "/Build/d9ea963ccadd515a4c9dcf317d50ed23.data.br",
+      "/StreamingAssets/Content/Game/ba59700433a100cd9519412d62187de0.json",
+      "/StreamingAssets/Content/Game/d64a33b48e21de769856d00e5561369c.cf",
+      "/StreamingAssets/Content/Game/e1cf370eaed8606ca035bd97eae11834.cf",
+      "/StreamingAssets/Content/Game/383aceba087bfd059e22f4387d2da24b.cf",
+      "/StreamingAssets/Content/Game/b15bced8f84942aac64f2039b2c7d194.cf",
+      "/StreamingAssets/Content/Game/e556f051a2186683ced73c3caddc3cfe.cf",
+      "/StreamingAssets/Content/Game/f7f32da8b5e27ca3dcb6ae0f05f79e76.cf",
+      "/StreamingAssets/Content/Game/831286887e15a18b379ccdd50bf6f603.resource",
+      "/StreamingAssets/Content/Game/c335ee7044f65f4f5445c537ebe91404.cf",
+      "/StreamingAssets/Content/Game/dbba49769aec7c5cc7e6b073ac7481ce.cf",
+      "/",
+      "/Build/92a0f491112905ad1cc4188b96ee1a0b.loader.js",
+      "/Build/198207e666b9fe350503b64df490fa66.framework.js.br",
+      "/Build/d9ea963ccadd515a4c9dcf317d50ed23.data.br",
+      "/Build/e90cf0ecdcaeaeeea0ee2f3d7efd3b11.wasm.br"
+    ],
+    "screenshot": "/projects/framework/.claude/worktrees/content_loading_size/client/measurements/projects/7000.0.0a10-content-directory-single/smoke.png"
+  },
+  "streamingAssets": [
+    {
+      "name": "Content/Game/383aceba087bfd059e22f4387d2da24b.cf",
+      "raw": 19164,
+      "compressed": 4830,
+      "fetched": true
+    },
+    {
+      "name": "Content/Game/831286887e15a18b379ccdd50bf6f603.resource",
+      "raw": 10237,
+      "compressed": 9495,
+      "fetched": true
+    },
+    {
+      "name": "Content/Game/BuildManifestHash.txt",
+      "raw": 32,
+      "compressed": 33,
+      "fetched": false
+    },
+    {
+      "name": "Content/Game/b15bced8f84942aac64f2039b2c7d194.cf",
+      "raw": 10852,
+      "compressed": 2678,
+      "fetched": true
+    },
+    {
+      "name": "Content/Game/ba59700433a100cd9519412d62187de0.json",
+      "raw": 1633,
+      "compressed": 551,
+      "fetched": true
+    },
+    {
+      "name": "Content/Game/c335ee7044f65f4f5445c537ebe91404.cf",
+      "raw": 1648,
+      "compressed": 609,
+      "fetched": true
+    },
+    {
+      "name": "Content/Game/d64a33b48e21de769856d00e5561369c.cf",
+      "raw": 1944,
+      "compressed": 706,
+      "fetched": true
+    },
+    {
+      "name": "Content/Game/dbba49769aec7c5cc7e6b073ac7481ce.cf",
+      "raw": 1400,
+      "compressed": 586,
+      "fetched": true
+    },
+    {
+      "name": "Content/Game/e1cf370eaed8606ca035bd97eae11834.cf",
+      "raw": 1780,
+      "compressed": 587,
+      "fetched": true
+    },
+    {
+      "name": "Content/Game/e556f051a2186683ced73c3caddc3cfe.cf",
+      "raw": 554508,
+      "compressed": 65029,
+      "fetched": true
+    },
+    {
+      "name": "Content/Game/f7f32da8b5e27ca3dcb6ae0f05f79e76.cf",
+      "raw": 3528,
+      "compressed": 921,
+      "fetched": true
+    }
+  ]
+}

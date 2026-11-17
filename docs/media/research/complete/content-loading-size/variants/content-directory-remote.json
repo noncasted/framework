@@ -1,0 +1,13 @@
+{
+  "extends": "aggressive",
+  "description": "aggressive with the sprite and the clip loaded from a content directory by the engine API alone (BuildContentDirectory, ContentLoadManager), no Addressables: the files stay in StreamingAssets on the server, the loader fetches them into the file system of the page (a jslib, no UnityWebRequest) and registers the copy; the files are kept in the Cache API of the page, the smoke run opens the page twice",
+  "versions": [
+    "7000.0.0a10"
+  ],
+  "parts": [
+    "content-directory",
+    "content-directory-remote"
+  ],
+  "packages": {},
+  "smokeReload": true
+}

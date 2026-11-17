@@ -1,0 +1,13 @@
+{
+  "extends": "aggressive",
+  "description": "aggressive with one content directory for the whole game (one root with a Loadable of the content and the LoadableSceneId of a level scene that has its own sprite and a Loadable of the content), on the server; the loader fetches the manifest, registers it, then for each load only the files it needs (found by the build in the manifest), through the Cache API of the page; the smoke run opens the page twice",
+  "versions": [
+    "7000.0.0a10"
+  ],
+  "parts": [
+    "content-directory",
+    "content-directory-single"
+  ],
+  "packages": {},
+  "smokeReload": true
+}

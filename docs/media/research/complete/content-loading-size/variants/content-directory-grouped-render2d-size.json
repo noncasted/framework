@@ -1,0 +1,12 @@
+{
+  "extends": "content-directory-grouped-size",
+  "description": "content-directory-grouped-size drawn as a 2D game (part render-2d): the sprite material of the pipeline (default2DMaterial, an own one-variant unlit shader Measurement/Sprite, as pixel-swarm) instead of the built-in Sprites/Default, and the measured scene without the environment lighting (no skybox, flat ambient, no reflection cubemap)",
+  "versions": [
+    "7000.0.0a10"
+  ],
+  "parts": [
+    "render-2d"
+  ],
+  "packages": {},
+  "smokeReload": true
+}

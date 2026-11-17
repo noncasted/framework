@@ -1,0 +1,12 @@
+{
+  "extends": "aggressive",
+  "description": "aggressive with the sprite and the clip loaded from a content directory by the engine API alone (BuildContentDirectory, ContentLoadManager), no Addressables: the files baked into the .data by a WebGL preload manifest",
+  "versions": [
+    "7000.0.0a10"
+  ],
+  "parts": [
+    "content-directory",
+    "content-directory-preloaded"
+  ],
+  "packages": {}
+}

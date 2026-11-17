@@ -1,0 +1,214 @@
+{
+  "unity": "7000.0.0a10",
+  "variant": "content-directory-grouped-render2d-size",
+  "description": "content-directory-grouped-size drawn as a 2D game (part render-2d): the sprite material of the pipeline (default2DMaterial, an own one-variant unlit shader Measurement/Sprite, as pixel-swarm) instead of the built-in Sprites/Default, and the measured scene without the environment lighting (no skybox, flat ambient, no reflection cubemap)",
+  "measured": "2026-11-12 08:08 UTC",
+  "build": {
+    "unityVersion": "7000.0.0a10",
+    "result": "Succeeded",
+    "buildSeconds": 24.9101101,
+    "reportedSize": 5187648,
+    "errors": 0,
+    "warnings": 0,
+    "strippedSubmodules": 128,
+    "missingSubmodules": "Ignore",
+    "profiled": false
+  },
+  "strippingSkipped": [
+    "Audio Random Container",
+    "Graphics State Collection Serializer"
+  ],
+  "overrides": [],
+  "files": [
+    {
+      "name": "0efb28778b8356c79bce4da8d7813d23.loader.js",
+      "kind": "loader",
+      "compressed": 28175,
+      "raw": 28175
+    },
+    {
+      "name": "256abfc830b3fa338555ee9914f2c997.framework.js.br",
+      "kind": "framework",
+      "compressed": 62804,
+      "raw": 317252
+    },
+    {
+      "name": "3e835d4bcf8ae6b78d8062300a39551a.data.br",
+      "kind": "data",
+      "compressed": 592237,
+      "raw": 1947040,
+      "contents": [
+        {
+          "name": "RuntimeInitializeOnLoads.json",
+          "raw": 162,
+          "compressed": 126
+        },
+        {
+          "name": "ScriptingAssemblies.json",
+          "raw": 3696,
+          "compressed": 710
+        },
+        {
+          "name": "data.unity3d",
+          "raw": 209376,
+          "compressed": 150619
+        },
+        {
+          "name": "boot.config",
+          "raw": 114,
+          "compressed": 95
+        },
+        {
+          "name": "Il2CppData/Metadata/global-metadata.dat",
+          "raw": 1268780,
+          "compressed": 335796
+        },
+        {
+          "name": "Resources/unity default resources",
+          "raw": 464672,
+          "compressed": 105869
+        }
+      ]
+    },
+    {
+      "name": "93bb4f0ceb049ea4595765828bc2f1b9.wasm.br",
+      "kind": "wasm",
+      "compressed": 1842137,
+      "raw": 6371283,
+      "sections": {
+        "type": 2631,
+        "import": 10254,
+        "function": 28790,
+        "table": 9,
+        "memory": 7,
+        "tag": 3,
+        "global": 9,
+        "export": 482,
+        "element": 61492,
+        "datacount": 2,
+        "code": 5266706,
+        "data": 1000854
+      }
+    }
+  ],
+  "wasmBeforeStripping": {
+    "compressed": 2639905,
+    "raw": 11217431
+  },
+  "managed": {
+    "mscorlib.dll": 1230336,
+    "UnityEngine.CoreModule.dll": 355328,
+    "System.dll": 107520,
+    "UniTask.dll": 85504,
+    "MemoryPack.Core.dll": 53760,
+    "UnityEngine.U2DRuntimeModule.dll": 51200,
+    "UnityEngine.ManagedKernelModule.dll": 49664,
+    "Unity.Scripting.dll": 47104,
+    "System.Core.dll": 39424,
+    "UnityEngine.BurstModule.dll": 38400,
+    "UnityEngine.AudioModule.dll": 35328,
+    "UnityEngine.ContentLoadModule.dll": 35328,
+    "UnityEngine.dll": 34816,
+    "Measurement.Runtime.dll": 27648,
+    "UnityEngine.ScriptingModule.dll": 26112,
+    "UnityEngine.EntitiesModule.dll": 19968,
+    "Framework.Common.dll": 14336,
+    "UnityEngine.MathematicsModule.dll": 12288,
+    "Measurement.ContentDirectoryGrouped.dll": 12288,
+    "Measurement.ContentDirectory.dll": 8704,
+    "System.Runtime.CompilerServices.Unsafe.dll": 5120
+  },
+  "smoke": {
+    "status": "ready",
+    "line": "[measurement] ready one content directory fetched in grouped packs: Circle and Tone in 177 ms (boot 1, level 2, content 1; 4 packs, 0 from the cache, unpacked in 0.9 ms; the sprite of the scene (Measurement/Sprite) is the one of the content, the Loadable of the scene gives the same content); libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames, shader Measurement/Sprite; audio: 0.50 s clip, playing True",
+    "reload": {
+      "status": "ready",
+      "line": "[measurement] ready one content directory fetched in grouped packs: Circle and Tone in 76 ms (boot 1, level 2, content 1; 4 packs, 4 from the cache, unpacked in 0.3 ms; the sprite of the scene (Measurement/Sprite) is the one of the content, the Loadable of the scene gives the same content); libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames, shader Measurement/Sprite; audio: 0.50 s clip, playing True",
+      "requests": [
+        "/",
+        "/Build/0efb28778b8356c79bce4da8d7813d23.loader.js",
+        "/Build/256abfc830b3fa338555ee9914f2c997.framework.js.br",
+        "/Build/3e835d4bcf8ae6b78d8062300a39551a.data.br",
+        "/Build/93bb4f0ceb049ea4595765828bc2f1b9.wasm.br"
+      ]
+    },
+    "seconds": 3.3,
+    "errors": [],
+    "console": [
+      "log:     \"memorysetup-allocator-temp-initial-block-size-main=262144\"\n",
+      "log:     \"memorysetup-allocator-temp-initial-block-size-worker=262144\"\n",
+      "log:     \"memorysetup-temp-allocator-size-audio-worker=65536\"\n",
+      "log:     \"memorysetup-entities-archetype-allocator-budget=16777216\"\n",
+      "log:     \"memorysetup-entities-query-allocator-budget=16777216\"\n",
+      "log:     \"memorysetup-remapper-allocator-initial-capacity=32768\"\n",
+      "log: CodeReloadManager initialized\n",
+      "log: Loading player data from data.unity3d\n",
+      "log: Initialize engine version: 7000.0.0a10 (4b5f18082ea8)\n",
+      "log: [EntityIdStore] init: page-table path, blockCount=262144, entitiesPerBlock=1024, top-level=2097152 bytes, sizeof(Block)=16512 (lazily allocated per committed block)\n",
+      "log: Creating WebGL 2.0 context.",
+      "log: Renderer: WebKit WebGL\n",
+      "log: Vendor:   WebKit\n",
+      "log: Version:  OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))\n",
+      "log: GLES:     3\n",
+      "log:  EXT_clip_control EXT_color_buffer_float EXT_color_buffer_half_float EXT_conservative_depth EXT_depth_clamp EXT_disjoint_timer_query_webgl2 EXT_float_blend EXT_polygon_offset_clamp EXT_texture_compression_bptc EXT_texture_compression_rgtc EXT_texture_filter_anisotropic NV_shader_noperspective_interp",
+      "log: mpressed_texture_astc GL_WEBGL_compressed_texture_etc GL_WEBGL_compressed_texture_etc1 GL_WEBGL_compressed_texture_s3tc GL_WEBGL_compressed_texture_s3tc_srgb GL_WEBGL_debug_renderer_info GL_WEBGL_debug_shaders GL_WEBGL_lose_context GL_WEBGL_multi_draw GL_WEBGL_polygon_mode\n",
+      "log: OPENGL LOG: Creating OpenGL ES 3.0 graphics device ; Context level  <OpenGL ES 3.0> ; Context handle 1\n",
+      "log: FMOD returns error code 78 (FMOD_ERR_UNIMPLEMENTED) executing setRecordMuted",
+      "log: FMOD returns error code 78 (r) executing setRecordMuted",
+      "log: Input Manager initialize...\n",
+      "log: UnloadTime: 0.000000 ms\n",
+      "log: Audio context resumed after 0.012 seconds.",
+      "log: [measurement] part one content directory fetched in grouped packs\n",
+      "log: [measurement] part libraries\n",
+      "log: [measurement] part sprites\n",
+      "log: [measurement] part audio\n",
+      "log: Trying to get length of sound which is not loaded yet.",
+      "log: Trying to get metadata of sound which is not loaded.",
+      "log: [measurement] ready one content directory fetched in grouped packs: Circle and Tone in 76 ms (boot 1, level 2, content 1; 4 packs, 4 from the cache, unpacked in 0.3 ms; the sprite of the scene (Measurement/Sprite) is the one of the content, the Loadable of the scene gives the same content); librarie"
+    ],
+    "requests": [
+      "/",
+      "/Build/0efb28778b8356c79bce4da8d7813d23.loader.js",
+      "/Build/256abfc830b3fa338555ee9914f2c997.framework.js.br",
+      "/Build/93bb4f0ceb049ea4595765828bc2f1b9.wasm.br",
+      "/favicon.ico",
+      "/Build/3e835d4bcf8ae6b78d8062300a39551a.data.br",
+      "/StreamingAssets/Content/Game.boot.47493957.pack.br",
+      "/StreamingAssets/Content/Game.level+content.649270cc.pack.br",
+      "/StreamingAssets/Content/Game.level.fb10dbf2.pack.br",
+      "/StreamingAssets/Content/Game.content.953d30a0.pack.br",
+      "/",
+      "/Build/0efb28778b8356c79bce4da8d7813d23.loader.js",
+      "/Build/256abfc830b3fa338555ee9914f2c997.framework.js.br",
+      "/Build/3e835d4bcf8ae6b78d8062300a39551a.data.br",
+      "/Build/93bb4f0ceb049ea4595765828bc2f1b9.wasm.br"
+    ],
+    "screenshot": "/projects/framework/.claude/worktrees/content_loading_size/client/measurements/projects/7000.0.0a10-content-directory-grouped-render2d-size/smoke.png"
+  },
+  "streamingAssets": [
+    {
+      "name": "Content/Game.boot.47493957.pack.br",
+      "raw": 1869,
+      "compressed": 1873,
+      "fetched": true
+    },
+    {
+      "name": "Content/Game.content.953d30a0.pack.br",
+      "raw": 10547,
+      "compressed": 10551,
+      "fetched": true
+    },
+    {
+      "name": "Content/Game.level+content.649270cc.pack.br",
+      "raw": 3443,
+      "compressed": 3447,
+      "fetched": true
+    },
+    {
+      "name": "Content/Game.level.fb10dbf2.pack.br",
+      "raw": 10974,
+      "compressed": 10978,
+      "fetched": true
+    }
+  ]
+}

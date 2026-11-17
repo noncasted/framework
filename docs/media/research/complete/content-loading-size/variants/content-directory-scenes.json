@@ -1,0 +1,13 @@
+{
+  "extends": "aggressive",
+  "description": "aggressive with the content split into two content directories of the server, as a game would: Shared (the content asset) and Level (a scene with its own sprite and a Loadable of the content); fetched into the file system of the page through its Cache API, the content loaded through a Loadable of the player scene, the level scene by its LoadableSceneId; the smoke run opens the page twice",
+  "versions": [
+    "7000.0.0a10"
+  ],
+  "parts": [
+    "content-directory",
+    "content-directory-scenes"
+  ],
+  "packages": {},
+  "smokeReload": true
+}

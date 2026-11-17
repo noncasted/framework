@@ -1,0 +1,13 @@
+{
+  "extends": "aggressive",
+  "description": "content-directory-single with the synchronous Loadable.Load() instead of LoadAsync: once on a second directory preloaded into the .data (a preload manifest), once on the files of the game directory fetched into the file system of the page; a guard of the synchronous access of the content loader on the web",
+  "versions": [
+    "7000.0.0a10"
+  ],
+  "parts": [
+    "content-directory",
+    "content-directory-single",
+    "content-directory-sync"
+  ],
+  "packages": {}
+}

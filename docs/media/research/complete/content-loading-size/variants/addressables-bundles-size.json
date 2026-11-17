@@ -1,0 +1,12 @@
+{
+  "extends": "addressables-bundles",
+  "description": "addressables-bundles with the IL2CPP code generation Optimize Size",
+  "versions": [
+    "7000.0.0a10"
+  ],
+  "parts": [],
+  "packages": {},
+  "profile": {
+    "il2cppCodeGeneration": 1
+  }
+}
