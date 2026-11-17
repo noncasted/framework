@@ -20,6 +20,7 @@
 | [0.9.1](0.9.1.md) | 2026-11-17 | `deploy-client`: проверка контента читает каталог из распакованного `data.unity3d` | Нет |
 | [0.9.2](0.9.2.md) | 2026-11-17 | Раскладка контента: ассет, нужный ассетам и сценам одного бандла и другому бандлу, - дубль, а не скрытая зависимость от бандла со сценами | Да: пересинк общих бандлов, снять ручные корни preloaded-бандла |
 | [0.9.3](0.9.3.md) | 2026-11-17 | Исправления аудитов бэкенда и клиента 2026-11-16: грязная запись вне транзакции - ошибка, `SharedViewableProperty<T>`, лобби упавшего сервера, генераторы каталогов падают на сломанном входе, сеть P2P, мёртвый код | Да: `DbLookup` -> `SideEffectTables`, подмены `IClusterParticipantContext`, `Game.Hosting.Collection`, `IsJoinable`, `TraceExtensions.Start`, `MockEntry.Process` -> `UniTask` |
+| [0.10.0](0.10.0.md) | 2026-11-17 | Startup trace хранит backend trace id сокета, консоль рисует трейс бэкенда из Aspire dashboard; `GameProfiler.Background`; веб-загрузка контента только в WebGL-плеере | Да: `AcceptStartup(trace, backendTrace)` |
 
 ## Версии
 
