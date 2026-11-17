@@ -16,7 +16,7 @@ namespace Internal
     //    to what a bundle left out of this build holds.
     // A bundle left out of the build (ContentBuildContext.Exclude) still holds what it holds, so the others hold the same as
     // in a full build; it gets no plan and nothing of it is checked. An asset the assets and the scenes of one bundle both
-    // need goes to its assets (the engine keeps the two apart).
+    // need goes to its assets (the engine keeps the two apart); another bundle that needs it too still makes it a duplicate.
     public sealed class ContentBundleLayout
     {
         private readonly IReadOnlyList<ContentBundle> _bundles;
@@ -111,10 +111,12 @@ namespace Internal
                 var fromAssets = Reach(plan.Bundle, plan.Assets, lazyReach);
                 var fromScenes = Reach(plan.Bundle, plan.Scenes, lazyReach);
 
-                // Needed by both parts: into the assets, so the bundle of the scenes references it.
+                // Needed by both parts: into the assets, so the bundle of the scenes references it. Still needed by this bundle
+                // without a holder: another bundle that needs it too makes it a duplicate.
                 foreach (var shared in fromAssets.Keys.Intersect(fromScenes.Keys).OrderBy(path => path, StringComparer.Ordinal).ToArray())
                 {
                     plan.Assets.Add(shared);
+                    AddOwner(implicitOwners, shared, plan.Bundle, fromAssets[shared]);
                     fromAssets.Remove(shared);
                     fromScenes.Remove(shared);
                 }
@@ -122,11 +124,7 @@ namespace Internal
                 foreach (var entry in fromAssets.Concat(fromScenes))
                 {
                     plan.Implicit[entry.Key] = entry.Value;
-
-                    if (implicitOwners.TryGetValue(entry.Key, out var owners) == false)
-                        implicitOwners.Add(entry.Key, owners = new List<(ContentBundle, string)>());
-
-                    owners.Add((plan.Bundle, entry.Value));
+                    AddOwner(implicitOwners, entry.Key, plan.Bundle, entry.Value);
                 }
             }
 
@@ -154,6 +152,14 @@ namespace Internal
                 AddEntries(plan);
 
             return plans;
+        }
+
+        private static void AddOwner(Dictionary<string, List<(ContentBundle, string)>> owners, string path, ContentBundle bundle, string through)
+        {
+            if (owners.TryGetValue(path, out var list) == false)
+                owners.Add(path, list = new List<(ContentBundle, string)>());
+
+            list.Add((bundle, through));
         }
 
         // What the explicit assets of a part of a bundle reach directly and no bundle holds, with the asset that reaches it;

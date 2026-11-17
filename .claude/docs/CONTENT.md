@@ -24,7 +24,8 @@ Range requests of one archive): it is gone.
   loader finds a component of the root only) or to one of two sub-assets of one name and type. The graph is a validator only:
   nothing is loaded by it, a bundle is loaded whole.
 - **Assets and scenes apart.** The engine keeps the scenes of a bundle in a bundle of their own: a `ContentBundle` with scenes ships
-  `<name>.<hash>.bundle` and `<name>.scenes.<hash>.bundle`, loaded together; an asset both need goes to the assets.
+  `<name>.<hash>.bundle` and `<name>.scenes.<hash>.bundle`, loaded together; an asset both need goes to the assets. It is still
+  held by no root: another bundle that reaches it too (also through a lazy target it took) makes it a duplicate.
 - **The catalog** (`ContentCatalog`, `Resources/Content/catalog.json` of the player, read synchronously at the start): every bundle
   with its files (named by their hash: a changed bundle is a new URL), sizes, dependencies and roots, every lazy target (GUID and local
   id of its object -> bundle, the name of a sub-asset) and every scene (GUID -> bundle, path). An asset is in its bundle under its

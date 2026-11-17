@@ -4,6 +4,7 @@ using Internal.EditorTests.Content;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.Build;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace Internal.EditorTests
@@ -80,6 +81,34 @@ namespace Internal.EditorTests
         }
 
         [Test]
+        public void LazyTargetOfOneBundle_SharedWithTheAssetsAndTheScenesOfAnother_GoesIntoTheSharedBundleThatServesThem()
+        {
+            var sprite = Asset<ContentTestGroup>("Sprite");
+            var group = Target("Group", sprite);
+            References("Main", group);
+            Target("Holder", sprite);
+            Target("SceneTarget", null);
+            var scene = Scene("Menu", AssetDatabase.LoadAssetAtPath<ContentTestTarget>($"{Folder}/SceneTarget.asset"), sprite);
+
+            // A new scene unloads the assets loaded before it: read again.
+            var others = new[]
+            {
+                ContentTestBundles.Create("Main", AssetDatabase.LoadAssetAtPath<ContentTestReferences>($"{Folder}/Main.asset")),
+                ContentTestBundles.Create("Menu", AssetDatabase.LoadAssetAtPath<ContentTestTarget>($"{Folder}/Holder.asset"),
+                    AssetDatabase.LoadAssetAtPath<SceneAsset>(scene))
+            };
+
+            Assert.IsTrue(ContentSharedSync.Sync(Output, Shared(), others));
+
+            Assert.AreEqual(new Object[] { AssetDatabase.LoadAssetAtPath<ContentTestGroup>($"{Folder}/Sprite.asset") }, Written("SharedCommon").Roots.ToArray(),
+                "Needed by Main and Menu: served with Main");
+            Assert.IsNull(Written("SharedGamePlay"));
+
+            var plans = ContentBundleLayout.Lay(others.Concat(new[] { Written("SharedCommon") }).ToArray()).Plans;
+            Assert.IsFalse(plans.Single(plan => plan.Name == "Menu").Assets.Contains($"{Folder}/Sprite.asset"), "Held by SharedCommon, not by Menu");
+        }
+
+        [Test]
         public void NoSharedBundleTakesADuplicate_Fails()
         {
             var (others, _, _) = Project();
@@ -125,6 +154,40 @@ namespace Internal.EditorTests
             };
 
             return (others, common, gamePlay);
+        }
+
+        private static ContentTestReferences References(string name, ContentTestTarget target)
+        {
+            // A scene of its own: an empty one fails the build.
+            var scene = $"{Folder}/{name}Level.unity";
+            File.WriteAllText(scene, "%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n");
+            AssetDatabase.ImportAsset(scene, ImportAssetOptions.ForceSynchronousImport);
+
+            var references = Asset<ContentTestReferences>(name);
+            references.Init(ContentReferenceFields.Create(target), ContentReferenceFields.CreateScene(scene));
+            EditorUtility.SetDirty(references);
+            AssetDatabase.SaveAssets();
+            return references;
+        }
+
+        // A scene with an object whose behaviour lazily references the target and directly the other asset.
+        private static string Scene(string name, ContentTestTarget target, Object direct)
+        {
+            var path = $"{Folder}/{name}.unity";
+            var (guid, localId) = ContentEditorAssets.Keys(target);
+            var directPath = AssetDatabase.GetAssetPath(direct);
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var holder = new GameObject("Holder").AddComponent<ContentTestBehaviour>();
+            var serialized = new SerializedObject(holder);
+            serialized.FindProperty("_target._guid").stringValue = guid;
+            serialized.FindProperty("_target._localId").longValue = localId;
+            serialized.FindProperty("_direct").objectReferenceValue = AssetDatabase.LoadMainAssetAtPath(directPath);
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            EditorSceneManager.SaveScene(scene, path);
+
+            // An untitled scene again: the layout reads the saved one as a preview, whatever is open.
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            return path;
         }
 
         private static ContentBundle Written(string name)
