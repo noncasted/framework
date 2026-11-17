@@ -1,3 +1,5 @@
+// WebGL player only: outside it the native imports of WebContentFetch.jslib do not link (IL2CPP).
+#if UNITY_WEBGL && !UNITY_EDITOR
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -95,3 +97,4 @@ namespace Internal
         private static extern void WebContentFetch_KeepOnly(string directory, string urls);
     }
 }
+#endif

@@ -1,3 +1,5 @@
+// WebGL player only: outside it the native imports of WebContentFetch.jslib do not link (IL2CPP).
+#if UNITY_WEBGL && !UNITY_EDITOR
 using System.IO;
 using Cysharp.Threading.Tasks;
 
@@ -57,3 +59,4 @@ namespace Internal
         }
     }
 }
+#endif
