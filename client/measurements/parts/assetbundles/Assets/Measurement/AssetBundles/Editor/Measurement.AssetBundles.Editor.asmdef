@@ -1,0 +1,13 @@
+{
+    "name": "Measurement.AssetBundles.Editor",
+    "rootNamespace": "Measurement",
+    "references": [
+        "Measurement.Runtime",
+        "Measurement.AssetBundles",
+        "Measurement.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "autoReferenced": true
+}

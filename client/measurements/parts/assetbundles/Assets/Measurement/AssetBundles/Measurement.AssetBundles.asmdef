@@ -1,0 +1,9 @@
+{
+    "name": "Measurement.AssetBundles",
+    "rootNamespace": "Measurement",
+    "references": [
+        "Measurement.Runtime",
+        "UniTask"
+    ],
+    "autoReferenced": true
+}
