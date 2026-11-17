@@ -26,6 +26,9 @@ public class TelemetryStartupState : IDirectStateValue
     [Id(13)] [JsonProperty] public int RejectedSpans { get; private set; }
     [Id(14)] [JsonProperty] public int CutNames { get; private set; }
 
+    // The traces of one record come from one socket, so the last one tells the same id as the first.
+    [Id(15)] [JsonProperty] public string? BackendTraceId { get; private set; }
+
     public int Version => 0;
 
     public void Store(Guid id, TelemetryStartupTrace trace, DateTime now)
@@ -47,6 +50,7 @@ public class TelemetryStartupState : IDirectStateValue
         DroppedSpans = trace.DroppedSpans;
         RejectedSpans = trace.RejectedSpans;
         CutNames = trace.CutNames;
+        BackendTraceId = trace.BackendTraceId;
     }
 
     public TelemetryStartupState Snapshot()
@@ -71,7 +75,8 @@ public class TelemetryStartupState : IDirectStateValue
             UnfinishedSpans = UnfinishedSpans,
             DroppedSpans = DroppedSpans,
             RejectedSpans = RejectedSpans,
-            CutNames = CutNames
+            CutNames = CutNames,
+            BackendTraceId = BackendTraceId
         };
     }
 }

@@ -31,7 +31,7 @@ public class ClientTelemetryClosedSocketStartupTests : ClientTelemetryStorageTes
             Device = new SharedClientTelemetry.Device { Platform = "web" },
             Name = "Boot",
             Spans = [new SharedClientTelemetry.StartupSpan { ParentIndex = -1, Name = "Stage", DurationMs = 10 }]
-        });
+        }, default);
 
         answer.Enabled.Should().BeFalse();
         answer.StartupId.Should().Be(Guid.Empty);

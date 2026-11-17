@@ -54,6 +54,6 @@ public static class ClientTelemetryHttpIntake
         if (request.LinkId == Guid.Empty)
             return Results.BadRequest();
 
-        return Results.Json(await links.Of(request.LinkId).AcceptStartup(TelemetryHttpMapping.ToStartupTrace(request)));
+        return Results.Json(await links.Of(request.LinkId).AcceptStartup(TelemetryHttpMapping.ToStartupTrace(request), default));
     }
 }

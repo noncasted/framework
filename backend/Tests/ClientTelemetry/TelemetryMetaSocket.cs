@@ -45,7 +45,7 @@ public static class TelemetryMetaSocket
             SharedClientTelemetry.SessionStart start => await session.Start(start),
             SharedClientTelemetry.Batch batch => await session.Accept(batch),
             SharedClientTelemetry.SessionEnd end => await session.End(end),
-            SharedClientTelemetry.StartupTrace trace => await session.AcceptStartup(trace),
+            SharedClientTelemetry.StartupTrace trace => await session.AcceptStartup(trace, default),
             _ => ErrorResponse.UnknownCommand(request.Context)
         };
 

@@ -99,7 +99,8 @@ def startup_lines(page, top):
     longest = sorted(spans, key=lambda span: -span["ownMs"])[:top]
     unfinished = [span for span in spans if span["unfinished"]]
     lines = [f"startup {startup_line(info)}", device_line(info),
-             f"limits dropped_spans={info['droppedSpans']} rejected={info['rejectedSpans']} cut_names={info['cutNames']}"]
+             f"limits dropped_spans={info['droppedSpans']} rejected={info['rejectedSpans']} cut_names={info['cutNames']}",
+             f"backend_trace={info.get('backendTraceId') or '-'}"]
 
     if not info["final"]:
         lines.append("snapshot: the trace was open when it was sent, its open spans go on past these numbers")

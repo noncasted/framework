@@ -19,4 +19,7 @@ public sealed record TelemetryStartupInfo
     public required int DroppedSpans { get; init; }
     public required int RejectedSpans { get; init; }
     public required int CutNames { get; init; }
+
+    // The trace of the authorization of the socket in the OTLP backend (Aspire dashboard: Traces). Null: the game passes none.
+    public required string? BackendTraceId { get; init; }
 }

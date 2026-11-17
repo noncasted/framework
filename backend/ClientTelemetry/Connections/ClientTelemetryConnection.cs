@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Infrastructure;
 using Microsoft.Extensions.Logging;
 using Shared;
@@ -66,10 +67,11 @@ public sealed class ClientTelemetryConnection
         }
     }
 
-    // Needs no open session and has its own gate: the write of a trace must not look like a second batch in flight.
-    public Task<SharedClientTelemetry.StartupTraceResult> AcceptStartup(SharedClientTelemetry.StartupTrace trace)
+    // Needs no open session and has its own gate: the write of a trace must not look like a second batch in flight. backendTrace:
+    // the trace of the authorization of this socket in the OTLP backend, default when the game has none.
+    public Task<SharedClientTelemetry.StartupTraceResult> AcceptStartup(SharedClientTelemetry.StartupTrace trace, ActivityTraceId backendTrace)
     {
-        return _startups.Accept(trace);
+        return _startups.Accept(trace, backendTrace);
     }
 
     // A client keeps one batch in flight, so a second one breaks the contract: it stops here instead of piling up on the gate.

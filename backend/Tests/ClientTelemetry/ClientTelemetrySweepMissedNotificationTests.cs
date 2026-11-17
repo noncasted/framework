@@ -89,13 +89,13 @@ public class ClientTelemetrySweepMissedNotificationTests : ClientTelemetryStorag
     {
         var (other, utils) = await OtherStartups();
         var connection = OpenSocket();
-        var id = (await connection.AcceptStartup(Trace(final: false, startupId: Guid.Empty))).StartupId;
+        var id = (await connection.AcceptStartup(Trace(final: false, startupId: Guid.Empty), default)).StartupId;
         await Cluster.PumpSideEffects();
         await TestWait.Until(() => other.ContainsKey(id));
         Cluster.Clock.Advance(TimeSpan.FromDays(Cluster.Options.RetentionDays + 1));
 
         utils.Deafen();
-        await connection.AcceptStartup(Trace(final: true, startupId: id));
+        await connection.AcceptStartup(Trace(final: true, startupId: id), default);
         await Cluster.PumpSideEffects();
         utils.Hear();
         other[id].Final.Should().BeFalse("the other host missed the write");
@@ -124,7 +124,7 @@ public class ClientTelemetrySweepMissedNotificationTests : ClientTelemetryStorag
 
     private async Task<Guid> StoreStartup()
     {
-        return (await OpenSocket().AcceptStartup(Trace(final: true, startupId: Guid.Empty))).StartupId;
+        return (await OpenSocket().AcceptStartup(Trace(final: true, startupId: Guid.Empty), default)).StartupId;
     }
 
     private ClientTelemetryConnection OpenSocket()

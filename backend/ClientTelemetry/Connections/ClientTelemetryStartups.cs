@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Infrastructure;
 using Microsoft.Extensions.Logging;
 using Shared;
@@ -32,7 +33,7 @@ internal sealed class ClientTelemetryStartups
         _isClosed = true;
     }
 
-    public async Task<SharedClientTelemetry.StartupTraceResult> Accept(SharedClientTelemetry.StartupTrace trace)
+    public async Task<SharedClientTelemetry.StartupTraceResult> Accept(SharedClientTelemetry.StartupTrace trace, ActivityTraceId backendTrace)
     {
         if (!_switch.IsEnabled)
             return _off;
@@ -55,7 +56,7 @@ internal sealed class ClientTelemetryStartups
             var id = isNew ? Guid.NewGuid() : trace.StartupId;
 
             _writes++;
-            await _orleans.GetGrain<IClientTelemetryStartup>(id).Store(TelemetryStartupParser.Parse(trace));
+            await _orleans.GetGrain<IClientTelemetryStartup>(id).Store(TelemetryStartupParser.Parse(trace) with { BackendTraceId = BackendTraceId(backendTrace) });
 
             lock (_issued)
                 _issued.Add(id);
@@ -71,6 +72,11 @@ internal sealed class ClientTelemetryStartups
         {
             _gate.Release();
         }
+    }
+
+    private static string? BackendTraceId(ActivityTraceId backendTrace)
+    {
+        return backendTrace == default ? null : backendTrace.ToHexString();
     }
 
     public TelemetryStartupLink Link(Guid id)

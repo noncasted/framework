@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using FluentAssertions;
 using Framework.Tests.Fixtures;
 using Game.ClientTelemetry;
@@ -53,7 +54,7 @@ public class ClientTelemetryStartupTests : ClientTelemetryStorageTest
     {
         var connection = Open();
 
-        var answer = await connection.AcceptStartup(Trace(spans: 3));
+        var answer = await connection.AcceptStartup(Trace(spans: 3), default);
 
         answer.Enabled.Should().BeTrue();
         answer.StartupId.Should().NotBeEmpty();
@@ -74,11 +75,11 @@ public class ClientTelemetryStartupTests : ClientTelemetryStorageTest
     public async Task TheFinalTrace_ReplacesTheSnapshotOfTheSameRecord()
     {
         var connection = Open();
-        var first = (await connection.AcceptStartup(Trace(spans: 2))).StartupId;
+        var first = (await connection.AcceptStartup(Trace(spans: 2), default)).StartupId;
         var receivedAt = (await Info(first)).ReceivedAt;
 
         Cluster.Clock.Advance(TimeSpan.FromMinutes(1));
-        var second = await connection.AcceptStartup(Trace(final: true, startupId: first, spans: 5));
+        var second = await connection.AcceptStartup(Trace(final: true, startupId: first, spans: 5), default);
 
         second.StartupId.Should().Be(first);
 
@@ -94,21 +95,45 @@ public class ClientTelemetryStartupTests : ClientTelemetryStorageTest
     public async Task TheFinalTrace_StaysAgainstALateSnapshot()
     {
         var connection = Open();
-        var id = (await connection.AcceptStartup(Trace(final: true, spans: 5))).StartupId;
+        var id = (await connection.AcceptStartup(Trace(final: true, spans: 5), default)).StartupId;
 
-        (await connection.AcceptStartup(Trace(startupId: id, spans: 2))).Enabled.Should().BeTrue();
+        (await connection.AcceptStartup(Trace(startupId: id, spans: 2), default)).Enabled.Should().BeTrue();
 
         (await Info(id)).SpanCount.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task TheBackendTrace_IsStored_AndAFinalAfterTheSnapshotKeepsIt()
+    {
+        var connection = Open();
+        var backendTrace = ActivityTraceId.CreateRandom();
+        var id = (await connection.AcceptStartup(Trace(spans: 2), backendTrace)).StartupId;
+
+        (await Info(id)).BackendTraceId.Should().Be(backendTrace.ToHexString());
+
+        await connection.AcceptStartup(Trace(final: true, startupId: id, spans: 5), backendTrace);
+
+        var info = await Info(id);
+        info.Final.Should().BeTrue();
+        info.BackendTraceId.Should().Be(backendTrace.ToHexString());
+    }
+
+    [Fact]
+    public async Task NoBackendTrace_IsStoredAsNull()
+    {
+        var id = (await Open().AcceptStartup(Trace(), default)).StartupId;
+
+        (await Info(id)).BackendTraceId.Should().BeNull();
     }
 
     [Fact]
     public async Task AnIdOfAnotherSocket_IsNotAccepted_AndItsRecordStaysAsItIs()
     {
         var owner = Open();
-        var id = (await owner.AcceptStartup(Trace(spans: 2))).StartupId;
+        var id = (await owner.AcceptStartup(Trace(spans: 2), default)).StartupId;
         var stranger = Open();
 
-        var answer = await stranger.AcceptStartup(Trace(final: true, startupId: id, spans: 5));
+        var answer = await stranger.AcceptStartup(Trace(final: true, startupId: id, spans: 5), default);
 
         answer.Enabled.Should().BeFalse();
         answer.StartupId.Should().BeEmpty();
@@ -123,7 +148,7 @@ public class ClientTelemetryStartupTests : ClientTelemetryStorageTest
     {
         var id = Guid.NewGuid();
 
-        (await Open().AcceptStartup(Trace(startupId: id))).Enabled.Should().BeFalse();
+        (await Open().AcceptStartup(Trace(startupId: id), default)).Enabled.Should().BeFalse();
 
         (await Reader.GetStartup(id)).Should().BeNull();
     }
@@ -133,7 +158,7 @@ public class ClientTelemetryStartupTests : ClientTelemetryStorageTest
     {
         var before = Cluster.Startups.Count;
 
-        var answer = await Open(flag: false).AcceptStartup(Trace());
+        var answer = await Open(flag: false).AcceptStartup(Trace(), default);
 
         answer.Enabled.Should().BeFalse();
         answer.StartupId.Should().BeEmpty();
@@ -146,21 +171,21 @@ public class ClientTelemetryStartupTests : ClientTelemetryStorageTest
         var connection = Open();
 
         for (var i = 0; i < ClientTelemetryLimits.MaxStartupsPerSocket; i++)
-            (await connection.AcceptStartup(Trace())).Enabled.Should().BeTrue();
+            (await connection.AcceptStartup(Trace(), default)).Enabled.Should().BeTrue();
 
-        (await connection.AcceptStartup(Trace())).Enabled.Should().BeFalse();
+        (await connection.AcceptStartup(Trace(), default)).Enabled.Should().BeFalse();
     }
 
     [Fact]
     public async Task OverTheWritesOfASocket_TheRecordStopsChanging()
     {
         var connection = Open();
-        var id = (await connection.AcceptStartup(Trace())).StartupId;
+        var id = (await connection.AcceptStartup(Trace(), default)).StartupId;
 
         for (var i = 1; i < ClientTelemetryLimits.MaxStartupWritesPerSocket; i++)
-            (await connection.AcceptStartup(Trace(startupId: id))).Enabled.Should().BeTrue();
+            (await connection.AcceptStartup(Trace(startupId: id), default)).Enabled.Should().BeTrue();
 
-        (await connection.AcceptStartup(Trace(final: true, startupId: id))).Enabled.Should().BeFalse();
+        (await connection.AcceptStartup(Trace(final: true, startupId: id), default)).Enabled.Should().BeFalse();
         (await Info(id)).Final.Should().BeFalse();
     }
 
@@ -168,7 +193,7 @@ public class ClientTelemetryStartupTests : ClientTelemetryStorageTest
     public async Task ASession_RefersToTheRecordOfItsSocket_AndIsFoundByIt()
     {
         var connection = Open();
-        var startup = (await connection.AcceptStartup(Trace())).StartupId;
+        var startup = (await connection.AcceptStartup(Trace(), default)).StartupId;
 
         var session = (await connection.Start(new SharedClientTelemetry.SessionStart { StartupId = startup })).SessionId;
         var without = (await Open().Start(new SharedClientTelemetry.SessionStart())).SessionId;
@@ -183,7 +208,7 @@ public class ClientTelemetryStartupTests : ClientTelemetryStorageTest
     [Fact]
     public async Task ASession_WithAnIdOfAnotherSocket_DoesNotKeepIt_AndCountsIt()
     {
-        var foreign = (await Open().AcceptStartup(Trace())).StartupId;
+        var foreign = (await Open().AcceptStartup(Trace(), default)).StartupId;
         var connection = Open();
 
         var id = (await connection.Start(new SharedClientTelemetry.SessionStart { StartupId = foreign })).SessionId;
@@ -201,7 +226,7 @@ public class ClientTelemetryStartupTests : ClientTelemetryStorageTest
         var lifetime = new Lifetime(TestLifetime);
         _switch.IsEnabled.Returns(true);
         var connection = new ClientTelemetryConnections(_switch, Cluster.Orleans, NullLogger<ClientTelemetryConnection>.Instance).Of(lifetime);
-        var id = (await connection.AcceptStartup(Trace(spans: 2))).StartupId;
+        var id = (await connection.AcceptStartup(Trace(spans: 2), default)).StartupId;
 
         lifetime.Terminate();
 
@@ -216,18 +241,18 @@ public class ClientTelemetryStartupTests : ClientTelemetryStorageTest
         var connection = Open();
         Cluster.Storage.FailWrites(true);
 
-        (await connection.AcceptStartup(Trace())).Enabled.Should().BeFalse();
+        (await connection.AcceptStartup(Trace(), default)).Enabled.Should().BeFalse();
     }
 
     [Fact]
     public async Task TheSweep_DeletesAnExpiredRecordOnly()
     {
         var connection = Open();
-        var expired = (await connection.AcceptStartup(Trace())).StartupId;
+        var expired = (await connection.AcceptStartup(Trace(), default)).StartupId;
 
         Cluster.Clock.Advance(TimeSpan.FromDays(Cluster.Options.RetentionDays + 1));
 
-        var fresh = (await connection.AcceptStartup(Trace())).StartupId;
+        var fresh = (await connection.AcceptStartup(Trace(), default)).StartupId;
 
         await Cluster.Sweep.Run();
 

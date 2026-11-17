@@ -49,6 +49,10 @@
             Label="Dropped / rejected / cut names"
             Value="@($"{_startup.DroppedSpans} / {_startup.RejectedSpans} / {_startup.CutNames}")"
             Hint="Spans cut over the limits / values the backend has not taken / names cut to their limit"/>
+        <TelemetryStat
+            Label="Backend trace"
+            Value="@(_startup.BackendTraceId ?? "-")"
+            Hint="The trace id of the authorization of this socket in the OTLP backend (Aspire dashboard: Traces, search by the id)"/>
     </div>
 
     <div class="rounded-lg border">

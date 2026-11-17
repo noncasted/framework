@@ -101,6 +101,8 @@ The trace of the start of a client, the one thing sent without a session, under 
 is a whole trace, `snapshot` one still open when it was sent (it stays so when the client goes). `startup <id>` gives `own_time` (the
 longest own times: a duration without the time of the children), `unfinished` and the `sessions` of this start. `summary` of a session
 names its record as `startup=`, `None` when it has none. A device field the client did not send prints as `-`: it is unknown, not a finding.
+`backend_trace=` is the trace of the authorization of this socket on the backend: search the id in the Aspire dashboard -> Traces to see
+the backend side of the start (`-`: the game passes none, always so over HTTP).
 
 Read the own time, never the duration of a parent. A long own time over many frames at the frame rate of the game (`ms_per_frame` about
 17) is the game running while it waits, usually for the player: not a load. A load takes few frames, with a high `ms_per_frame`. The

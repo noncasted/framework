@@ -18,4 +18,7 @@ public sealed record TelemetryStartupTrace
     [Id(7)] public required int RejectedSpans { get; init; }
 
     [Id(8)] public required int CutNames { get; init; }
+
+    // Not of the client: the trace of the authorization of its socket in the OTLP backend, set by the gateway. Null: the game has none.
+    [Id(9)] public string? BackendTraceId { get; init; }
 }

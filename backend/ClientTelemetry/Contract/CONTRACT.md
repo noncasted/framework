@@ -92,6 +92,10 @@ from the server and lives as long as the socket (after a reconnect a client star
   socket, a failure, or the limits of a socket (`MaxStartupsPerSocket`, `MaxStartupWritesPerSocket`). It says nothing about the sessions.
 - `SessionStart.StartupId`: the record of this client, `Guid.Empty` for none. An id not given on this socket is not kept and counts
   in `rejectedRequests`; the start goes on. Sessions refer to a record and to the previous session that did not close (above), and no user id is involved.
+- `BackendTraceId`: not sent by the client. The game passes the trace of the authorization of the socket in the OTLP backend to
+  `AcceptStartup(trace, backendTrace)`, the record keeps it as 32 hex digits (`default`: null) and the last write of the record sets it
+  (every write of a record comes from one socket). It ties the start of a client to the spans of the backend (Aspire dashboard: Traces,
+  search by the id). A random id of a trace, not personal data: it names no user and no address.
 - **The server checks:** the spans (4096) and the estimated size (256 KB: a typical start is about 30 KB) cut the tail, counted in
   `droppedSpans`; a name is cut to 128 characters (`cutNames`) and goes through `Scrubber`, so a URL in a span of a request reads `GET <url>`;
   a null or empty name, a control symbol, a time not finite, negative or over `MaxStartupMs`, negative frames or bytes, a `ParentIndex`
@@ -126,7 +130,7 @@ For a client that cannot open the meta socket (a page in an iframe that reaches 
 
 `AddClientTelemetry()` on the gateway registers `IClientTelemetryConnections` and the links of the HTTP intake. The four commands of
 the meta socket stay in the game: `telemetry.Of(session.Lifetime).Start(request)`, `.Accept(request)`, `.End(request)`,
-`.AcceptStartup(request)`. Over HTTP: `MapClientTelemetryHttpIntake()` on the group of the game, nothing else.
+`.AcceptStartup(request, backendTrace)` (the trace of the authorization of the socket, `default` when the game has none). Over HTTP: `MapClientTelemetryHttpIntake()` on the group of the game, nothing else.
 
 ## Reading
 
@@ -163,7 +167,8 @@ without a grain.
   close: a live one and one lost in a crash have no digest (`sessionsWithoutDigest`).
 
 - `GET /api/client-telemetry/startups?limit=`: the records, newest first: `{ id, device, name, final, receivedAt, updatedAt, durationMs, frames,
-  spanCount, depth, unfinishedSpans, droppedSpans, rejectedSpans, cutNames }`.
+  spanCount, depth, unfinishedSpans, droppedSpans, rejectedSpans, cutNames, backendTraceId }`; `backendTraceId` null when the game passed none
+  (always over HTTP).
 - `GET .../startups/{id}`: `{ startup, spans: [{ index, parentIndex, depth, name, startMs, durationMs, ownMs, frames, unfinished, allocBytes,
   file, transferBytes, cached }],
   sessions }`. `ownMs` is the duration without the time covered by the children, overlaps counted once. `sessions` are rows of the list.
@@ -201,7 +206,8 @@ template. Such a text must not get into the messages of the code.
 
 One grain per session (`ClientTelemetrySession`, the guid is its key). The samples, errors and marks stay in its memory. Two states:
 `TelemetrySessionState` (metadata with the tags and the compact summary, for the list and the search) and `TelemetrySessionLogState`
-(everything). No user id, no address and no user agent in either: the gateway does not pass them.
+(everything). No user id, no address and no user agent in either: the gateway does not pass them. The startup record keeps the id of
+the backend trace of its socket (`BackendTraceId`): a random id, not personal data.
 
 - **Two writes.** The metadata before the start is answered; the summary and the log at the close, in one batch.
 - **`seq`** of a row is the number of its batch in the session, the cursor of the reading.
