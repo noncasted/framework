@@ -35,6 +35,11 @@
         <None Update="ClientTelemetry\Golden\*.json" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
 
+    <!-- An answer of the Aspire dashboard 13.5 to GET /api/telemetry/traces/{id}, recorded from a local cluster. -->
+    <ItemGroup>
+        <None Update="Console\BackendTraces\*.json" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
     <ItemGroup>
         <ProjectReference Include="..\..\shared\framework.shared.csproj"/>
         <ProjectReference Include="..\..\common\framework.common.csproj"/>

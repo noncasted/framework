@@ -140,6 +140,8 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   60 s, below `LostAfter`). A session holds the previous one its client did not close (`previous`, found back by `sessions?previousId=`);
   warnings are counted apart from the errors (`warningCount`). The test host runs without a game: `--token <value>` (required), `--seed`, `--console <folder>` (`theme.css` and
   `app.css` of a console of a game: its pages on this host), `--no-telemetry` (the console of a game without the telemetry).
+  `AddConsoleBackendTraces(ConsoleBackendTraceOptions | IConfigurationSection)` on the console (optional) reads the `BackendTraceId` of a
+  startup from the HTTP API of the Aspire dashboard (`x-api-key`) and draws it on the startup page; without it the page shows the id.
 - **Client core.** Assemblies `Internal`, `Internal.Editor`, `Internal.Tests` (namespace `Internal`, asmdef GUIDs of
   the projects kept; no uGUI in them: the helpers of uGUI (`ListenClick`, `ButtonSounds`, `Image.SetAlpha`, `Slider.ToLifetimedValue`)
   are `Internal.UGUI` (`client/core/UGUI`, `GUID:1a5b96d3d6de4210867a24fe0a1f3fcb`, compiled only with `com.unity.ugui`);

@@ -1,5 +1,7 @@
 @page "/client-telemetry/startups/{Id:guid}"
+@using Console.Infrastructure.BackendTraces
 @using Game.ClientTelemetry
+@using Microsoft.Extensions.DependencyInjection
 @inherits TelemetryLivePage
 
 <PageTitle>Client Startup</PageTitle>
@@ -118,6 +120,13 @@
         </table>
     </div>
 
+    @if (_backendTraces != null && _startup.BackendTraceId != null)
+    {
+        <div class="flex flex-col gap-2">
+            <BackendTraceSection @key="_startup.BackendTraceId" Source="_backendTraces" TraceId="@_startup.BackendTraceId"/>
+        </div>
+    }
+
     <div class="flex flex-col gap-2">
         <span class="text-sm font-medium">Sessions of this startup</span>
         <TelemetrySessionTable Rows="_sessions"/>
@@ -127,6 +136,7 @@
 @code {
     [Parameter] public Guid Id { get; set; }
     [Inject] private IClientTelemetryReader Reader { get; set; } = null!;
+    [Inject] private IServiceProvider Services { get; set; } = null!;
 
     private const int LongestOwnCount = 10;
     private const int MaxSessions = 100;
@@ -137,6 +147,14 @@
     private TelemetryStartupTree? _tree;
     private IReadOnlyList<TelemetrySessionInfo> _sessions = [];
     private bool _isLoaded;
+
+    // Registered by AddConsoleBackendTraces only: a console without the dashboard shows the id alone.
+    private IBackendTraceSource? _backendTraces;
+
+    protected override void OnInitialized()
+    {
+        _backendTraces = Services.GetService<IBackendTraceSource>();
+    }
 
     // The spans are read again only when the record has changed: a snapshot may stay one for good.
     protected override async Task Refresh()
