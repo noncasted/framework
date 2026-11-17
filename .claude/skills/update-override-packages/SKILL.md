@@ -20,7 +20,7 @@ The script is in the skill, the data of the game in `.claude/override-packages/`
 
 | File | What |
 |------|------|
-| `packages.json` | The overridden packages: `source` (where the pristine package comes from), `base` (version or git commit the embedded copy is built on), `exclude` (entries not copied), `reason` (what our patch is for) |
+| `packages.json` | The overridden packages: `source` (where the pristine package comes from), `base` (version or git commit the embedded copy is built on), `exclude` (entries not copied), `moves` (pairs `[from, to]` of folders our change moves, applied to the pristine copy before the diff and the patch: a patch cannot carry binary files), `reason` (what our patch is for) |
 | `patches/<name>.patch` | Our change on top of the pristine `base`, paths relative to the package root |
 | `override_packages.py` | `status`, `diff`, `update` |
 

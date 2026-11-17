@@ -128,6 +128,14 @@ def fetch(package, base, target):
             shutil.rmtree(path)
         elif os.path.exists(path):
             os.remove(path)
+    # Folders our change moves (binary files a patch cannot carry): moved in the pristine copy before the diff
+    # and before the patch is applied.
+    for source_path, target_path in package.get('moves', []):
+        destination = os.path.join(target, target_path)
+        os.makedirs(os.path.dirname(destination), exist_ok=True)
+        shutil.move(os.path.join(target, source_path), destination)
+        if os.path.exists(os.path.join(target, source_path + '.meta')):
+            shutil.move(os.path.join(target, source_path + '.meta'), destination + '.meta')
     return True
 
 
