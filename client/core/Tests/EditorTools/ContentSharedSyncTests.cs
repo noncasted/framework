@@ -16,12 +16,6 @@ namespace Internal.EditorTests
         private const string Folder = "Assets/ContentSharedSyncTemp";
         private const string Output = Folder + "/Shared";
 
-        private static readonly ContentSharedBundle[] Shared =
-        {
-            new("SharedCommon", true, false, "Main"),
-            new("SharedLobby", false, true, "Lobby"),
-            new("SharedGamePlay", false, true)
-        };
 
         [SetUp]
         public void SetUp()
@@ -42,7 +36,7 @@ namespace Internal.EditorTests
         {
             var (others, common, gamePlay) = Project();
 
-            Assert.IsTrue(ContentSharedSync.Sync(Output, Shared, others));
+            Assert.IsTrue(ContentSharedSync.Sync(Output, Shared(), others));
 
             var sharedCommon = Written("SharedCommon");
             Assert.AreEqual(new Object[] { common }, sharedCommon.Roots.ToArray(), "Needed by Main and Run: served with Main");
@@ -60,10 +54,10 @@ namespace Internal.EditorTests
         public void SecondSync_ChangesNoFile()
         {
             var (others, _, _) = Project();
-            ContentSharedSync.Sync(Output, Shared, others);
+            ContentSharedSync.Sync(Output, Shared(), others);
             var before = Directory.GetFiles(Output, "*.asset").ToDictionary(path => path, File.ReadAllText);
 
-            Assert.IsFalse(ContentSharedSync.Sync(Output, Shared, others));
+            Assert.IsFalse(ContentSharedSync.Sync(Output, Shared(), others));
 
             Assert.AreEqual(before, Directory.GetFiles(Output, "*.asset").ToDictionary(path => path, File.ReadAllText));
         }
@@ -72,14 +66,14 @@ namespace Internal.EditorTests
         public void NoLongerShared_RootLeaves_EmptyBundleDeleted()
         {
             var (others, _, gamePlay) = Project();
-            ContentSharedSync.Sync(Output, Shared, others);
+            ContentSharedSync.Sync(Output, Shared(), others);
 
             var main = AssetDatabase.LoadAssetAtPath<ContentTestTarget>($"{Folder}/Main.asset");
             main.Init(null);
             EditorUtility.SetDirty(main);
             AssetDatabase.SaveAssets();
 
-            Assert.IsTrue(ContentSharedSync.Sync(Output, Shared, others));
+            Assert.IsTrue(ContentSharedSync.Sync(Output, Shared(), others));
 
             Assert.IsNull(Written("SharedCommon"));
             Assert.AreEqual(new Object[] { gamePlay }, Written("SharedGamePlay").Roots.ToArray());
@@ -90,7 +84,7 @@ namespace Internal.EditorTests
         {
             var (others, _, _) = Project();
 
-            var error = Assert.Throws<BuildFailedException>(() => ContentSharedSync.Sync(Output, new[] { Shared[0] }, others)).Message;
+            var error = Assert.Throws<BuildFailedException>(() => ContentSharedSync.Sync(Output, new[] { Shared()[0] }, others)).Message;
 
             StringAssert.Contains("No shared content bundle takes an asset of Boss, Run", error);
         }
@@ -100,7 +94,17 @@ namespace Internal.EditorTests
         {
             var (others, _, _) = Project();
 
-            Assert.Throws<System.InvalidOperationException>(() => ContentSharedSync.Sync("Temp/Shared", Shared, others));
+            Assert.Throws<System.InvalidOperationException>(() => ContentSharedSync.Sync("Temp/Shared", Shared(), others));
+        }
+
+        private static ContentSharedBundle[] Shared()
+        {
+            return new ContentSharedBundle[]
+            {
+                new("SharedCommon", true, false, "Main"),
+                new("SharedLobby", false, true, "Lobby"),
+                new("SharedGamePlay", false, true)
+            };
         }
 
         // Main needs Common, Run needs Common and GamePlay, Boss needs GamePlay; none holds them.

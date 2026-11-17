@@ -11,7 +11,7 @@ using UnityEngine;
 namespace Internal.EditorTests
 {
     // The content build of a player build without the player: the steps run, the bundles of the project are laid out and
-    // built for the platform of the editor, their files shipped under the names of the build and the catalog goes into
+    // built for the active target, their files shipped under the names of the build and the catalog goes into
     // Resources for the time of the build; the shipment and the catalog of a WebGL build (gzip, preloaded) on files of
     // their own.
     public class ContentBuildTests
@@ -72,7 +72,7 @@ namespace Internal.EditorTests
             AssetDatabase.CreateAsset(bundle, BundlePath);
             AssetDatabase.SaveAssets();
 
-            var output = ContentBuild.Prepare(ContentTestBundles.EditorTarget);
+            var output = ContentBuild.Prepare(ContentTestBundles.Target);
 
             Assert.AreSame(output, ContentBuild.Current);
             Assert.AreEqual(1, ContentTestBuildStep.Calls, "The steps run once before the layout");
@@ -87,7 +87,7 @@ namespace Internal.EditorTests
             var catalog = AssetDatabase.LoadAssetAtPath<TextAsset>(ContentBuildFiles.CatalogAsset);
             Assert.IsNotNull(catalog, "The catalog in Resources");
             Assert.AreEqual("ContentBuildTests", ContentCatalog.FromJson(catalog.text).Bundle("ContentBuildTests").Name);
-            Assert.Throws<BuildFailedException>(() => ContentBuild.Prepare(ContentTestBundles.EditorTarget), "Prepared already");
+            Assert.Throws<BuildFailedException>(() => ContentBuild.Prepare(ContentTestBundles.Target), "Prepared already");
 
             ContentBuild.Cleanup();
 
@@ -108,7 +108,7 @@ namespace Internal.EditorTests
             AssetDatabase.SaveAssets();
             ContentTestBuildStep.Exclude("ContentBuildLeft");
 
-            var output = ContentBuild.Prepare(ContentTestBundles.EditorTarget);
+            var output = ContentBuild.Prepare(ContentTestBundles.Target);
 
             Assert.AreEqual(new[] { AssetDatabase.AssetPathToGUID($"{Folder}/Kept.asset") }, output.Catalog.Bundle("ContentBuildKept").Roots);
             Assert.IsFalse(output.Catalog.Bundles.Any(bundle => bundle.Name == "ContentBuildLeft"), "Not in the catalog");
@@ -126,7 +126,7 @@ namespace Internal.EditorTests
             AssetDatabase.SaveAssets();
             ContentTestBuildStep.Exclude("ContentBuildNoSuchBundle");
 
-            var error = Assert.Throws<BuildFailedException>(() => ContentBuild.Prepare(ContentTestBundles.EditorTarget)).Message;
+            var error = Assert.Throws<BuildFailedException>(() => ContentBuild.Prepare(ContentTestBundles.Target)).Message;
 
             StringAssert.Contains("No content bundle ContentBuildNoSuchBundle to leave out of the build", error);
             Assert.IsNull(ContentBuild.Current);
@@ -157,7 +157,7 @@ namespace Internal.EditorTests
             Assert.IsFalse(File.Exists(ContentBuildFiles.PreloadManifest));
 
             // Another player reads them all in place.
-            var standalone = ContentCatalogWriter.Create(built, ContentTestBundles.EditorTarget);
+            var standalone = ContentCatalogWriter.Create(built, BuildTarget.StandaloneLinux64);
             Assert.IsFalse(standalone.Bundles.Any(bundle => bundle.IsGzip || bundle.IsPreloaded));
         }
 
