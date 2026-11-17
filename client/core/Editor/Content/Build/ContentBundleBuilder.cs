@@ -25,6 +25,7 @@ namespace Internal
 
         public static IReadOnlyList<ContentBuiltBundle> Build(IReadOnlyList<ContentBundlePlan> plans, BuildTarget target, string output, bool isTypeTree)
         {
+            ContentBuildScenes.ThrowIfDirty();
             Directory.CreateDirectory(output);
 
             var builds = new List<AssetBundleBuild>();
@@ -69,7 +70,6 @@ namespace Internal
 
         private static ContentBuiltBundle Built(ContentBundlePlan plan, IReadOnlyDictionary<string, BundleDetails> infos, string output, IReadOnlyDictionary<string, string> owners)
         {
-            
             var files = new List<ContentBuiltFile>();
             var dependencies = new SortedSet<string>(StringComparer.Ordinal);
 

@@ -11,7 +11,8 @@ namespace Internal.EditorTests
     // group and a preloaded group), TestsExtra (its own target and scene; the target references the root of TestsShared
     // directly) and TestsShared. For the platform of the editor and with the type trees (the editor loads no bundle
     // without them), shipped as a player reads them in place, the catalog next to them. The assets stay in the project
-    // until the run ends: Play Mode of the editor loads them.
+    // until the run ends: Play Mode of the editor loads them. The build runs on a new empty scene (ContentTestScenes): a dirty
+    // scene left by the tests before would stop it.
     public sealed class ContentBundleTestBuild : IPrebuildSetup, IPostBuildCleanup
     {
         public void Setup()
@@ -38,9 +39,13 @@ namespace Internal.EditorTests
                 Directory.Delete(ContentTestPaths.Folder, true);
 
             var platform = ContentTestBundles.EditorTarget;
-            var built = ContentBundleBuilder.Build(ContentBundleLayout.Lay(bundles).Plans, platform, ContentTestPaths.Built, isTypeTree: true);
-            ContentShipment.Write(built, platform, ContentTestPaths.Folder);
-            File.WriteAllText(ContentTestPaths.Catalog, ContentCatalogWriter.Create(built, platform).ToJson());
+
+            using (ContentTestScenes.Clean())
+            {
+                var built = ContentBundleBuilder.Build(ContentBundleLayout.Lay(bundles).Plans, platform, ContentTestPaths.Built, isTypeTree: true);
+                ContentShipment.Write(built, platform, ContentTestPaths.Folder);
+                File.WriteAllText(ContentTestPaths.Catalog, ContentCatalogWriter.Create(built, platform).ToJson());
+            }
         }
 
         public void Cleanup()

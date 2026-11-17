@@ -5,6 +5,7 @@ using Internal.EditorTests.Content;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.Build;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace Internal.EditorTests
@@ -19,9 +20,12 @@ namespace Internal.EditorTests
         private const string BundlePath = Folder + "/ContentBuildTests.asset";
         private const string Shipped = "Temp/ContentBuildTestsShipped";
 
+        private ContentTestScenes _scenes;
+
         [SetUp]
         public void SetUp()
         {
+            _scenes = ContentTestScenes.Clean();
             ContentBuild.Cleanup();
             EditorTestAssets.DeleteFolder(Folder);
             AssetDatabase.CreateFolder("Assets", Path.GetFileName(Folder));
@@ -39,6 +43,23 @@ namespace Internal.EditorTests
                 if (Directory.Exists(folder))
                     Directory.Delete(folder, true);
             }
+
+            _scenes.Dispose();
+        }
+
+        [Test]
+        public void DirtyOpenScene_FailsWithItsNameAndWhatToDo()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            EditorSceneManager.MarkSceneDirty(scene);
+
+            var error = Assert.Throws<BuildFailedException>(ContentBuildScenes.ThrowIfDirty).Message;
+
+            StringAssert.Contains("Untitled (never saved) have unsaved changes", error);
+            StringAssert.Contains("EditorSceneManager.NewScene", error);
+
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            Assert.DoesNotThrow(ContentBuildScenes.ThrowIfDirty, "A new scene is clean");
         }
 
         [Test]
