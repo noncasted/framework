@@ -75,6 +75,68 @@ namespace Internal.EditorTests
         }
 
         [Test]
+        public void DirectDependencyOfTwoBundles_NoOwner_IsADuplicateAsData()
+        {
+            var shared = Asset<ContentTestGroup>("Shared");
+            var first = Target("First", shared);
+            var second = Target("Second", shared);
+
+            var layout = ContentBundleLayout.Inspect(new[] { ContentTestBundles.Create("A", first), ContentTestBundles.Create("B", second) }, new string[0]);
+
+            var duplicate = layout.Duplicates.Single();
+            Assert.AreEqual(PathOf(shared), duplicate.Path);
+            Assert.AreEqual(new[] { "A", "B" }, duplicate.Bundles.ToArray());
+            Assert.AreEqual(new[] { duplicate.Error }, layout.Errors.ToArray(), "Inspect throws nothing, the error is in the list");
+        }
+
+        [Test]
+        public void Excluded_NoPlan_TheOthersHoldWhatTheyHoldInAFullBuild()
+        {
+            var target = Target("Target", null);
+            var references = References("References", target);
+            var other = Target("Other", null);
+            var bundles = new[] { ContentTestBundles.Create("Main", references), ContentTestBundles.Create("Left", other) };
+
+            var plans = ContentBundleLayout.Lay(bundles, new[] { "Left" }).Plans;
+
+            Assert.AreEqual(new[] { "Main" }, plans.Select(plan => plan.Name).ToArray());
+            CollectionAssert.AreEquivalent(Lay(bundles).Single(plan => plan.Name == "Main").Assets, plans.Single().Assets);
+        }
+
+        [Test]
+        public void Excluded_LazyReferenceOfABuiltBundleIntoIt_Fails()
+        {
+            var target = Target("Target", null);
+            var references = References("References", target);
+
+            var error = Assert.Throws<BuildFailedException>(() => ContentBundleLayout.Lay(
+                new[] { ContentTestBundles.Create("Main", references), ContentTestBundles.Create("Left", target) }, new[] { "Left" })).Message;
+
+            StringAssert.Contains($"references {PathOf(target)}, held by the content bundle Left, which this build leaves out", error);
+        }
+
+        [Test]
+        public void Excluded_DirectReferenceOfABuiltBundleIntoIt_Fails()
+        {
+            var shared = Asset<ContentTestGroup>("Shared");
+            var first = Target("First", shared);
+
+            var error = Assert.Throws<BuildFailedException>(() => ContentBundleLayout.Lay(
+                new[] { ContentTestBundles.Create("Main", first), ContentTestBundles.Create("Left", shared) }, new[] { "Left" })).Message;
+
+            StringAssert.Contains($"{PathOf(first)} of Main needs {PathOf(shared)}, held by the content bundle Left, which this build leaves out", error);
+        }
+
+        [Test]
+        public void Excluded_UnknownOrEveryBundle_Fails()
+        {
+            var bundles = new[] { ContentTestBundles.Create("Main", Target("Target", null)) };
+
+            StringAssert.Contains("No content bundle Other to leave out", Assert.Throws<BuildFailedException>(() => ContentBundleLayout.Lay(bundles, new[] { "Other" })).Message);
+            StringAssert.Contains("leaves out every content bundle", Assert.Throws<BuildFailedException>(() => ContentBundleLayout.Lay(bundles, new[] { "Main" })).Message);
+        }
+
+        [Test]
         public void LazyTargetOfTwoBundles_NoRoot_Fails()
         {
             var target = Target("Target", null);

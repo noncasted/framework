@@ -4,7 +4,7 @@ namespace Internal
     // generated before the bundles are laid out (a bundle holds it when it is among its roots).
     public sealed class ContentRootBuildStep : IContentBuildStep
     {
-        public void BeforeContentBuild()
+        public void BeforeContentBuild(ContentBuildContext build)
         {
             ContentRootGenerator.GenerateNow();
         }

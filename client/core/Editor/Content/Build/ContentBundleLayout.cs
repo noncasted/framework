@@ -7,115 +7,102 @@ using UnityEditor.Build;
 namespace Internal
 {
     // Lays out the bundles of the project before their build and checks that every dependency has one owner:
-    // 1. the roots of each ContentBundle are its own (a root of two bundles is an error);
-    // 2. a lazy target (ContentReference, ContentScene) no bundle holds goes into the bundle that reaches it, with what it
-    //    reaches in turn, until nothing new comes; a walk stops at an asset another bundle holds (a reference across bundles,
-    //    which the engine resolves when that bundle is loaded: the catalog lists it as a dependency);
-    // 3. the checks, all errors at once: an empty or broken lazy reference; a lazy target no root holds that two bundles
-    //    reach; an asset two bundles reach directly and none holds (the engine would copy it into both); a lazy target the
-    //    loader cannot find in its bundle (a child of a prefab).
-    // An asset the assets and the scenes of one bundle both need goes to its assets (the engine keeps the two apart).
+    // 1. who holds what (ContentBundleClaims): the roots of each bundle, then the lazy targets (ContentReference,
+    //    ContentScene) no bundle holds, given to the bundle that reaches them; a walk stops at an asset another bundle holds
+    //    (a reference across bundles, which the engine resolves when that bundle is loaded: the catalog lists it as a dependency);
+    // 2. the checks, all errors at once: an empty or broken lazy reference; a lazy target no root holds that two bundles
+    //    reach; an asset two bundles reach directly and none holds (the engine would copy it into both: also as data,
+    //    Duplicates); a lazy target the loader cannot find in its bundle (a child of a prefab); a reference of a built bundle
+    //    to what a bundle left out of this build holds.
+    // A bundle left out of the build (ContentBuildContext.Exclude) still holds what it holds, so the others hold the same as
+    // in a full build; it gets no plan and nothing of it is checked. An asset the assets and the scenes of one bundle both
+    // need goes to its assets (the engine keeps the two apart).
     public sealed class ContentBundleLayout
     {
         private readonly IReadOnlyList<ContentBundle> _bundles;
-        private readonly ContentLazyReferences _lazy = new();
-        private readonly ContentAssetGraph _graph = new();
+        private readonly HashSet<ContentBundle> _excluded;
+        private readonly ContentLazyReferences _lazy;
+        private readonly ContentAssetGraph _graph;
         private readonly Dictionary<(string, long), string> _objectReferences = new();
-        private readonly Dictionary<string, Claim> _claims = new();
         private readonly List<string> _errors = new();
+        private readonly List<ContentDuplicate> _duplicates = new();
+        private ContentBundleClaims _claims;
 
-        private ContentBundleLayout(IReadOnlyList<ContentBundle> bundles)
+        private ContentBundleLayout(IReadOnlyList<ContentBundle> bundles, HashSet<ContentBundle> excluded, ContentLazyReferences lazy, ContentAssetGraph graph)
         {
             _bundles = bundles;
+            _excluded = excluded;
+            _lazy = lazy;
+            _graph = graph;
         }
 
+        // The bundles of the build, without the excluded ones.
         public IReadOnlyList<ContentBundlePlan> Plans { get; private set; }
+
+        // Every error, the duplicates included, one a line.
+        public IReadOnlyList<string> Errors => _errors.Distinct().ToArray();
+
+        public IReadOnlyList<ContentDuplicate> Duplicates => _duplicates;
 
         // Throws BuildFailedException with every error.
         public static ContentBundleLayout Lay(IReadOnlyList<ContentBundle> bundles)
+        {
+            return Lay(bundles, Array.Empty<string>());
+        }
+
+        // Without the bundles of these names; throws BuildFailedException with every error.
+        public static ContentBundleLayout Lay(IReadOnlyList<ContentBundle> bundles, IReadOnlyCollection<string> excluded)
+        {
+            var layout = Inspect(bundles, excluded);
+            var errors = layout.Errors;
+
+            if (errors.Count > 0)
+                throw new BuildFailedException($"[ContentBuild] The content bundles have {errors.Count} errors:\n{string.Join("\n", errors)}");
+
+            return layout;
+        }
+
+        // The layout with its errors as they are, for a tool that fixes them; throws only for a set of bundles it cannot lay out.
+        public static ContentBundleLayout Inspect(IReadOnlyList<ContentBundle> bundles, IReadOnlyCollection<string> excluded)
+        {
+            return Inspect(bundles, excluded, new ContentLazyReferences(), new ContentAssetGraph());
+        }
+
+        // With the references read by a layout before (the assets did not change since): a tool that lays out several times.
+        public static ContentBundleLayout Inspect(IReadOnlyList<ContentBundle> bundles, IReadOnlyCollection<string> excluded, ContentLazyReferences lazy,
+            ContentAssetGraph graph)
         {
             if (bundles.Count == 0)
                 throw new BuildFailedException("[ContentBuild] The project has no ContentBundle asset: a player build needs at least the main bundle");
 
             ContentBundleAssets.Check(bundles);
 
-            var layout = new ContentBundleLayout(bundles);
-            layout.ClaimRoots();
-            layout.ClaimLazyTargets();
+            var unknown = excluded.Where(name => bundles.Any(bundle => bundle.Name == name) == false).ToArray();
+
+            if (unknown.Length > 0)
+            {
+                throw new BuildFailedException($"[ContentBuild] No content bundle {string.Join(", ", unknown)} to leave out of the build: " +
+                                               $"the project has {string.Join(", ", bundles.Select(bundle => bundle.Name))}");
+            }
+
+            if (bundles.All(bundle => excluded.Contains(bundle.Name)))
+                throw new BuildFailedException("[ContentBuild] The build leaves out every content bundle: keep at least the main one");
+
+            var layout = new ContentBundleLayout(bundles, new HashSet<ContentBundle>(bundles.Where(bundle => excluded.Contains(bundle.Name))), lazy, graph);
+            layout._claims = ContentBundleClaims.Of(bundles, layout._lazy, layout._graph, layout._errors);
             layout.Plans = layout.Check();
-
-            if (layout._errors.Count > 0)
-            {
-                throw new BuildFailedException(
-                    $"[ContentBuild] The content bundles have {layout._errors.Count} errors:\n{string.Join("\n", layout._errors.Distinct())}");
-            }
-
             return layout;
-        }
-
-        private void ClaimRoots()
-        {
-            foreach (var bundle in _bundles)
-            {
-                if (bundle.Roots.Count == 0)
-                    _errors.Add($"{AssetDatabase.GetAssetPath(bundle)}: the content bundle {bundle.Name} has no roots");
-
-                foreach (var root in bundle.Roots)
-                {
-                    var path = root == null ? null : AssetDatabase.GetAssetPath(root);
-
-                    if (string.IsNullOrEmpty(path) || AssetDatabase.IsValidFolder(path) || ContentAssetGraph.IsIgnored(path) || AssetDatabase.IsMainAsset(root) == false)
-                    {
-                        _errors.Add($"{AssetDatabase.GetAssetPath(bundle)}: the root {(root == null ? "(empty)" : path)} of {bundle.Name} is no asset or scene of the project");
-                        continue;
-                    }
-
-                    if (_claims.TryGetValue(path, out var claim))
-                    {
-                        _errors.Add($"{path} is a root of the content bundles {claim.Bundle.Name} and {bundle.Name}");
-                        continue;
-                    }
-
-                    _claims.Add(path, new Claim(bundle, true, $"a root of {bundle.Name}"));
-                }
-            }
-        }
-
-        // The explicit assets of each bundle, walked in the order of the bundles: what they reach lazily and nobody holds
-        // becomes theirs.
-        private void ClaimLazyTargets()
-        {
-            var queue = new Queue<(ContentBundle, string)>(_claims.Select(entry => (entry.Value.Bundle, entry.Key)).OrderBy(entry => entry.Item1.Name, StringComparer.Ordinal));
-
-            while (queue.Count > 0)
-            {
-                var (bundle, start) = queue.Dequeue();
-
-                foreach (var path in Walk(bundle, start))
-                {
-                    foreach (var reference in _lazy.Of(path))
-                    {
-                        var target = ContentLazyTargets.PathOf(reference);
-
-                        if (target == null || _claims.ContainsKey(target))
-                            continue;
-
-                        _claims.Add(target, new Claim(bundle, false, reference.Where));
-                        queue.Enqueue((bundle, target));
-                    }
-                }
-            }
         }
 
         private IReadOnlyList<ContentBundlePlan> Check()
         {
-            var plans = _bundles.Select(bundle => new ContentBundlePlan(bundle)).ToArray();
+            var plans = _bundles.Where(bundle => _excluded.Contains(bundle) == false).Select(bundle => new ContentBundlePlan(bundle)).ToArray();
             var implicitOwners = new Dictionary<string, List<(ContentBundle, string)>>();
             var lazyReach = new Dictionary<string, List<(ContentBundle, string)>>();
 
             foreach (var plan in plans)
             {
-                var own = _claims.Where(entry => entry.Value.Bundle == plan.Bundle).Select(entry => entry.Key).OrderBy(path => path, StringComparer.Ordinal).ToArray();
+                var own = _claims.Own(plan.Bundle);
                 plan.Scenes.AddRange(own.Where(ContentAssetGraph.IsScene));
                 plan.Assets.AddRange(own.Where(path => ContentAssetGraph.IsScene(path) == false));
                 plan.Roots.AddRange(plan.Bundle.Roots.Where(root => root != null && ContentAssetGraph.IsScene(AssetDatabase.GetAssetPath(root)) == false)
@@ -145,8 +132,10 @@ namespace Internal
 
             foreach (var entry in implicitOwners.Where(entry => entry.Value.Count > 1).OrderBy(entry => entry.Key, StringComparer.Ordinal))
             {
-                _errors.Add($"{entry.Key} is needed by the content bundles {string.Join(" and ", entry.Value.Select(owner => $"{owner.Item1.Name} (through {owner.Item2})"))}: " +
-                            "put it into one of them as a root, or into a shared ContentBundle, or the engine copies it into each");
+                var error = $"{entry.Key} is needed by the content bundles {string.Join(" and ", entry.Value.Select(owner => $"{owner.Item1.Name} (through {owner.Item2})"))}: " +
+                            "put it into one of them as a root, or into a shared ContentBundle, or the engine copies it into each";
+                _errors.Add(error);
+                _duplicates.Add(new ContentDuplicate(entry.Key, entry.Value.Select(owner => owner.Item1.Name).ToArray(), error));
             }
 
             foreach (var entry in lazyReach.OrderBy(entry => entry.Key, StringComparer.Ordinal))
@@ -175,16 +164,16 @@ namespace Internal
 
             foreach (var start in starts)
             {
-                foreach (var path in Walk(bundle, start))
+                foreach (var path in _claims.Walk(bundle, start, (held, claim) => CheckBuilt(claim, $"{start} of {bundle.Name} needs {held}")))
                 {
-                    if (_claims.ContainsKey(path) == false && reached.ContainsKey(path) == false)
+                    if (_claims.Contains(path) == false && reached.ContainsKey(path) == false)
                         reached.Add(path, start);
 
                     foreach (var reference in _lazy.Of(path))
                     {
                         var target = Checked(reference);
 
-                        if (target == null)
+                        if (target == null || CheckBuilt(_claims[target], $"{reference.Where} references {target}") == false)
                             continue;
 
                         if (reference.IsScene == false)
@@ -202,6 +191,17 @@ namespace Internal
             return reached;
         }
 
+        // False (with an error) for what a bundle left out of this build holds: a built bundle cannot depend on it.
+        private bool CheckBuilt(ContentBundleClaim claim, string what)
+        {
+            if (_excluded.Contains(claim.Bundle) == false)
+                return true;
+
+            _errors.Add($"{what}, held by the content bundle {claim.Bundle.Name}, which this build leaves out (ContentBuildContext.Exclude): " +
+                        $"keep {claim.Bundle.Name} in this build or drop the reference");
+            return false;
+        }
+
         // The lazy targets a bundle owns, and its scenes, for the catalog: every target any bundle references.
         private void AddEntries(ContentBundlePlan plan)
         {
@@ -213,7 +213,7 @@ namespace Internal
                 var (guid, localId) = entry.Key;
                 var path = AssetDatabase.GUIDToAssetPath(guid);
 
-                if (_claims.TryGetValue(path, out var claim) == false || claim.Bundle != plan.Bundle)
+                if (_claims.TryGet(path, out var claim) == false || claim.Bundle != plan.Bundle)
                     continue;
 
                 var subName = ContentLazyTargets.SubName(ContentEditorAssets.Find(guid, localId), path, out var error);
@@ -240,26 +240,6 @@ namespace Internal
                 _errors.Add($"{reference.Where}: {reference.Guid}:{reference.LocalId} is no {(reference.IsScene ? "scene" : "object")} of the project (assign it in the inspector)");
 
             return path;
-        }
-
-        // The asset and everything it references directly, down to the assets another bundle holds.
-        private IEnumerable<string> Walk(ContentBundle bundle, string start)
-        {
-            return _graph.Walk(start, path => _claims.TryGetValue(path, out var claim) && claim.Bundle != bundle);
-        }
-
-        private readonly struct Claim
-        {
-            public Claim(ContentBundle bundle, bool isRoot, string where)
-            {
-                Bundle = bundle;
-                IsRoot = isRoot;
-                Where = where;
-            }
-
-            public ContentBundle Bundle { get; }
-            public bool IsRoot { get; }
-            public string Where { get; }
         }
     }
 }

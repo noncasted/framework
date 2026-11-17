@@ -14,6 +14,7 @@ namespace Internal
     //      write scripts or assets the next steps read;
     //   5. container asset map (views and bindings of prefabs and scenes, read by the container generator);
     //   6. content root (after every catalog group exists);
+    //   7. shared content bundles of the project (IContentSharedBundles; after the content root and the bundles the steps wrote);
     // then one refresh: changed scripts recompile and the Roslyn container generator runs inside that compile.
     // Bindings whose code changed are bound after the reload, and that pass ends with the validation of all bindings
     // (HierarchyBindingsProjectValidation), its findings are errors in the console. Colors run only in a project with a ColorCatalog asset:
@@ -65,6 +66,7 @@ namespace Internal
 
                 Step("Container asset map", ContainerGraphPostprocessor.GenerateNow);
                 Step("Content root", ContentRootGenerator.GenerateNow);
+                Step("Shared content bundles", () => ContentSharedSync.Run());
             }
             finally
             {

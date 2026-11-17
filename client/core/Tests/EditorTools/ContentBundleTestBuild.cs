@@ -17,6 +17,9 @@ namespace Internal.EditorTests
     {
         public void Setup()
         {
+            // First: a new scene also destroys the bundles made in memory before it.
+            using var scenes = ContentTestScenes.Clean();
+
             EditorTestAssets.DeleteFolder(ContentTestPaths.Assets);
             AssetDatabase.CreateFolder("Assets", Path.GetFileName(ContentTestPaths.Assets));
 
@@ -39,13 +42,9 @@ namespace Internal.EditorTests
                 Directory.Delete(ContentTestPaths.Folder, true);
 
             var platform = ContentTestBundles.EditorTarget;
-
-            using (ContentTestScenes.Clean())
-            {
-                var built = ContentBundleBuilder.Build(ContentBundleLayout.Lay(bundles).Plans, platform, ContentTestPaths.Built, isTypeTree: true);
-                ContentShipment.Write(built, platform, ContentTestPaths.Folder);
-                File.WriteAllText(ContentTestPaths.Catalog, ContentCatalogWriter.Create(built, platform).ToJson());
-            }
+            var built = ContentBundleBuilder.Build(ContentBundleLayout.Lay(bundles).Plans, platform, ContentTestPaths.Built, isTypeTree: true);
+            ContentShipment.Write(built, platform, ContentTestPaths.Folder);
+            File.WriteAllText(ContentTestPaths.Catalog, ContentCatalogWriter.Create(built, platform).ToJson());
         }
 
         public void Cleanup()

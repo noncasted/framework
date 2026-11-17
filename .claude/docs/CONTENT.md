@@ -48,11 +48,12 @@ Range requests of one archive): it is gone.
 
 ## API
 
-Root scope, once, before the first load (`ContentOptions` is a field of the options of the game: `_name` the main bundle, the one
-whose roots hold the generated `ContentRoot`; `_remoteUrl` for a CDN, empty = `StreamingAssets` of the page; `_maxFetches`):
+Root scope, once, before the first load (`ContentOptions(name, remoteUrl, maxFetches)`: `name` the main bundle, the one whose roots
+hold the generated `ContentRoot`, a constant of the code: the options of the game are in the bundles and load after `AddContent`;
+`remoteUrl` for a CDN, empty = `StreamingAssets` of the page; `maxFetches`):
 
 ```csharp
-await builder.AddContent(options.Content);   // IContentLoader, IContentBundles, CatalogContent bound, preloaded groups fetched
+await builder.AddContent(new ContentOptions(ContentName));   // IContentLoader, IContentBundles, CatalogContent bound, preloaded groups fetched
 ```
 
 Scopes:
@@ -108,25 +109,73 @@ var icon = _content.LoadNow(lifetime, reference);                         // the
 `ContentBuild` runs before every player build: an `IPlayerBuildStep` around `PlayerBuildSteps.Run` (`WebGlBuild.Build`,
 `deploy-client`) and a `BuildPlayerProcessor` for the build window and `-build*Player`. It:
 
-1. calls every `IContentBuildStep` (the `ContentRoot` generator);
-2. lays out every `ContentBundle` of the project and checks it (`ContentBundleLayout`, above);
-3. builds them with the Scriptable Build Pipeline (`ContentPipeline.BuildAssetBundles`, package `com.unity.scriptablebuildpipeline`,
+1. calls every `IContentBuildStep` with the `ContentBuildContext` of the build (`Target`, `Exclude(name)`): the `ContentRoot` generator,
+   the generators of the game, a step that leaves bundles out (below);
+2. writes the shared bundles of the game (`ContentSharedSync`, below);
+3. lays out every `ContentBundle` of the project and checks it (`ContentBundleLayout`, above);
+4. builds them with the Scriptable Build Pipeline (`ContentPipeline.BuildAssetBundles`, package `com.unity.scriptablebuildpipeline`,
    a dependency of the core) into `Temp/ContentBundles/<target>` (LZ4 by chunks, no type trees: about a third of the bytes, safe
    because the bundles are built with every player; the editor loads no bundle without them, so the tests keep them). Its cache
    (`Library/BuildCache`) builds again only what changed. Not `BuildPipeline.BuildAssetBundles`: it writes the type trees into
    every scene bundle whatever the options, and the player then checks each type against them and compiles that code of the wasm
    on the first scene (+100 ms on the menu scene of the autobattler on a phone, `docs/STARTUP_OPTIMIZATION.md` there);
-4. ships the files under the names of the build into `Library/ContentShipped` (`ContentShipment`): as they are, a fetched `IsGzip`
+5. ships the files under the names of the build into `Library/ContentShipped` (`ContentShipment`): as they are, a fetched `IsGzip`
    bundle of WebGL as `<file>.gz` alone (gzip at the smallest size);
-5. writes the catalog into `Assets/FrameworkContentStamp/Resources/Content/catalog.json` (deleted after the build) and, for the
+6. writes the catalog into `Assets/FrameworkContentStamp/Resources/Content/catalog.json` (deleted after the build) and, for the
    preloaded bundles of WebGL, the preload manifest that puts their files into the `.data`
    (`Library/PlayerDataCache/WebGLPreloadedStreamingAssets/framework-content.manifest`);
-6. writes `Library/ContentBundles.link.xml`, the types of every object of the bundles (`ContentLinkXml`, `preserve="nothing"`), and gives
+7. writes `Library/ContentBundles.link.xml`, the types of every object of the bundles (`ContentLinkXml`, `preserve="nothing"`), and gives
    it to the linker (`ContentLinkerProcessor`, an `IUnityLinkerProcessor`): a type only a bundle uses (a collider of a level, a
    component of a prefab) is not stripped, the engine keeps its native class. The bundle build writes no build report for
    `AddPreviousBuildReportDirectory`, and `BuildPlayerContext.BuildPlayerOptions` (`assetBundleManifestPath`) is read only;
-7. gives the shipped folder to the player as `StreamingAssets/Content` (`AddAdditionalPathToStreamingAssets`, nothing in `Assets`);
+8. gives the shipped folder to the player as `StreamingAssets/Content` (`AddAdditionalPathToStreamingAssets`, nothing in `Assets`);
    a preloaded bundle of WebGL is in the `.data` file instead.
+
+**Bundles left out of a build.** A step decides per build, the project keeps the asset (a stress bundle only in the stress profile):
+
+```csharp
+public sealed class StressContentStep : IContentBuildStep
+{
+    public void BeforeContentBuild(ContentBuildContext build)
+    {
+        if (BuildProfile.GetActiveBuildProfile()?.scriptingDefines.Contains("PLATFORM_STRESS") != true)
+            build.Exclude("Stress");
+    }
+}
+```
+
+A bundle left out is not built, shipped or in the catalog, and the `ContentRoot` of the build has no group or scene that is its root
+(written without them for the bundle build, in full again after it). It still takes part in who holds what, so the other bundles hold
+the same as in a full build; a built bundle that references, directly or lazily, what it holds fails the build (`... held by the content
+bundle Stress, which this build leaves out`). A name no bundle has fails too.
+
+**Shared bundles.** An asset two bundles need directly and none holds fails the layout; the layout also gives these as data
+(`ContentBundleLayout.Inspect(bundles, excluded)`: `Duplicates` with the path and the bundles, `Errors`, nothing thrown). The game declares
+its shared bundles once, one class of its editor code:
+
+```csharp
+public sealed class GameSharedBundles : IContentSharedBundles
+{
+    public string Folder => "Assets/Common/Internal/Editor/Content";     // the game's folder: <Folder>/<Name>.asset
+    public IReadOnlyList<ContentSharedBundle> Bundles { get; } = new[]
+    {
+        new ContentSharedBundle("SharedCommon", isPreloaded: true, isGzip: false, "Main"),  // what the main bundle shares
+        new ContentSharedBundle("SharedLobby", isPreloaded: false, isGzip: true, "Lobby"),
+        new ContentSharedBundle("SharedGamePlay", isPreloaded: false, isGzip: true)         // serves none listed: the rest
+    };
+}
+```
+
+`ContentSharedSync` lays out the other bundles, makes every duplicate a root of the first shared bundle that serves one of the bundles
+needing it (or is one of them), and lays out again until none is left; any other error of the layout fails it. The shared bundles are
+its output: written from nothing on every sync (a root no longer shared leaves, an empty bundle is deleted, a sync with nothing new
+writes no file), a bundle of a shared name outside the folder is an error. It runs before every content build (after the steps),
+in Regenerate All (after the content root) and from Tools/Framework/Codegen/Sync Shared Content Bundles. An explicit list rather than a
+flag on `ContentBundle`: which shared bundle takes an asset is an ordered rule of the game (the phase that loads it first), a flag cannot
+say it.
+
+The build opens no scene: an open scene with unsaved changes stops it (`The open scenes ... have unsaved changes`; the Scriptable Build
+Pipeline builds nothing then). Save them; a tool or a test opens a new scene first and restores its scenes after.
 
 The log (`[ContentBuild]`): per bundle its files and bytes, how the player gets it, dependencies, roots, assets, scenes, lazy targets,
 the assets the engine copied in, and a warning for built-in resources copied in.

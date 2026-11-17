@@ -10,7 +10,8 @@ namespace Internal
 {
     /// <summary>
     ///     Builds the content bundles of the project (every <see cref="ContentBundle" /> asset) together with every player
-    ///     build: the roots (<see cref="IContentBuildStep" />), the layout and its checks (<see cref="ContentBundleLayout" />),
+    ///     build: the roots and the bundles left out (<see cref="IContentBuildStep" />), the shared bundles
+    ///     (<see cref="ContentSharedSync" />), the layout and its checks (<see cref="ContentBundleLayout" />),
     ///     the bundles in Temp/ContentBundles/&lt;target&gt; (<see cref="ContentBundleBuilder" />), their files under the
     ///     names of the build (<see cref="ContentShipment" />), the catalog (<see cref="ContentCatalogWriter" />), the types of their objects for the linker
     ///     (<see cref="ContentLinkXml" />) and the log.
@@ -71,14 +72,51 @@ namespace Internal
                 File.Delete(ContentLinkXml.Output);
         }
 
-        // The steps, the layout and the bundles of the project built into a folder (a player build, a test).
+        // The steps, the shared bundles, the layout and the bundles of the project built into a folder (a player build, a test).
         public static IReadOnlyList<ContentBuiltBundle> Build(BuildTarget target, string folder, bool isTypeTree)
         {
-            foreach (var step in FindSteps())
-                step.BeforeContentBuild();
+            var build = new ContentBuildContext(target);
 
-            var layout = ContentBundleLayout.Lay(ContentBundleAssets.All());
-            return ContentBundleBuilder.Build(layout.Plans, target, folder, isTypeTree);
+            foreach (var step in FindSteps())
+                step.BeforeContentBuild(build);
+
+            ContentSharedSync.Run();
+
+            var bundles = ContentBundleAssets.All();
+
+            if (build.Excluded.Count == 0)
+                return ContentBundleBuilder.Build(ContentBundleLayout.Lay(bundles).Plans, target, folder, isTypeTree);
+
+            Debug.Log($"[ContentBuild] Left out of this build: {string.Join(", ", build.Excluded)}");
+
+            // The ContentRoot of this build has no group or scene of the bundles left out; the project gets the full one back.
+            ContentRootGenerator.GenerateWithout(ExcludedRoots(bundles, build.Excluded));
+
+            try
+            {
+                return ContentBundleBuilder.Build(ContentBundleLayout.Lay(bundles, build.Excluded).Plans, target, folder, isTypeTree);
+            }
+            finally
+            {
+                ContentRootGenerator.GenerateNow();
+            }
+        }
+
+        // The paths of the roots of the bundles of these names.
+        private static IReadOnlyCollection<string> ExcludedRoots(IReadOnlyList<ContentBundle> bundles, IReadOnlyCollection<string> excluded)
+        {
+            var unknown = excluded.Where(name => bundles.Any(bundle => bundle.Name == name) == false).ToArray();
+
+            if (unknown.Length > 0)
+            {
+                throw new BuildFailedException($"[ContentBuild] No content bundle {string.Join(", ", unknown)} to leave out of the build: " +
+                                               $"the project has {string.Join(", ", bundles.Select(bundle => bundle.Name))}");
+            }
+
+            return new HashSet<string>(bundles.Where(bundle => excluded.Contains(bundle.Name))
+                .SelectMany(bundle => bundle.Roots)
+                .Where(root => root != null)
+                .Select(AssetDatabase.GetAssetPath));
         }
 
         internal static IReadOnlyList<IContentBuildStep> FindSteps()

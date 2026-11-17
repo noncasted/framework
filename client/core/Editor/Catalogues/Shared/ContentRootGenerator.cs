@@ -11,13 +11,18 @@ namespace Internal
     // of the catalogues (env assets, prefabs, audio, sprites; the preloaded ones of the registries apart) and every scene
     // of the scene folders outside the Build Settings. Runs after every catalogue that changes its group assets, in
     // Regenerate All and before every build of the content bundles (ContentRootBuildStep). A bundle holds it only when
-    // Path is among its roots: the main ContentBundle of the game (ContentOptions.Name) lists it.
+    // Path is among its roots: the main ContentBundle of the game (ContentOptions.Name) lists it. A build that leaves bundles
+    // out (ContentBuildContext.Exclude) writes it without their roots for the time of the bundle build (GenerateWithout)
+    // and then in full again.
     [NoAutoStaticsCleanup]
     public static class ContentRootGenerator
     {
         private const string LogTag = "ContentRootGenerator";
 
         private static readonly CatalogGenerationRunner Runner = new(LogTag, Generate);
+
+        // The paths of the groups and scenes left out of the root being written; empty outside GenerateWithout.
+        private static IReadOnlyCollection<string> _without = Array.Empty<string>();
 
         public static string Path => FrameworkSettings.Content("Runtime/Catalogues/ContentRoot.asset");
 
@@ -30,6 +35,21 @@ namespace Internal
         public static void GenerateNow()
         {
             Runner.RunNow();
+        }
+
+        // Without the groups and scenes of these paths (the roots of the bundles a build leaves out); GenerateNow writes them back.
+        public static void GenerateWithout(IReadOnlyCollection<string> paths)
+        {
+            _without = paths;
+
+            try
+            {
+                Runner.RunNow();
+            }
+            finally
+            {
+                _without = Array.Empty<string>();
+            }
         }
 
         public static void ScheduleGenerate()
@@ -51,6 +71,10 @@ namespace Internal
             SceneGenerator.Generate(FrameworkSettings.SceneFolders,
                 found => scenes.AddRange(found.Select(scene => AssetDatabase.GUIDToAssetPath(scene.sceneGuid))));
             scenes.Sort(StringComparer.Ordinal);
+
+            groups.RemoveAll(path => _without.Contains(path));
+            preloaded.RemoveAll(path => _without.Contains(path));
+            scenes.RemoveAll(path => _without.Contains(path));
 
             var root = AssetDatabase.LoadAssetAtPath<ContentRoot>(Path);
 

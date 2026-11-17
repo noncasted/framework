@@ -167,10 +167,14 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   a bundle is a `ContentBundle` asset (roots, `IsPreloaded`, `IsGzip`) holding its roots and what they reach directly and lazily,
   except the roots of other bundles (dependencies). `ContentBuild` lays them out and checks every dependency has one owner
   (`ContentBundleLayout`), builds them with every player build (an `IPlayerBuildStep` and a `BuildPlayerProcessor`;
-  `IContentBuildStep` runs first, the `ContentRoot` generator among them), writes the catalog into `Resources`, the types of their
+  `IContentBuildStep.BeforeContentBuild(ContentBuildContext)` runs first, the `ContentRoot` generator among them; a step of the game
+  leaves bundles out of this build with `build.Exclude(name)`: not built, not in the catalog nor the `ContentRoot`, a built bundle that
+  references them fails the build), then the shared bundles of the game (`IContentSharedBundles`: its folder and an ordered list of
+  `ContentSharedBundle(name, isPreloaded, isGzip, serves...)`; `ContentSharedSync` makes every asset several bundles need directly a root of
+  the first one that takes it, also in Regenerate All and `Codegen/Sync Shared Content Bundles`), writes the catalog into `Resources`, the types of their
   objects into a link.xml (`ContentLinkerProcessor`) and ships them as `StreamingAssets/Content/<name>.<hash>.bundle[.gz]`
-  (`IsPreloaded` on WebGL: inside the `.data`). The root scope calls `await builder.AddContent(ContentOptions)` once (the main
-  bundle held as long as the root, `IContentLoader`, the catalogues bound); more bundles with roots of their own:
+  (`IsPreloaded` on WebGL: inside the `.data`). The root scope calls `await builder.AddContent(new ContentOptions(name))` once (the name
+  of the main bundle is a constant of the root scope: the options of the game load after it; the main bundle held as long as the root, `IContentLoader`, the catalogues bound); more bundles with roots of their own:
   `AddContentBundle(name, registration)`, `await IContentBundles.Wait(lifetime, name)`, `RootAssets<T>()`. Scopes
   `LoadContent(reference)` / `RequestContent(reference, out slot)` (container primitives), scenes `FindOrLoadSceneWithServices(ContentScene)`,
   `WithAssetScene(ContentScene)`; during the game `IContentLoader.Load / LoadNow / LoadScene / Fetch / Progress` on the lifetime of the

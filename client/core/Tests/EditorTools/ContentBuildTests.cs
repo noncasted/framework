@@ -35,6 +35,7 @@ namespace Internal.EditorTests
         [TearDown]
         public void TearDown()
         {
+            ContentTestBuildStep.Reset();
             ContentBuild.Cleanup();
             EditorTestAssets.DeleteFolder(Folder);
 
@@ -93,6 +94,42 @@ namespace Internal.EditorTests
             Assert.IsNull(ContentBuild.Current);
             Assert.IsFalse(File.Exists(ContentLinkXml.Output));
             Assert.IsFalse(AssetDatabase.IsValidFolder(ContentBuildFiles.CatalogFolder));
+        }
+
+        [Test]
+        public void Prepare_BundleLeftOutByAStep_NotBuiltNorInTheCatalog_TheOthersAre()
+        {
+            var kept = ScriptableObject.CreateInstance<ContentTestTarget>();
+            AssetDatabase.CreateAsset(kept, $"{Folder}/Kept.asset");
+            var left = ScriptableObject.CreateInstance<ContentTestTarget>();
+            AssetDatabase.CreateAsset(left, $"{Folder}/Left.asset");
+            AssetDatabase.CreateAsset(ContentTestBundles.Create("ContentBuildKept", kept), $"{Folder}/ContentBuildKept.asset");
+            AssetDatabase.CreateAsset(ContentTestBundles.Create("ContentBuildLeft", left), $"{Folder}/ContentBuildLeft.asset");
+            AssetDatabase.SaveAssets();
+            ContentTestBuildStep.Exclude("ContentBuildLeft");
+
+            var output = ContentBuild.Prepare(ContentTestBundles.EditorTarget);
+
+            Assert.AreEqual(new[] { AssetDatabase.AssetPathToGUID($"{Folder}/Kept.asset") }, output.Catalog.Bundle("ContentBuildKept").Roots);
+            Assert.IsFalse(output.Catalog.Bundles.Any(bundle => bundle.Name == "ContentBuildLeft"), "Not in the catalog");
+            Assert.IsFalse(output.Bundles.Any(bundle => bundle.Name == "ContentBuildLeft"), "Not built");
+            Assert.IsFalse(Directory.GetFiles(output.Shipped).Any(file => Path.GetFileName(file).StartsWith("ContentBuildLeft.")), "Not shipped");
+            Assert.IsNotNull(AssetDatabase.LoadAssetAtPath<ContentBundle>($"{Folder}/ContentBuildLeft.asset"), "The project keeps the bundle");
+        }
+
+        [Test]
+        public void Prepare_LeavesOutABundleTheProjectHasNot_Fails()
+        {
+            var target = ScriptableObject.CreateInstance<ContentTestTarget>();
+            AssetDatabase.CreateAsset(target, $"{Folder}/Target.asset");
+            AssetDatabase.CreateAsset(ContentTestBundles.Create("ContentBuildTests", target), BundlePath);
+            AssetDatabase.SaveAssets();
+            ContentTestBuildStep.Exclude("ContentBuildNoSuchBundle");
+
+            var error = Assert.Throws<BuildFailedException>(() => ContentBuild.Prepare(ContentTestBundles.EditorTarget)).Message;
+
+            StringAssert.Contains("No content bundle ContentBuildNoSuchBundle to leave out of the build", error);
+            Assert.IsNull(ContentBuild.Current);
         }
 
         [Test]
