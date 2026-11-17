@@ -209,6 +209,31 @@ namespace Internal.EditorTests
         }
 
         [Test]
+        public void LazyTargetOfOneBundle_NoRoot_ItsDependencyOfTheAssetsAndTheScenesOfAnother_IsADuplicate()
+        {
+            var sprite = Asset<ContentTestGroup>("Sprite");
+            var group = Target("Group", sprite);
+            References("Main", group);
+            Target("Holder", sprite);
+            Target("SceneTarget", null);
+            var scene = Scene("Menu", AssetDatabase.LoadAssetAtPath<ContentTestTarget>($"{Folder}/SceneTarget.asset"), sprite);
+
+            // A new scene unloads the assets loaded before it: read again.
+            var main = ContentTestBundles.Create("Main", AssetDatabase.LoadAssetAtPath<ContentTestReferences>($"{Folder}/Main.asset"));
+            var menu = ContentTestBundles.Create("Menu", AssetDatabase.LoadAssetAtPath<ContentTestTarget>($"{Folder}/Holder.asset"),
+                AssetDatabase.LoadAssetAtPath<SceneAsset>(scene));
+            var spritePath = $"{Folder}/Sprite.asset";
+
+            var layout = ContentBundleLayout.Inspect(new[] { main, menu }, new string[0]);
+
+            var duplicate = layout.Duplicates.Single();
+            Assert.AreEqual(spritePath, duplicate.Path);
+            Assert.AreEqual(new[] { "Main", "Menu" }, duplicate.Bundles.ToArray());
+            StringAssert.Contains($"{spritePath} is needed by the content bundles Main (through {Folder}/Group.asset) and Menu (through {Folder}/Holder.asset)",
+                Fails(main, menu));
+        }
+
+        [Test]
         public void NoBundle_Fails()
         {
             Assert.Throws<BuildFailedException>(() => ContentBundleLayout.Lay(new ContentBundle[0]));
