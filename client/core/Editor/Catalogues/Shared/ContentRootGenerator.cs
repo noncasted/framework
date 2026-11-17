@@ -107,8 +107,13 @@ namespace Internal
             if (AssetDatabase.IsValidFolder(folder) == false)
                 return;
 
-            var paths = AssetDatabase.FindAssets($"t:{typeof(TAsset).Name}", new[] { folder })
+            // By the main type of every asset of the folder, not by the "t:" search: the type index of a Library imported
+            // before a script moved can miss assets whose type is right (2026-11-17, mines-leader: a build left the
+            // Internal group out of the root and the game threw at start).
+            var paths = AssetDatabase.FindAssets(string.Empty, new[] { folder })
                                      .Select(AssetDatabase.GUIDToAssetPath)
+                                     .Where(path => AssetDatabase.GetMainAssetTypeAtPath(path) == typeof(TAsset))
+                                     .Distinct()
                                      .OrderBy(path => path, StringComparer.Ordinal);
 
             foreach (var path in paths)
