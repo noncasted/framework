@@ -252,11 +252,11 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator Registration_OfAnUnknownBundle_Throws() => UniTask.ToCoroutine(async () =>
         {
-            var runtime = ContentRuntime.Over(ContentTestSets.Local());
+            var entryPoint = ContentEntryPoint.Over(ContentTestSets.Local());
 
             try
             {
-                await runtime.Register(_lifetime, "Missing");
+                await entryPoint.Register(_lifetime, "Missing");
                 Assert.Fail("An unknown bundle registers");
             }
             catch (System.Collections.Generic.KeyNotFoundException exception)
@@ -296,7 +296,7 @@ namespace Internal.Tests
         // The main loader over Tests, and the reference of the catalog to the target of TestsExtra.
         private async UniTask<(IContentLoader, ContentReference<ContentTestTarget>)> Register(ContentBundleSet set)
         {
-            var loader = await ContentRuntime.Over(set).Register(_lifetime, ContentTestPaths.Name);
+            var loader = await ContentEntryPoint.Over(set).Register(_lifetime, ContentTestPaths.Name);
             var entry = set.Catalog.Objects.Single(target => target.Bundle == ContentTestPaths.ExtraName);
             return (loader, new ContentReference<ContentTestTarget>(entry.Guid, entry.LocalId));
         }

@@ -43,7 +43,7 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator RegisteredBundle_ScopeLoadsSceneAndContent_DisposeReleases() => UniTask.ToCoroutine(async () =>
         {
-            var loader = await ContentRuntime.Over(ContentTestSets.Local()).Register(_lifetime, ContentTestPaths.Name);
+            var loader = await ContentEntryPoint.Over(ContentTestSets.Local()).Register(_lifetime, ContentTestPaths.Name);
             var references = loader.RootAssets<ContentTestReferences>().Single();
             var root = await new ServiceScopeLoader().Load(ScopeLoadOptions.Create(null, ContentScopeRoots.Root.Construct, loader));
 

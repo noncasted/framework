@@ -1,6 +1,5 @@
 using System;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 using Object = UnityEngine.Object;
 
 namespace Internal
@@ -14,16 +13,15 @@ namespace Internal
         {
             options.Validate();
 
-            var runtime = ContentRuntime.Open(options);
-            var loader = await runtime.Register(builder.Lifetime, options.Name);
-            runtime.Bundles.Add(options.Name, loader);
+            var entryPoint = ContentEntryPoint.Open(options);
+            var loader = await entryPoint.AddMain(builder.Lifetime, options.Name);
 
-            builder.Content.Use(loader, runtime);
+            builder.Content.Use(loader, entryPoint);
 
             using (GameProfiler.Scope("Content: bind catalogues"))
                 await CatalogContent.Bind(builder.Lifetime, loader, loader.RootAssets<ContentRoot>());
             builder.RegisterInstance(loader).As<IContentLoader>();
-            builder.RegisterInstance(runtime.Bundles).As<IContentBundles>();
+            builder.RegisterInstance(entryPoint.Loaders).As<IContentBundles>();
         }
 
         // The root scope, after AddContent: one more bundle (a ContentBundle asset, usually not preloaded: a WebGL player
@@ -37,16 +35,7 @@ namespace Internal
             if (string.IsNullOrEmpty(name))
                 throw new ArgumentException("[Content] AddContentBundle without the name of the bundle", nameof(name));
 
-            var runtime = builder.Content.Runtime;
-            var lifetime = builder.Lifetime;
-
-            if (registration == ContentRegistration.OnFirstWait)
-            {
-                runtime.Bundles.Defer(name, source => RegisterInBackground(lifetime, runtime, name, source).NoAwait());
-                return;
-            }
-
-            RegisterInBackground(lifetime, runtime, name, runtime.Bundles.Begin(name)).NoAwait();
+            builder.Content.EntryPoint.AddBundle(builder.Lifetime, name, registration);
         }
 
         // Construct runs before the build events, so an object used while registering is loaded right away. It is
@@ -68,25 +57,6 @@ namespace Internal
             builder.Events.AddBeforeBuild(async () => target.Fill(await builder.LoadContent(reference)));
             slot = target;
             return builder;
-        }
-
-        // The top of a task nobody awaits: a failure goes to the log and to every Wait of the bundle.
-        private static async UniTask RegisterInBackground(IReadOnlyLifetime lifetime, ContentRuntime runtime, string name,
-            UniTaskCompletionSource<IContentLoader> registration)
-        {
-            try
-            {
-                registration.TrySetResult(await runtime.Register(lifetime, name));
-            }
-            catch (OperationCanceledException) when (lifetime.IsTerminated)
-            {
-                registration.TrySetCanceled();
-            }
-            catch (Exception exception)
-            {
-                Debug.LogException(exception);
-                registration.TrySetException(exception);
-            }
         }
     }
 }

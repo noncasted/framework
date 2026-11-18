@@ -24,14 +24,6 @@ namespace Internal
 
         public string Name => _source.Name;
 
-        // The main bundle of the build (a player) or of the project (Play Mode), held while the lifetime lives, without a
-        // scope (a smoke player, a tool); a game calls AddContent.
-        public static UniTask<ContentLoader> Register(IReadOnlyLifetime lifetime, ContentOptions options)
-        {
-            options.Validate();
-            return ContentRuntime.Open(options).Register(lifetime, options.Name);
-        }
-
         // The root assets of the bundle, loaded with its registration.
         public IReadOnlyList<T> RootAssets<T>() where T : Object
         {

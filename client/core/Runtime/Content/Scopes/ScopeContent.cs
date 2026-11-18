@@ -13,17 +13,17 @@ namespace Internal
 
         private readonly ILoadedScope _parent;
         private IContentLoader _loader;
-        private ContentRuntime _runtime;
+        private ContentEntryPoint _entryPoint;
 
-        // The content of the root, for AddContentBundle: after AddContent, in the root only.
-        internal ContentRuntime Runtime
+        // The entry point of the content of the root, for AddContentBundle: after AddContent, in the root only.
+        internal ContentEntryPoint EntryPoint
         {
             get
             {
                 if (_parent != null)
                     throw new InvalidOperationException("[Content] AddContentBundle belongs to the root scope: a child resolves IContentBundles");
 
-                return _runtime ?? throw new InvalidOperationException("[Content] AddContentBundle needs AddContent before it in the root scope");
+                return _entryPoint ?? throw new InvalidOperationException("[Content] AddContentBundle needs AddContent before it in the root scope");
             }
         }
 
@@ -42,7 +42,7 @@ namespace Internal
             }
         }
 
-        internal void Use(IContentLoader loader, ContentRuntime runtime)
+        internal void Use(IContentLoader loader, ContentEntryPoint entryPoint)
         {
             if (_parent != null)
                 throw new InvalidOperationException("[Content] AddContent belongs to the root scope: a child takes the loader of its parent");
@@ -51,7 +51,7 @@ namespace Internal
                 throw new InvalidOperationException("[Content] AddContent is called twice in one scope");
 
             _loader = loader;
-            _runtime = runtime;
+            _entryPoint = entryPoint;
         }
     }
 }
