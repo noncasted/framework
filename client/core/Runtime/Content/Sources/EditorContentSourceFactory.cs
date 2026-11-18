@@ -5,7 +5,7 @@ namespace Internal
 {
     // Play Mode of the editor: the bundles of the project come from the editor (the roots of the ContentBundle asset of the
     // name, read by Internal.Editor, which installs the factory on load).
-    internal static class EditorContentSources
+    internal static class EditorContentSourceFactory
     {
         private static Func<string, IContentSource> _create;
 

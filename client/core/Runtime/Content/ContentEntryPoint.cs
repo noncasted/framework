@@ -32,7 +32,7 @@ namespace Internal
         internal static ContentEntryPoint Open(ContentOptions options)
         {
 #if UNITY_EDITOR
-            return new ContentEntryPoint((_, name) => UniTask.FromResult(EditorContentSources.Create(name)));
+            return new ContentEntryPoint((_, name) => UniTask.FromResult(EditorContentSourceFactory.Create(name)));
 #else
             ContentCatalog catalog;
 

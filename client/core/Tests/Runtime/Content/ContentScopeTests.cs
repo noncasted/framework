@@ -58,7 +58,7 @@ namespace Internal.Tests
         public IEnumerator AddContent_EditorSource_ChildLoadsTheProjectAssets() => UniTask.ToCoroutine(async () =>
         {
             var references = AssetDatabase.LoadAssetAtPath<ContentTestReferences>(ContentTestPaths.ReferencesAsset);
-            var previous = EditorContentSources.Install(name => new EditorContentSource(name, new Object[] { references }));
+            var previous = EditorContentSourceFactory.Install(name => new EditorContentSource(name, new Object[] { references }));
 
             try
             {
@@ -74,7 +74,7 @@ namespace Internal.Tests
             }
             finally
             {
-                EditorContentSources.Install(previous);
+                EditorContentSourceFactory.Install(previous);
             }
 
             LogAssert.NoUnexpectedReceived();
@@ -88,7 +88,7 @@ namespace Internal.Tests
         public IEnumerator AddContentBundle_SecondBundle_LoadsFromItsRoots() => UniTask.ToCoroutine(async () =>
         {
             var (main, extra) = await RegisterBoth();
-            var previous = EditorContentSources.Install(name => name == ContentTestPaths.Name ? main : name == ContentTestPaths.ExtraName ? extra :
+            var previous = EditorContentSourceFactory.Install(name => name == ContentTestPaths.Name ? main : name == ContentTestPaths.ExtraName ? extra :
                 throw new InvalidOperationException($"No test bundle {name}"));
 
             try
@@ -120,7 +120,7 @@ namespace Internal.Tests
             }
             finally
             {
-                EditorContentSources.Install(previous);
+                EditorContentSourceFactory.Install(previous);
             }
 
             await UniTask.DelayFrame(ReleaseFrames);
@@ -140,7 +140,7 @@ namespace Internal.Tests
         {
             var (main, extra) = await RegisterBoth();
             var created = 0;
-            var previous = EditorContentSources.Install(name =>
+            var previous = EditorContentSourceFactory.Install(name =>
             {
                 if (name == ContentTestPaths.ExtraName)
                 {
@@ -173,7 +173,7 @@ namespace Internal.Tests
             }
             finally
             {
-                EditorContentSources.Install(previous);
+                EditorContentSourceFactory.Install(previous);
             }
 
             await UniTask.DelayFrame(ReleaseFrames);

@@ -11,7 +11,7 @@ namespace Internal
         [InitializeOnLoadMethod]
         private static void Install()
         {
-            EditorContentSources.Install(Create);
+            EditorContentSourceFactory.Install(Create);
         }
 
         private static IContentSource Create(string name)

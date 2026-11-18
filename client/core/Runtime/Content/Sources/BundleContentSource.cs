@@ -7,34 +7,6 @@ using Object = UnityEngine.Object;
 
 namespace Internal
 {
-    // What a ContentLoader loads from: the bundles of a player (BundleContentSource) or the assets of the project in Play
-    // Mode of the editor (EditorContentSource). A load holds what it needs while its hold lives. Main thread only.
-    internal interface IContentSource
-    {
-        // The bundle of the loader: its roots.
-        string Name { get; }
-
-        IReadOnlyList<T> RootAssets<T>() where T : Object;
-
-        // Fetches and loads the bundle of the target with its dependencies, then the target; they stay while the hold lives.
-        UniTask<T> Load<T>(IReadOnlyLifetime hold, ContentReference<T> reference, IProgress<long> progress) where T : Object;
-
-        // Synchronous: throws when the bundle needs a fetch or loads asynchronously.
-        T LoadNow<T>(IReadOnlyLifetime hold, ContentReference<T> reference) where T : Object;
-
-        // Holds the bundle of the scene and starts the load of the engine.
-        UniTask<AsyncOperation> StartScene(IReadOnlyLifetime hold, ContentScene scene, LoadSceneParameters parameters, IProgress<long> progress);
-
-        UniTask Fetch(IReadOnlyLifetime lifetime, ContentReference reference, IProgress<long> progress);
-        UniTask Fetch(IReadOnlyLifetime lifetime, ContentScene scene, IProgress<long> progress);
-
-        // The bytes fetched for the target: 0 when nothing is ever fetched.
-        long Bytes(ContentReference reference);
-        long Bytes(ContentScene scene);
-
-        bool IsReal(ContentReference reference);
-    }
-
     // A bundle of a player build as the source of its loader: its roots, loaded by the registration and held while it
     // lives, and every lazy target of the catalog, wherever its bundle is.
     internal sealed class BundleContentSource : IContentSource
@@ -101,8 +73,7 @@ namespace Internal
                 return Pick<T>(request.allAssets, entry, reference);
             }
 
-            var type = IsComponent<T>() ? typeof(GameObject) : typeof(T);
-            var main = assets.LoadAssetAsync(entry.Guid, type);
+            var main = assets.LoadAssetAsync(entry.Guid, ContentTarget.AssetType<T>());
             await ((AsyncOperation)main).ToUniTask();
             return Target<T>(main.asset, reference);
         }
@@ -119,7 +90,7 @@ namespace Internal
                 if (entry.IsSubAsset)
                     return Pick<T>(assets.LoadAssetWithSubAssets<T>(entry.Guid), entry, reference);
 
-                return Target<T>(assets.LoadAsset(entry.Guid, IsComponent<T>() ? typeof(GameObject) : typeof(T)), reference);
+                return Target<T>(assets.LoadAsset(entry.Guid, ContentTarget.AssetType<T>()), reference);
             }
         }
 
@@ -156,18 +127,9 @@ namespace Internal
             return _set.IsReal(_set.Catalog.Object(reference.Guid, reference.LocalId).Bundle);
         }
 
-        private static bool IsComponent<T>()
-        {
-            return typeof(Component).IsAssignableFrom(typeof(T));
-        }
-
-        // A component reference is in the bundle as its prefab.
         private static T Target<T>(Object asset, ContentReference<T> reference) where T : Object
         {
-            if (asset is GameObject prefab && IsComponent<T>())
-                asset = prefab.GetComponent(typeof(T));
-
-            return asset as T ?? throw new InvalidOperationException($"[Content] The engine did not load {typeof(T).Name} {reference}");
+            return ContentTarget.Of<T>(asset) ?? throw new InvalidOperationException($"[Content] The engine did not load {typeof(T).Name} {reference}");
         }
 
         private static T Pick<T>(Object[] assets, ContentCatalogObjectEntry entry, ContentReference<T> reference) where T : Object

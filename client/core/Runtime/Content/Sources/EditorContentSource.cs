@@ -87,11 +87,7 @@ namespace Internal
         private static T Find<T>(ContentReference<T> reference) where T : Object
         {
             var asset = ContentEditorAssets.Find(reference.Guid, reference.LocalId);
-
-            if (asset is GameObject prefab && typeof(Component).IsAssignableFrom(typeof(T)))
-                asset = prefab.GetComponent(typeof(T));
-
-            return asset as T ?? throw new InvalidOperationException($"[Content] No {typeof(T).Name} {reference} in the project");
+            return ContentTarget.Of<T>(asset) ?? throw new InvalidOperationException($"[Content] No {typeof(T).Name} {reference} in the project");
         }
     }
 }
