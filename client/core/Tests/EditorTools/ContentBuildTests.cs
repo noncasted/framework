@@ -20,6 +20,9 @@ namespace Internal.EditorTests
         private const string BundlePath = Folder + "/ContentBuildTests.asset";
         private const string Shipped = "Temp/ContentBuildTestsShipped";
 
+        // A group of a catalogue: the ContentRoot of the project references it.
+        private static string GroupPath => AssetCatalogGenerator.GroupsFolder + "/ContentBuildTestsGroup.asset";
+
         private ContentTestScenes _scenes;
 
         [SetUp]
@@ -35,9 +38,13 @@ namespace Internal.EditorTests
         [TearDown]
         public void TearDown()
         {
+            ContentRootSaves.Stop();
             ContentTestBuildStep.Reset();
             ContentBuild.Cleanup();
             EditorTestAssets.DeleteFolder(Folder);
+
+            if (AssetDatabase.DeleteAsset(GroupPath))
+                ContentRootGenerator.GenerateNow();
 
             foreach (var folder in new[] { Shipped, Shipped + "Source" })
             {
@@ -115,6 +122,33 @@ namespace Internal.EditorTests
             Assert.IsFalse(output.Bundles.Any(bundle => bundle.Name == "ContentBuildLeft"), "Not built");
             Assert.IsFalse(Directory.GetFiles(output.Shipped).Any(file => Path.GetFileName(file).StartsWith("ContentBuildLeft.")), "Not shipped");
             Assert.IsNotNull(AssetDatabase.LoadAssetAtPath<ContentBundle>($"{Folder}/ContentBuildLeft.asset"), "The project keeps the bundle");
+        }
+
+        [Test]
+        public void Prepare_BundleLeftOut_ContentRootWithoutItsRoots_FullAfter()
+        {
+            var group = ScriptableObject.CreateInstance<EnvAssetGroupAsset>();
+            AssetDatabase.CreateAsset(group, GroupPath);
+            AssetDatabase.CreateAsset(ContentTestBundles.Create("ContentBuildLeft", group), $"{Folder}/ContentBuildLeft.asset");
+            AssetDatabase.SaveAssets();
+            ContentTestBuildStep.Exclude("ContentBuildLeft");
+            var guid = AssetDatabase.AssetPathToGUID(GroupPath);
+            var root = AssetDatabase.AssetPathToGUID(ContentRootGenerator.Path);
+            ContentRootSaves.Listen();
+
+            var output = ContentBuild.Prepare(ContentTestBundles.Target);
+
+            Assert.IsTrue(output.Catalog.Bundles.Any(bundle => bundle.Roots.Contains(root)),
+                "A built bundle holds the ContentRoot: a lazy reference of it to the group left out would fail the build");
+            Assert.IsFalse(output.Catalog.Bundles.Any(bundle => bundle.Name == "ContentBuildLeft"), "Not in the catalog");
+
+            var saves = ContentRootSaves.Saves;
+            Assert.GreaterOrEqual(saves.Count, 2, "Written without the roots of the bundle left out, then in full");
+            CollectionAssert.DoesNotContain(saves[saves.Count - 2], guid, "The bundles are built with the ContentRoot without the group");
+            CollectionAssert.Contains(saves[saves.Count - 1], guid, "Then the project gets the full one back");
+
+            var after = AssetDatabase.LoadAssetAtPath<ContentRoot>(ContentRootGenerator.Path);
+            Assert.IsTrue(after.Groups.Any(reference => reference.Guid == guid), "The ContentRoot references the group again");
         }
 
         [Test]

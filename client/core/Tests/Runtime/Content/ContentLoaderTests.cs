@@ -219,6 +219,37 @@ namespace Internal.Tests
         });
 
         [UnityTest]
+        public IEnumerator TwoLoadsDuringFetch_FirstEnds_FetchGoesOn_OneFetchPerFile() => UniTask.ToCoroutine(async () =>
+        {
+            var store = ContentTestSets.Store(false);
+            var (loader, extra) = await Register(ContentTestSets.Fetched(store));
+            store.Shut();
+            var fetches = store.Fetches;
+            var aborts = store.Aborts;
+            var first = new Lifetime();
+            var second = new Lifetime();
+
+            var prefetch = loader.Fetch(first, extra);
+            var load = loader.Load(second, extra);
+            await UniTask.DelayFrame(2);
+            first.Terminate();
+
+            await AssertCanceled(prefetch);
+            await UniTask.DelayFrame(2);
+            store.Open();
+
+            var target = await load;
+
+            Assert.AreEqual("ExtraTarget", target.name, "The load that still waits gets its target");
+            Assert.AreEqual("Shared", target.Direct.name);
+            Assert.AreEqual(aborts, store.Aborts, "A waiter is left: the fetch goes on");
+            Assert.AreEqual(fetches + ExtraFiles().Length, store.Fetches, "One fetch per file for both");
+
+            second.Terminate();
+            LogAssert.NoUnexpectedReceived();
+        });
+
+        [UnityTest]
         public IEnumerator Registration_OfAnUnknownBundle_Throws() => UniTask.ToCoroutine(async () =>
         {
             var runtime = ContentRuntime.Over(ContentTestSets.Local());
@@ -312,6 +343,20 @@ namespace Internal.Tests
             }
 
             Assert.Fail("The load of an ended lifetime gives OperationCanceledException");
+        }
+
+        private static async UniTask AssertCanceled(UniTask fetch)
+        {
+            try
+            {
+                await fetch;
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            Assert.Fail("The fetch of an ended lifetime gives OperationCanceledException");
         }
 
         private static int Targets()
