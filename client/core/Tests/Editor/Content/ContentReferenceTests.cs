@@ -17,7 +17,7 @@ namespace Internal.Tests
         public void SetUp()
         {
             _root = new TextAsset("root");
-            _loader = new ContentLoader(new EditorContentSource("Tests", new Object[] { _root }), new ContentLoads());
+            _loader = new ContentLoader(new EditorContentSource("Tests", new Object[] { _root }), new ContentLoadsCollection());
             _lifetime = new Lifetime();
         }
 

@@ -270,7 +270,7 @@ namespace Internal.Tests
         public IEnumerator EditorSource_LoadsTheProjectAssets() => UniTask.ToCoroutine(async () =>
         {
             var references = AssetDatabase.LoadAssetAtPath<ContentTestReferences>(ContentTestPaths.ReferencesAsset);
-            var loader = new ContentLoader(new EditorContentSource(ContentTestPaths.Name, new Object[] { references }), new ContentLoads());
+            var loader = new ContentLoader(new EditorContentSource(ContentTestPaths.Name, new Object[] { references }), new ContentLoadsCollection());
             var asset = AssetDatabase.LoadAssetAtPath<ContentTestTarget>(ContentTestPaths.TargetAsset);
             var lifetime = new Lifetime();
 

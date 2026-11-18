@@ -8,9 +8,9 @@ namespace Internal
     // The scenes of the content: each load is its own additive instance, unloaded when its lifetime ends, its bundle let
     // go after the unload (the engine would destroy the objects of a scene still loaded). A lifetime that ends during the
     // load gives OperationCanceledException; a scene the engine has started loading is loaded to the end and unloaded at once.
-    internal sealed class ContentSceneLoads
+    internal sealed class ContentSceneLoader
     {
-        public ContentSceneLoads(IContentSource source, Func<ContentScene, IProgress<long>> report)
+        public ContentSceneLoader(IContentSource source, Func<ContentScene, IProgress<long>> report)
         {
             _source = source;
             _report = report;

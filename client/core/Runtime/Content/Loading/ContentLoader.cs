@@ -11,16 +11,16 @@ namespace Internal
     // an AssetLoads entry ("Content: <name>") and a concurrent span of the trace. Main thread only.
     public sealed class ContentLoader : IContentLoader
     {
-        internal ContentLoader(IContentSource source, ContentLoads loads)
+        internal ContentLoader(IContentSource source, ContentLoadsCollection loads)
         {
             _source = source;
             _loads = loads;
-            _scenes = new ContentSceneLoads(source, Report);
+            _scenes = new ContentSceneLoader(source, Report);
         }
 
         private readonly IContentSource _source;
-        private readonly ContentLoads _loads;
-        private readonly ContentSceneLoads _scenes;
+        private readonly ContentLoadsCollection _loads;
+        private readonly ContentSceneLoader _scenes;
 
         public string Name => _source.Name;
 
@@ -35,8 +35,8 @@ namespace Internal
             reference.ThrowIfEmpty();
             lifetime.Token.ThrowIfCancellationRequested();
 
-            if (_loads.Objects.TryGetValue(reference, out var running))
-                return ((ContentObjectLoad<T>)running).Add(lifetime);
+            if (_loads.TryGet(reference, out var running))
+                return running.Add(lifetime);
 
             return Create(reference).Start(lifetime);
         }
@@ -57,10 +57,8 @@ namespace Internal
             reference.ThrowIfEmpty();
             lifetime.Token.ThrowIfCancellationRequested();
 
-            if (_loads.Objects.TryGetValue(reference, out var running))
+            if (_loads.TryGet(reference, out var load))
             {
-                var load = (ContentObjectLoad<T>)running;
-
                 if (load.IsLoaded == false)
                     throw new InvalidOperationException($"[Content] {typeof(T).Name} {reference} is loading asynchronously, LoadNow cannot wait for it");
 
@@ -95,47 +93,45 @@ namespace Internal
         public IViewableProperty<ContentProgress> Progress(ContentReference reference)
         {
             reference.ThrowIfEmpty();
-            return ProgressOf($"{reference.Guid}:{reference.LocalId}", () => _source.Bytes(reference), () => _source.IsReal(reference));
+            return ProgressOf(reference);
         }
 
         public IViewableProperty<ContentProgress> Progress(ContentScene scene)
         {
             scene.ThrowIfEmpty();
-            return ProgressOf(scene.Guid, () => _source.Bytes(scene), () => false);
+            return ProgressOf(scene);
         }
 
         private IProgress<long> Report(ContentScene scene)
         {
-            return new ContentProgressReport((ViewableProperty<ContentProgress>)Progress(scene));
+            return new ContentProgressReport(ProgressOf(scene));
         }
 
         private IProgress<long> Report(ContentReference reference)
         {
-            return new ContentProgressReport((ViewableProperty<ContentProgress>)Progress(reference));
+            return new ContentProgressReport(ProgressOf(reference));
         }
 
         private ContentObjectLoad<T> Create<T>(ContentReference<T> reference) where T : Object
         {
-            var load = new ContentObjectLoad<T>(reference, _source, Report(reference), OnObjectOver);
-            _loads.Objects.Add(reference, load);
+            var load = new ContentObjectLoad<T>(reference, _source, Report(reference), _loads.Remove);
+            _loads.Add(reference, load);
             return load;
         }
 
-        private void OnObjectOver(ContentReference reference)
+        private ViewableProperty<ContentProgress> ProgressOf(ContentReference reference)
         {
-            _loads.Objects.Remove(reference);
+            return _loads.Progress($"{reference.Guid}:{reference.LocalId}", () =>
+            {
+                var bytes = _source.Bytes(reference);
+                return new ContentProgress(_source.IsReal(reference) ? bytes : 0, bytes);
+            });
         }
 
         // A scene starts at 0 bytes: its first fetch reports the files real already.
-        private IViewableProperty<ContentProgress> ProgressOf(string key, Func<long> total, Func<bool> isReal)
+        private ViewableProperty<ContentProgress> ProgressOf(ContentScene scene)
         {
-            if (_loads.Progress.TryGetValue(key, out var progress))
-                return progress;
-
-            var bytes = total();
-            progress = new ViewableProperty<ContentProgress>(new ContentProgress(isReal() ? bytes : 0, bytes));
-            _loads.Progress.Add(key, progress);
-            return progress;
+            return _loads.Progress(scene.Guid, () => new ContentProgress(0, _source.Bytes(scene)));
         }
     }
 }
