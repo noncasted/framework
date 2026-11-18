@@ -36,7 +36,7 @@ namespace Internal
         public ILoadedScope Parent { get; }
         public Func<IScopeBuilder, UniTask> ConstructCallback { get; }
         public string RootId { get; }
-        public IScopeServiceSceneLoader SceneLoader { get; private set; } = new NoScene();
+        public IScopeServiceSceneLoader ServiceScene { get; private set; } = new NoScene();
         public bool IsMock { get; private set; }
 
         /// <summary>
@@ -50,13 +50,13 @@ namespace Internal
 
         public ScopeLoadOptions WithRuntimeScene(string name)
         {
-            SceneLoader = new RuntimeScene(name);
+            ServiceScene = new RuntimeScene(name);
             return this;
         }
 
         public ScopeLoadOptions WithAssetScene(ContentScene scene)
         {
-            SceneLoader = new ContentAssetScene(scene);
+            ServiceScene = new ContentAssetScene(scene);
             return this;
         }
     }

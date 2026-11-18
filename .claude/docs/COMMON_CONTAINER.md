@@ -55,7 +55,7 @@ public static async UniTask Construct(IScopeBuilder builder)
 Loading order inside `ServiceScopeLoader.Load` (`tools/framework/client/core/Runtime/Scopes/Services/ServiceScopeLoader.cs`):
 
 ```
-1. scene for the scope (options.SceneLoader)
+1. scene for the scope (options.ServiceScene)
 2. Construct(builder)             registrations; Load*Group awaits here
 3. Events.InvokeBeforeBuild()     Request*Group asset groups are retained here
 4. ScopeContainer.Create(...)     generated container, services constructed

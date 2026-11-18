@@ -13,7 +13,7 @@ namespace Internal
     {
         public async UniTask<ILoadedScope> Load(ScopeLoadOptions options)
         {
-            var sceneName = options.SceneLoader.Name;
+            var sceneName = options.ServiceScene.Name;
 
             // A child is disposed together with its parent: the parent has to be a scope of this loader.
             var parent = options.Parent == null ? null : options.Parent as LoadedScope;
@@ -40,7 +40,7 @@ namespace Internal
                 IServiceScopeBinder binder;
 
                 using (GameProfiler.Scope("Registry scene"))
-                    binder = await options.SceneLoader.Load(sceneLoader);
+                    binder = await options.ServiceScene.Load(sceneLoader);
 
                 builder = CreateBuilder(binder);
 

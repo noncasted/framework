@@ -26,3 +26,11 @@ mines-leader, peace-data-reborn, pixel-swarm поиск пуст.
 Сделать: `IContentBundles` -> `IContentLoadersCollection` в полях, конструкторах и `[Inject]` (методы те же: `Get(name)`,
 `Wait(lifetime, name)`); без этого CS0246. `AddContent` регистрирует реестр под новым интерфейсом, класс `ContentBundles` ->
 `ContentLoadersCollection` (сгенерированный контейнер корня обновится сам при компиляции).
+
+### Клиент: `ScopeLoadOptions.SceneLoader` -> `ServiceScene` (BREAKING)
+
+Кого касается: клиент игр, которые читают сцену опций скоупа (тесты загрузчиков скоупов, свои `IServiceScopeLoader`). Имя
+совпадало с `IScopeBuilder.SceneLoader` (`ServiceScopeSceneLoader`, загрузчик сцен внутри скоупа), хотя это сцена самого скоупа
+(`NoScene`, `RuntimeScene`, `ContentAssetScene`).
+Поиск: `git grep -nE '\.SceneLoader\b' -- 'client/Assets/*.cs'` (оставить обращения к `IScopeBuilder.SceneLoader`)
+Сделать: `options.SceneLoader` -> `options.ServiceScene`.
