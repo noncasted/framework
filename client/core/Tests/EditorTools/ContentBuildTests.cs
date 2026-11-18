@@ -61,13 +61,13 @@ namespace Internal.EditorTests
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             EditorSceneManager.MarkSceneDirty(scene);
 
-            var error = Assert.Throws<BuildFailedException>(ContentBuildScenes.ThrowIfDirty).Message;
+            var error = Assert.Throws<BuildFailedException>(ContentUnsavedScenes.ThrowIfDirty).Message;
 
             StringAssert.Contains("Untitled (never saved) have unsaved changes", error);
             StringAssert.Contains("EditorSceneManager.NewScene", error);
 
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            Assert.DoesNotThrow(ContentBuildScenes.ThrowIfDirty, "A new scene is clean");
+            Assert.DoesNotThrow(ContentUnsavedScenes.ThrowIfDirty, "A new scene is clean");
         }
 
         [Test]

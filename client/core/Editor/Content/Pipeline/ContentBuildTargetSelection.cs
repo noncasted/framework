@@ -8,20 +8,20 @@ namespace Internal
     // build a player, and that window checks the scripting backend of the selected target, not of the built one: a WebGL
     // project (IL2CPP) building the bundles of the editor platform (the tests) fails on the IL2CPP toolchain of Linux it never
     // uses. The selection only marks a target in the window, it does not switch the platform; the previous one comes back.
-    public readonly struct ContentBuildSelection : IDisposable
+    public readonly struct ContentBuildTargetSelection : IDisposable
     {
         private readonly BuildTargetGroup _group;
         private readonly BuildTarget _standalone;
 
-        private ContentBuildSelection(BuildTargetGroup group, BuildTarget standalone)
+        private ContentBuildTargetSelection(BuildTargetGroup group, BuildTarget standalone)
         {
             _group = group;
             _standalone = standalone;
         }
 
-        public static ContentBuildSelection Of(BuildTarget target, BuildTargetGroup group)
+        public static ContentBuildTargetSelection Of(BuildTarget target, BuildTargetGroup group)
         {
-            var previous = new ContentBuildSelection(EditorUserBuildSettings.selectedBuildTargetGroup, EditorUserBuildSettings.selectedStandaloneTarget);
+            var previous = new ContentBuildTargetSelection(EditorUserBuildSettings.selectedBuildTargetGroup, EditorUserBuildSettings.selectedStandaloneTarget);
 
             EditorUserBuildSettings.selectedBuildTargetGroup = group;
 

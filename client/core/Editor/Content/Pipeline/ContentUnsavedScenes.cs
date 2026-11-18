@@ -6,7 +6,7 @@ namespace Internal
 {
     // The Scriptable Build Pipeline builds no bundle while an open scene has unsaved changes (ReturnCode.UnsavedChanges):
     // the content build checks it first and names the scenes, so the reason is in the error and not in a return code.
-    public static class ContentBuildScenes
+    public static class ContentUnsavedScenes
     {
         public static void ThrowIfDirty()
         {

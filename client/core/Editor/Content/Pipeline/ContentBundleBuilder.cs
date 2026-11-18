@@ -25,7 +25,7 @@ namespace Internal
 
         public static IReadOnlyList<ContentBuiltBundle> Build(IReadOnlyList<ContentBundlePlan> plans, BuildTarget target, string output, bool isTypeTree)
         {
-            ContentBuildScenes.ThrowIfDirty();
+            ContentUnsavedScenes.ThrowIfDirty();
             Directory.CreateDirectory(output);
 
             var builds = new List<AssetBundleBuild>();
@@ -56,7 +56,7 @@ namespace Internal
             ReturnCode code;
             IBundleBuildResults results;
 
-            using (ContentBuildSelection.Of(target, group))
+            using (ContentBuildTargetSelection.Of(target, group))
                 code = ContentPipeline.BuildAssetBundles(parameters, new BundleBuildContent(builds), out results);
 
             if (code < ReturnCode.Success)
