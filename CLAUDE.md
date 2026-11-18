@@ -173,18 +173,20 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   (`ContentBundleLayout`), builds them with every player build (an `IPlayerBuildStep` and a `BuildPlayerProcessor`;
   `IContentBuildStep.BeforeContentBuild(ContentBuildContext)` runs first, the `ContentRoot` generator among them; a step of the game
   leaves bundles out of this build with `build.Exclude(name)`: not built, not in the catalog nor the `ContentRoot`, a built bundle that
-  references them fails the build), then the shared bundles of the game (`IContentSharedBundles`: its folder and an ordered list of
+  references them fails the build; an `IContentLayoutStep` sees their final set, `build.ExcludedBundles`, in `BeforeLayout` (after the
+  shared bundles, before the layout) and `AfterBundles` (after the bundle build): the `ContentRoot` without their roots is written there),
+  then the shared bundles of the game (`IContentSharedBundles`: its folder and an ordered list of
   `ContentSharedBundle(name, isPreloaded, isGzip, serves...)`; `ContentSharedSync` makes every asset several bundles need directly a root of
   the first one that takes it, also in Regenerate All and `Codegen/Sync Shared Content Bundles`), writes the catalog into `Resources`, the types of their
   objects into a link.xml (`ContentLinkerProcessor`) and ships them as `StreamingAssets/Content/<name>.<hash>.bundle[.gz]`
   (`IsPreloaded` on WebGL: inside the `.data`). The root scope calls `await builder.AddContent(new ContentOptions(name))` once (the name
   of the main bundle is a constant of the root scope: the options of the game load after it; the main bundle held as long as the root, `IContentLoader`, the catalogues bound); more bundles with roots of their own:
-  `AddContentBundle(name, registration)`, `await IContentBundles.Wait(lifetime, name)`, `RootAssets<T>()`. Scopes
+  `AddContentBundle(name, registration)`, `await IContentLoadersCollection.Wait(lifetime, name)`, `RootAssets<T>()`. Scopes
   `LoadContent(reference)` / `RequestContent(reference, out slot)` (container primitives), scenes `FindOrLoadSceneWithServices(ContentScene)`,
   `WithAssetScene(ContentScene)`; during the game `IContentLoader.Load / LoadNow / LoadScene / Fetch / Progress` on the lifetime of the
   owner, which holds the whole bundle of the target with its dependencies and unloads it after the last hold. References:
-  `ContentReference<T>`, `ContentScene` (GUID and local id; the catalog knows the bundle). Stores: local (`StreamingAssets`, Android
-  inside the APK), web (fetch into MEMFS, Cache API `content`, `remoteUrl` for a CDN), Play Mode (assets of the project).
+  `ContentReference<T>`, `ContentScene` (GUID and local id; the catalog knows the bundle). Distributions: local (`StreamingAssets`, Android
+  inside the APK), web (fetch into MEMFS, Cache API `content`, `remoteUrl` for a CDN); Play Mode loads the assets of the project.
 - **Player build steps.** A project step around the build entry points of the platforms implements `IPlayerBuildStep`
   (`core/Editor/Tools/Build`: `BeforeBuild` / `AfterBuild(target, succeeded)`, a parameterless class, found by
   `TypeCache`, ordered by full type name); `PlayerBuildSteps.Run(target, build)` calls `AfterBuild` of every started
@@ -365,8 +367,8 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1750, common 96, Verify 184, control 24, telemetry 84, EditMode 1296 (4 of them skipped, the
-benchmarks of `ContainerBenchmarkTests`), PlayMode 144 (24 of them skipped, the end to end tests of the telemetry without their host);
+Release build replaces it. The expected numbers: backend 1772, common 96, Verify 184, control 24, telemetry 84, EditMode 1299 (4 of them skipped, the
+benchmarks of `ContainerBenchmarkTests`), PlayMode 145 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 
 `tools/scripts/test-telemetry-transport.sh` runs those 24 against a real backend: it starts `ClientTelemetry.TestHost` (needs Docker) and takes
