@@ -21,6 +21,7 @@
 | [0.9.2](0.9.2.md) | 2026-11-17 | Раскладка контента: ассет, нужный ассетам и сценам одного бандла и другому бандлу, - дубль, а не скрытая зависимость от бандла со сценами | Да: пересинк общих бандлов, снять ручные корни preloaded-бандла |
 | [0.9.3](0.9.3.md) | 2026-11-17 | Исправления аудитов бэкенда и клиента 2026-11-16: грязная запись вне транзакции - ошибка, `SharedViewableProperty<T>`, лобби упавшего сервера, генераторы каталогов падают на сломанном входе, сеть P2P, мёртвый код | Да: `DbLookup` -> `SideEffectTables`, подмены `IClusterParticipantContext`, `Game.Hosting.Collection`, `IsJoinable`, `TraceExtensions.Start`, `MockEntry.Process` -> `UniTask` |
 | [0.10.0](0.10.0.md) | 2026-11-17 | Startup trace хранит backend trace id сокета, консоль рисует трейс бэкенда из Aspire dashboard; `GameProfiler.Background`; веб-загрузка контента только в WebGL-плеере | Да: `AcceptStartup(trace, backendTrace)` |
+| [0.11.0](0.11.0.md) | 2026-11-18 | Код контента разложен по ролям, новые имена (`IContentLoadersCollection`, `ContentEntryPoint`, дистрибуции); фаза `IContentLayoutStep`; `update-framework` предлагает непривязанные общие скиллы | Да: `IContentBundles` -> `IContentLoadersCollection`, `ScopeLoadOptions.ServiceScene`, `ContentEntryPoint.RegisterMain` |
 
 ## Версии
 
