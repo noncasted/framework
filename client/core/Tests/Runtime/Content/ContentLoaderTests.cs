@@ -95,7 +95,7 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator LifetimeEndsDuringFetch_Canceled_FetchAborted_NothingLoaded() => UniTask.ToCoroutine(async () =>
         {
-            var distribution = ContentTestDistributions.Fetched(false);
+            var distribution = ContentTestDistributions.Fetched();
             var (loader, extra) = await Register(distribution);
             distribution.Shut();
             var lifetime = new Lifetime();
@@ -170,7 +170,7 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator Fetched_LoadFetches_Progress_LoadNowWhileHeld_ForgottenAfter() => UniTask.ToCoroutine(async () =>
         {
-            var distribution = ContentTestDistributions.Fetched(false);
+            var distribution = ContentTestDistributions.Fetched();
             var (loader, extra) = await Register(distribution);
             var progress = loader.Progress(extra);
             var total = ExtraFiles().Sum(file => file.Size);
@@ -201,7 +201,7 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator Prefetch_FetchesOnce_LoadsNothing_LoadNowAfter() => UniTask.ToCoroutine(async () =>
         {
-            var distribution = ContentTestDistributions.Fetched(false);
+            var distribution = ContentTestDistributions.Fetched();
             var (loader, extra) = await Register(distribution);
             var fetches = distribution.Fetches;
             var before = Targets();
@@ -221,7 +221,7 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator TwoLoadsDuringFetch_FirstEnds_FetchGoesOn_OneFetchPerFile() => UniTask.ToCoroutine(async () =>
         {
-            var distribution = ContentTestDistributions.Fetched(false);
+            var distribution = ContentTestDistributions.Fetched();
             var (loader, extra) = await Register(distribution);
             distribution.Shut();
             var fetches = distribution.Fetches;

@@ -8,11 +8,10 @@ namespace Internal.Tests
     // the aborts and the files forgotten after an unload.
     internal sealed class GatedContentDistribution : IContentDistribution
     {
-        public GatedContentDistribution(string source, string folder, bool isGated)
+        public GatedContentDistribution(string source, string folder)
         {
             _source = source;
             _folder = folder;
-            IsGated = isGated;
             Directory.CreateDirectory(folder);
         }
 

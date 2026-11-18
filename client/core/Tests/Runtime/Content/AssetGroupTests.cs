@@ -89,7 +89,7 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator Preloaded_FetchedByBinding_EnsureLoadedWithoutRetain() => UniTask.ToCoroutine(async () =>
         {
-            var loader = await ContentEntryPoint.Over(ContentTestDistributions.Catalog, ContentTestDistributions.Fetched(false)).Register(_root, ContentTestPaths.Name);
+            var loader = await ContentEntryPoint.Over(ContentTestDistributions.Catalog, ContentTestDistributions.Fetched()).Register(_root, ContentTestPaths.Name);
             var root = loader.RootAssets<ContentRoot>().Single();
             var preloadedReference = root.PreloadedGroups.Single();
 

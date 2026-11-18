@@ -16,9 +16,9 @@ namespace Internal.Tests
             return new LocalContentDistribution(Path.GetFullPath(ContentTestPaths.Folder));
         }
 
-        public static GatedContentDistribution Fetched(bool isGated)
+        public static GatedContentDistribution Fetched()
         {
-            return new GatedContentDistribution(Path.GetFullPath(ContentTestPaths.Folder), Path.GetFullPath(FetchedFolder), isGated);
+            return new GatedContentDistribution(Path.GetFullPath(ContentTestPaths.Folder), Path.GetFullPath(FetchedFolder));
         }
 
         public static void DeleteFetched()
