@@ -9,9 +9,9 @@ namespace Internal
     // (AssetBundle.Unload(true)) when the last one ends. A load the last holder left is abandoned: its fetch aborted,
     // a load of the engine already started finished and unloaded at once; a load that comes meanwhile waits for that
     // unload (the engine refuses two loads of one file). Main thread only.
-    internal sealed class ContentBundleState
+    internal sealed class ContentStoredBundle
     {
-        public ContentBundleState(ContentCatalogBundleEntry bundle, IContentBundleStore store,
+        public ContentStoredBundle(ContentCatalogBundleEntry bundle, IContentBundleStore store,
             Func<IReadOnlyLifetime, ContentCatalogBundleEntry, UniTask> fetch)
         {
             _bundle = bundle;
@@ -61,7 +61,7 @@ namespace Internal
                 _load = new Lifetime();
                 _loading = new UniTaskCompletionSource();
                 var unwound = new UniTaskCompletionSource();
-                Run(_load, _abandoned, _loading, unwound).Forget();
+                Run(_load, _abandoned, _loading, unwound).NoAwait();
                 _abandoned = unwound;
             }
 

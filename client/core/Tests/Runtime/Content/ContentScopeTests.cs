@@ -43,7 +43,7 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator RegisteredBundle_ScopeLoadsSceneAndContent_DisposeReleases() => UniTask.ToCoroutine(async () =>
         {
-            var loader = await ContentEntryPoint.Over(ContentTestSets.Local()).Register(_lifetime, ContentTestPaths.Name);
+            var loader = await ContentEntryPoint.Over(ContentTestStorages.Local()).Register(_lifetime, ContentTestPaths.Name);
             var references = loader.RootAssets<ContentTestReferences>().Single();
             var root = await new ServiceScopeLoader().Load(ScopeLoadOptions.Create(null, ContentScopeRoots.Root.Construct, loader));
 
@@ -127,11 +127,11 @@ namespace Internal.Tests
             LogAssert.NoUnexpectedReceived();
         });
 
-        // The sources of the two bundles over one set, registered for the test.
+        // The sources of the two bundles over one storage, registered for the test.
         private async UniTask<(IContentSource, IContentSource)> RegisterBoth()
         {
-            var set = ContentTestSets.Local();
-            return (await BundleContentSource.Register(_lifetime, set, ContentTestPaths.Name), await BundleContentSource.Register(_lifetime, set, ContentTestPaths.ExtraName));
+            var storage = ContentTestStorages.Local();
+            return (await BundleContentSource.Register(_lifetime, storage, ContentTestPaths.Name), await BundleContentSource.Register(_lifetime, storage, ContentTestPaths.ExtraName));
         }
 
         // OnFirstWait: the bundle is not registered (nothing fetched) until its first Wait, then it is as a background one.

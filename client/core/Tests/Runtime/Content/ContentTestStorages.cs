@@ -4,20 +4,20 @@ using Internal.EditorTests.Content;
 namespace Internal.Tests
 {
     // The bundles of ContentBundleTestBuild over a store: read in place, or fetched into a folder of the test.
-    internal static class ContentTestSets
+    internal static class ContentTestStorages
     {
         public const string FetchedFolder = ContentTestPaths.Output + "/Fetched";
 
         public static ContentCatalog Catalog => ContentCatalog.FromJson(File.ReadAllText(ContentTestPaths.Catalog));
 
-        public static ContentBundleSet Local()
+        public static ContentBundleStorage Local()
         {
-            return new ContentBundleSet(Catalog, new LocalContentBundleStore(Path.GetFullPath(ContentTestPaths.Folder)));
+            return new ContentBundleStorage(Catalog, new LocalContentBundleStore(Path.GetFullPath(ContentTestPaths.Folder)));
         }
 
-        public static ContentBundleSet Fetched(GatedContentBundleStore store)
+        public static ContentBundleStorage Fetched(GatedContentBundleStore store)
         {
-            return new ContentBundleSet(Catalog, store);
+            return new ContentBundleStorage(Catalog, store);
         }
 
         public static GatedContentBundleStore Store(bool isGated)

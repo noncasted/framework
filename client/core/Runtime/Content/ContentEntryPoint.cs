@@ -39,14 +39,14 @@ namespace Internal
             using (GameProfiler.Scope("Content: catalog"))
                 catalog = ContentCatalog.Load();
 
-            return Over(new ContentBundleSet(catalog, Store(catalog, options)));
+            return Over(new ContentBundleStorage(catalog, Store(catalog, options)));
 #endif
         }
 
         // The bundles of a catalog over a store (a player; a test over bundles built into a folder).
-        internal static ContentEntryPoint Over(ContentBundleSet set)
+        internal static ContentEntryPoint Over(ContentBundleStorage storage)
         {
-            return new ContentEntryPoint(async (lifetime, name) => await BundleContentSource.Register(lifetime, set, name));
+            return new ContentEntryPoint(async (lifetime, name) => await BundleContentSource.Register(lifetime, storage, name));
         }
 
         // The bundle loaded whole and held while the lifetime lives, and a loader over its roots.

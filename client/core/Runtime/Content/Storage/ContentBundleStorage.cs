@@ -7,19 +7,19 @@ namespace Internal
     // The bundles of the catalog over the store of the platform: a hold of a bundle holds its dependencies too (the
     // catalog lists them all), each counted apart; one fetch per file for every load and prefetch that waits for it.
     // Main thread only.
-    internal sealed class ContentBundleSet
+    internal sealed class ContentBundleStorage
     {
-        public ContentBundleSet(ContentCatalog catalog, IContentBundleStore store)
+        public ContentBundleStorage(ContentCatalog catalog, IContentBundleStore store)
         {
             Catalog = catalog;
             _store = store;
 
             foreach (var bundle in catalog.Bundles)
-                _states.Add(bundle.Name, new ContentBundleState(bundle, store, FetchFiles));
+                _stored.Add(bundle.Name, new ContentStoredBundle(bundle, store, FetchFiles));
         }
 
         private readonly IContentBundleStore _store;
-        private readonly Dictionary<string, ContentBundleState> _states = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, ContentStoredBundle> _stored = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, ContentSharedFetch> _fetches = new();
 
         public ContentCatalog Catalog { get; }
@@ -46,7 +46,7 @@ namespace Internal
         {
             foreach (var bundle in Closure(name))
             {
-                if (_states[bundle.Name].IsLoaded)
+                if (_stored[bundle.Name].IsLoaded)
                     continue;
 
                 foreach (var file in bundle.Files)
@@ -100,7 +100,7 @@ namespace Internal
             var loads = new UniTask[closure.Count];
 
             for (var i = 0; i < closure.Count; i++)
-                loads[i] = _states[closure[i].Name].Hold(hold);
+                loads[i] = _stored[closure[i].Name].Hold(hold);
 
             await UniTask.WhenAll(loads);
         }
@@ -112,13 +112,13 @@ namespace Internal
                 throw new InvalidOperationException($"[Content] The content bundle {name} needs a fetch: load it with Load");
 
             foreach (var bundle in Closure(name))
-                _states[bundle.Name].HoldNow(hold);
+                _stored[bundle.Name].HoldNow(hold);
         }
 
-        public ContentBundleState State(string name)
+        public ContentStoredBundle Bundle(string name)
         {
             Catalog.Bundle(name);
-            return _states[name];
+            return _stored[name];
         }
 
         // The dependencies first, then the bundle.

@@ -31,14 +31,14 @@ namespace Internal.Tests
         public void SetUp()
         {
             _lifetime = new Lifetime();
-            ContentTestSets.DeleteFetched();
+            ContentTestStorages.DeleteFetched();
         }
 
         [TearDown]
         public void TearDown()
         {
             _lifetime.Terminate();
-            ContentTestSets.DeleteFetched();
+            ContentTestStorages.DeleteFetched();
 
             var left = AssetBundle.GetAllLoadedAssetBundles().Select(bundle => bundle.name).ToArray();
             AssetBundle.UnloadAllAssetBundles(true);
@@ -48,7 +48,7 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator Load_LoadsTheBundleWithItsDependency_LifetimeEnds_BothUnloaded() => UniTask.ToCoroutine(async () =>
         {
-            var (loader, extra) = await Register(ContentTestSets.Local());
+            var (loader, extra) = await Register(ContentTestStorages.Local());
             var before = Targets();
             var lifetime = new Lifetime();
 
@@ -74,7 +74,7 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator LifetimeEndsDuringLoad_Canceled_Released() => UniTask.ToCoroutine(async () =>
         {
-            var (loader, extra) = await Register(ContentTestSets.Local());
+            var (loader, extra) = await Register(ContentTestStorages.Local());
             var before = Targets();
             var lifetime = new Lifetime();
 
@@ -95,8 +95,8 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator LifetimeEndsDuringFetch_Canceled_FetchAborted_NothingLoaded() => UniTask.ToCoroutine(async () =>
         {
-            var store = ContentTestSets.Store(false);
-            var (loader, extra) = await Register(ContentTestSets.Fetched(store));
+            var store = ContentTestStorages.Store(false);
+            var (loader, extra) = await Register(ContentTestStorages.Fetched(store));
             store.Shut();
             var lifetime = new Lifetime();
 
@@ -115,7 +115,7 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator TwoLoads_FirstEnds_Alive_SecondEnds_Released() => UniTask.ToCoroutine(async () =>
         {
-            var (loader, extra) = await Register(ContentTestSets.Local());
+            var (loader, extra) = await Register(ContentTestStorages.Local());
             var before = Targets();
             var first = new Lifetime();
             var second = new Lifetime();
@@ -139,7 +139,7 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator TargetOfTheRegisteredBundle_StaysWhileTheBundleIsHeld() => UniTask.ToCoroutine(async () =>
         {
-            var (loader, _) = await Register(ContentTestSets.Local());
+            var (loader, _) = await Register(ContentTestStorages.Local());
             var references = loader.RootAssets<ContentTestReferences>().Single();
             var lifetime = new Lifetime();
 
@@ -159,9 +159,9 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator Scene_LoadsAndUnloadsByLifetime_OfTheMainAndOfAnotherBundle() => UniTask.ToCoroutine(async () =>
         {
-            var (loader, _) = await Register(ContentTestSets.Local());
+            var (loader, _) = await Register(ContentTestStorages.Local());
             var references = loader.RootAssets<ContentTestReferences>().Single();
-            var extraScene = ContentTestSets.Catalog.Scenes.Single(scene => scene.Bundle == ContentTestPaths.ExtraName);
+            var extraScene = ContentTestStorages.Catalog.Scenes.Single(scene => scene.Bundle == ContentTestPaths.ExtraName);
 
             await AssertSceneByLifetime(loader, references.Scene, "Level");
             await AssertSceneByLifetime(loader, new ContentScene(extraScene.Guid), "ExtraLevel");
@@ -170,8 +170,8 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator Fetched_LoadFetches_Progress_LoadNowWhileHeld_ForgottenAfter() => UniTask.ToCoroutine(async () =>
         {
-            var store = ContentTestSets.Store(false);
-            var (loader, extra) = await Register(ContentTestSets.Fetched(store));
+            var store = ContentTestStorages.Store(false);
+            var (loader, extra) = await Register(ContentTestStorages.Fetched(store));
             var progress = loader.Progress(extra);
             var total = ExtraFiles().Sum(file => file.Size);
 
@@ -201,8 +201,8 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator Prefetch_FetchesOnce_LoadsNothing_LoadNowAfter() => UniTask.ToCoroutine(async () =>
         {
-            var store = ContentTestSets.Store(false);
-            var (loader, extra) = await Register(ContentTestSets.Fetched(store));
+            var store = ContentTestStorages.Store(false);
+            var (loader, extra) = await Register(ContentTestStorages.Fetched(store));
             var fetches = store.Fetches;
             var before = Targets();
 
@@ -221,8 +221,8 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator TwoLoadsDuringFetch_FirstEnds_FetchGoesOn_OneFetchPerFile() => UniTask.ToCoroutine(async () =>
         {
-            var store = ContentTestSets.Store(false);
-            var (loader, extra) = await Register(ContentTestSets.Fetched(store));
+            var store = ContentTestStorages.Store(false);
+            var (loader, extra) = await Register(ContentTestStorages.Fetched(store));
             store.Shut();
             var fetches = store.Fetches;
             var aborts = store.Aborts;
@@ -252,7 +252,7 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator Registration_OfAnUnknownBundle_Throws() => UniTask.ToCoroutine(async () =>
         {
-            var entryPoint = ContentEntryPoint.Over(ContentTestSets.Local());
+            var entryPoint = ContentEntryPoint.Over(ContentTestStorages.Local());
 
             try
             {
@@ -294,17 +294,17 @@ namespace Internal.Tests
 #endif
 
         // The main loader over Tests, and the reference of the catalog to the target of TestsExtra.
-        private async UniTask<(IContentLoader, ContentReference<ContentTestTarget>)> Register(ContentBundleSet set)
+        private async UniTask<(IContentLoader, ContentReference<ContentTestTarget>)> Register(ContentBundleStorage storage)
         {
-            var loader = await ContentEntryPoint.Over(set).Register(_lifetime, ContentTestPaths.Name);
-            var entry = set.Catalog.Objects.Single(target => target.Bundle == ContentTestPaths.ExtraName);
+            var loader = await ContentEntryPoint.Over(storage).Register(_lifetime, ContentTestPaths.Name);
+            var entry = storage.Catalog.Objects.Single(target => target.Bundle == ContentTestPaths.ExtraName);
             return (loader, new ContentReference<ContentTestTarget>(entry.Guid, entry.LocalId));
         }
 
         // The files of TestsExtra and of TestsShared, its dependency.
         private static ContentCatalogFileEntry[] ExtraFiles()
         {
-            var catalog = ContentTestSets.Catalog;
+            var catalog = ContentTestStorages.Catalog;
             return new[] { ContentTestPaths.ExtraName, ContentTestPaths.SharedName }.SelectMany(name => catalog.Bundle(name).Files).ToArray();
         }
 
