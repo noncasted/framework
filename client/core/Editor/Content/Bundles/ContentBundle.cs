@@ -5,7 +5,7 @@ namespace Internal
 {
     // A content bundle of the project, the unit a player fetches and loads: its roots (assets and scenes) and everything
     // they reach, by direct references and by lazy ones (ContentReference, ContentScene), except what another bundle
-    // holds (ContentBundleLayout). The name of the asset is the name of the bundle (IContentBundles, ContentOptions.Name).
+    // holds (ContentBundleLayout). The name of the asset is the name of the bundle (IContentLoadersCollection, ContentOptions.Name).
     // A preloaded bundle goes into the .data file of a WebGL build; the others are fetched by a WebGL player when first
     // needed, in gzip with IsGzip (unpacked by the page: for a host that compresses no binary file). Every other player
     // reads them from its StreamingAssets.

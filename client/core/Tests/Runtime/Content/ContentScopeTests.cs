@@ -95,7 +95,7 @@ namespace Internal.Tests
             {
                 var options = new[] { new ContentOptions(ContentTestPaths.Name), new ContentOptions(ContentTestPaths.ExtraName) };
                 var root = await new ServiceScopeLoader().Load(ScopeLoadOptions.Create(null, ContentScopeRoots.TwoBundles.Construct, options));
-                var bundles = root.Resolve<IContentBundles>();
+                var bundles = root.Resolve<IContentLoadersCollection>();
                 var loader = await bundles.Wait(root.Lifetime, ContentTestPaths.ExtraName);
                 var references = loader.RootAssets<ContentTestReferences>().Single();
 
@@ -155,7 +155,7 @@ namespace Internal.Tests
             {
                 var options = new[] { new ContentOptions(ContentTestPaths.Name), new ContentOptions(ContentTestPaths.ExtraName) };
                 var root = await new ServiceScopeLoader().Load(ScopeLoadOptions.Create(null, ContentScopeRoots.Deferred.Construct, options));
-                var bundles = root.Resolve<IContentBundles>();
+                var bundles = root.Resolve<IContentLoadersCollection>();
                 await UniTask.DelayFrame(2);
 
                 Assert.AreEqual(0, created, "Nothing before the first Wait");

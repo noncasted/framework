@@ -18,7 +18,7 @@ namespace Internal
         private readonly Func<IReadOnlyLifetime, string, UniTask<IContentSource>> _register;
 
         internal ContentLoads Loads { get; } = new();
-        internal ContentBundles Loaders { get; } = new();
+        internal ContentLoadersCollection Loaders { get; } = new();
 
         // The main bundle of the build (a player) or of the project (Play Mode), held while the lifetime lives, without a
         // scope (a smoke player, a tool); a game calls AddContent.

@@ -4,22 +4,9 @@ using Cysharp.Threading.Tasks;
 
 namespace Internal
 {
-    // The bundles the root scope registered: the main one of AddContent (the catalogues load from it) and the ones of
-    // AddContentBundle, each loaded whole and held while the root lives, each with its own loader (its roots: RootAssets).
-    // Any loader loads any reference: the catalog knows the bundle of every lazy target.
-    public interface IContentBundles
-    {
-        // The loader of the bundle of this name; an unknown name throws, and so does a bundle still registering (Wait for it).
-        IContentLoader Get(string name);
-
-        // The loader once the bundle is registered: AddContentBundle registers in the background while the scopes after
-        // the root are built. Its failed registration throws here; an unknown name throws at once.
-        UniTask<IContentLoader> Wait(IReadOnlyLifetime lifetime, string name);
-    }
-
-    // The registry of the root scope. Public: the container of the root scope of a game, generated in its own assembly,
-    // names the registered type.
-    public sealed class ContentBundles : IContentBundles
+    // The loaders of the root scope by the name of their bundle. Public: the container of the root scope of a game,
+    // generated in its own assembly, names the registered type.
+    public sealed class ContentLoadersCollection : IContentLoadersCollection
     {
         private readonly Dictionary<string, UniTaskCompletionSource<IContentLoader>> _loaders = new(StringComparer.OrdinalIgnoreCase);
 

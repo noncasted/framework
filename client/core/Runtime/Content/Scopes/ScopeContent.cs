@@ -21,7 +21,7 @@ namespace Internal
             get
             {
                 if (_parent != null)
-                    throw new InvalidOperationException("[Content] AddContentBundle belongs to the root scope: a child resolves IContentBundles");
+                    throw new InvalidOperationException("[Content] AddContentBundle belongs to the root scope: a child resolves IContentLoadersCollection");
 
                 return _entryPoint ?? throw new InvalidOperationException("[Content] AddContentBundle needs AddContent before it in the root scope");
             }

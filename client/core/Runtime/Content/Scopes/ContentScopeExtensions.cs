@@ -21,14 +21,14 @@ namespace Internal
             using (GameProfiler.Scope("Content: bind catalogues"))
                 await CatalogContent.Bind(builder.Lifetime, loader, loader.RootAssets<ContentRoot>());
             builder.RegisterInstance(loader).As<IContentLoader>();
-            builder.RegisterInstance(entryPoint.Loaders).As<IContentBundles>();
+            builder.RegisterInstance(entryPoint.Loaders).As<IContentLoadersCollection>();
         }
 
         // The root scope, after AddContent: one more bundle (a ContentBundle asset, usually not preloaded: a WebGL player
         // fetches it), loaded whole with its dependencies and held as long as the root, with a loader over its roots. The
         // registration runs in the background: the root and the scopes after it do not wait for its requests;
-        // IContentBundles.Wait(lifetime, name) gives the loader once it is loaded. The catalogues know nothing of it: its
-        // objects are loaded from the references of its roots (IContentLoader.RootAssets).
+        // IContentLoadersCollection.Wait(lifetime, name) gives the loader once it is loaded. The catalogues know nothing of
+        // it: its objects are loaded from the references of its roots (IContentLoader.RootAssets).
         // OnFirstWait: nothing is fetched until the first Wait of the name (a bundle needed only well after the start).
         public static void AddContentBundle(this IScopeBuilder builder, string name, ContentRegistration registration = ContentRegistration.Background)
         {
