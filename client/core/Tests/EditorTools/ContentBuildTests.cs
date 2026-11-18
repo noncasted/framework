@@ -91,7 +91,7 @@ namespace Internal.EditorTests
             StringAssert.StartsWith("ContentBuildTests.", entry.Files.Single().Name);
             Assert.IsTrue(File.Exists(Path.Combine(output.Shipped, entry.Files.Single().Name)), "Shipped under the name of the build");
 
-            var catalog = AssetDatabase.LoadAssetAtPath<TextAsset>(ContentBuildFiles.CatalogAsset);
+            var catalog = AssetDatabase.LoadAssetAtPath<TextAsset>(ContentPlayerStamp.CatalogAsset);
             Assert.IsNotNull(catalog, "The catalog in Resources");
             Assert.AreEqual("ContentBuildTests", ContentCatalog.FromJson(catalog.text).Bundle("ContentBuildTests").Name);
             Assert.Throws<BuildFailedException>(() => ContentBuild.Prepare(ContentTestBundles.Target), "Prepared already");
@@ -100,7 +100,7 @@ namespace Internal.EditorTests
 
             Assert.IsNull(ContentBuild.Current);
             Assert.IsFalse(File.Exists(ContentLinkXml.Output));
-            Assert.IsFalse(AssetDatabase.IsValidFolder(ContentBuildFiles.CatalogFolder));
+            Assert.IsFalse(AssetDatabase.IsValidFolder(ContentPlayerStamp.CatalogFolder));
         }
 
         [Test]
@@ -185,10 +185,10 @@ namespace Internal.EditorTests
             Assert.IsFalse(catalog.Bundle("Preloaded").IsGzip, "The .data file is compressed by the build");
             Assert.IsTrue(catalog.Bundle("Preloaded").IsPreloaded);
 
-            ContentBuildFiles.WritePreloadManifest(catalog);
-            Assert.AreEqual(new[] { "Content/Preloaded.1.bundle" }, File.ReadAllLines(ContentBuildFiles.PreloadManifest));
-            ContentBuildFiles.Delete();
-            Assert.IsFalse(File.Exists(ContentBuildFiles.PreloadManifest));
+            ContentPlayerStamp.WritePreloadManifest(catalog);
+            Assert.AreEqual(new[] { "Content/Preloaded.1.bundle" }, File.ReadAllLines(ContentPlayerStamp.PreloadManifest));
+            ContentPlayerStamp.Delete();
+            Assert.IsFalse(File.Exists(ContentPlayerStamp.PreloadManifest));
 
             // Another player reads them all in place.
             var standalone = ContentCatalogWriter.Create(built, BuildTarget.StandaloneLinux64);

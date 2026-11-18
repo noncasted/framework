@@ -42,17 +42,17 @@ namespace Internal
                 throw new BuildFailedException("[ContentBuild] The content bundles are already prepared for a build");
 
             // Left by an editor that died inside a build.
-            ContentBuildFiles.Delete();
+            ContentPlayerStamp.Delete();
 
             var folder = $"{Output}/{target}";
             var bundles = Build(target, folder, isTypeTree: false);
             var output = new ContentBuildOutput(ContentShipment.Write(bundles, target), ContentLinkXml.Write(bundles), ContentCatalogWriter.Create(bundles, target), bundles);
 
-            ContentBuildFiles.WriteCatalog(output.Catalog);
-            ContentBuildFiles.WritePreloadManifest(output.Catalog);
+            ContentPlayerStamp.WriteCatalog(output.Catalog);
+            ContentPlayerStamp.WritePreloadManifest(output.Catalog);
             ContentBuildLog.Write(output);
             Debug.Log($"[ContentBuild] {bundles.Count} content bundles for {target}: StreamingAssets/{ContentShippedPaths.Folder} from {output.Shipped}, " +
-                      $"catalog {ContentBuildFiles.CatalogAsset}");
+                      $"catalog {ContentPlayerStamp.CatalogAsset}");
 
             Current = output;
             return Current;
@@ -61,7 +61,7 @@ namespace Internal
         public static void Cleanup()
         {
             Current = null;
-            ContentBuildFiles.Delete();
+            ContentPlayerStamp.Delete();
 
             if (File.Exists(ContentLinkXml.Output))
                 File.Delete(ContentLinkXml.Output);

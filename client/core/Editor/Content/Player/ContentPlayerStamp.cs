@@ -4,10 +4,10 @@ using UnityEditor;
 
 namespace Internal
 {
-    // The files a player build gets from the content build for its time only, removed after it, also a failed one: the
+    // What the content build puts into a player build for its time only, removed after it, also a failed one: the
     // catalog (ContentCatalog) as a json TextAsset in Resources (an asset folder of its own) and, for the preloaded bundles
     // of a WebGL build, the preload manifest that puts their files into the .data file (no request at the start).
-    public static class ContentBuildFiles
+    public static class ContentPlayerStamp
     {
         // An asset folder owned by the build alone: removed whole after it, and before it when a killed editor left it.
         public const string CatalogFolder = "Assets/FrameworkContentStamp";
