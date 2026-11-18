@@ -1,9 +1,9 @@
 namespace Internal
 {
     // The bundle that holds an asset: as a root of it, or as a lazy target it reached first (where: the reference).
-    public readonly struct ContentBundleClaim
+    public readonly struct ContentAssetOwner
     {
-        public ContentBundleClaim(ContentBundle bundle, bool isRoot, string where)
+        public ContentAssetOwner(ContentBundle bundle, bool isRoot, string where)
         {
             Bundle = bundle;
             IsRoot = isRoot;

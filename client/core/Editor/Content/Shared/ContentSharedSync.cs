@@ -64,7 +64,7 @@ namespace Internal
             Check(folder, shared);
 
             var roots = shared.ToDictionary(bundle => bundle.Name, _ => new SortedSet<string>(StringComparer.Ordinal));
-            var lazy = new ContentLazyReferences();
+            var lazy = new ContentLazyReferenceScanner();
             var graph = new ContentAssetGraph();
 
             for (var pass = 0; pass < MaxPasses; pass++)

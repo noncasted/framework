@@ -9,15 +9,15 @@ namespace Internal
     // then every lazy target no bundle holds, given to the bundle that reaches it, with what it reaches in turn, until
     // nothing new comes. Walked in the order of the names of the bundles; a walk stops at an asset another bundle holds.
     // Every bundle of the project takes part, also one a build leaves out: the others hold the same as in a full build.
-    public sealed class ContentBundleClaims
+    public sealed class ContentOwnership
     {
         private readonly IReadOnlyList<ContentBundle> _bundles;
-        private readonly ContentLazyReferences _lazy;
+        private readonly ContentLazyReferenceScanner _lazy;
         private readonly ContentAssetGraph _graph;
         private readonly List<string> _errors;
-        private readonly Dictionary<string, ContentBundleClaim> _claims = new();
+        private readonly Dictionary<string, ContentAssetOwner> _owners = new();
 
-        private ContentBundleClaims(IReadOnlyList<ContentBundle> bundles, ContentLazyReferences lazy, ContentAssetGraph graph, List<string> errors)
+        private ContentOwnership(IReadOnlyList<ContentBundle> bundles, ContentLazyReferenceScanner lazy, ContentAssetGraph graph, List<string> errors)
         {
             _bundles = bundles;
             _lazy = lazy;
@@ -26,42 +26,42 @@ namespace Internal
         }
 
         // The errors of the roots go to errors.
-        public static ContentBundleClaims Of(IReadOnlyList<ContentBundle> bundles, ContentLazyReferences lazy, ContentAssetGraph graph, List<string> errors)
+        public static ContentOwnership Of(IReadOnlyList<ContentBundle> bundles, ContentLazyReferenceScanner lazy, ContentAssetGraph graph, List<string> errors)
         {
-            var claims = new ContentBundleClaims(bundles, lazy, graph, errors);
-            claims.ClaimRoots();
-            claims.ClaimLazyTargets();
-            return claims;
+            var ownership = new ContentOwnership(bundles, lazy, graph, errors);
+            ownership.ClaimRoots();
+            ownership.ClaimLazyTargets();
+            return ownership;
         }
 
-        public bool TryGet(string path, out ContentBundleClaim claim)
+        public bool TryGet(string path, out ContentAssetOwner owner)
         {
-            return _claims.TryGetValue(path, out claim);
+            return _owners.TryGetValue(path, out owner);
         }
 
         public bool Contains(string path)
         {
-            return _claims.ContainsKey(path);
+            return _owners.ContainsKey(path);
         }
 
-        public ContentBundleClaim this[string path] => _claims[path];
+        public ContentAssetOwner this[string path] => _owners[path];
 
         // The paths a bundle holds, in ordinal order.
         public IReadOnlyList<string> Own(ContentBundle bundle)
         {
-            return _claims.Where(entry => entry.Value.Bundle == bundle).Select(entry => entry.Key).OrderBy(path => path, StringComparer.Ordinal).ToArray();
+            return _owners.Where(entry => entry.Value.Bundle == bundle).Select(entry => entry.Key).OrderBy(path => path, StringComparer.Ordinal).ToArray();
         }
 
         // The asset and everything it references directly, down to the assets another bundle holds; held is called with
-        // each of those and its claim.
-        public IEnumerable<string> Walk(ContentBundle bundle, string start, Action<string, ContentBundleClaim> held = null)
+        // each of those and its owner.
+        public IEnumerable<string> Walk(ContentBundle bundle, string start, Action<string, ContentAssetOwner> held = null)
         {
             return _graph.Walk(start, path =>
             {
-                if (_claims.TryGetValue(path, out var claim) == false || claim.Bundle == bundle)
+                if (_owners.TryGetValue(path, out var owner) == false || owner.Bundle == bundle)
                     return false;
 
-                held?.Invoke(path, claim);
+                held?.Invoke(path, owner);
                 return true;
             });
         }
@@ -83,13 +83,13 @@ namespace Internal
                         continue;
                     }
 
-                    if (_claims.TryGetValue(path, out var claim))
+                    if (_owners.TryGetValue(path, out var owner))
                     {
-                        _errors.Add($"{path} is a root of the content bundles {claim.Bundle.Name} and {bundle.Name}");
+                        _errors.Add($"{path} is a root of the content bundles {owner.Bundle.Name} and {bundle.Name}");
                         continue;
                     }
 
-                    _claims.Add(path, new ContentBundleClaim(bundle, true, $"a root of {bundle.Name}"));
+                    _owners.Add(path, new ContentAssetOwner(bundle, true, $"a root of {bundle.Name}"));
                 }
             }
         }
@@ -98,7 +98,7 @@ namespace Internal
         // becomes theirs.
         private void ClaimLazyTargets()
         {
-            var queue = new Queue<(ContentBundle, string)>(_claims.Select(entry => (entry.Value.Bundle, entry.Key)).OrderBy(entry => entry.Item1.Name, StringComparer.Ordinal));
+            var queue = new Queue<(ContentBundle, string)>(_owners.Select(entry => (entry.Value.Bundle, entry.Key)).OrderBy(entry => entry.Item1.Name, StringComparer.Ordinal));
 
             while (queue.Count > 0)
             {
@@ -110,10 +110,10 @@ namespace Internal
                     {
                         var target = ContentLazyTargets.PathOf(reference);
 
-                        if (target == null || _claims.ContainsKey(target))
+                        if (target == null || _owners.ContainsKey(target))
                             continue;
 
-                        _claims.Add(target, new ContentBundleClaim(bundle, false, reference.Where));
+                        _owners.Add(target, new ContentAssetOwner(bundle, false, reference.Where));
                         queue.Enqueue((bundle, target));
                     }
                 }

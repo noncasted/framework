@@ -9,11 +9,11 @@ using Object = UnityEngine.Object;
 
 namespace Internal
 {
-    // The lazy references (ContentReference<T>, ContentScene) an asset or a scene holds: in its script objects (the only
-    // ones that can have such a field), found by the serialized type of the field. A file whose text has no "_guid:" is not
+    // Reads the lazy references (ContentReference<T>, ContentScene) an asset or a scene holds: in its script objects (the
+    // only ones that can have such a field), found by the serialized type of the field. A file whose text has no "_guid:" is not
     // opened (the asset serialization of a project is text); a scene is opened as a preview scene for the look and closed again.
     // Each path is read once per instance.
-    public sealed class ContentLazyReferences
+    public sealed class ContentLazyReferenceScanner
     {
         private const string Marker = ContentReferenceFields.Guid + ":";
 
