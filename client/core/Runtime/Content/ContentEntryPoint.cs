@@ -39,11 +39,11 @@ namespace Internal
             using (GameProfiler.Scope("Content: catalog"))
                 catalog = ContentCatalog.Load();
 
-            return Over(new ContentBundleStorage(catalog, Store(catalog, options)));
+            return Over(new ContentBundleStorage(catalog, Distribution(catalog, options)));
 #endif
         }
 
-        // The bundles of a catalog over a store (a player; a test over bundles built into a folder).
+        // The bundles of a catalog over a distribution (a player; a test over bundles built into a folder).
         internal static ContentEntryPoint Over(ContentBundleStorage storage)
         {
             return new ContentEntryPoint(async (lifetime, name) => await BundleContentSource.Register(lifetime, storage, name));
@@ -94,12 +94,12 @@ namespace Internal
             }
         }
 
-        private static IContentBundleStore Store(ContentCatalog catalog, ContentOptions options)
+        private static IContentDistribution Distribution(ContentCatalog catalog, ContentOptions options)
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
             WebContentFetch.Limit(options.MaxFetches);
 
-            var store = new WebContentBundleStore(Application.streamingAssetsPath, options.RemoteUrl, Application.temporaryCachePath);
+            var distribution = new WebContentDistribution(Application.streamingAssetsPath, options.RemoteUrl, Application.temporaryCachePath);
             var urls = new List<string>();
 
             foreach (var bundle in catalog.Bundles)
@@ -108,13 +108,13 @@ namespace Internal
                     continue;
 
                 foreach (var file in bundle.Files)
-                    urls.Add(store.UrlOf(bundle, file));
+                    urls.Add(distribution.UrlOf(bundle, file));
             }
 
             WebContentFetch.KeepOnly(urls);
-            return store;
+            return distribution;
 #else
-            return new LocalContentBundleStore($"{Application.streamingAssetsPath}/{ContentCatalogPaths.Folder}");
+            return new LocalContentDistribution($"{Application.streamingAssetsPath}/{ContentShippedPaths.Folder}");
 #endif
         }
     }

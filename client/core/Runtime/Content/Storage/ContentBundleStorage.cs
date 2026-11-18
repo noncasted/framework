@@ -4,21 +4,21 @@ using Cysharp.Threading.Tasks;
 
 namespace Internal
 {
-    // The bundles of the catalog over the store of the platform: a hold of a bundle holds its dependencies too (the
+    // The bundles of the catalog over the distribution of the platform: a hold of a bundle holds its dependencies too (the
     // catalog lists them all), each counted apart; one fetch per file for every load and prefetch that waits for it.
     // Main thread only.
     internal sealed class ContentBundleStorage
     {
-        public ContentBundleStorage(ContentCatalog catalog, IContentBundleStore store)
+        public ContentBundleStorage(ContentCatalog catalog, IContentDistribution distribution)
         {
             Catalog = catalog;
-            _store = store;
+            _distribution = distribution;
 
             foreach (var bundle in catalog.Bundles)
-                _stored.Add(bundle.Name, new ContentStoredBundle(bundle, store, FetchFiles));
+                _stored.Add(bundle.Name, new ContentStoredBundle(bundle, distribution, FetchFiles));
         }
 
-        private readonly IContentBundleStore _store;
+        private readonly IContentDistribution _distribution;
         private readonly Dictionary<string, ContentStoredBundle> _stored = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, ContentSharedFetch> _fetches = new();
 
@@ -31,7 +31,7 @@ namespace Internal
 
             foreach (var bundle in Closure(name))
             {
-                if (_store.IsFetched(bundle) == false)
+                if (_distribution.IsFetched(bundle) == false)
                     continue;
 
                 foreach (var file in bundle.Files)
@@ -51,7 +51,7 @@ namespace Internal
 
                 foreach (var file in bundle.Files)
                 {
-                    if (_store.IsReal(bundle, file) == false)
+                    if (_distribution.IsReal(bundle, file) == false)
                         return false;
                 }
             }
@@ -68,12 +68,12 @@ namespace Internal
 
             foreach (var bundle in closure)
             {
-                if (_store.IsFetched(bundle) == false)
+                if (_distribution.IsFetched(bundle) == false)
                     continue;
 
                 foreach (var file in bundle.Files)
                 {
-                    if (_store.IsReal(bundle, file))
+                    if (_distribution.IsReal(bundle, file))
                         fetched += file.Size;
                     else
                         fetches.Add(Counted(bundle, file));
@@ -146,12 +146,12 @@ namespace Internal
 
         private UniTask FetchFile(IReadOnlyLifetime lifetime, ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
-            if (_store.IsReal(bundle, file))
+            if (_distribution.IsReal(bundle, file))
                 return UniTask.CompletedTask;
 
             if (_fetches.TryGetValue(file.Name, out var running) == false)
             {
-                running = new ContentSharedFetch(fetch => _store.Fetch(fetch, bundle, file), () => _fetches.Remove(file.Name));
+                running = new ContentSharedFetch(fetch => _distribution.Fetch(fetch, bundle, file), () => _fetches.Remove(file.Name));
                 _fetches.Add(file.Name, running);
             }
 

@@ -38,7 +38,7 @@ namespace Internal
                     }
 
                     using var input = File.OpenRead(file.Path);
-                    using var gzip = new GZipStream(File.Create(shipped + ContentCatalogPaths.GzipExtension), SmallestSize);
+                    using var gzip = new GZipStream(File.Create(shipped + ContentShippedPaths.GzipExtension), SmallestSize);
                     input.CopyTo(gzip);
                 }
             }

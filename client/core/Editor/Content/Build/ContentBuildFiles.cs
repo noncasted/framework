@@ -29,7 +29,7 @@ namespace Internal
         {
             var files = catalog.Bundles
                 .Where(bundle => bundle.IsPreloaded)
-                .SelectMany(bundle => bundle.Files.Select(file => $"{ContentCatalogPaths.Folder}/{file.Name}"))
+                .SelectMany(bundle => bundle.Files.Select(file => $"{ContentShippedPaths.Folder}/{file.Name}"))
                 .ToArray();
 
             if (files.Length == 0)

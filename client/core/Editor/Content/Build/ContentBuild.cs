@@ -56,7 +56,7 @@ namespace Internal
             ContentBuildFiles.WriteCatalog(output.Catalog);
             ContentBuildFiles.WritePreloadManifest(output.Catalog);
             ContentBuildLog.Write(output);
-            Debug.Log($"[ContentBuild] {bundles.Count} content bundles for {target}: StreamingAssets/{ContentCatalogPaths.Folder} from {output.Shipped}, " +
+            Debug.Log($"[ContentBuild] {bundles.Count} content bundles for {target}: StreamingAssets/{ContentShippedPaths.Folder} from {output.Shipped}, " +
                       $"catalog {ContentBuildFiles.CatalogAsset}");
 
             Current = output;

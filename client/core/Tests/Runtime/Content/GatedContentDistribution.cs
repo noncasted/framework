@@ -3,12 +3,12 @@ using Cysharp.Threading.Tasks;
 
 namespace Internal.Tests
 {
-    // A store that fetches like a WebGL player over the bundles of ContentBundleTestBuild: a file is real once it is copied
-    // from the shipped folder into a folder of its own; with the gate shut a fetch waits for Open. Counts the fetches, the
-    // aborts and the files forgotten after an unload.
-    internal sealed class GatedContentBundleStore : IContentBundleStore
+    // A distribution that fetches like a WebGL player over the bundles of ContentBundleTestBuild: a file is real once it is
+    // copied from the shipped folder into a folder of its own; with the gate shut a fetch waits for Open. Counts the fetches,
+    // the aborts and the files forgotten after an unload.
+    internal sealed class GatedContentDistribution : IContentDistribution
     {
-        public GatedContentBundleStore(string source, string folder, bool isGated)
+        public GatedContentDistribution(string source, string folder, bool isGated)
         {
             _source = source;
             _folder = folder;

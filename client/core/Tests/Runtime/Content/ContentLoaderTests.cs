@@ -95,9 +95,9 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator LifetimeEndsDuringFetch_Canceled_FetchAborted_NothingLoaded() => UniTask.ToCoroutine(async () =>
         {
-            var store = ContentTestStorages.Store(false);
-            var (loader, extra) = await Register(ContentTestStorages.Fetched(store));
-            store.Shut();
+            var distribution = ContentTestStorages.Distribution(false);
+            var (loader, extra) = await Register(ContentTestStorages.Fetched(distribution));
+            distribution.Shut();
             var lifetime = new Lifetime();
 
             var load = loader.Load(lifetime, extra);
@@ -107,7 +107,7 @@ namespace Internal.Tests
             await AssertCanceled(load);
             await UniTask.DelayFrame(2);
             Assert.IsFalse(extra.IsLoaded);
-            Assert.Greater(store.Aborts, 0, "Nobody waits for the files: the fetch is aborted");
+            Assert.Greater(distribution.Aborts, 0, "Nobody waits for the files: the fetch is aborted");
             Assert.Throws<InvalidOperationException>(() => loader.LoadNow(_lifetime, extra), "Not fetched: LoadNow does not wait");
             LogAssert.NoUnexpectedReceived();
         });
@@ -170,8 +170,8 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator Fetched_LoadFetches_Progress_LoadNowWhileHeld_ForgottenAfter() => UniTask.ToCoroutine(async () =>
         {
-            var store = ContentTestStorages.Store(false);
-            var (loader, extra) = await Register(ContentTestStorages.Fetched(store));
+            var distribution = ContentTestStorages.Distribution(false);
+            var (loader, extra) = await Register(ContentTestStorages.Fetched(distribution));
             var progress = loader.Progress(extra);
             var total = ExtraFiles().Sum(file => file.Size);
 
@@ -190,10 +190,10 @@ namespace Internal.Tests
             Assert.AreSame(target, loader.LoadNow(held, extra), "Loaded: LoadNow gives it at once");
             held.Terminate();
 
-            var forgotten = store.Forgotten;
+            var forgotten = distribution.Forgotten;
             lifetime.Terminate();
 
-            Assert.AreEqual(forgotten + ExtraFiles().Length, store.Forgotten, "The fetched files go with the unload of their bundles");
+            Assert.AreEqual(forgotten + ExtraFiles().Length, distribution.Forgotten, "The fetched files go with the unload of their bundles");
             Assert.Throws<InvalidOperationException>(() => loader.LoadNow(_lifetime, extra), "Forgotten: a fetch again");
             LogAssert.NoUnexpectedReceived();
         });
@@ -201,14 +201,14 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator Prefetch_FetchesOnce_LoadsNothing_LoadNowAfter() => UniTask.ToCoroutine(async () =>
         {
-            var store = ContentTestStorages.Store(false);
-            var (loader, extra) = await Register(ContentTestStorages.Fetched(store));
-            var fetches = store.Fetches;
+            var distribution = ContentTestStorages.Distribution(false);
+            var (loader, extra) = await Register(ContentTestStorages.Fetched(distribution));
+            var fetches = distribution.Fetches;
             var before = Targets();
 
             await UniTask.WhenAll(loader.Fetch(_lifetime, extra), loader.Fetch(_lifetime, extra));
 
-            Assert.AreEqual(fetches + ExtraFiles().Length, store.Fetches, "One fetch per file for both");
+            Assert.AreEqual(fetches + ExtraFiles().Length, distribution.Fetches, "One fetch per file for both");
             Assert.AreEqual(before, Targets(), "Nothing loaded");
             Assert.IsTrue(loader.Progress(extra).Value.IsDone);
 
@@ -221,11 +221,11 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator TwoLoadsDuringFetch_FirstEnds_FetchGoesOn_OneFetchPerFile() => UniTask.ToCoroutine(async () =>
         {
-            var store = ContentTestStorages.Store(false);
-            var (loader, extra) = await Register(ContentTestStorages.Fetched(store));
-            store.Shut();
-            var fetches = store.Fetches;
-            var aborts = store.Aborts;
+            var distribution = ContentTestStorages.Distribution(false);
+            var (loader, extra) = await Register(ContentTestStorages.Fetched(distribution));
+            distribution.Shut();
+            var fetches = distribution.Fetches;
+            var aborts = distribution.Aborts;
             var first = new Lifetime();
             var second = new Lifetime();
 
@@ -236,14 +236,14 @@ namespace Internal.Tests
 
             await AssertCanceled(prefetch);
             await UniTask.DelayFrame(2);
-            store.Open();
+            distribution.Open();
 
             var target = await load;
 
             Assert.AreEqual("ExtraTarget", target.name, "The load that still waits gets its target");
             Assert.AreEqual("Shared", target.Direct.name);
-            Assert.AreEqual(aborts, store.Aborts, "A waiter is left: the fetch goes on");
-            Assert.AreEqual(fetches + ExtraFiles().Length, store.Fetches, "One fetch per file for both");
+            Assert.AreEqual(aborts, distribution.Aborts, "A waiter is left: the fetch goes on");
+            Assert.AreEqual(fetches + ExtraFiles().Length, distribution.Fetches, "One fetch per file for both");
 
             second.Terminate();
             LogAssert.NoUnexpectedReceived();

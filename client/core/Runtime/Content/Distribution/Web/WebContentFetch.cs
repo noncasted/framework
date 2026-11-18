@@ -43,7 +43,7 @@ namespace Internal
         // from) of another URL than these: the files of the builds before.
         public static void KeepOnly(IReadOnlyList<string> urls)
         {
-            WebContentFetch_KeepOnly(ContentCatalogPaths.Folder, string.Join("\n", urls));
+            WebContentFetch_KeepOnly(ContentShippedPaths.Folder, string.Join("\n", urls));
         }
 
         private static async UniTask Await(IReadOnlyLifetime lifetime, int fetch, string what)

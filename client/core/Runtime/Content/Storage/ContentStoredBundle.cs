@@ -11,16 +11,16 @@ namespace Internal
     // unload (the engine refuses two loads of one file). Main thread only.
     internal sealed class ContentStoredBundle
     {
-        public ContentStoredBundle(ContentCatalogBundleEntry bundle, IContentBundleStore store,
+        public ContentStoredBundle(ContentCatalogBundleEntry bundle, IContentDistribution distribution,
             Func<IReadOnlyLifetime, ContentCatalogBundleEntry, UniTask> fetch)
         {
             _bundle = bundle;
-            _store = store;
+            _distribution = distribution;
             _fetch = fetch;
         }
 
         private readonly ContentCatalogBundleEntry _bundle;
-        private readonly IContentBundleStore _store;
+        private readonly IContentDistribution _distribution;
         private readonly Func<IReadOnlyLifetime, ContentCatalogBundleEntry, UniTask> _fetch;
         private readonly List<AssetBundle> _loaded = new();
         private int _holds;
@@ -80,14 +80,14 @@ namespace Internal
 
                 foreach (var file in _bundle.Files)
                 {
-                    if (_store.IsReal(_bundle, file) == false)
+                    if (_distribution.IsReal(_bundle, file) == false)
                         throw new InvalidOperationException($"[Content] The content bundle {_bundle.Name} needs a fetch: load it with Load");
                 }
 
                 using (GameProfiler.Scope($"Content: bundle {_bundle.Name}"))
                 {
                     foreach (var file in _bundle.Files)
-                        _loaded.Add(Checked(AssetBundle.LoadFromFile(_store.PathOf(_bundle, file)), file));
+                        _loaded.Add(Checked(AssetBundle.LoadFromFile(_distribution.PathOf(_bundle, file)), file));
                 }
             }
 
@@ -166,7 +166,7 @@ namespace Internal
                 foreach (var file in _bundle.Files)
                 {
                     // Not cancelled: the engine finishes a load it started.
-                    var request = AssetBundle.LoadFromFileAsync(_store.PathOf(_bundle, file));
+                    var request = AssetBundle.LoadFromFileAsync(_distribution.PathOf(_bundle, file));
                     await ((AsyncOperation)request).ToUniTask();
                     loaded.Add(Checked(request.assetBundle, file));
                 }
@@ -192,13 +192,13 @@ namespace Internal
                 bundle.Unload(true);
 
             foreach (var file in _bundle.Files)
-                _store.Forget(_bundle, file);
+                _distribution.Forget(_bundle, file);
         }
 
         private AssetBundle Checked(AssetBundle bundle, ContentCatalogFileEntry file)
         {
             if (bundle == null)
-                throw new InvalidOperationException($"[Content] The engine did not load {file.Name} of the content bundle {_bundle.Name} from {_store.PathOf(_bundle, file)}");
+                throw new InvalidOperationException($"[Content] The engine did not load {file.Name} of the content bundle {_bundle.Name} from {_distribution.PathOf(_bundle, file)}");
 
             return bundle;
         }

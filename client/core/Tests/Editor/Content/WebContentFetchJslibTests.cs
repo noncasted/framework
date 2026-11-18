@@ -14,8 +14,8 @@ namespace Internal.Tests
         [Test]
         public void Jslib_OnNode()
         {
-            // <core>/Runtime/Content/Plugins/WebContentFetch.jslib
-            var core = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(JslibPath())), "..", "..", ".."));
+            // <core>/Runtime/Content/Distribution/Web/WebContentFetch.jslib
+            var core = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(JslibPath())), "..", "..", "..", ".."));
             var script = Path.Combine(core, "Tests~", "web-content-fetch.test.js");
             var info = new ProcessStartInfo("node", $"--test \"{script}\"")
             {

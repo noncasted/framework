@@ -2,7 +2,7 @@ namespace Internal
 {
     // Where a player build puts the content: every file of every bundle in StreamingAssets/Content, named by its hash,
     // and the catalog in Resources (ContentCatalog.Resource). A bundle shipped in gzip for a WebGL player is <file>.gz.
-    public static class ContentCatalogPaths
+    public static class ContentShippedPaths
     {
         public const string Folder = "Content";
 

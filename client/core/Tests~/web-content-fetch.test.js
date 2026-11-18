@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, '..', 'Runtime', 'Content', 'Plugins', 'WebContentFetch.jslib'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '..', 'Runtime', 'Content', 'Distribution', 'Web', 'WebContentFetch.jslib'), 'utf8');
 
 function load(urls) {
     const library = {};

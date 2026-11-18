@@ -9,13 +9,13 @@ namespace Internal
     // a disk); the others are fetched from <remote or StreamingAssets>/Content/<file>[.gz] into
     // temporaryCachePath/Content/<file> (WebContentFetch: the Cache API of the page keeps them, a .gz is unpacked by the
     // page) and deleted when their bundle is unloaded, so the memory of the page holds only the bundles in use.
-    internal sealed class WebContentBundleStore : IContentBundleStore
+    internal sealed class WebContentDistribution : IContentDistribution
     {
-        public WebContentBundleStore(string streamingAssets, string remote, string cache)
+        public WebContentDistribution(string streamingAssets, string remote, string cache)
         {
-            _local = $"{streamingAssets}/{ContentCatalogPaths.Folder}";
-            _remote = $"{remote ?? streamingAssets}/{ContentCatalogPaths.Folder}";
-            _cache = $"{cache}/{ContentCatalogPaths.Folder}";
+            _local = $"{streamingAssets}/{ContentShippedPaths.Folder}";
+            _remote = $"{remote ?? streamingAssets}/{ContentShippedPaths.Folder}";
+            _cache = $"{cache}/{ContentShippedPaths.Folder}";
         }
 
         private readonly string _local;
@@ -55,7 +55,7 @@ namespace Internal
         // What the server holds: the file of the build, .gz for a bundle shipped in gzip.
         public string UrlOf(ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
-            return $"{_remote}/{ContentCatalogPaths.Shipped(bundle, file)}";
+            return $"{_remote}/{ContentShippedPaths.Shipped(bundle, file)}";
         }
     }
 }

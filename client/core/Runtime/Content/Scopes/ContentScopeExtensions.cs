@@ -6,7 +6,7 @@ namespace Internal
 {
     public static class ContentScopeExtensions
     {
-        // The root scope of the game, once: the catalog of the bundles of the build and the store of the platform (a
+        // The root scope of the game, once: the catalog of the bundles of the build and the distribution of the platform (a
         // player), the assets of the project (Play Mode of the editor); the main bundle (options.Name) loaded whole and held
         // as long as the root, IContentLoader over its roots. The generated catalogues load from it too (CatalogContent).
         public static async UniTask AddContent(this IScopeBuilder builder, ContentOptions options)
