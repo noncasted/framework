@@ -8,21 +8,16 @@ using UnityEngine;
 
 namespace Internal
 {
-    /// <summary>
-    ///     Builds the content bundles of the project (every <see cref="ContentBundle" /> asset) together with every player
-    ///     build: the roots and the bundles left out (<see cref="IContentBuildStep" />), the shared bundles
-    ///     (<see cref="ContentSharedSync" />), the layout and its checks (<see cref="ContentBundleLayout" />),
-    ///     the bundles in Temp/ContentBundles/&lt;target&gt; (<see cref="ContentBundleBuilder" />), their files under the
-    ///     names of the build (<see cref="ContentShipment" />), the catalog (<see cref="ContentCatalogWriter" />), the types of their objects for the linker
-    ///     (<see cref="ContentLinkXml" />) and the log.
-    ///     The player gets the files as StreamingAssets/Content (<see cref="ContentBuildPlayerProcessor" />), the catalog as
-    ///     a json TextAsset in Resources; a preloaded bundle of a WebGL build goes into the .data file. The temporary files
-    ///     are removed after the build, also a failed one.
-    ///     <para>
-    ///         A build through <see cref="PlayerBuildSteps" /> prepares the bundles in <see cref="BeforeBuild" />; any other
-    ///         build (the build window, a script of a game) in <see cref="ContentBuildPlayerProcessor" />.
-    ///     </para>
-    /// </summary>
+    // Builds the content bundles of the project (every ContentBundle asset) together with every player build: the roots and
+    // the bundles left out (IContentBuildStep), the shared bundles (ContentSharedSync), the steps around the layout and the
+    // bundle build (IContentLayoutStep), the layout and its checks (ContentBundleLayout), the bundles in
+    // Temp/ContentBundles/<target> (ContentBundleBuilder), their files under the names of the build (ContentShipment), the
+    // catalog (ContentCatalogWriter), the types of their objects for the linker (ContentLinkXml) and the log.
+    // The player gets the files as StreamingAssets/Content (ContentBuildPlayerProcessor), the catalog as a json TextAsset in
+    // Resources; a preloaded bundle of a WebGL build goes into the .data file. The temporary files are removed after the
+    // build, also a failed one.
+    // A build through PlayerBuildSteps prepares the bundles in BeforeBuild; any other build (the build window, a script of a
+    // game) in ContentBuildPlayerProcessor.
     public sealed class ContentBuild : IPlayerBuildStep
     {
         // Not under Library: BuildAssetBundles refuses it ("Building to the Library folder is not allowed").
@@ -77,33 +72,40 @@ namespace Internal
         {
             var build = new ContentBuildContext(target);
 
-            foreach (var step in FindSteps())
+            foreach (var step in FindSteps<IContentBuildStep>())
                 step.BeforeContentBuild(build);
 
             ContentSharedSync.Run();
 
             var bundles = ContentBundleAssets.All();
 
-            if (build.Excluded.Count == 0)
-                return ContentBundleBuilder.Build(ContentBundleLayout.Lay(bundles).Plans, target, folder, isTypeTree);
+            if (build.Excluded.Count > 0)
+                Debug.Log($"[ContentBuild] Left out of this build: {string.Join(", ", build.Excluded)}");
 
-            Debug.Log($"[ContentBuild] Left out of this build: {string.Join(", ", build.Excluded)}");
+            build.Resolve(ExcludedBundles(bundles, build.Excluded));
 
-            // The ContentRoot of this build has no group or scene of the bundles left out; the project gets the full one back.
-            ContentRootGenerator.GenerateWithout(ExcludedRoots(bundles, build.Excluded));
+            // A step whose BeforeLayout threw gets no AfterBundles: its exception is the failure of the build.
+            var started = new List<IContentLayoutStep>();
 
             try
             {
+                foreach (var step in FindSteps<IContentLayoutStep>())
+                {
+                    step.BeforeLayout(build);
+                    started.Add(step);
+                }
+
                 return ContentBundleBuilder.Build(ContentBundleLayout.Lay(bundles, build.Excluded).Plans, target, folder, isTypeTree);
             }
             finally
             {
-                ContentRootGenerator.GenerateNow();
+                for (var i = started.Count - 1; i >= 0; i--)
+                    started[i].AfterBundles(build);
             }
         }
 
-        // The paths of the roots of the bundles of these names.
-        private static IReadOnlyCollection<string> ExcludedRoots(IReadOnlyList<ContentBundle> bundles, IReadOnlyCollection<string> excluded)
+        // The ContentBundle assets of these names.
+        private static IReadOnlyList<ContentBundle> ExcludedBundles(IReadOnlyList<ContentBundle> bundles, IReadOnlyCollection<string> excluded)
         {
             var unknown = excluded.Where(name => bundles.Any(bundle => bundle.Name == name) == false).ToArray();
 
@@ -113,18 +115,15 @@ namespace Internal
                                                $"the project has {string.Join(", ", bundles.Select(bundle => bundle.Name))}");
             }
 
-            return new HashSet<string>(bundles.Where(bundle => excluded.Contains(bundle.Name))
-                .SelectMany(bundle => bundle.Roots)
-                .Where(root => root != null)
-                .Select(AssetDatabase.GetAssetPath));
+            return bundles.Where(bundle => excluded.Contains(bundle.Name)).ToArray();
         }
 
-        internal static IReadOnlyList<IContentBuildStep> FindSteps()
+        private static IReadOnlyList<T> FindSteps<T>()
         {
-            return TypeCache.GetTypesDerivedFrom<IContentBuildStep>()
+            return TypeCache.GetTypesDerivedFrom<T>()
                 .Where(type => type.IsAbstract == false && type.ContainsGenericParameters == false)
                 .OrderBy(type => type.FullName, StringComparer.Ordinal)
-                .Select(type => (IContentBuildStep)Activator.CreateInstance(type))
+                .Select(type => (T)Activator.CreateInstance(type))
                 .ToArray();
         }
     }
