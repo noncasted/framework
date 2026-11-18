@@ -9,7 +9,7 @@ namespace Internal
         public const string GzipExtension = ".gz";
 
         // The name on the server of a file of a bundle.
-        public static string Shipped(ContentCatalogBundle bundle, ContentCatalogFile file)
+        public static string Shipped(ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
             return bundle.IsGzip ? file.Name + GzipExtension : file.Name;
         }

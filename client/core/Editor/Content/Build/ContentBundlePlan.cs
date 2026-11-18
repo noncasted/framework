@@ -25,8 +25,8 @@ namespace Internal
         public List<string> Assets { get; } = new();
         public List<string> Scenes { get; } = new();
         public List<string> Roots { get; } = new();
-        public List<ContentCatalogObject> Objects { get; } = new();
-        public List<ContentCatalogScene> SceneEntries { get; } = new();
+        public List<ContentCatalogObjectEntry> Objects { get; } = new();
+        public List<ContentCatalogSceneEntry> SceneEntries { get; } = new();
 
         // The assets the engine copies into the bundle (no other bundle holds them), with the asset that needs each first.
         public Dictionary<string, string> Implicit { get; } = new();

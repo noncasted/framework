@@ -15,27 +15,27 @@ namespace Internal
         // The path of Resources.Load<TextAsset>.
         public const string Resource = "Content/catalog";
 
-        public ContentCatalog(IReadOnlyList<ContentCatalogBundle> bundles, IReadOnlyList<ContentCatalogObject> objects,
-            IReadOnlyList<ContentCatalogScene> scenes)
+        public ContentCatalog(IReadOnlyList<ContentCatalogBundleEntry> bundles,
+            IReadOnlyList<ContentCatalogObjectEntry> objects, IReadOnlyList<ContentCatalogSceneEntry> scenes)
         {
             _version = CurrentVersion;
-            _bundles = new List<ContentCatalogBundle>(bundles);
-            _objects = new List<ContentCatalogObject>(objects);
-            _scenes = new List<ContentCatalogScene>(scenes);
+            _bundles = new List<ContentCatalogBundleEntry>(bundles);
+            _objects = new List<ContentCatalogObjectEntry>(objects);
+            _scenes = new List<ContentCatalogSceneEntry>(scenes);
         }
 
         [SerializeField] private int _version;
-        [SerializeField] private List<ContentCatalogBundle> _bundles;
-        [SerializeField] private List<ContentCatalogObject> _objects;
-        [SerializeField] private List<ContentCatalogScene> _scenes;
+        [SerializeField] private List<ContentCatalogBundleEntry> _bundles;
+        [SerializeField] private List<ContentCatalogObjectEntry> _objects;
+        [SerializeField] private List<ContentCatalogSceneEntry> _scenes;
 
-        [NonSerialized] private Dictionary<string, ContentCatalogBundle> _bundlesByName;
-        [NonSerialized] private Dictionary<(string, long), ContentCatalogObject> _objectsByKey;
-        [NonSerialized] private Dictionary<string, ContentCatalogScene> _scenesByGuid;
+        [NonSerialized] private Dictionary<string, ContentCatalogBundleEntry> _bundlesByName;
+        [NonSerialized] private Dictionary<(string, long), ContentCatalogObjectEntry> _objectsByKey;
+        [NonSerialized] private Dictionary<string, ContentCatalogSceneEntry> _scenesByGuid;
 
-        public IReadOnlyList<ContentCatalogBundle> Bundles => _bundles;
-        public IReadOnlyList<ContentCatalogObject> Objects => _objects;
-        public IReadOnlyList<ContentCatalogScene> Scenes => _scenes;
+        public IReadOnlyList<ContentCatalogBundleEntry> Bundles => _bundles;
+        public IReadOnlyList<ContentCatalogObjectEntry> Objects => _objects;
+        public IReadOnlyList<ContentCatalogSceneEntry> Scenes => _scenes;
 
         public static ContentCatalog Load()
         {
@@ -65,7 +65,7 @@ namespace Internal
             return JsonUtility.ToJson(this, true);
         }
 
-        public ContentCatalogBundle Bundle(string name)
+        public ContentCatalogBundleEntry Bundle(string name)
         {
             if (_bundlesByName.TryGetValue(name, out var bundle))
                 return bundle;
@@ -73,7 +73,7 @@ namespace Internal
             throw new KeyNotFoundException($"[Content] No content bundle {name}: the catalog has {string.Join(", ", _bundlesByName.Keys)}");
         }
 
-        public ContentCatalogObject Object(string guid, long localId)
+        public ContentCatalogObjectEntry Object(string guid, long localId)
         {
             if (_objectsByKey.TryGetValue((guid, localId), out var entry))
                 return entry;
@@ -81,7 +81,7 @@ namespace Internal
             throw new KeyNotFoundException($"[Content] {guid}:{localId} is in no content bundle (the content build checks every lazy reference: a reference made in code?)");
         }
 
-        public ContentCatalogScene Scene(string guid)
+        public ContentCatalogSceneEntry Scene(string guid)
         {
             if (_scenesByGuid.TryGetValue(guid, out var entry))
                 return entry;
@@ -91,9 +91,9 @@ namespace Internal
 
         private void Index()
         {
-            _bundlesByName = new Dictionary<string, ContentCatalogBundle>(StringComparer.OrdinalIgnoreCase);
-            _objectsByKey = new Dictionary<(string, long), ContentCatalogObject>();
-            _scenesByGuid = new Dictionary<string, ContentCatalogScene>();
+            _bundlesByName = new Dictionary<string, ContentCatalogBundleEntry>(StringComparer.OrdinalIgnoreCase);
+            _objectsByKey = new Dictionary<(string, long), ContentCatalogObjectEntry>();
+            _scenesByGuid = new Dictionary<string, ContentCatalogSceneEntry>();
 
             foreach (var bundle in _bundles)
                 _bundlesByName.Add(bundle.Name, bundle);

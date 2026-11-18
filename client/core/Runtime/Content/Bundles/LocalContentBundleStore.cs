@@ -8,19 +8,19 @@ namespace Internal
     {
         // The player fetches the files of the bundle: its progress counts their bytes. False for the files on the disk or in
         // the .data file.
-        bool IsFetched(ContentCatalogBundle bundle);
+        bool IsFetched(ContentCatalogBundleEntry bundle);
 
         // The file is on the device: the engine opens it now.
-        bool IsReal(ContentCatalogBundle bundle, ContentCatalogFile file);
+        bool IsReal(ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file);
 
         // Brings the file to PathOf; aborted when the lifetime ends.
-        UniTask Fetch(IReadOnlyLifetime lifetime, ContentCatalogBundle bundle, ContentCatalogFile file);
+        UniTask Fetch(IReadOnlyLifetime lifetime, ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file);
 
         // The path AssetBundle.LoadFromFile opens.
-        string PathOf(ContentCatalogBundle bundle, ContentCatalogFile file);
+        string PathOf(ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file);
 
         // The bundle was unloaded: a fetched copy goes (the cache of the page keeps its bytes for the next fetch).
-        void Forget(ContentCatalogBundle bundle, ContentCatalogFile file);
+        void Forget(ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file);
     }
 
     // StreamingAssets of the player as it is (standalone, Android - a path inside the APK that LoadFromFile reads, a test
@@ -34,28 +34,28 @@ namespace Internal
 
         private readonly string _folder;
 
-        public bool IsFetched(ContentCatalogBundle bundle)
+        public bool IsFetched(ContentCatalogBundleEntry bundle)
         {
             return false;
         }
 
-        public bool IsReal(ContentCatalogBundle bundle, ContentCatalogFile file)
+        public bool IsReal(ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
             return true;
         }
 
-        public UniTask Fetch(IReadOnlyLifetime lifetime, ContentCatalogBundle bundle, ContentCatalogFile file)
+        public UniTask Fetch(IReadOnlyLifetime lifetime, ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
             lifetime.Token.ThrowIfCancellationRequested();
             return UniTask.CompletedTask;
         }
 
-        public string PathOf(ContentCatalogBundle bundle, ContentCatalogFile file)
+        public string PathOf(ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
             return $"{_folder}/{file.Name}";
         }
 
-        public void Forget(ContentCatalogBundle bundle, ContentCatalogFile file)
+        public void Forget(ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
         }
     }

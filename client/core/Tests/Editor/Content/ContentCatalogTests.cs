@@ -54,14 +54,14 @@ namespace Internal.Tests
 
         private static ContentCatalog Catalog(string dependency)
         {
-            var main = new ContentCatalogBundle("Main",
-                new[] { new ContentCatalogFile("Main.abc.bundle", 123, false), new ContentCatalogFile("Main.scenes.def.bundle", 45, true) },
+            var main = new ContentCatalogBundleEntry("Main",
+                new[] { new ContentCatalogFileEntry("Main.abc.bundle", 123, false), new ContentCatalogFileEntry("Main.scenes.def.bundle", 45, true) },
                 new[] { dependency }, new[] { "root-guid" }, false, true);
-            var shared = new ContentCatalogBundle("Shared", new[] { new ContentCatalogFile("Shared.0a.bundle", 10, false) }, new string[0], new string[0], true, false);
+            var shared = new ContentCatalogBundleEntry("Shared", new[] { new ContentCatalogFileEntry("Shared.0a.bundle", 10, false) }, new string[0], new string[0], true, false);
 
             return new ContentCatalog(new[] { main, shared },
-                new[] { new ContentCatalogObject("target-guid", 7, "Main", null), new ContentCatalogObject("sprite-guid", 9, "Main", "Icon") },
-                new[] { new ContentCatalogScene("scene-guid", "Main", "Assets/Level.unity") });
+                new[] { new ContentCatalogObjectEntry("target-guid", 7, "Main", null), new ContentCatalogObjectEntry("sprite-guid", 9, "Main", "Icon") },
+                new[] { new ContentCatalogSceneEntry("scene-guid", "Main", "Assets/Level.unity") });
         }
     }
 }

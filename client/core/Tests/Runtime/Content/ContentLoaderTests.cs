@@ -302,7 +302,7 @@ namespace Internal.Tests
         }
 
         // The files of TestsExtra and of TestsShared, its dependency.
-        private static ContentCatalogFile[] ExtraFiles()
+        private static ContentCatalogFileEntry[] ExtraFiles()
         {
             var catalog = ContentTestSets.Catalog;
             return new[] { ContentTestPaths.ExtraName, ContentTestPaths.SharedName }.SelectMany(name => catalog.Bundle(name).Files).ToArray();

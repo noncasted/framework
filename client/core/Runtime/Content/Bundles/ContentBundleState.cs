@@ -11,16 +11,17 @@ namespace Internal
     // unload (the engine refuses two loads of one file). Main thread only.
     internal sealed class ContentBundleState
     {
-        public ContentBundleState(ContentCatalogBundle bundle, IContentBundleStore store, Func<IReadOnlyLifetime, ContentCatalogBundle, UniTask> fetch)
+        public ContentBundleState(ContentCatalogBundleEntry bundle, IContentBundleStore store,
+            Func<IReadOnlyLifetime, ContentCatalogBundleEntry, UniTask> fetch)
         {
             _bundle = bundle;
             _store = store;
             _fetch = fetch;
         }
 
-        private readonly ContentCatalogBundle _bundle;
+        private readonly ContentCatalogBundleEntry _bundle;
         private readonly IContentBundleStore _store;
-        private readonly Func<IReadOnlyLifetime, ContentCatalogBundle, UniTask> _fetch;
+        private readonly Func<IReadOnlyLifetime, ContentCatalogBundleEntry, UniTask> _fetch;
         private readonly List<AssetBundle> _loaded = new();
         private int _holds;
         private Lifetime _load;
@@ -194,7 +195,7 @@ namespace Internal
                 _store.Forget(_bundle, file);
         }
 
-        private AssetBundle Checked(AssetBundle bundle, ContentCatalogFile file)
+        private AssetBundle Checked(AssetBundle bundle, ContentCatalogFileEntry file)
         {
             if (bundle == null)
                 throw new InvalidOperationException($"[Content] The engine did not load {file.Name} of the content bundle {_bundle.Name} from {_store.PathOf(_bundle, file)}");

@@ -170,7 +170,7 @@ namespace Internal
             return asset as T ?? throw new InvalidOperationException($"[Content] The engine did not load {typeof(T).Name} {reference}");
         }
 
-        private static T Pick<T>(Object[] assets, ContentCatalogObject entry, ContentReference<T> reference) where T : Object
+        private static T Pick<T>(Object[] assets, ContentCatalogObjectEntry entry, ContentReference<T> reference) where T : Object
         {
             foreach (var asset in assets)
             {

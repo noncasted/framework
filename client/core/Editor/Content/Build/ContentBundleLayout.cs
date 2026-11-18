@@ -212,7 +212,7 @@ namespace Internal
         private void AddEntries(ContentBundlePlan plan)
         {
             foreach (var scene in plan.Scenes)
-                plan.SceneEntries.Add(new ContentCatalogScene(AssetDatabase.AssetPathToGUID(scene), plan.Name, scene));
+                plan.SceneEntries.Add(new ContentCatalogSceneEntry(AssetDatabase.AssetPathToGUID(scene), plan.Name, scene));
 
             foreach (var entry in _objectReferences.OrderBy(entry => entry.Key))
             {
@@ -227,7 +227,7 @@ namespace Internal
                 if (subName == null)
                     _errors.Add($"{entry.Value}: {error}");
                 else
-                    plan.Objects.Add(new ContentCatalogObject(guid, localId, plan.Name, subName));
+                    plan.Objects.Add(new ContentCatalogObjectEntry(guid, localId, plan.Name, subName));
             }
         }
 

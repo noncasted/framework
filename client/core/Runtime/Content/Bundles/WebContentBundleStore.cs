@@ -22,17 +22,17 @@ namespace Internal
         private readonly string _remote;
         private readonly string _cache;
 
-        public bool IsFetched(ContentCatalogBundle bundle)
+        public bool IsFetched(ContentCatalogBundleEntry bundle)
         {
             return bundle.IsPreloaded == false;
         }
 
-        public bool IsReal(ContentCatalogBundle bundle, ContentCatalogFile file)
+        public bool IsReal(ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
             return bundle.IsPreloaded || File.Exists(PathOf(bundle, file));
         }
 
-        public UniTask Fetch(IReadOnlyLifetime lifetime, ContentCatalogBundle bundle, ContentCatalogFile file)
+        public UniTask Fetch(IReadOnlyLifetime lifetime, ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
             if (IsReal(bundle, file))
                 return UniTask.CompletedTask;
@@ -41,19 +41,19 @@ namespace Internal
             return WebContentFetch.File(lifetime, UrlOf(bundle, file), PathOf(bundle, file), bundle.IsGzip);
         }
 
-        public string PathOf(ContentCatalogBundle bundle, ContentCatalogFile file)
+        public string PathOf(ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
             return $"{(bundle.IsPreloaded ? _local : _cache)}/{file.Name}";
         }
 
-        public void Forget(ContentCatalogBundle bundle, ContentCatalogFile file)
+        public void Forget(ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
             if (bundle.IsPreloaded == false)
                 File.Delete(PathOf(bundle, file));
         }
 
         // What the server holds: the file of the build, .gz for a bundle shipped in gzip.
-        public string UrlOf(ContentCatalogBundle bundle, ContentCatalogFile file)
+        public string UrlOf(ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
             return $"{_remote}/{ContentCatalogPaths.Shipped(bundle, file)}";
         }

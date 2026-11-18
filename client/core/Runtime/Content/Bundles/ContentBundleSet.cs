@@ -83,7 +83,7 @@ namespace Internal
             progress?.Report(fetched);
             await UniTask.WhenAll(fetches);
 
-            async UniTask Counted(ContentCatalogBundle bundle, ContentCatalogFile file)
+            async UniTask Counted(ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
             {
                 await FetchFile(lifetime, bundle, file);
                 fetched += file.Size;
@@ -122,10 +122,10 @@ namespace Internal
         }
 
         // The dependencies first, then the bundle.
-        private IReadOnlyList<ContentCatalogBundle> Closure(string name)
+        private IReadOnlyList<ContentCatalogBundleEntry> Closure(string name)
         {
             var bundle = Catalog.Bundle(name);
-            var closure = new List<ContentCatalogBundle>(bundle.Dependencies.Count + 1);
+            var closure = new List<ContentCatalogBundleEntry>(bundle.Dependencies.Count + 1);
 
             foreach (var dependency in bundle.Dependencies)
                 closure.Add(Catalog.Bundle(dependency));
@@ -134,7 +134,7 @@ namespace Internal
             return closure;
         }
 
-        private async UniTask FetchFiles(IReadOnlyLifetime lifetime, ContentCatalogBundle bundle)
+        private async UniTask FetchFiles(IReadOnlyLifetime lifetime, ContentCatalogBundleEntry bundle)
         {
             var fetches = new List<UniTask>(bundle.Files.Count);
 
@@ -144,7 +144,7 @@ namespace Internal
             await UniTask.WhenAll(fetches);
         }
 
-        private UniTask FetchFile(IReadOnlyLifetime lifetime, ContentCatalogBundle bundle, ContentCatalogFile file)
+        private UniTask FetchFile(IReadOnlyLifetime lifetime, ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
             if (_store.IsReal(bundle, file))
                 return UniTask.CompletedTask;

@@ -3,11 +3,11 @@ using UnityEngine;
 
 namespace Internal
 {
-    // A scene of the catalog: its GUID, its bundle and its path, the name the engine loads it by.
+    // The entry of a scene in the catalog: its GUID, its bundle and its path, the name the engine loads it by.
     [Serializable]
-    public sealed class ContentCatalogScene
+    public sealed class ContentCatalogSceneEntry
     {
-        public ContentCatalogScene(string guid, string bundle, string path)
+        public ContentCatalogSceneEntry(string guid, string bundle, string path)
         {
             _guid = guid;
             _bundle = bundle;

@@ -3,13 +3,13 @@ using UnityEngine;
 
 namespace Internal
 {
-    // A lazy target of the catalog: the object of an asset (its GUID and local id) and its bundle. The asset is in the
-    // bundle under its GUID; SubName is the name of a sub-asset (a sprite of a texture), empty for the main object or a
-    // component of a prefab.
+    // The entry of a lazy target in the catalog: the object of an asset (its GUID and local id) and its bundle. The asset
+    // is in the bundle under its GUID; SubName is the name of a sub-asset (a sprite of a texture), empty for the main
+    // object or a component of a prefab.
     [Serializable]
-    public sealed class ContentCatalogObject
+    public sealed class ContentCatalogObjectEntry
     {
-        public ContentCatalogObject(string guid, long localId, string bundle, string subName)
+        public ContentCatalogObjectEntry(string guid, long localId, string bundle, string subName)
         {
             _guid = guid;
             _localId = localId;

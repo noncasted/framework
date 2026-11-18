@@ -37,17 +37,17 @@ namespace Internal.Tests
             _gate.TrySetResult();
         }
 
-        public bool IsFetched(ContentCatalogBundle bundle)
+        public bool IsFetched(ContentCatalogBundleEntry bundle)
         {
             return true;
         }
 
-        public bool IsReal(ContentCatalogBundle bundle, ContentCatalogFile file)
+        public bool IsReal(ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
             return File.Exists(PathOf(bundle, file));
         }
 
-        public async UniTask Fetch(IReadOnlyLifetime lifetime, ContentCatalogBundle bundle, ContentCatalogFile file)
+        public async UniTask Fetch(IReadOnlyLifetime lifetime, ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
             Fetches++;
 
@@ -67,12 +67,12 @@ namespace Internal.Tests
             File.Copy($"{_source}/{file.Name}", PathOf(bundle, file));
         }
 
-        public string PathOf(ContentCatalogBundle bundle, ContentCatalogFile file)
+        public string PathOf(ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
             return $"{_folder}/{file.Name}";
         }
 
-        public void Forget(ContentCatalogBundle bundle, ContentCatalogFile file)
+        public void Forget(ContentCatalogBundleEntry bundle, ContentCatalogFileEntry file)
         {
             Forgotten++;
             File.Delete(PathOf(bundle, file));

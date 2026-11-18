@@ -10,9 +10,9 @@ namespace Internal
     {
         public static ContentCatalog Create(IReadOnlyList<ContentBuiltBundle> bundles, BuildTarget target)
         {
-            var entries = bundles.Select(bundle => new ContentCatalogBundle(
+            var entries = bundles.Select(bundle => new ContentCatalogBundleEntry(
                 bundle.Name,
-                bundle.Files.Select(file => new ContentCatalogFile(file.Name, file.Size, file.IsScenes)).ToArray(),
+                bundle.Files.Select(file => new ContentCatalogFileEntry(file.Name, file.Size, file.IsScenes)).ToArray(),
                 bundle.Dependencies,
                 bundle.Plan.Roots,
                 ContentShipment.IsPreloaded(bundle.Plan, target),
