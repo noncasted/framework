@@ -11,17 +11,16 @@ namespace Internal
     // unload (the engine refuses two loads of one file). Main thread only.
     internal sealed class ContentStoredBundle
     {
-        public ContentStoredBundle(ContentCatalogBundleEntry bundle, IContentDistribution distribution,
-            Func<IReadOnlyLifetime, ContentCatalogBundleEntry, UniTask> fetch)
+        public ContentStoredBundle(ContentCatalogBundleEntry bundle, IContentDistribution distribution, ContentFileFetches fetches)
         {
             _bundle = bundle;
             _distribution = distribution;
-            _fetch = fetch;
+            _fetches = fetches;
         }
 
         private readonly ContentCatalogBundleEntry _bundle;
         private readonly IContentDistribution _distribution;
-        private readonly Func<IReadOnlyLifetime, ContentCatalogBundleEntry, UniTask> _fetch;
+        private readonly ContentFileFetches _fetches;
         private readonly List<AssetBundle> _loaded = new();
         private int _holds;
         private Lifetime _load;
@@ -156,7 +155,7 @@ namespace Internal
         {
             using var span = GameProfiler.Concurrent($"Content: bundle {_bundle.Name}");
 
-            await _fetch(lifetime, _bundle);
+            await _fetches.FetchFiles(lifetime, _bundle);
             lifetime.Token.ThrowIfCancellationRequested();
 
             var loaded = new List<AssetBundle>();

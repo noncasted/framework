@@ -89,6 +89,19 @@ namespace Internal
             throw new KeyNotFoundException($"[Content] The scene {guid} is in no content bundle");
         }
 
+        // The bundle and every bundle it depends on (the catalog lists them all): the dependencies first, then the bundle.
+        internal IReadOnlyList<ContentCatalogBundleEntry> Closure(string name)
+        {
+            var bundle = Bundle(name);
+            var closure = new List<ContentCatalogBundleEntry>(bundle.Dependencies.Count + 1);
+
+            foreach (var dependency in bundle.Dependencies)
+                closure.Add(Bundle(dependency));
+
+            closure.Add(bundle);
+            return closure;
+        }
+
         private void Index()
         {
             _bundlesByName = new Dictionary<string, ContentCatalogBundleEntry>(StringComparer.OrdinalIgnoreCase);

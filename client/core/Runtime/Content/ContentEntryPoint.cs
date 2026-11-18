@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
@@ -39,14 +38,17 @@ namespace Internal
             using (GameProfiler.Scope("Content: catalog"))
                 catalog = ContentCatalog.Load();
 
-            return Over(new ContentBundleStorage(catalog, Distribution(catalog, options)));
+            return Over(catalog, Distribution(catalog, options));
 #endif
         }
 
-        // The bundles of a catalog over a distribution (a player; a test over bundles built into a folder).
-        internal static ContentEntryPoint Over(ContentBundleStorage storage)
+        // The bundles of a catalog over a distribution (a player; a test over bundles built into a folder): the storage holds
+        // them, its loads and the prefetches of the sources share one fetch per file.
+        internal static ContentEntryPoint Over(ContentCatalog catalog, IContentDistribution distribution)
         {
-            return new ContentEntryPoint(async (lifetime, name) => await BundleContentSource.Register(lifetime, storage, name));
+            var fetches = new ContentFileFetches(catalog, distribution);
+            var storage = new ContentBundleStorage(catalog, distribution, fetches);
+            return new ContentEntryPoint(async (lifetime, name) => await BundleContentSource.Register(lifetime, storage, fetches, name));
         }
 
         // The bundle loaded whole and held while the lifetime lives, and a loader over its roots.
@@ -94,25 +96,11 @@ namespace Internal
             }
         }
 
+        // The distribution of this platform: the fetches of a WebGL player, StreamingAssets read in place elsewhere.
         private static IContentDistribution Distribution(ContentCatalog catalog, ContentOptions options)
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            WebContentFetch.Limit(options.MaxFetches);
-
-            var distribution = new WebContentDistribution(Application.streamingAssetsPath, options.RemoteUrl, Application.temporaryCachePath);
-            var urls = new List<string>();
-
-            foreach (var bundle in catalog.Bundles)
-            {
-                if (bundle.IsPreloaded)
-                    continue;
-
-                foreach (var file in bundle.Files)
-                    urls.Add(distribution.UrlOf(bundle, file));
-            }
-
-            WebContentFetch.KeepOnly(urls);
-            return distribution;
+            return WebContentDistribution.Open(catalog, options);
 #else
             return new LocalContentDistribution($"{Application.streamingAssetsPath}/{ContentShippedPaths.Folder}");
 #endif

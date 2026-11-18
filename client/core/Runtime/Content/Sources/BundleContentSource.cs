@@ -11,20 +11,23 @@ namespace Internal
     // lives, and every lazy target of the catalog, wherever its bundle is.
     internal sealed class BundleContentSource : IContentSource
     {
-        private BundleContentSource(ContentBundleStorage storage, string name, IReadOnlyList<Object> roots)
+        private BundleContentSource(ContentBundleStorage storage, ContentFileFetches fetches, string name, IReadOnlyList<Object> roots)
         {
             _storage = storage;
+            _fetches = fetches;
             Name = name;
             _roots = roots;
         }
 
         private readonly ContentBundleStorage _storage;
+        private readonly ContentFileFetches _fetches;
         private readonly IReadOnlyList<Object> _roots;
 
         public string Name { get; }
 
         // Holds the bundle (fetched first when the player fetches it) while the lifetime lives and loads its roots.
-        public static async UniTask<BundleContentSource> Register(IReadOnlyLifetime lifetime, ContentBundleStorage storage, string name)
+        public static async UniTask<BundleContentSource> Register(IReadOnlyLifetime lifetime, ContentBundleStorage storage, ContentFileFetches fetches,
+            string name)
         {
             await storage.Hold(lifetime, name, null);
             lifetime.Token.ThrowIfCancellationRequested();
@@ -42,7 +45,7 @@ namespace Internal
                 }
             }
 
-            return new BundleContentSource(storage, bundle.Name, roots);
+            return new BundleContentSource(storage, fetches, bundle.Name, roots);
         }
 
         public IReadOnlyList<T> RootAssets<T>() where T : Object
@@ -104,22 +107,22 @@ namespace Internal
 
         public UniTask Fetch(IReadOnlyLifetime lifetime, ContentReference reference, IProgress<long> progress)
         {
-            return _storage.Fetch(lifetime, _storage.Catalog.Object(reference.Guid, reference.LocalId).Bundle, progress);
+            return _fetches.Fetch(lifetime, _storage.Catalog.Object(reference.Guid, reference.LocalId).Bundle, progress);
         }
 
         public UniTask Fetch(IReadOnlyLifetime lifetime, ContentScene scene, IProgress<long> progress)
         {
-            return _storage.Fetch(lifetime, _storage.Catalog.Scene(scene.Guid).Bundle, progress);
+            return _fetches.Fetch(lifetime, _storage.Catalog.Scene(scene.Guid).Bundle, progress);
         }
 
         public long Bytes(ContentReference reference)
         {
-            return _storage.Bytes(_storage.Catalog.Object(reference.Guid, reference.LocalId).Bundle);
+            return _fetches.Bytes(_storage.Catalog.Object(reference.Guid, reference.LocalId).Bundle);
         }
 
         public long Bytes(ContentScene scene)
         {
-            return _storage.Bytes(_storage.Catalog.Scene(scene.Guid).Bundle);
+            return _fetches.Bytes(_storage.Catalog.Scene(scene.Guid).Bundle);
         }
 
         public bool IsReal(ContentReference reference)

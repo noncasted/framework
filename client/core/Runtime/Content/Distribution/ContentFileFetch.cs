@@ -6,12 +6,12 @@ namespace Internal
     // One fetch of a file for every load that waits for it: the work runs once, on a lifetime of its own that ends (the
     // request aborted) when the last waiter leaves before it is over. The waiters wait on a completion source: a UniTask
     // takes one awaiter at a time, Preserve included. Main thread only.
-    internal sealed class ContentSharedFetch
+    internal sealed class ContentFileFetch
     {
-        public ContentSharedFetch(Func<IReadOnlyLifetime, UniTask> work, Action onOver)
+        public ContentFileFetch(Func<IReadOnlyLifetime, UniTask> work, Action onOver)
         {
             _onOver = onOver;
-            Run(work).Forget();
+            Run(work).NoAwait();
         }
 
         private readonly Action _onOver;

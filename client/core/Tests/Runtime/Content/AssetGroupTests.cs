@@ -26,7 +26,7 @@ namespace Internal.Tests
         public void SetUp()
         {
             _lifetime = new Lifetime();
-            ContentTestStorages.DeleteFetched();
+            ContentTestDistributions.DeleteFetched();
             _root = _lifetime.Child();
         }
 
@@ -34,7 +34,7 @@ namespace Internal.Tests
         public void TearDown()
         {
             _lifetime.Terminate();
-            ContentTestStorages.DeleteFetched();
+            ContentTestDistributions.DeleteFetched();
             AssetBundle.UnloadAllAssetBundles(true);
         }
 
@@ -89,7 +89,7 @@ namespace Internal.Tests
         [UnityTest]
         public IEnumerator Preloaded_FetchedByBinding_EnsureLoadedWithoutRetain() => UniTask.ToCoroutine(async () =>
         {
-            var loader = await ContentEntryPoint.Over(ContentTestStorages.Fetched(ContentTestStorages.Distribution(false))).Register(_root, ContentTestPaths.Name);
+            var loader = await ContentEntryPoint.Over(ContentTestDistributions.Catalog, ContentTestDistributions.Fetched(false)).Register(_root, ContentTestPaths.Name);
             var root = loader.RootAssets<ContentRoot>().Single();
             var preloadedReference = root.PreloadedGroups.Single();
 
@@ -135,7 +135,7 @@ namespace Internal.Tests
 
         private async UniTask<ContentRoot> BindLocal()
         {
-            var loader = await ContentEntryPoint.Over(ContentTestStorages.Local()).Register(_root, ContentTestPaths.Name);
+            var loader = await ContentEntryPoint.Over(ContentTestDistributions.Catalog, ContentTestDistributions.Local()).Register(_root, ContentTestPaths.Name);
             var root = loader.RootAssets<ContentRoot>().Single();
             await CatalogContent.Bind(_root, loader, new[] { root });
             return root;
