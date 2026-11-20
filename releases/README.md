@@ -22,6 +22,7 @@
 | [0.9.3](0.9.3.md) | 2026-11-17 | Исправления аудитов бэкенда и клиента 2026-11-16: грязная запись вне транзакции - ошибка, `SharedViewableProperty<T>`, лобби упавшего сервера, генераторы каталогов падают на сломанном входе, сеть P2P, мёртвый код | Да: `DbLookup` -> `SideEffectTables`, подмены `IClusterParticipantContext`, `Game.Hosting.Collection`, `IsJoinable`, `TraceExtensions.Start`, `MockEntry.Process` -> `UniTask` |
 | [0.10.0](0.10.0.md) | 2026-11-17 | Startup trace хранит backend trace id сокета, консоль рисует трейс бэкенда из Aspire dashboard; `GameProfiler.Background`; веб-загрузка контента только в WebGL-плеере | Да: `AcceptStartup(trace, backendTrace)` |
 | [0.11.0](0.11.0.md) | 2026-11-18 | Код контента разложен по ролям, новые имена (`IContentLoadersCollection`, `ContentEntryPoint`, дистрибуции); фаза `IContentLayoutStep`; `update-framework` предлагает непривязанные общие скиллы | Да: `IContentBundles` -> `IContentLoadersCollection`, `ScopeLoadOptions.ServiceScene`, `ContentEntryPoint.RegisterMain` |
+| [0.12.0](0.12.0.md) | 2026-11-20 | Оверлей пинга в своей сборке `Internal.Network.Overlay`: `Internal.Network` без uGUI / TMP | Да: `NetworkOverlayOptions`, `AddNetworkLatencyOverlay` в скоупе сессии |
 
 ## Версии
 
