@@ -4,6 +4,10 @@ namespace Internal
 {
     public interface INetworkLatencyMonitor
     {
+        // True from the first round of probes (the backend knows the local user) to the end of the session: what a view
+        // of the report (NetworkLatencyOverlay of Internal.Network.Overlay) lives on.
+        IViewableProperty<bool> IsMeasuring { get; }
+
         // Text of the overlay, rebuilt twice a second.
         string Report { get; }
 

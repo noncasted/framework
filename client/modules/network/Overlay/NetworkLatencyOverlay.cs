@@ -7,9 +7,9 @@ namespace Internal
 {
     // Debug overlay of NetworkLatencyMonitor and the frame rate, toggled by N (F-keys are taken by the browser: F3 opens
     // the page search) or a three finger tap on a phone. Built from code on its own canvas (UGUI + TMP with the font of the
-    // game from NetworkOptions): no prefab, drawn where the game puts its screen canvases (IScreenCanvasCamera). Not
-    // IMGUI: one OnGUI in the player keeps the IMGUI, TextCoreTextEngine and TextCoreFontEngine engine modules in a WebGL
-    // build.
+    // game from NetworkOverlayOptions): no prefab, drawn where the game puts its screen canvases (IScreenCanvasCamera),
+    // alive while the monitor measures (NetworkLatencyOverlaySetup). Not IMGUI: one OnGUI in the player keeps the IMGUI,
+    // TextCoreTextEngine and TextCoreFontEngine engine modules in a WebGL build.
     public class NetworkLatencyOverlay : MonoBehaviour
     {
         private const KeyCode ToggleKey = KeyCode.N;

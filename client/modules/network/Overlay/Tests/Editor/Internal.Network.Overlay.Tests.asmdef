@@ -1,0 +1,32 @@
+{
+    "name": "Internal.Network.Overlay.Tests",
+    "rootNamespace": "",
+    "references": [
+        "Internal",
+        "Internal.Network.Overlay",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS",
+        "FRAMEWORK_TMP"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.ugui",
+            "expression": "2.0.0",
+            "define": "FRAMEWORK_TMP"
+        }
+    ],
+    "noEngineReferences": false
+}

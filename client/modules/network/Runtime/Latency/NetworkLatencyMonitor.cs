@@ -1,7 +1,6 @@
 ﻿using System;
 using Cysharp.Threading.Tasks;
 using Shared;
-using TMPro;
 using UnityEngine;
 
 namespace Internal
@@ -10,9 +9,9 @@ namespace Internal
     /// Measures a session: the round trip to the backend (ping), the loop to every other client through the backend
     /// split into the local leg and the leg of the other client (see SharedSessionLatency), the frame time (the
     /// writer sends once a frame and a received message is applied in the frame it arrives) and the traffic.
-    /// Shown by NetworkLatencyOverlay (N) and logged every few seconds. In a P2P match (IPeerMatch) the session is on
-    /// the client of the host: the probes go through the host, so the host shows the legs to its guests, a guest its
-    /// leg to the host and the loops to the other guests through the host.
+    /// Logged every few seconds; shown by NetworkLatencyOverlay of Internal.Network.Overlay while IsMeasuring. In a
+    /// P2P match (IPeerMatch) the session is on the client of the host: the probes go through the host, so the host
+    /// shows the legs to its guests, a guest its leg to the host and the loops to the other guests through the host.
     /// </summary>
     public class NetworkLatencyMonitor : INetworkLatencyMonitor, IScopeSetup
     {
@@ -20,15 +19,8 @@ namespace Internal
             INetworkConnection connection,
             INetworkSession session,
             IPeerMatch peerMatch,
-            ILatencyClock clock,
-            NetworkOptions options,
-            IScreenCanvasCamera screenCanvas)
+            ILatencyClock clock)
         {
-            if (options.LatencyOverlayFont == null)
-                throw new InvalidOperationException("[Network] NetworkOptions has no latency overlay font: set it in the options asset");
-
-            _overlayFont = options.LatencyOverlayFont;
-            _screenCanvas = screenCanvas;
             _session = session;
             _clock = clock;
             _probes = new LatencyProbes(connection, clock);
@@ -45,13 +37,13 @@ namespace Internal
         private readonly LatencyProbes _probes;
         private readonly LatencyStats _stats;
         private readonly LatencyReport _report;
-        private readonly TMP_FontAsset _overlayFont;
-        private readonly IScreenCanvasCamera _screenCanvas;
+        private readonly ViewableProperty<bool> _isMeasuring = new(false);
 
         private float _probeTimer = ProbeInterval;
         private float _rateTimer;
         private float _logTimer;
 
+        public IViewableProperty<bool> IsMeasuring => _isMeasuring;
         public string Report { get; private set; } = "Network: waiting for the session";
         public float PingMs => _stats.Ping.Last;
 
@@ -77,7 +69,8 @@ namespace Internal
             // Probes go out once the backend knows this user: before the auth it has no session to answer from.
             await UniTask.WaitUntil(() => _session.Users.Local != null, cancellationToken: lifetime.Token);
 
-            NetworkLatencyOverlay.Create(lifetime, this, _overlayFont, _screenCanvas);
+            _isMeasuring.Set(true);
+            lifetime.Listen(() => _isMeasuring.Set(false));
 
             while (lifetime.IsTerminated == false)
             {

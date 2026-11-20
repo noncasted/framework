@@ -357,7 +357,9 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   `ListenRemote`, the ones its client created before a reconnect to `ListenRestored`. Also the offline local server
   (`offline://` urls, `ILocalServers`), latency monitor and watchdog (the backend answers `Ping`), and
   `RemoteStateMachine`. A request is a span of the running trace unless its message is `IUnprofiledRequest` (what repeats through the
-  whole game: the telemetry).
+  whole game: the telemetry). `Internal.Network` has no uGUI / TMP: the debug overlay of the latency monitor is the assembly
+  `Internal.Network.Overlay` (only with `com.unity.ugui`, `FRAMEWORK_TMP`), plugged by the session scope of a game with
+  `AddNetworkLatencyOverlay(NetworkOverlayOptions)` next to `AddSessionServices`.
 - **Package versions.** `Directory.Packages.props` here; the project's `Directory.Packages.props` imports it.
 
 ## Tests

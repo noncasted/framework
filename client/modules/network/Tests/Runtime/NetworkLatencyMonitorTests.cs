@@ -7,19 +7,17 @@ using System.Text.RegularExpressions;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using Shared;
-using TMPro;
 using UnityEngine;
 using UnityEngine.TestTools;
 
 namespace Internal.Tests
 {
     // NetworkLatencyMonitor through its public API, on a clock of the test: the probes every 0.5 s, their 5 s timeout,
-    // the rates of the traffic and the text of the report on the server, on a P2P host and on a P2P guest. In play mode:
-    // the monitor creates its overlay with DontDestroyOnLoad and its loop runs on the frames.
+    // the rates of the traffic, the text of the report on the server, on a P2P host and on a P2P guest and the time it
+    // measures (IsMeasuring, the life of the overlay). In play mode: its loop runs on the frames.
     public class NetworkLatencyMonitorTests
     {
         private const string Waiting = "Network: waiting for the session";
-        private const string OverlayName = nameof(NetworkLatencyOverlay);
 
         // The format of a filled LatencySeries; a negative value is the own leg of a loop shorter than the given leg.
         private const string Series = @"-?\d+ \(avg -?\d+, max \d+\)";
@@ -53,11 +51,11 @@ namespace Internal.Tests
             Assert.AreEqual(Waiting, harness.Monitor.Report);
             Assert.AreEqual(0f, harness.Monitor.PingMs);
             Assert.IsEmpty(harness.Writer.Sent);
-            Assert.IsNull(GameObject.Find(OverlayName));
+            Assert.IsFalse(harness.Monitor.IsMeasuring.Value);
         });
 
         [UnityTest]
-        public IEnumerator LocalUserAppears_ProbesStartAndOverlayIsCreated() => UniTask.ToCoroutine(async () =>
+        public IEnumerator LocalUserAppears_ProbesStartAndMeasuringBegins() => UniTask.ToCoroutine(async () =>
         {
             var harness = Create();
             harness.Monitor.OnSetup(harness.Lifetime);
@@ -66,50 +64,32 @@ namespace Internal.Tests
             harness.AddLocal(1);
             await harness.FirstRound();
 
-            Assert.IsNotNull(GameObject.Find(OverlayName));
+            Assert.IsTrue(harness.Monitor.IsMeasuring.Value);
             Assert.AreNotEqual(Waiting, harness.Monitor.Report);
         });
 
-        // A text without a font of the game took TMP_Settings.defaultFontAsset and warned in every session when there was none.
+        // What a view of the report lives on: false while waiting for the local user, true from the first round of probes,
+        // false again with the end of the lifetime, each once.
         [UnityTest]
-        public IEnumerator Overlay_TakesTheFontOfTheOptions() => UniTask.ToCoroutine(async () =>
+        public IEnumerator IsMeasuring_FromTheFirstRoundToTheEndOfTheLifetime() => UniTask.ToCoroutine(async () =>
         {
             var harness = Create();
+            var values = new List<bool>();
+            var observer = new Lifetime();
+            harness.Monitor.IsMeasuring.View(observer, value => values.Add(value));
             harness.Monitor.OnSetup(harness.Lifetime);
+
+            harness.Clock.Advance(0.7f);
+            await Frames();
+            CollectionAssert.AreEqual(new[] { false }, values);
+
             harness.AddLocal(1);
             await harness.FirstRound();
+            CollectionAssert.AreEqual(new[] { false, true }, values);
 
-            var label = GameObject.Find(OverlayName).GetComponentInChildren<TextMeshProUGUI>(true);
-
-            Assert.AreSame(harness.Options.LatencyOverlayFont, label.font);
-        });
-
-        [Test]
-        public void OptionsWithoutAFont_Throw()
-        {
-            var options = ScriptableObject.CreateInstance<NetworkOptions>();
-
-            Assert.Throws<InvalidOperationException>(() =>
-                new NetworkLatencyMonitor(new FakeConnection(new FakeWriter()), new FakeSession(new FakeUsers()), new PeerMatch(), new FakeClock(),
-                    options, new ScreenCanvasOverlay()));
-        }
-
-        // A Screen Space - Overlay canvas loses its projection on iPadOS Safari: the overlay goes to the UI camera of the game.
-        [UnityTest]
-        public IEnumerator Overlay_IsDrawnByTheScreenCanvasCamera() => UniTask.ToCoroutine(async () =>
-        {
-            var harness = Create();
-            harness.Monitor.OnSetup(harness.Lifetime);
-            harness.AddLocal(1);
-            await harness.FirstRound();
-
-            var canvas = GameObject.Find(OverlayName).GetComponent<Canvas>();
-            var layer = LayerMask.NameToLayer(Harness.CanvasLayer);
-
-            Assert.AreEqual(RenderMode.ScreenSpaceCamera, canvas.renderMode);
-            Assert.AreSame(harness.Camera, canvas.worldCamera);
-            Assert.AreEqual(Harness.PlaneDistance, canvas.planeDistance);
-            Assert.That(canvas.GetComponentsInChildren<Transform>(true).Select(t => t.gameObject.layer), Is.All.EqualTo(layer));
+            harness.Lifetime.Terminate();
+            observer.Terminate();
+            CollectionAssert.AreEqual(new[] { false, true, false }, values);
         });
 
         [UnityTest]
@@ -140,7 +120,7 @@ namespace Internal.Tests
         });
 
         [UnityTest]
-        public IEnumerator LifetimeEnds_ProbesStopAndOverlayIsDestroyed() => UniTask.ToCoroutine(async () =>
+        public IEnumerator LifetimeEnds_ProbesStopAndMeasuringEnds() => UniTask.ToCoroutine(async () =>
         {
             var harness = await Started();
             harness.Lifetime.Terminate();
@@ -153,7 +133,7 @@ namespace Internal.Tests
             await Frames();
 
             Assert.AreEqual(sent, harness.Writer.Sent.Count);
-            Assert.IsNull(GameObject.Find(OverlayName));
+            Assert.IsFalse(harness.Monitor.IsMeasuring.Value);
         });
 
         [UnityTest]
@@ -650,24 +630,8 @@ namespace Internal.Tests
             public Harness()
             {
                 Connection = new FakeConnection(Writer);
-                Options = ScriptableObject.CreateInstance<NetworkOptions>();
-                typeof(NetworkOptions).GetField("_latencyOverlayFont", BindingFlags.Instance | BindingFlags.NonPublic)
-                                      .SetValue(Options, Font);
-                Camera = new GameObject("NetworkLatencyMonitorTests.Camera").AddComponent<Camera>();
-                Camera.enabled = false;
-                Camera.cullingMask = 1 << LayerMask.NameToLayer(CanvasLayer);
-                var camera = Camera;
-                Lifetime.Listen(() => UnityEngine.Object.Destroy(camera.gameObject));
-
-                var screenCanvas = new ScreenCanvasCamera(() => camera, CanvasLayer, PlaneDistance);
-                Monitor = new NetworkLatencyMonitor(Connection, new FakeSession(Users), Match, Clock, Options, screenCanvas);
+                Monitor = new NetworkLatencyMonitor(Connection, new FakeSession(Users), Match, Clock);
             }
-
-            // The built-in UI layer: in every project.
-            public const string CanvasLayer = "UI";
-            public const float PlaneDistance = 1f;
-
-            public readonly Camera Camera;
 
             public readonly Lifetime Lifetime = new();
             public readonly FakeUsers Users = new();
@@ -675,15 +639,6 @@ namespace Internal.Tests
             public readonly PeerMatch Match = new();
             public readonly FakeClock Clock = new();
             public readonly FakeConnection Connection;
-            public readonly NetworkOptions Options;
-
-            // The font the forked ugui package ships: the tests run in the editor only.
-            private static TMP_FontAsset Font =>
-#if UNITY_EDITOR
-                UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Packages/com.unity.ugui/Package Resources/Fonts & Materials/LiberationSans SDF.asset");
-#else
-                throw new System.InvalidOperationException("[Tests] The editor only");
-#endif
             public readonly NetworkLatencyMonitor Monitor;
 
             public int LastId => Writer.Sent.OfType<SharedSessionLatency.Ping>().Last().Id;
