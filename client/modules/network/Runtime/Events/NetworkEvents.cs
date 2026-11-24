@@ -14,6 +14,9 @@ namespace Internal
         void Send(IEventPayload rawPayload);
     }
 
+    // The events of one network object. An event of a type nobody has asked for yet (GetEvent) is kept, in the order of
+    // arrival, and handed to the source of its type when it is created: the events of an object start to flow as soon
+    // as the object is live, the listeners of a type may come later (a role taken after the entry into the session).
     public class NetworkEvents : INetworkEvents
     {
         public NetworkEvents(INetworkConnection connection, INetworkObject networkObject)
@@ -22,11 +25,17 @@ namespace Internal
             _object = networkObject;
         }
 
+        // A type nobody listens to for that long is a bug of the game, not a late listener.
+        public const int MaxPendingEvents = 64;
+
         private readonly INetworkConnection _connection;
         private readonly INetworkObject _object;
 
         private readonly Dictionary<Type, object> _entries = new();
         private readonly Dictionary<Type, Action<IEventPayload>> _actions = new();
+
+        // The events without a source, of every type in the order of arrival; created with the first of them.
+        private List<IEventPayload> _pending;
 
         public IReadOnlyDictionary<Type, object> Entries => _entries;
 
@@ -34,6 +43,9 @@ namespace Internal
         {
             _entries[type] = source;
             _actions[type] = invoke;
+
+            if (_pending != null)
+                MovePending(type, (INetworkEventSource)source);
         }
 
         public void Invoke(byte[] rawPayload)
@@ -41,10 +53,21 @@ namespace Internal
             var payload = MemoryPackSerializer.Deserialize<IEventPayload>(rawPayload);
             var type = payload.GetType();
 
-            if (_actions.TryGetValue(type, out var action) == false)
-                throw new InvalidOperationException($"Event type {type} not found in actions.");
+            if (_actions.TryGetValue(type, out var action) == true)
+            {
+                action.Invoke(payload);
+                return;
+            }
 
-            action.Invoke(payload);
+            _pending ??= new List<IEventPayload>();
+
+            if (_pending.Count == MaxPendingEvents)
+            {
+                throw new InvalidOperationException(
+                    $"[Network] No source of event type {type}: {MaxPendingEvents} events of the object wait already");
+            }
+
+            _pending.Add(payload);
         }
 
         public void Send(IEventPayload rawPayload)
@@ -54,6 +77,24 @@ namespace Internal
                 ObjectId = _object.Id,
                 Value = MemoryPackSerializer.Serialize(rawPayload)
             });
+        }
+
+        // The events of the type go to its source in their order, the others keep theirs.
+        private void MovePending(Type type, INetworkEventSource source)
+        {
+            var kept = 0;
+
+            for (var index = 0; index < _pending.Count; index++)
+            {
+                var payload = _pending[index];
+
+                if (payload.GetType() == type)
+                    source.Hold(payload);
+                else
+                    _pending[kept++] = payload;
+            }
+
+            _pending.RemoveRange(kept, _pending.Count - kept);
         }
     }
 
@@ -65,13 +106,13 @@ namespace Internal
 
             if (events.Entries.ContainsKey(type) == false)
             {
-                var source = new ViewableDelegate<T>();
+                var source = new NetworkEventSource<T>();
 
                 events.AddSource(type, source, payload => {
                     if (payload is not T castedPayload)
                         throw new InvalidCastException();
 
-                    source.Invoke(castedPayload);
+                    source.Receive(castedPayload);
                 });
             }
 
