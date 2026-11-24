@@ -42,6 +42,12 @@ public static class HostingExtensions
 
         builder.AddLobbyCodes();
 
+        // What becomes of the code of a lobby after its match: one rule per server.
+        if (lobbies.ReturnsAfterMatch == true)
+            builder.Add<LobbyReturns>().As<ILobbyCodeAfterMatch>();
+        else
+            builder.Add<LobbyCodeRelease>().As<ILobbyCodeAfterMatch>();
+
         builder.Add<LobbyCodeLeases>()
                .As<ILobbyCodeLeases>()
                .As<ILobbyListings>();

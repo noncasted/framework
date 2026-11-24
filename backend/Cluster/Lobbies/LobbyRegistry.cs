@@ -21,6 +21,10 @@ public interface ILobbyRegistry : IGrainWithGuidKey
     // released, the entry gets the match session.
     Task MarkStarted(string code, Guid sessionId, Guid matchSessionId);
 
+    // The match of a lobby has returned its code to a new lobby of the same server (LobbyOptions.ReturnsAfterMatch): the
+    // entry gets that session and loses the match - a join by the code leads to the new lobby, which releases it.
+    Task MarkReturned(string code, Guid sessionId, Guid returnSessionId);
+
     // The session is passed to keep a late release from removing a code that already belongs to another lobby.
     // A started lobby releases its code with the same (lobby) session id when the match is closed.
     Task Release(string code, Guid sessionId);
@@ -114,6 +118,41 @@ public class LobbyRegistry : Grain, ILobbyRegistry
             code,
             sessionId,
             matchSessionId);
+    }
+
+    public async Task MarkReturned(string code, Guid sessionId, Guid returnSessionId)
+    {
+        if (returnSessionId == Guid.Empty)
+            throw new ArgumentException("The returned lobby session of a code is empty", nameof(returnSessionId));
+
+        var state = await _state.ReadValue();
+
+        if (state.Entries.TryGetValue(code, out var entry) == false || entry.SessionId != sessionId)
+            throw new InvalidOperationException($"Lobby code {code} is not held by session {sessionId}");
+
+        // The listing was of the match: the new lobby reports itself.
+        var wasListed = entry.Listing.IsListed;
+
+        await _state.Write(value => {
+            value.Remove(code);
+
+            value.Add(code, new LobbyRegistryEntry
+            {
+                ServerId = entry.ServerId,
+                SessionId = returnSessionId
+            });
+
+            if (wasListed == true)
+                value.AdvanceListingVersion();
+        });
+
+        _logger.LogInformation("[LobbyRegistry] Code {Code} of session {SessionId} is returned to session {ReturnSessionId}",
+            code,
+            sessionId,
+            returnSessionId);
+
+        if (wasListed == true)
+            await PublishOpenLobbies();
     }
 
     public async Task Release(string code, Guid sessionId)

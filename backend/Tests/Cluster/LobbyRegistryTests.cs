@@ -132,6 +132,42 @@ public class LobbyRegistryTests(OrleansTestClusterFixture fixture) : Integration
     }
 
     [Fact]
+    public async Task MarkReturned_RepointsTheEntry()
+    {
+        var registry = GetGrain<ILobbyRegistry>(Guid.NewGuid());
+        var serverId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var matchId = Guid.NewGuid();
+        var returnId = Guid.NewGuid();
+
+        var code = await registry.Register(serverId, sessionId);
+        await registry.MarkStarted(code, sessionId, matchId);
+
+        // only the holder of the code moves it: the entry stays
+        var byAnother = () => registry.MarkReturned(code, Guid.NewGuid(), Guid.NewGuid());
+
+        await byAnother.Should().ThrowAsync<Exception>();
+        (await registry.Find(code))!.SessionId.Should().Be(sessionId);
+        (await registry.Find(code))!.MatchSessionId.Should().Be(matchId);
+
+        await registry.MarkReturned(code, sessionId, returnId);
+
+        var entry = await registry.Find(code);
+
+        entry!.ServerId.Should().Be(serverId);
+        entry.SessionId.Should().Be(returnId);
+        entry.MatchSessionId.Should().Be(Guid.Empty);
+
+        // the old lobby holds nothing now; the returned one releases the code
+        var lateRelease = () => registry.Release(code, sessionId);
+
+        await lateRelease.Should().ThrowAsync<Exception>();
+        await registry.Release(code, returnId);
+
+        (await registry.Find(code)).Should().BeNull();
+    }
+
+    [Fact]
     public async Task Registries_OfDifferentDeploys_DoNotShareCodes()
     {
         var first = GetGrain<ILobbyRegistry>(Guid.NewGuid());

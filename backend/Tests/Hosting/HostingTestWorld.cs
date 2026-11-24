@@ -26,11 +26,13 @@ namespace Framework.Tests.Hosting;
 // late player in (TestLobbyEntryPolicy).
 public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches, ISessionSearch
 {
-    public HostingTestWorld(int maxUsers = 4)
+    // returnsAfterMatch: LobbyOptions.ReturnsAfterMatch - the code of a lobby comes back from its match to a new lobby.
+    public HostingTestWorld(int maxUsers = 4, bool returnsAfterMatch = false)
     {
         Options = new LobbyOptions
         {
-            MaxUsers = maxUsers
+            MaxUsers = maxUsers,
+            ReturnsAfterMatch = returnsAfterMatch
         };
 
         Self = new GameServerOverview
@@ -51,7 +53,11 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
             Substitute.For<IServiceSlicedState<LiveSessionsData, List<LiveSessionEntry>>>(),
             Time);
 
-        Leases = new LobbyCodeLeases(Codes, NullLogger<LobbyCodeLeases>.Instance);
+        ILobbyCodeAfterMatch afterMatch = returnsAfterMatch == true
+            ? new LobbyReturns(this, Options, NullLogger<LobbyReturns>.Instance)
+            : new LobbyCodeRelease();
+
+        Leases = new LobbyCodeLeases(Codes, afterMatch, NullLogger<LobbyCodeLeases>.Instance);
 
         Lobbies = new LobbySessions(
             this,
@@ -94,6 +100,9 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     // The queue each public match of the search was created for; a match created without the search is in queue 0.
     private readonly Dictionary<Guid, int> _matchQueues = new();
 
+    // Every creation the lobby factory got, in order (the failed ones too).
+    private readonly List<LobbyCreation> _lobbyCreations = new();
+
     // Not null: the lobby factory of the game fails with it.
     private Exception? _lobbyCreationFailure;
     private Exception? _matchCreationFailure;
@@ -102,6 +111,15 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     public Guid MatchLeaderId { get; private set; }
 
     public string WebSocketUrl => ServerUrl.ServerUrlToWebSocket();
+
+    public IReadOnlyList<LobbyCreation> LobbyCreations
+    {
+        get
+        {
+            lock (_lobbyCreations)
+                return _lobbyCreations.ToList();
+        }
+    }
 
     // A copy: the sessions are added from the queues of the sessions too.
     public IReadOnlyDictionary<Guid, TestSession> Sessions
@@ -164,6 +182,9 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     // ILobbyFactory: a lobby session with the lobby service of the framework.
     ISession ILobbyFactory.Create(LobbyCreation creation)
     {
+        lock (_lobbyCreations)
+            _lobbyCreations.Add(creation);
+
         if (_lobbyCreationFailure != null)
             throw _lobbyCreationFailure;
 
@@ -187,6 +208,7 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
                 Code = creation.Code,
                 LobbySessionId = creation.LobbySessionId,
                 RunningMatchId = creation.RunningMatchId,
+                Return = creation.Return,
                 MaxUsers = creation.MaxUsers
             });
         });
@@ -225,7 +247,7 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
                 throw new InvalidOperationException($"Created match session {session.Session.Id} rejected the reservation");
         }
 
-        Leases.PassToMatch(lobbySessionId, session.Session);
+        Leases.PassToMatch(lobbySessionId, session.Session, leaderId, userIds);
 
         return new LobbyMatch
         {

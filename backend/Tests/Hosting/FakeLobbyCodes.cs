@@ -24,7 +24,7 @@ public class FakeLobbyCodes : ILobbyCodes
 {
     private readonly Dictionary<string, LobbyRegistryEntry> _entries = new();
 
-    // Every registry call in the order the registry got them: "Mark CODE", "Listing CODE", "Release CODE".
+    // Every registry call in the order the registry got them: "Mark CODE", "Listing CODE", "Return CODE", "Release CODE".
     private readonly List<string> _calls = new();
 
     // Null: real random codes.
@@ -147,6 +147,24 @@ public class FakeLobbyCodes : ILobbyCodes
 
             entry.MarkStarted(matchSessionId);
             _calls.Add($"Mark {code}");
+        }
+    }
+
+    public Task MarkReturned(string code, Guid sessionId, Guid returnSessionId)
+    {
+        lock (_entries)
+        {
+            if (_entries.TryGetValue(code, out var entry) == false || entry.SessionId != sessionId)
+                throw new InvalidOperationException($"Lobby code {code} is not held by session {sessionId}");
+
+            _entries[code] = new LobbyRegistryEntry
+            {
+                ServerId = entry.ServerId,
+                SessionId = returnSessionId
+            };
+
+            _calls.Add($"Return {code}");
+            return Task.CompletedTask;
         }
     }
 

@@ -2,7 +2,7 @@ namespace Game.Lobbies;
 
 // What a lobby session needs from its game server when the start countdown reaches zero: a match session
 // with a place for every user of the lobby. Implemented by the game (it builds the match with its options and passes
-// the code to the match: ILobbyCodeLeases.PassToMatch).
+// the code to the match: ILobbyCodeLeases.PassToMatch with the leader and the users it got).
 public interface ILobbyMatches
 {
     // Private match on this server, a place is reserved for each of the users (SessionAdmission.JoinTimeout).

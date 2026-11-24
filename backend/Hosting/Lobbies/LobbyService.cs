@@ -8,7 +8,8 @@ namespace Game.Lobbies;
 
 // Network service "Lobby" of a lobby session (the key and the property ids are shared with the client: SharedLobbyService).
 // - Lobby (LobbyState, id 1): written only here - the code of the room and the index of the lobby leader
-//   (the session owner; when the leader leaves, the next user by index).
+//   (the session owner; when the leader leaves, the next user by index; in a lobby a match has returned its code to -
+//   the leader of that match once it is in: ReturnedLobbyLeader).
 // - Start (LobbyStartState, id 2): written by the client of the leader - "Start" / "Cancel". Cleared here
 //   when the leader changes while it is set (its writer is gone) and when the match of the start is not created.
 // - Countdown (LobbyCountdownState, id 3): written only here - the countdown that runs while Start is set,
@@ -44,14 +45,18 @@ public class LobbyService : Service
         if (isCodeless == true ? info.Code.Length != 0 : LobbyCode.IsValid(info.Code) == false)
             throw new InvalidOperationException($"Lobby session is created with an invalid code '{info.Code}'");
 
-        _owner = owner;
+        // A variant chosen once: the lead of a returned lobby goes to the leader of its match.
+        _leader = info.Return == null
+            ? new SessionLobbyLeader(owner)
+            : new ReturnedLobbyLeader(owner, users, info.Return.LeaderId);
+
         _users = users;
         _matches = matches;
         _executionQueue = executionQueue;
         _info = info;
         _logger = logger;
 
-        _properties = new LobbyProperties(owner, info);
+        _properties = new LobbyProperties(_leader, info);
 
         BindProperty(_properties.Lobby);
         BindProperty(_properties.Start);
@@ -59,15 +64,15 @@ public class LobbyService : Service
         BindProperty(_properties.Game);
         BindProperty(_properties.Visibility);
 
-        var matchStart = new LobbyMatchStart(_properties, owner, users, admission, matches, time, info, logger);
+        var matchStart = new LobbyMatchStart(_properties, _leader, users, admission, matches, time, info, logger);
 
         _countdown = new LobbyCountdown(_properties, matchStart, executionQueue, time, CountdownStep, logger);
-        _listing = new LobbyListingReporter(_properties, owner, users, listings, info, logger);
+        _listing = new LobbyListingReporter(_properties, _leader, users, listings, info, logger);
     }
 
     public static readonly TimeSpan CountdownStep = TimeSpan.FromSeconds(1);
 
-    private readonly ISessionOwner _owner;
+    private readonly ILobbyLeader _leader;
     private readonly ISessionUsers _users;
     private readonly ILobbyMatches _matches;
     private readonly IExecutionQueue _executionQueue;
@@ -92,7 +97,8 @@ public class LobbyService : Service
     {
         _logger.LogInformation("[Lobby] Lobby code {Code}", _properties.Lobby.Value.Code);
 
-        _owner.Owner.View(lifetime, OnOwnerChanged);
+        _leader.Start(lifetime);
+        _leader.Owner.View(lifetime, OnOwnerChanged);
 
         if (_info.IsRunning == true)
         {

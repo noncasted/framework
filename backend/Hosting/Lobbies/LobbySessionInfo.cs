@@ -16,5 +16,9 @@ public class LobbySessionInfo
 
     public required int MaxUsers { get; init; }
 
+    // The lobby the code of a match has come back to (LobbyCreation.Return): the leader of that match leads it once it
+    // is in. Null for any other lobby.
+    public LobbyReturn? Return { get; init; }
+
     public bool IsRunning => RunningMatchId != Guid.Empty;
 }

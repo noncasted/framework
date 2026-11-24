@@ -11,6 +11,11 @@ public interface ILobbyCodes
     Task<string> Register(Guid serverId, Guid sessionId);
     Task<LobbyRegistryEntry?> Find(string code);
     Task MarkStarted(string code, Guid sessionId, Guid matchSessionId);
+
+    // The code of sessionId (its lobby, started or not) now leads to the lobby returnSessionId on the same server, not
+    // started. A call of anybody but the holder changes nothing: it throws, as Release.
+    Task MarkReturned(string code, Guid sessionId, Guid returnSessionId);
+
     Task Release(string code, Guid sessionId);
     Task UpdateListing(string code, Guid sessionId, LobbyListing listing);
     Task<OpenLobbies> GetOpenLobbies();
@@ -40,6 +45,11 @@ public class LobbyCodes : ILobbyCodes
     public Task MarkStarted(string code, Guid sessionId, Guid matchSessionId)
     {
         return GetRegistry().MarkStarted(code, sessionId, matchSessionId);
+    }
+
+    public Task MarkReturned(string code, Guid sessionId, Guid returnSessionId)
+    {
+        return GetRegistry().MarkReturned(code, sessionId, returnSessionId);
     }
 
     public Task Release(string code, Guid sessionId)
