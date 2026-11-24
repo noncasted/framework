@@ -51,7 +51,7 @@ Registration flags (stored on the component, `ObjectBindings.IsSceneService` / `
 | Flag | Generated | Used by |
 |------|-----------|---------|
 | Scene service | `ISceneService.Create(IScopeBuilder)` registering the component | scenes with `SceneServicesFactory` (see `COMMON_CONTAINER.md`) |
-| Entity component | `IEntityComponent.Register(IEntityBuilder)` registering the component | prefabs with a `ScopeEntityView` subclass (see `ENTITIES.md`) |
+| Entity component | `IEntityComponent.Register(IEntityBuilder)` registering the component | prefabs with a `ScopeEntityView` subclass (see `GAMEPLAY_ARCHITECTURE.md` § Entity) |
 
 The methods are `virtual`: a user class may inherit the generated class and extend the registration. The generated type is the class directly under `ObjectBindings`.
 
@@ -99,5 +99,5 @@ and tests. The pools, templates and roots are assets of the game: its docs descr
 
 ## Related
 - [COMMON_CONTAINER.md](COMMON_CONTAINER.md) - scopes, scene services, CINGR diagnostics, Container Graph
-- `ENTITIES.md` of the game - entity pattern built on bindings
+- [GAMEPLAY_ARCHITECTURE.md](GAMEPLAY_ARCHITECTURE.md) - the entity pattern built on bindings
 - `CODEGEN.md` of the game - all generators and the bootstrap order

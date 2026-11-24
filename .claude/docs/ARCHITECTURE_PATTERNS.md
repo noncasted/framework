@@ -3,8 +3,9 @@
 Назначение: список проверяемых паттернов, общих для игр на framework, для скилла, который создаёт или правит план
 задачи. Формат строки: **если** в задаче есть X -> **план должен содержать** Y. У каждого паттерна - источник
 (`DOC.md` § Раздел). Идентификаторы сквозные с `ARCHITECTURE_PATTERNS.md` игры, номера с пропусками: остальные
-паттерны (сущности, сеть, UI, тесты, редактор) привязаны к докам игры и лежат там. Источник, которого нет рядом
-(`CLAUDE_MISTAKES.md`, `ENTITIES.md`, `CODEGEN.md`, `CLAUDE.md`), - это док игры, см. `INDEX.md`.
+паттерны (сеть, UI, тесты, редактор) привязаны к докам игры и лежат там. Источник, которого нет рядом
+(`CLAUDE_MISTAKES.md`, `ENTITIES.md`, `CODEGEN.md`, `CLAUDE.md`), - это док игры, см. `INDEX.md`; в игре без него
+правило держится на остальных источниках строки.
 
 ---
 
@@ -28,6 +29,15 @@
 ---
 
 ## 1. Клиент
+
+### 1.0 Раскладка геймплея (C-LAY)
+
+- **C-LAY-1** Если новая фича геймплея -> папка фичи по образцу её ближайшего аналога в эталоне игры
+  (`.claude/project-skills.md` § architecture, иначе pixel-swarm `client/Assets/GamePlay`); в плане названы аналог и
+  папки фичи. `GAMEPLAY_ARCHITECTURE.md` § Layout of a gameplay assembly.
+- **C-LAY-2** Если план делит фичу по слоям (`Model` / `Views` / `Logic` / `Data` / `Network`, отдельная сборка «чистой
+  модели» для тестов или для детерминизма) -> вместо этого сущность или сервисы фичи в одной папке; порядок тика держит
+  корень забега. `GAMEPLAY_ARCHITECTURE.md` § Layout of a gameplay assembly.
 
 ### 1.1 DI и сервисы (C-DI)
 
@@ -76,14 +86,32 @@
 - **C-SC-6** Если runtime-пакет с MonoBehaviour нужно исключить из билда -> `defineConstraints: UNITY_EDITOR`, а не
   `includePlatforms: Editor`. `CLAUDE_MISTAKES.md` § F38.
 
+### 1.3 Сущности (C-EN)
+
+- **C-EN-1** Если новая вещь со своей жизнью и видом (игрок, враг, босс, оружие, поле) -> сущность по порядку
+  `GAMEPLAY_ARCHITECTURE.md` § Entity: `Root` (`IX` / `ILocalX` / `IRemoteX`), префаб с bindings и view-вариантами,
+  `Sync`, компоненты по вариантам, состояния, фабрика с `Build*`.
+- **C-EN-2** Если поведение отличается у владельца и у копии -> отдельные классы Local / Remote, отдельные корни и
+  префабы; никаких `if (IsLocal)` в компонентах. `GAMEPLAY_ARCHITECTURE.md` § Entity (Factory); исключения - в доке игры.
+- **C-EN-3** Если сущность реплицирует состояние -> одно `AddXSync()`, вызываемое в каждом корне; одно свойство на тип
+  значения; пишет только владелец. `GAMEPLAY_ARCHITECTURE.md` § Entity (Network).
+- **C-EN-4** Если на entity-префабе нужен код -> только `ScopeEntityView`-подкласс и сгенерированные bindings;
+  компоненты - plain classes, получающие bindings в конструкторе. `GAMEPLAY_ARCHITECTURE.md` § Entity;
+  `HIERARCHY_BINDINGS.md` (TL;DR).
+- **C-EN-5** Если удаление / уход владельца -> цепочка `entity.Lifetime.Listen(x.Destroy)`.
+  `GAMEPLAY_ARCHITECTURE.md` § Entity (Destroy).
+- **C-EN-7** Если у сущности состояние / поведение (lifetime, события, update, input) -> это компонент контейнера с
+  интерфейсом, не поле «модели»; папки `Definitions` - только сериализуемые опции. `GAMEPLAY_ARCHITECTURE.md` § Entity.
+
 ### 1.4 Машины состояний и деревья поведения (C-SM)
 
-- **C-SM-1** Если у сущности состояния -> `IState` + `ObjectStateDefinition`, вход через
-  `TryCreateHandleFromPriorityQueue`, все подписки состояния на `handle.Lifetime`; селектор на `Exited`.
-  `STATE_MACHINES.md` § API, § Entry via priority queue, § Selector on Exited.
+- **C-SM-1** Если у сущности состояния (режимы поведения) -> `IState` + `ObjectStateDefinition`, класс на состояние в
+  `States/<State>/`, вход через `TryCreateHandleFromPriorityQueue`, все подписки состояния на `handle.Lifetime`; селектор
+  на `Exited`. `enum State` с ветками в одном `Tick` - не машина состояний. `STATE_MACHINES.md` § API, § Entry via
+  priority queue, § Selector on Exited; `GAMEPLAY_ARCHITECTURE.md` § States.
 - **C-SM-2** Если состояние видно другим клиентам -> пара Local / Remote в одной папке, `RemoteStateMachine`,
   данные в `IStatePayload` с union-тегом; remote-состояние не выходит само. `STATE_MACHINES.md` § Remote copies;
-  `ENTITIES.md` § Contexts and states.
+  `GAMEPLAY_ARCHITECTURE.md` § States.
 
 ### 1.5 Lifetime (C-LT)
 
@@ -197,7 +225,7 @@
 - **S-1** Если тип нужен клиенту и backend -> `shared/` (протокол, модели, конфиги); состояния grain-ов - только
   backend. `CLAUDE.md` § Overview; `COMMON_ORLEANS.md` § Direct state class.
 - **S-2** Если payload / state payload / event -> MemoryPack, тег в partial-объявлении union рядом с типом,
-  член union-типа с `[MemoryPackAllowSerialize]`. `NETWORK.md` § Union tags; `ENTITIES.md` § Contexts and states.
+  член union-типа с `[MemoryPackAllowSerialize]`. `NETWORK.md` § Union tags; `GAMEPLAY_ARCHITECTURE.md` § Entity (Network).
 - **S-3** Если логика сессии -> `Framework.Session.Core` (C# 9, синхронно, без Unity и Microsoft.Extensions); списки
   частей `SessionCore` и `AddSessionServices` синхронны. `NETWORK.md` § Session.
 - **S-5** Если в backend используются `StableHash` / `ErrorCode` -> полное имя `Shared.*` (конфликт с Orleans).

@@ -5,6 +5,7 @@ details live in the linked docs.
 
 1. **One thing - one class, a composer on top.** Independent effects, looks, systems are separate classes;
    a small composer registers and wires them (one registration extension over a folder of effects). No "god" class that holds several effects and branches by kind (`switch (kind)`).
+   Modes of behaviour are states: a class per state (`STATE_MACHINES.md`), not an `enum State` with branches in one `Tick`.
 2. **Subscribe, do not poll.** A behaviour starts in `OnSetup` from an event or an observable (`ViewActive`,
    `ListenFirstPick`, `EventSource`) and lives on that lifetime; no per-frame `Has(...)` / value checks to find out
    whether it is on. Every subscription has a named lifetime. (`COMMON_LIFETIMES.md`, `COMMON_REACTIVE_BASICS.md`)
@@ -39,8 +40,8 @@ details live in the linked docs.
     one reason to change, is split (see P1); generated code and tests have no limit. One top-level type per file, the file
     named after it. A refactoring plan lists the oversized classes of the touched area and how each is cut.
 12. **Folders by feature, no clutter.** A folder holds one feature: its entity, components, views, options and
-    extension; no "misc" / "utils" dumps, no stray files of another feature, no leftovers after a move (old folders,
-    `.meta` without a file, temporary harnesses or scripts in `client/Assets`). Editor-only code lives under `Editor` /
+    extension; never split by layer (`Model` / `Views` / `Logic` folders or assemblies, `GAMEPLAY_ARCHITECTURE.md`);
+    no "misc" / "utils" dumps, no stray files of another feature, no leftovers after a move (old folders, `.meta` without a file, temporary harnesses or scripts in `client/Assets`). Editor-only code lives under `Editor` /
     `Tools` assemblies, art sources under `Source~`.
 14. **Top-down: root, features, shared utilities.** Design and read code from the top: a root / composer (scope
     extension, facade, entity root) wires the feature classes; each feature class owns one behaviour and depends only

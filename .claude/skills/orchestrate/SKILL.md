@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: Turn the current session into the orchestrator of a task - split it into steps, run the steps with subagents (parallel where independent, sequential where dependent), keep every context (own and agents') under 300k tokens with handoffs. Use when the user runs /orchestrate [task text or path to a task file/folder] or asks to orchestrate a task with agents.
+description: Turn the current session into the orchestrator of a task - split it into steps, run the steps with subagents (parallel where independent, sequential where dependent), keep every context (own and agents') under 300k tokens with handoffs; with --architecture the plan goes through plan-architecture first, every code step gets an independent architecture review and the task ends with a code audit. Use when the user runs /orchestrate [--architecture] [task text or path to a task file/folder] or asks to orchestrate a task with agents.
 ---
 
 # AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
@@ -9,9 +9,12 @@ BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute 
 
 # Orchestrate Skill
 
-`/orchestrate [task text | path]` - this session becomes the **orchestrator**: it plans, delegates every
+`/orchestrate [--architecture] [task text | path]` - this session becomes the **orchestrator**: it plans, delegates every
 implementation step to subagents, checks their results and keeps the state on disk. The orchestrator itself does not
 write production code; it reads only what it needs to plan and to verify.
+
+`--architecture` turns on the architecture guard: Phase 1b, the additions marked **[arch]** in Phases 3, 4 and 6. Record
+`architecture: true` in the front-matter of `_orchestration.md`: a next generation of the orchestrator keeps it.
 
 Context limit: **300 000 tokens** for the orchestrator and for every agent. Measure, do not guess:
 
@@ -27,7 +30,7 @@ Exit code 2 = over the limit. The output is `<tokens> (<percent>% of 300000) ok|
 
 ## Phase 1 — Task workspace
 
-1. Argument resolution:
+1. Argument resolution (`--architecture` first is the flag, the rest is the argument):
    - a path to `docs/tasks/current/<task>/` or one of its files - use that workspace (read `_result.md` first, then
      `_info.md`, `_progress.md`);
    - any other path (`docs/...md`, a plan file) - read it, it is the task text;
@@ -42,6 +45,7 @@ Exit code 2 = over the limit. The output is `<tokens> (<percent>% of 300000) ok|
 task: <task>
 orchestrator_session: <session id>
 orchestrator_generation: 1
+architecture: <true with --architecture, else false>
 updated: <YYYY-MM-DD HH:MM>
 ---
 
@@ -57,6 +61,14 @@ updated: <YYYY-MM-DD HH:MM>
 ## Журнал
 ### [YYYY-MM-DD HH:MM] ...
 ```
+
+## Phase 1b — Architecture of the plan [arch]
+
+Before the waves, one agent runs the `plan-architecture` skill on the workspace: "Выполни
+.claude/skills/plan-architecture/SKILL.md для docs/tasks/current/<task>/; ответ - его отчёт (Step 6)". It edits only
+`_info.md`: steps, «Аудит», «Архитектурная сверка», questions. Its new steps and changed dependencies go into the graph
+of Phase 2. Its «Вопросы пользователю»: ask the blocking ones before the steps they block (one `AskUserQuestion`), go on
+with what they do not block; record the answers in `_info.md`.
 
 ## Phase 2 — Plan the waves
 
@@ -111,6 +123,14 @@ docs/tasks/current/<task>/handoff/<step>_g<generation>.md по шаблону н
 открытые вопросы. Коротко - не пересказывай код.
 ```
 
+**[arch]** the brief also carries:
+
+```
+Архитектура: прочитай tools/framework/.claude/docs/ARCHITECTURE_PATTERNS.md (разделы слоёв шага)<, GAMEPLAY_ARCHITECTURE.md
+для геймплея>. Образец: <папка аналога из «Архитектурной сверки» плана> - повторяй его раскладку. В итоговом отчёте -
+«Архитектурная сверка шага»: новые папки и классы и почему они там, какие принципы P1-P14 шаг задел и как соблюдены.
+```
+
 Rules for the brief:
 - One step per agent. Name real files (verified with Grep/Glob), not guesses.
 - Repeat the project rules the step touches (fail fast, Lifetime for subscriptions, `[Inject]` methods public across
@@ -127,6 +147,13 @@ Rules for the brief:
 While agents run (they report back by notification; do not poll in a loop):
 - On a notification read only the final report, not the transcript. Check the evidence yourself when it is cheap
   (`git diff --stat`, run the named test, grep the change); spawn a verification agent only for a large step.
+- **[arch]** A step that added or changed code is done only after an architecture review: a fresh agent (not the
+  implementer) gets the step, its file list and `git diff` range, and the analogue folder - not the orchestrator's
+  opinion - and runs `code-audit` Steps 1-3 on the changed files and their feature folders against P1-P14,
+  `GAMEPLAY_ARCHITECTURE.md` and the analogue. It answers with confirmed findings only (file:line, principle). A finding
+  in the step: one more round of the same step agent with the findings as notes (`SendMessage`, or a new generation with
+  them in the brief), then the review again; a second round with findings -> `blocked`, the user decides. A finding
+  outside the step: a follow-up step in `_info.md`. Steps of docs or research skip the review.
 - If a report is "HANDOFF: <path>": launch the next generation of the same step (`g+1`, new marker) with the same
   brief plus "Прочитай handoff <path> - продолжай с момента остановки, не переделывай сделанное". Update the graph.
 - Between waves, and when an agent runs long, check its size: `context_meter.py --agent <agentId>`. An agent over
@@ -162,6 +189,9 @@ Check own size with `context_meter.py --session <own id>` after every wave and a
 
 When every step is done or blocked:
 1. Run the task's overall check (tests, build, the scenario from `_info.md`) - with an agent if it is heavy.
+   **[arch]** Then a `/code-audit` agent over the folders the task touched (`code-audit` skill, the report goes to
+   `docs/audits`): drift between steps shows only on the whole area. Its critical and important findings of this task
+   become one final step; the rest go to the report to the user.
 2. Finalize `_result.md` (Phase 3 of the `workflow` skill), close `_orchestration.md` with the totals: steps, agents,
    handoffs, blocked steps.
 3. Report to the user in Russian: what is done (with evidence), what is blocked and why, the decisions agents took,

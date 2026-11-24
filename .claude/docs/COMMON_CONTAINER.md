@@ -80,7 +80,7 @@ void BuildLocalGrand(IEntityBuilder builder)
 }
 ```
 
-Example: `client/Assets/GamePlay/Players/Services/GamePlayerFactory.cs`. The entity pattern itself is in `ENTITIES.md`.
+Example: `client/Assets/GamePlay/Players/Services/GamePlayerFactory.cs`. The entity pattern itself is in `GAMEPLAY_ARCHITECTURE.md` § Entity.
 
 **One graph per root.** The generator builds the graph of a root statically, all branches at once. Variants (local/remote, per character) are separate roots selected by a C# `switch` at the call site, not `if` inside one root. Only `bool` and closed enum parameters may change the graph of an entity root (CINGR005); for platform choices use `#if`, not `if` (see `client/Assets/Common/Global/UI/GlobalUIExtensions.cs`). An entity root used with several `ScopeEntityView` subtypes gets one generated class per view type (`GeneratedScopes.RegisterVariant`); one view type must not be shared by two prefabs (CINGR006).
 
@@ -253,6 +253,6 @@ The generator reports errors at compile time; the Unity console shows them as co
 ## Related
 - **Lifetimes:** [COMMON_LIFETIMES.md](COMMON_LIFETIMES.md)
 - **Reactive:** [COMMON_REACTIVE_BASICS.md](COMMON_REACTIVE_BASICS.md)
-- **Entities:** `ENTITIES.md` of the game, [HIERARCHY_BINDINGS.md](HIERARCHY_BINDINGS.md)
+- **Entities:** [GAMEPLAY_ARCHITECTURE.md](GAMEPLAY_ARCHITECTURE.md), [HIERARCHY_BINDINGS.md](HIERARCHY_BINDINGS.md)
 - **Code generation:** `CODEGEN.md` of the game
 - **Code Style:** [CODE_STYLE_FULL.md](CODE_STYLE_FULL.md)

@@ -18,9 +18,13 @@ Sources, by authority:
 2. `tools/framework/.claude/docs/ARCHITECTURE_PATTERNS.md` (shared by the games) and `.claude/docs/ARCHITECTURE_PATTERNS.md`
    (this game), one numbering over both - "if X -> the plan has Y" with doc links. Read only the sections of the
    touched layers (table in Step 2) in both files, never a whole file.
-3. `.claude/docs/ARCHITECTURE_DECISIONS.md` - session decisions. `[пользователь]` = rule; `[агент]` = NOT a
+3. `tools/framework/.claude/docs/GAMEPLAY_ARCHITECTURE.md` - the layout of a gameplay assembly, entities, states; read
+   it whole when the task touches gameplay.
+4. `.claude/docs/ARCHITECTURE_DECISIONS.md` - session decisions. `[пользователь]` = rule; `[агент]` = NOT a
    rule: a hint marked "(неподтверждено, ARCHITECTURE_DECISIONS §N)" or a question.
-4. `docs/tasks/complete/REFACTOR_OVERVIEW.md` § «Общая идея» - the model of what the user calls a problem in code.
+5. `docs/tasks/complete/REFACTOR_OVERVIEW.md` § «Общая идея» - the model of what the user calls a problem in code.
+
+A source of the game (`.claude/docs/...`, `docs/tasks/complete/...`) the project lacks is skipped, not a stop.
 
 The plan rests on the principles. A pattern enters the plan only when the task hits its "if"; one line and a link,
 never copied doc text.
@@ -40,6 +44,7 @@ Mark the touched layers and find the code **pointwise**: `grep -rn` for the name
 
 | Layer | Signs | PATTERNS | DECISIONS |
 |-------|-------|----------|-----------|
+| Layout | a new feature, folder or assembly of gameplay | 1.0 C-LAY | — |
 | Data and assets | EnvAsset, options, catalogue, writer | 1.10 C-DATA, 1.11 C-GEN | §2 |
 | Effects and services | upgrade, effect, companion, `OnSetup` | 1.1 C-DI, 1.5 C-LT, 1.6 C-RX | §1, §3 |
 | Entities | `ILocalX` / `IRemoteX`, entity prefab, state machine, brain | 1.3 C-EN, 1.4 C-SM | — |
@@ -55,7 +60,9 @@ Read a section: `grep -n '^##' <file>`, then `sed -n` that range only.
 ## Step 3 — Audit of the touched area (mandatory, before checking the plan)
 
 The area = the folders of the touched files plus their feature folder, not only the named classes; for a new feature
-also the folder of its closest existing analogue (a new attack -> the existing attacks).
+also the folder of its closest existing analogue (a new attack -> the existing attacks). No analogue in the game (its
+first player, enemy, run): the analogue in the reference (`.claude/project-skills.md` § architecture, else pixel-swarm
+`client/Assets/GamePlay`); list its folders and compare the layout the plan gives the feature with it (C-LAY-1).
 
 ```
 .claude/skills/code-audit/audit.sh <folder>...                  # current tree
@@ -86,6 +93,9 @@ Per principle: applies / n/a; for each applicable one, the step that meets it, e
   events; repeated logic -> a utility below that knows no feature. A feature that adds one more `case` to existing
   `switch`-es by kind (count them) -> a question: extend as is or cut into classes first (a separate refactoring).
 - **P2** subscription in `OnSetup` on a named lifetime, no per-frame checks. **P6** intent methods, private set.
+- **P1 / P12 gameplay** a thing with its own life and view is an entity, its modes are states, its feature is one
+  folder; a plan with a `Model` / `Views` split or an `enum State` driven by one `Tick` is rewritten
+  (`GAMEPLAY_ARCHITECTURE.md`, C-LAY-2, C-EN-1, C-SM-1).
 - **P9** separate roots per variant. **P7** many per-frame entities -> the ECS world of the game. **P8** no fallbacks.
 - **P11-P13** the confirmed audit findings: a refactoring cuts / moves / deletes them all in its area; a feature fixes
   only what it touches (a class it extends past 300 lines, a folder it adds to) - the rest goes to "Аудит" as

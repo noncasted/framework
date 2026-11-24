@@ -9,12 +9,17 @@ Paths inside the docs:
   `backend/{Common,Infrastructure,Cluster,Console,Session,Hosting}` are the framework (`tools/framework/...` in a game).
 - `client/Assets/...` and the rest of `backend/...` (`Meta`, `Orchestration`, `Tools`) are examples from a game; another
   game has the same parts under its own names.
-- A doc named here that is absent from this folder (`ENTITIES.md`, `CODEGEN.md`, `NETWORK.md`, `CLAUDE_MISTAKES.md`,
+- A doc named here that is absent from this folder (`ENTITIES.md` of a game, `CODEGEN.md`, `NETWORK.md`, `CLAUDE_MISTAKES.md`,
   ...) belongs to the game: `.claude/docs` of the project, if it has one.
 
 A doc of a game wins where it states a local exception; a rule true for every game belongs here, not in the game.
 
 @ARCHITECTURE_PRINCIPLES.md
+
+**New code is built from the docs, not from scratch.** Before planning or writing a new feature, entity, scope or
+module, read `ARCHITECTURE_PATTERNS.md` (the sections of the touched layers) and, for gameplay,
+`GAMEPLAY_ARCHITECTURE.md`; then open the closest analogue in the reference of the game (`.claude/project-skills.md`
+§ architecture, pixel-swarm when the game names none) and follow its layout. A plan says which analogue it follows.
 
 The framework of a game is updated by a release with the `update-framework` skill, which also carries out what the release asks of the game.
 
@@ -39,7 +44,8 @@ Research media of a project: work in progress is in `docs/media/research/<topic>
 | HierarchyBindings, *Bindings.g.cs, ObjectBindings, Create Object Bindings, Regenerate bindings | HIERARCHY_BINDINGS.md |
 | Lifetime, Advise, View, Terminate, subscription, cleanup, Lifetime Graph, LifetimeAnalytics, lifetime leak | COMMON_LIFETIMES.md, COMMON_LIFETIMES_PATTERNS.md |
 | EventSource, ViewableProperty, ViewableList, reactive, observable, event | COMMON_REACTIVE_BASICS.md, then COMMON_REACTIVE_VALUES.md, COMMON_REACTIVE_COLLECTIONS.md, COMMON_REACTIVE_PATTERNS.md |
-| IState, IStateMachine, IStateHandle, ObjectStateDefinition, state machine | STATE_MACHINES.md |
+| new gameplay feature, entity, player, enemy, prefab of an entity, ScopeEntityView, IEntityScopeLoader, Build* root, AddXSync, folders of a gameplay assembly, Model / Views split | GAMEPLAY_ARCHITECTURE.md |
+| IState, IStateMachine, IStateHandle, ObjectStateDefinition, state machine, states of an entity, enum State | STATE_MACHINES.md, GAMEPLAY_ARCHITECTURE.md § States |
 | UniTask, async, IReadOnlyList, file I/O, callback wrapping | API_DESIGN_FULL.md |
 | member order, _camelCase, NoAwait, Async suffix, braces, comments, public setters, file size, catch | CODE_STYLE_FULL.md |
 | Grain, IGrainWithGuidKey, [Transaction], constructor injection, State<T>, IStateValue, [GenerateSerializer], [Id(N)], StatesLookup, StateCollection, jsonb, IStateStorage, DirectStorage, EventState, Marten, GrainState, PostgreSQL, IOrleans, GetGrain, messaging, ListenDurableQueue, PushTransactionalQueue | COMMON_ORLEANS.md |

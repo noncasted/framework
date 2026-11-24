@@ -92,7 +92,7 @@ Is it a Unity object (lives in a scene or prefab)?
 │
 ├─ Part of a gameplay entity (player, weapon, enemy prefab)?
 │  └─ Generated *Bindings (IEntityComponent) on the prefab + ScopeEntityView subclass
-│     components are plain classes taking the bindings in the constructor (ENTITIES.md)
+│     components are plain classes taking the bindings in the constructor (GAMEPLAY_ARCHITECTURE.md § Entity)
 │
 └─ MonoBehaviour created at runtime that needs dependencies?
    └─ builder.Injectable<T>() in the scope + IViewInjector.Inject(instance)
