@@ -1,4 +1,4 @@
-using MemoryPack.Formatters;
+﻿using MemoryPack.Formatters;
 
 namespace MemoryPack;
 
@@ -39,9 +39,6 @@ public static partial class MemoryPackFormatterProvider
         Register(new UnmanagedFormatter<Double>());
         Register(new UnmanagedArrayFormatter<Double>());
         Register(new NullableFormatter<Double>());
-        Register(new UnmanagedFormatter<Decimal>());
-        Register(new UnmanagedArrayFormatter<Decimal>());
-        Register(new NullableFormatter<Decimal>());
         Register(new UnmanagedFormatter<Boolean>());
         Register(new UnmanagedArrayFormatter<Boolean>());
         Register(new NullableFormatter<Boolean>());
@@ -54,9 +51,6 @@ public static partial class MemoryPackFormatterProvider
         Register(new UnmanagedFormatter<DateTime>());
         Register(new UnmanagedArrayFormatter<DateTime>());
         Register(new NullableFormatter<DateTime>());
-        Register(new UnmanagedFormatter<DateTimeOffset>());
-        Register(new UnmanagedArrayFormatter<DateTimeOffset>());
-        Register(new NullableFormatter<DateTimeOffset>());
         Register(new UnmanagedFormatter<TimeSpan>());
         Register(new UnmanagedArrayFormatter<TimeSpan>());
         Register(new NullableFormatter<TimeSpan>());

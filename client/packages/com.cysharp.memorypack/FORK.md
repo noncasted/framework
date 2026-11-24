@@ -14,6 +14,7 @@ NuGet-версия помечает почти все свои форматте�
 - Форматтеры BigInteger, BitArray, CultureInfo, TimeZoneInfo, Uri, Version, Type, StringBuilder, Immutable- и Frozen-коллекций, Lazy, Tuple/ValueTuple, многомерных массивов.
 - `MemoryPackFormatterProvider`: регистрации этих типов и System.Numerics (Complex, Vector*, Matrix*, Plane, Quaternion), запасной путь для Lazy, кортежей, Immutable и многомерных массивов.
 - Шаблоны `*.tt` (сгенерированные `.cs` остались).
+- Второй круг (размер WebGL на Unity 7000.0.0a20, −34 KiB br): форматтеры коллекций, которых нет ни в одном протоколе игр (Stack, Queue, LinkedList, HashSet, SortedSet, PriorityQueue, Collection, ObservableCollection, Concurrent*, SortedDictionary, SortedList, ReadOnlyCollection, ReadOnlyObservableCollection, BlockingCollection), интерфейсные форматтеры кроме `IReadOnlyList` и `IReadOnlyDictionary` (с внутренними Grouping / Lookup), массивоподобные (`ArraySegment`, `Memory`, `ReadOnlyMemory`, `ReadOnlySequence`, `MemoryPool`, `ReadOnlyMemoryPool` и их атрибуты), из известных типов `decimal` и `DateTimeOffset`.
 
 Протокол (`shared/`) использует только примитивы, `string`, `Guid`, `DateTime`, `TimeSpan`, массивы, `List`, `Dictionary`, `IReadOnlyList`, `IReadOnlyDictionary`, `Nullable` и юнионы. Если в протокол добавится тип из удалённого списка, Shared.Game в Unity не скомпилируется (форматтер не найден генератором) или сериализация бросит `MemoryPackSerializationException` «not registered». Тогда вернуть нужный файл из оригинального репозитория.
 
@@ -23,7 +24,7 @@ NuGet-версия помечает почти все свои форматте�
 client/packages/com.cysharp.memorypack/Source~/build.sh
 ```
 
-Скрипт кладёт DLL в `Runtime/MemoryPack.Core.dll` этого пакета, `.meta` остаётся прежним. При обновлении MemoryPack: взять `src/MemoryPack.Core` нужной версии, повторить удаления из списка выше и обновить `Analyzers/MemoryPack.Generator.dll` на ту же версию (метка `RoslynAnalyzer` в `.meta` обязательна).
+Скрипт кладёт DLL в `Runtime/MemoryPack.Core.dll` этого пакета, `.meta` остаётся прежним. Проект собирается сам по себе (`ImportDirectoryBuildProps=false`, `ImportDirectoryPackagesProps=false`): `Directory.Build.props` и центральные версии пакетов фреймворка ломают его сборку. При обновлении MemoryPack: взять `src/MemoryPack.Core` нужной версии, повторить удаления из списка выше и обновить `Analyzers/MemoryPack.Generator.dll` на ту же версию (метка `RoslynAnalyzer` в `.meta` обязательна).
 
 ## Состав пакета
 

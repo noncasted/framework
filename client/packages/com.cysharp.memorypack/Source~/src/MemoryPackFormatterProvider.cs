@@ -1,4 +1,4 @@
-using MemoryPack.Formatters;
+﻿using MemoryPack.Formatters;
 using MemoryPack.Internal;
 using System.Buffers;
 using System.Collections.Concurrent;
@@ -270,9 +270,6 @@ public static partial class MemoryPackFormatterProvider
         }
 
         formatterType = TryCreateGenericFormatterType(type, KnownGenericTypeFormatters);
-        if (formatterType != null) goto CREATE;
-
-        formatterType = TryCreateGenericFormatterType(type, ArrayLikeFormatters);
         if (formatterType != null) goto CREATE;
 
         formatterType = TryCreateGenericFormatterType(type, CollectionFormatters);
