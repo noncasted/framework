@@ -59,7 +59,7 @@ public class SessionEndpoints : ICoordinatorSetupCompleted
 
     private Task<SessionPayloads.Search.Response> Search(SessionPayloads.Search.Request request)
     {
-        var id = _sessionSearch.GetOrCreate(request.UserId, out var isLobby);
+        var id = _sessionSearch.GetOrCreate(request.UserId, request.Queue, out var isLobby);
 
         return Task.FromResult(new SessionPayloads.Search.Response
         {

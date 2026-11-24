@@ -343,8 +343,9 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   `ILobbyListings`) and the handlers of the meta requests (`SessionEndpoints`, `SessionPayloads` over the message
   pipes). The game registers what builds its sessions: `ILobbyFactory` (a lobby session from `LobbyCreation`),
   `ILobbyMatches` (the match a lobby starts, the admission of a late player), `IKnownUsersMatches` (a solo match),
-  `ISessionSearch` (the public match of the search) and `ILobbyEntryPolicy` (when a running match lets a late player
-  in; `LobbyEntryPolicy.Always` when always). The container of a lobby session adds `AddLobbyService(LobbySessionInfo)`
+  `ISessionSearch` (the public match of the search in a queue of the game: an int, 0 by default, its meaning is the
+  game's) and `ILobbyEntryPolicy` (when a running match lets a late player in; `LobbyEntryPolicy.Always` when
+  always). The container of a lobby session adds `AddLobbyService(LobbySessionInfo)`
   (or `AddLobbyService<T>` with a derived service: own properties from `SharedLobbyService.GamePropertyFirst`, the
   admission of the late players in `OnLatePlayersStarted` / `Admit` / `ClearGame` / `MarkRunOver`), the container of
   a match started by a lobby `AddMatchListingService(MatchListingInfo)`. The meta calls `AddSessionRequester`:

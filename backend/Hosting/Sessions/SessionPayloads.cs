@@ -29,6 +29,9 @@ public static class SessionPayloads
         public class Request
         {
             [Id(0)] public required Guid UserId { get; init; }
+
+            // The queue of the game (SharedSessionRequests.Search.Queue), passed to ISessionSearch as it is.
+            [Id(1)] public int Queue { get; init; }
         }
 
         [GenerateSerializer]

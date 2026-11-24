@@ -91,6 +91,9 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
     private readonly Dictionary<Guid, IServiceOverview> _servers = new();
     private readonly Dictionary<Guid, TestSession> _sessions = new();
 
+    // The queue each public match of the search was created for; a match created without the search is in queue 0.
+    private readonly Dictionary<Guid, int> _matchQueues = new();
+
     // Not null: the lobby factory of the game fails with it.
     private Exception? _lobbyCreationFailure;
     private Exception? _matchCreationFailure;
@@ -270,8 +273,9 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
         return session.Session;
     }
 
-    // ISessionSearch: a public match with a free place, otherwise a new one. Nothing of the game: no late entry.
-    public Guid GetOrCreate(Guid userId, out bool isLobby)
+    // ISessionSearch: a public match of the same queue with a free place, otherwise a new one. Nothing of the game: no
+    // late entry.
+    public Guid GetOrCreate(Guid userId, int queue, out bool isLobby)
     {
         isLobby = false;
 
@@ -280,11 +284,15 @@ public class HostingTestWorld : ILobbyFactory, ILobbyMatches, IKnownUsersMatches
             if (session.Type != SessionType.Match || session.IsPrivate == true)
                 continue;
 
+            if (_matchQueues.GetValueOrDefault(session.Id) != queue)
+                continue;
+
             if (session.Reserve(userId) == SessionReservation.Reserved)
                 return session.Id;
         }
 
         var created = CreatePublicMatch();
+        _matchQueues.Add(created.Session.Id, queue);
 
         if (created.Session.Reserve(userId) != SessionReservation.Reserved)
             throw new InvalidOperationException($"Created session {created.Session.Id} rejected the reservation");

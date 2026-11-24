@@ -19,9 +19,10 @@ namespace Global.Lobbies
         // lifetime - OperationCanceledException. An Ok result carries the ticket of the local user into the session
         // (SessionData.Ticket).
 
-        // Public match session with a free place, or the lobby of the late players of a running one
+        // Public match session with a free place in the queue of the game (0 by default; the queues never mix, the
+        // game gives them their meaning), or the lobby of the late players of a running one
         // (SessionSearchResult.IsLobby: the match is entered from it).
-        UniTask<SessionSearchResult> SearchSession(IReadOnlyLifetime lifetime);
+        UniTask<SessionSearchResult> SearchSession(IReadOnlyLifetime lifetime, int queue = 0);
 
         // A private match session for the local user alone (a solo run): nobody else finds or enters it.
         UniTask<SessionData> CreateSolo(IReadOnlyLifetime lifetime);
@@ -49,9 +50,9 @@ namespace Global.Lobbies
 
         private readonly IMetaSocket _socket;
 
-        public async UniTask<SessionSearchResult> SearchSession(IReadOnlyLifetime lifetime)
+        public async UniTask<SessionSearchResult> SearchSession(IReadOnlyLifetime lifetime, int queue = 0)
         {
-            var result = await Request(lifetime, new SharedSessionRequests.Search());
+            var result = await Request(lifetime, new SharedSessionRequests.Search { Queue = queue });
 
             if (result.Status != SharedSessionRequests.EntryStatus.Ok)
                 throw new InvalidOperationException($"[Matchmaking] The search is refused: {result.Status}");
