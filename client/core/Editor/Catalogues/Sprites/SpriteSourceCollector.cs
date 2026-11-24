@@ -63,7 +63,7 @@ namespace Internal
                         groupName,
                         propertyName,
                         metadata.Kind == SpriteCatalogKind.Animation ? SpriteKind.Animation : SpriteKind.Sheet,
-                        metadata.Kind == SpriteCatalogKind.MultipleAnimations && SpriteCatalogMetadata.IsAsepriteImporter(importer),
+                        metadata.Kind == SpriteCatalogKind.MultipleAnimations,
                         metadata,
                         metadata.Time,
                         metadata.Color,

@@ -43,11 +43,21 @@ namespace Internal
                     DrawTime(importers, states);
                     DrawColor(importers, states);
                 }
-                else if (states.Kind == SpriteCatalogKind.MultipleAnimations)
+                else if (states.Kind == SpriteCatalogKind.MultipleAnimations && states.AllAseprite)
                 {
                     DrawFramesPerSecond(importers, states);
                     DrawColor(importers, states);
                     SpriteMultipleAnimationsGUI.Draw(importers, Apply);
+                }
+                else if (states.Kind == SpriteCatalogKind.MultipleAnimations && states.NoAseprite)
+                {
+                    DrawColor(importers, states);
+                    SpriteStripClipsGUI.Draw(importers, Apply);
+                }
+                else if (states.Kind == SpriteCatalogKind.MultipleAnimations)
+                {
+                    EditorGUILayout.HelpBox("Aseprite files and strips have different animations: select one kind.",
+                        MessageType.Info);
                 }
             }
         }
@@ -104,7 +114,8 @@ namespace Internal
                 timeMixed,
                 colorMixed,
                 framesPerSecondMixed,
-                AllAseprite(importers));
+                AllAseprite(importers),
+                NoAseprite(importers));
         }
 
         private static void DrawIncluded(IReadOnlyList<AssetImporter> importers, CatalogStates states)
@@ -125,11 +136,8 @@ namespace Internal
 
             var nextSheet = GUILayout.Toggle(isSheet, "Sheet", EditorStyles.radioButton);
             var nextAnimation = GUILayout.Toggle(isAnimation, "Animation", EditorStyles.radioButton);
-            var nextMultiple = false;
-
-            // Only aseprite has tags and layers.
-            if (states.AllAseprite)
-                nextMultiple = GUILayout.Toggle(isMultiple, "Multiple Animations", EditorStyles.radioButton);
+            // Aseprite takes its tags and layers, a strip its clips (SpriteStripClipsGUI).
+            var nextMultiple = GUILayout.Toggle(isMultiple, "Multiple Animations", EditorStyles.radioButton);
 
             EditorGUILayout.EndHorizontal();
 
@@ -157,6 +165,17 @@ namespace Internal
             foreach (var importer in importers)
             {
                 if (SpriteCatalogMetadata.IsAsepriteImporter(importer) == false)
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static bool NoAseprite(IReadOnlyList<AssetImporter> importers)
+        {
+            foreach (var importer in importers)
+            {
+                if (SpriteCatalogMetadata.IsAsepriteImporter(importer) == true)
                     return false;
             }
 
@@ -217,7 +236,8 @@ namespace Internal
                 bool timeMixed,
                 bool colorMixed,
                 bool framesPerSecondMixed,
-                bool allAseprite)
+                bool allAseprite,
+                bool noAseprite)
             {
                 Included = included;
                 Kind = kind;
@@ -232,6 +252,7 @@ namespace Internal
                 ColorMixed = colorMixed;
                 FramesPerSecondMixed = framesPerSecondMixed;
                 AllAseprite = allAseprite;
+                NoAseprite = noAseprite;
             }
 
             public bool Included { get; }
@@ -247,6 +268,7 @@ namespace Internal
             public bool ColorMixed { get; }
             public bool FramesPerSecondMixed { get; }
             public bool AllAseprite { get; }
+            public bool NoAseprite { get; }
         }
     }
 }

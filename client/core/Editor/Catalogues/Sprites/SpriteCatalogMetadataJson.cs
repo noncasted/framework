@@ -19,7 +19,8 @@ namespace Internal
                 catalog["fps"] != null ? catalog.Value<float>("fps") : SpriteCatalogMetadata.DefaultFramesPerSecond,
                 ReadAnimations(catalog["animations"]),
                 ReadCustomAnimations(catalog["customAnimations"]),
-                ReadTagSpeeds(catalog["tagSpeeds"]));
+                ReadTagSpeeds(catalog["tagSpeeds"]),
+                ReadClips(catalog["clips"]));
         }
 
         internal static JObject Write(SpriteCatalogMetadata metadata)
@@ -53,6 +54,9 @@ namespace Internal
                 if (metadata.TagSpeeds.Count > 0)
                     catalog["tagSpeeds"] = WriteTagSpeeds(metadata.TagSpeeds);
             }
+
+            if (metadata.Clips.Count > 0)
+                catalog["clips"] = WriteClips(metadata.Clips);
 
             return catalog;
         }
@@ -127,6 +131,45 @@ namespace Internal
             }
 
             return speeds;
+        }
+
+        // A clip without its frames or time would play the whole strip or nothing: a broken markup, not a default.
+        private static List<SpriteCatalogClip> ReadClips(JToken token)
+        {
+            var clips = new List<SpriteCatalogClip>();
+
+            if (token is not JArray array)
+                return clips;
+
+            foreach (var item in array)
+            {
+                if (item is not JObject clip)
+                    continue;
+
+                clips.Add(new SpriteCatalogClip(
+                    Required(clip, "name"),
+                    Required(clip, "frames"),
+                    RequiredFloat(clip, "time")));
+            }
+
+            return clips;
+        }
+
+        private static JArray WriteClips(IReadOnlyList<SpriteCatalogClip> clips)
+        {
+            var array = new JArray();
+
+            foreach (var clip in clips)
+            {
+                array.Add(new JObject
+                {
+                    ["name"] = clip.Name ?? string.Empty,
+                    ["frames"] = clip.Frames ?? string.Empty,
+                    ["time"] = clip.Time
+                });
+            }
+
+            return array;
         }
 
         // An entry without its name applies to nothing, is never found and is written back for good: a broken markup, not

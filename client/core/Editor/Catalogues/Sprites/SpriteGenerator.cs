@@ -78,6 +78,13 @@ namespace Internal
                 if (source.IsMultipleAnimations == false)
                     continue;
 
+                // A PNG strip is not baked: its clips take the sprites of the file.
+                if (IsAseprite(source.Path) == false)
+                {
+                    source.SetBakedAnimations(SpriteStripClips.Cut(source.Path, source.Metadata));
+                    continue;
+                }
+
                 source.SetBakedAnimations(AsepriteAnimationBaker.Bake(
                     source.Path,
                     CatalogNaming.ToGroupKey(source.Group),
@@ -87,6 +94,11 @@ namespace Internal
             }
 
             AsepriteAnimationBaker.DeleteStale(writtenPaths);
+        }
+
+        private static bool IsAseprite(string path)
+        {
+            return SpriteCatalogMetadata.IsAsepriteImporter(AssetImporter.GetAtPath(path));
         }
     }
 }

@@ -28,7 +28,8 @@ namespace Internal
             float framesPerSecond,
             List<SpriteCatalogAnimation> animations,
             List<SpriteCatalogCustomAnimation> customAnimations,
-            List<SpriteCatalogTagSpeed> tagSpeeds)
+            List<SpriteCatalogTagSpeed> tagSpeeds,
+            List<SpriteCatalogClip> clips)
         {
             Included = included;
             Group = group;
@@ -39,11 +40,13 @@ namespace Internal
             _animations = animations;
             _customAnimations = customAnimations;
             _tagSpeeds = tagSpeeds;
+            _clips = clips;
         }
 
         private List<SpriteCatalogAnimation> _animations = new();
         private List<SpriteCatalogCustomAnimation> _customAnimations = new();
         private List<SpriteCatalogTagSpeed> _tagSpeeds = new();
+        private List<SpriteCatalogClip> _clips = new();
 
         public bool Included { get; private set; }
         public string Group { get; private set; } = string.Empty;
@@ -58,6 +61,9 @@ namespace Internal
 
         // Only tags with their own speed; the others play at FramesPerSecond.
         public IReadOnlyList<SpriteCatalogTagSpeed> TagSpeeds => _tagSpeeds;
+
+        // The clips of a PNG strip marked as Multiple Animations (an aseprite file takes its tags instead).
+        public IReadOnlyList<SpriteCatalogClip> Clips => _clips;
 
         public void SetIncluded(bool included)
         {
@@ -114,6 +120,21 @@ namespace Internal
         public void RemoveCustomAnimationAt(int index)
         {
             _customAnimations.RemoveAt(index);
+        }
+
+        public void AddClip(SpriteCatalogClip clip)
+        {
+            _clips.Add(clip);
+        }
+
+        public void SetClip(int index, SpriteCatalogClip clip)
+        {
+            _clips[index] = clip;
+        }
+
+        public void RemoveClipAt(int index)
+        {
+            _clips.RemoveAt(index);
         }
 
         public static bool TryRead(AssetImporter importer, out SpriteCatalogMetadata metadata)
