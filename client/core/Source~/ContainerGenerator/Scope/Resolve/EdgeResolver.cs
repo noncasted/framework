@@ -84,7 +84,7 @@ namespace ContainerGenerator {
                 RegistrationBinder.Bind(context, i);
 
             AlternativeLinks.LinkAlternatives(graph, allByType);
-            PhaseListeners.ReportTransientPhaseListeners(graph);
+            PhaseListeners.ReportUnregisteredSetup(graph, index);
             DependencyOrder.DetectCycles(graph);
             graph.ConstructionOrder.AddRange(DependencyOrder.SortTopologically(graph));
             return graph;

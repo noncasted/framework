@@ -197,7 +197,6 @@ namespace Internal {
     public interface IEntityComponent { void Register(IEntityBuilder builder); }
     public interface ISceneService { void Create(IScopeBuilder builder); }
     public interface IScopeSetup { void OnSetup(IReadOnlyLifetime lifetime); }
-    public interface IScopeDispose { void OnDispose(); }
     public interface IScopeEntityView {}
     public interface IEntityScopeLoader {
         void Load(IReadOnlyLifetime lifetime, object parent, IScopeEntityView view, Action<IEntityBuilder> construct);

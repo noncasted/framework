@@ -15,8 +15,7 @@ namespace Global.Cameras
             camera.gameObject.SetActive(false);
 
             builder.RegisterComponent(camera)
-                   .As<IGlobalCamera>()
-                   .As<IScopeBaseSetup>();
+                   .As<IGlobalCamera>();
 
             builder.Register<CameraUtils>()
                    .As<ICameraUtils>();

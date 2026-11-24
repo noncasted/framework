@@ -129,9 +129,8 @@ namespace Internal.Tests
             return steps.Format($"Generated Build allocations by step, min over {runs} runs", "Session: Dispose");
         }
 
-        // Bytes of EventLoop phases for one scope (three synchronous IScopeSetup, other phases empty).
-        // Listeners are synchronous, so async methods complete immediately and state machines do not go to the heap:
-        // the measurement contains only EventLoop itself. The graph has no holes, no installer needed: the class is already generated.
+        // Bytes of the setup of one scope (three IScopeSetup). It completes at once on the main thread, so its state
+        // machine does not go to the heap: the measurement contains only EventLoop itself. The graph has no holes, no installer needed: the class is already generated.
         public static string EventLoopAllocations(int runs)
         {
             var steps = new AllocationSteps();
@@ -149,9 +148,7 @@ namespace Internal.Tests
                 var events = builder.Events;
                 events.Bind(container);
 
-                steps.Add("RunConstruct", () => Complete(events.RunConstruct(container.Lifetime)));
-                steps.Add("RunLoaded", () => Complete(events.RunLoaded(container.Lifetime)));
-                steps.Add("RunDispose", () => Complete(events.RunDispose()));
+                steps.Add("RunSetup", () => Complete(events.RunSetup(container.Lifetime)));
 
                 container.Dispose();
                 lifetime.Terminate();

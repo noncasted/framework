@@ -9,7 +9,6 @@ namespace Internal
         IContainer Container { get; }
         IReadOnlyLifetime Lifetime { get; }
 
-        UniTask Initialize();
         UniTask Dispose();
     }
 
@@ -43,11 +42,6 @@ namespace Internal
         public IReadOnlyLifetime Lifetime { get; }
         public IEventLoop EventLoop { get; }
 
-        public UniTask Initialize()
-        {
-            return EventLoop.RunLoaded(Lifetime);
-        }
-
         public UniTask Dispose()
         {
             _disposing ??= DisposeOnce().Preserve();
@@ -76,7 +70,6 @@ namespace Internal
             for (var i = children.Length - 1; i >= 0; i--)
                 await teardown.StepAwaited(children[i].Dispose);
 
-            await teardown.StepAwaited(EventLoop.RunDispose);
             teardown.Step(_scopeLifetime.Terminate);
 
             // On quit Unity unloads the scenes itself.

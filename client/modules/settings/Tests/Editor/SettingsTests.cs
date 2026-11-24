@@ -26,12 +26,10 @@ namespace Global.Settings.Tests
         public IEnumerator Apply_CallerChangesItsSaveAfter_CurrentStays() => UniTask.ToCoroutine(async () =>
         {
             var options = ScriptableObject.CreateInstance<SettingsOptions>();
-            var lifetime = new Lifetime();
 
             try
             {
                 var settings = new Settings(new MemorySaves(), options);
-                await settings.OnSetup(lifetime);
 
                 var save = settings.Copy();
                 save.SetMasterVolume(0.5f);
@@ -44,13 +42,17 @@ namespace Global.Settings.Tests
             }
             finally
             {
-                lifetime.Terminate();
                 Object.DestroyImmediate(options);
             }
         });
 
         private class MemorySaves : ISaves
         {
+            public UniTask Load()
+            {
+                return UniTask.CompletedTask;
+            }
+
             public T Get<T>() where T : class, new()
             {
                 return new T();

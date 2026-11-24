@@ -51,7 +51,7 @@ namespace Internal
         }
 
         [Conditional("UNITY_EDITOR")]
-        internal void RecordAllocation(Type phase, Type listener, long bytes, bool isAsync)
+        internal void RecordAllocation(Type phase, Type listener, long bytes)
         {
             var isBuild = phase == null;
 
@@ -69,13 +69,12 @@ namespace Internal
                     phase,
                     listener,
                     previous.Bytes + bytes,
-                    previous.Calls + 1,
-                    isAsync);
+                    previous.Calls + 1);
             }
             else
             {
                 _allocationIndices.Add((phase, listener), _allocations.Count);
-                _allocations.Add(new AllocationRecord(phase, listener, bytes, 1, isAsync));
+                _allocations.Add(new AllocationRecord(phase, listener, bytes, 1));
             }
 
             ContainerRegistryDebug.RecordClassAllocation(Name, bytes, isBuild);

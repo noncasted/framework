@@ -88,11 +88,6 @@ namespace Internal.Tests
             public IContainer Container => throw new NotSupportedException();
             public IReadOnlyLifetime Lifetime => throw new NotSupportedException();
 
-            public UniTask Initialize()
-            {
-                return UniTask.CompletedTask;
-            }
-
             // A real asynchronous dispose: its UniTask may be awaited only once.
             public async UniTask Dispose()
             {

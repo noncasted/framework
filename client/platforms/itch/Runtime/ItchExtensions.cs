@@ -1,3 +1,4 @@
+using Cysharp.Threading.Tasks;
 using Global.Publisher;
 using Internal;
 
@@ -7,13 +8,9 @@ namespace Global.Publisher.Itch
     {
         // Saves in PlayerPrefs (IndexedDB on the web, a file on the desktop): itch, the own website, any platform
         // without saves of its own.
-        public static IScopeBuilder AddItchSaves(this IScopeBuilder builder)
+        public static UniTask AddItchSaves(this IScopeBuilder builder)
         {
-            builder.Register<ItchSaves>()
-                   .As<ISaves>()
-                   .As<IScopeBaseSetup>();
-
-            return builder;
+            return builder.AddSaves(new ItchSaves());
         }
     }
 }

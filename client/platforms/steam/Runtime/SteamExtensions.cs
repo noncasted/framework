@@ -13,8 +13,10 @@ namespace Global.Publisher.Steam
 
             if (platform.PlatformType == PlatformType.Steam)
             {
+                SteamApi.Start(builder.Lifetime, options, platform);
+
                 builder.Register<SteamClient>()
-                       .As<IScopeBaseSetup>();
+                       .As<IScopeSetup>();
 
                 builder.Register<SteamPlatformInventory>()
                        .As<IPlatformInventory>()

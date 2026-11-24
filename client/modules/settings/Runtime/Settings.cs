@@ -14,16 +14,26 @@ namespace Global.Settings
     //     public interface IGameSettings : ISettings<GameSettingsSave> { IViewableProperty<bool> IsShakeOn { get; } }
     //     public class GameSettings : Settings<GameSettingsSave>, IGameSettings { ... OnPush(save) ... }
     //     builder.AddSettings<GameSettings, GameSettingsSave, IGameSettings>(GlobalAssets.SettingsOptions);
-    public abstract class Settings<TSave> : ISettings<TSave>, IScopeSetupAsync where TSave : SettingsSave, new()
+    //
+    // The save is taken from the loaded saves (AddSaves loads them while the scope is built) when the settings are built,
+    // so every service that takes them sees the saved values from its own constructor on. OnLoad and OnPush are called from this constructor, before the constructor of the subclass: the
+    // properties of the game are field initializers of the subclass, not assignments of its constructor.
+    public abstract class Settings<TSave> : ISettings<TSave> where TSave : SettingsSave, new()
     {
         protected Settings(ISaves saves, SettingsOptions<TSave> options)
         {
             _saves = saves;
-            _options = options;
+
+            _save = _saves.Get<TSave>();
+
+            if (_save.WasChanged == false)
+                _save.CopyFrom(options.DefaultValues);
+
+            OnLoad(_save);
+            Push(_save);
         }
 
         private readonly ISaves _saves;
-        private readonly SettingsOptions<TSave> _options;
 
         private readonly ViewableProperty<float> _masterVolume = new();
         private readonly ViewableProperty<float> _soundsVolume = new();
@@ -37,19 +47,6 @@ namespace Global.Settings
 
         // The save in force: what Copy copies and the last Apply kept.
         protected TSave Current => _save;
-
-        public UniTask OnSetup(IReadOnlyLifetime lifetime)
-        {
-            _save = _saves.Get<TSave>();
-
-            if (_save.WasChanged == false)
-                _save.CopyFrom(_options.DefaultValues);
-
-            OnLoad(_save);
-            Push(_save);
-
-            return UniTask.CompletedTask;
-        }
 
         public TSave Copy()
         {

@@ -84,10 +84,10 @@ namespace ContainerGenerator {
             defaultSeverity: DiagnosticSeverity.Error,
             isEnabledByDefault: true);
 
-        public static readonly DiagnosticDescriptor TransientPhaseListener = new DiagnosticDescriptor(
-            id: "CINGR012",
-            title: "Transient registration listens to several scope phases",
-            messageFormat: "'{0}' is transient and listens to the scope phases {1}: every phase would get a new instance. Register it as a singleton or scoped. File {2} line {3}.",
+        public static readonly DiagnosticDescriptor UnregisteredSetup = new DiagnosticDescriptor(
+            id: "CINGR018",
+            title: "Setup listener is not registered as one",
+            messageFormat: "'{0}' implements IScopeSetup, but no registration of it lists IScopeSetup: its OnSetup is never called. Add .As<IScopeSetup>() to the registration. File {1} line {2}.",
             category: Category,
             defaultSeverity: DiagnosticSeverity.Error,
             isEnabledByDefault: true);

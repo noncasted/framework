@@ -7,7 +7,7 @@ using UnityEngine.TestTools;
 namespace Internal.Tests
 {
     // An entity whose lifetime ends before or during its load: what the load retained is released, the services that
-    // have started their setup are disposed, and the caller gets the cancellation.
+    // have been set up are torn down, and the caller gets the cancellation.
     [Category("Scopes")]
     public class EntityScopeTeardownTests
     {
@@ -15,10 +15,10 @@ namespace Internal.Tests
         public void SetUp()
         {
             ScopeLoaderProbe.Reset();
-            GeneratedScopeHarness.Register(((Action<IEntityBuilder>)EntityTeardownRoots.Request).Method);
-            GeneratedScopeHarness.Register(((Func<IEntityBuilder, UniTask>)EntityTeardownRoots.RequestAsync).Method);
-            GeneratedScopeHarness.Register(((Func<IEntityBuilder, UniTask>)EntityTeardownRoots.GatedLoad).Method);
-            GeneratedScopeHarness.Register(((Action<IEntityBuilder>)EntityTeardownRoots.GatedSetup).Method);
+            GeneratedRoots.Register(((Action<IEntityBuilder>)EntityTeardownRoots.Request).Method);
+            GeneratedRoots.Register(((Func<IEntityBuilder, UniTask>)EntityTeardownRoots.RequestAsync).Method);
+            GeneratedRoots.Register(((Func<IEntityBuilder, UniTask>)EntityTeardownRoots.GatedLoad).Method);
+            GeneratedRoots.Register(((Action<IEntityBuilder>)EntityTeardownRoots.EndingSetup).Method);
         }
 
         [UnityTest]
@@ -87,29 +87,24 @@ namespace Internal.Tests
             parent.Dispose();
         });
 
-        // The lifetime ends while an async setup waits: the dispose phase runs, the container outlives the setup.
+        // A service ends the entity in its own setup: the teardown waits for the setup, the services are torn down, the
+        // assets released and the caller gets the cancellation.
         [UnityTest]
-        public IEnumerator LifetimeEndsDuringSetup_DisposePhaseRuns_LoadIsCanceled() => UniTask.ToCoroutine(async () =>
+        public IEnumerator LifetimeEndsDuringSetup_TornDown_LoadIsCanceled() => UniTask.ToCoroutine(async () =>
         {
             var parentLifetime = new Lifetime();
             var parent = GeneratedScopeHarness.Build(ScopeRuntimeRoots.Empty);
-            ScopeLoaderProbe.SetGate(new UniTaskCompletionSource());
+            EntityTeardownRoots.SetParentLifetime(parentLifetime);
 
-            var load = new EntityScopeLoader().Load(
+            var caught = await Catch(() => new EntityScopeLoader().Load(
                 parentLifetime,
                 parent,
                 new ScopeTestEntityView(),
-                EntityTeardownRoots.GatedSetup);
-
-            parentLifetime.Terminate();
-            ScopeLoaderProbe.Gate.TrySetResult();
-
-            var caught = await Catch(() => load);
+                EntityTeardownRoots.EndingSetup));
 
             Assert.IsInstanceOf<OperationCanceledException>(caught);
-            Assert.AreEqual(1, ScopeLoaderProbe.Count("entity.dispose"), "the services set up were not disposed");
-            Assert.AreEqual(1, ScopeLoaderProbe.Count("gatedSetup.afterDispose"), "the asset groups were not released");
-            Assert.AreEqual(0, ScopeLoaderProbe.Count("entity.loaded"), "the entity was loaded on a dead lifetime");
+            Assert.AreEqual(1, ScopeLoaderProbe.Count("entity.dispose"), "the services set up were not torn down");
+            Assert.AreEqual(1, ScopeLoaderProbe.Count("endingSetup.afterDispose"), "the asset groups were not released");
             parent.Dispose();
         });
 
@@ -132,10 +127,16 @@ namespace Internal.Tests
     public static class EntityTeardownRoots
     {
         public static AssetGroup Group { get; private set; }
+        public static ILifetime ParentLifetime { get; private set; }
 
         public static void SetGroup(AssetGroup group)
         {
             Group = group;
+        }
+
+        public static void SetParentLifetime(ILifetime lifetime)
+        {
+            ParentLifetime = lifetime;
         }
 
         public static void Request(IEntityBuilder builder)
@@ -155,12 +156,11 @@ namespace Internal.Tests
             await RetainNow(builder.Events);
         }
 
-        public static void GatedSetup(IEntityBuilder builder)
+        public static void EndingSetup(IEntityBuilder builder)
         {
-            ScopeLoaderProbe.Track("gatedSetup", builder.Events, builder.Lifetime);
-            builder.Register<EntityTeardownGatedSetup>().As<IScopeSetupAsync>();
-            builder.Register<ScopeEntityDispose>().As<IScopeDispose>();
-            builder.Register<ScopeEntityLoaded>().As<IScopeLoaded>();
+            ScopeLoaderProbe.Track("endingSetup", builder.Events, builder.Lifetime);
+            builder.Register<ScopeEntitySetup>().As<IScopeSetup>();
+            builder.Register<EntityTeardownEndingSetup>().As<IScopeSetup>();
         }
 
         // The catalogue extensions take an IScopeBuilder; an entity reaches the same events through its builder.
@@ -186,11 +186,11 @@ namespace Internal.Tests
         }
     }
 
-    public sealed class EntityTeardownGatedSetup : IScopeSetupAsync
+    public sealed class EntityTeardownEndingSetup : IScopeSetup
     {
-        public UniTask OnSetup(IReadOnlyLifetime lifetime)
+        public void OnSetup(IReadOnlyLifetime lifetime)
         {
-            return ScopeLoaderProbe.Gate.Task;
+            EntityTeardownRoots.ParentLifetime.Terminate();
         }
     }
 }

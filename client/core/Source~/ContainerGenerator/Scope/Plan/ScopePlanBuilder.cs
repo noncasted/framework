@@ -133,8 +133,7 @@ namespace ContainerGenerator {
             for (var i = 0; i < graph.Diagnostics.Count; i++) {
                 var id = graph.Diagnostics[i].Descriptor.Id;
                 if (id == "CINGR003" || id == "CINGR004" || id == "CINGR001" || id == "CINGR002" ||
-                    id == "CINGR005" || id == "CINGR007" || id == "CINGR010" || id == "CINGR011" ||
-                    id == "CINGR012")
+                    id == "CINGR005" || id == "CINGR007" || id == "CINGR010" || id == "CINGR011")
                     return true;
             }
 

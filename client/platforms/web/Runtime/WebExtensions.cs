@@ -21,7 +21,7 @@ namespace Global.Web
         {
             builder.Register<WebSafeArea>()
                    .As<ISafeArea>()
-                   .As<IScopeBaseSetup>();
+                   .As<IScopeSetup>();
 
             return builder;
         }

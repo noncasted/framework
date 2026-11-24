@@ -1,6 +1,6 @@
 # Dependency Injection: the Internal Container
 
-**TL;DR:** the client uses its own DI container (`namespace Internal`) whose concrete container classes are generated at compile time by a Roslyn source generator. Services are plain classes with constructor injection, registered in installer extension methods (`builder.Register<T>().As<I>()`). Lifecycle callbacks come from marker interfaces (`IScopeSetup`, `IScopeLoaded`, ...) and always receive the scope `IReadOnlyLifetime`. MonoBehaviours are the exception: they are registered with `RegisterComponent` and get dependencies through a method marked `[Inject]`.
+**TL;DR:** the client uses its own DI container (`namespace Internal`) whose concrete container classes are generated at compile time by a Roslyn source generator. Services are plain classes with constructor injection, registered in installer extension methods (`builder.Register<T>().As<I>()`). A scope has one phase, `IScopeSetup.OnSetup(lifetime)` with the scope `IReadOnlyLifetime`; any other order is a call written by the owner of the scope. MonoBehaviours are the exception: they are registered with `RegisterComponent` and get dependencies through a method marked `[Inject]`.
 
 There is no reflection fallback. A scope root without a generated class throws `No generated container for '<root>'`; a missing dependency is a compile error (CINGR003), not a runtime null.
 
@@ -33,7 +33,7 @@ public static async UniTask<ILoadedScope> LoadGlobal(this IServiceScopeLoader lo
         .WithRuntimeScene("Global_Services");
 
     var scope = await loader.Load(options);
-    await scope.Initialize();   // runs the IScopeLoaded phase
+    // A scope with an entry (the loop of the game) is started here: scope.Resolve<GameLoop>().Start(scope.Lifetime)
 
     return scope;
 }
@@ -50,7 +50,7 @@ public static async UniTask Construct(IScopeBuilder builder)
 - Root with an argument: `ScopeLoadOptions.Create(parent, Construct, sessionData)` and `Construct(IScopeBuilder builder, SessionData sessionData)`.
 - Scene for the scope objects: `WithRuntimeScene(name)` (empty scene created at runtime), `WithAssetScene(contentScene)` (a `ContentScene` of a content bundle, `CONTENT.md`), or nothing (`NoScene`: `builder.Instantiate` / `Binder.MoveToModules` throw).
 - `AsMock()` marks a scope as part of a mock; installers read `builder.IsMock`.
-- `ILoadedScope.Dispose()` runs the dispose phase, terminates the lifetime, unloads the scope scenes, disposes the container and only then releases asset groups (`AddAfterDispose`): lifetime listeners run in an order not tied to assets (session entities die before remote users) and may still read the catalogues.
+- `ILoadedScope.Dispose()` disposes the child scopes, terminates the lifetime, unloads the scope scenes, disposes the container and only then releases asset groups (`AddAfterDispose`): lifetime listeners run in an order not tied to assets (session entities die before remote users) and may still read the catalogues.
 
 Loading order inside `ServiceScopeLoader.Load` (`tools/framework/client/core/Runtime/Scopes/Services/ServiceScopeLoader.cs`):
 
@@ -59,8 +59,8 @@ Loading order inside `ServiceScopeLoader.Load` (`tools/framework/client/core/Run
 2. Construct(builder)             registrations; Load*Group awaits here
 3. Events.InvokeBeforeBuild()     Request*Group asset groups are retained here
 4. ScopeContainer.Create(...)     generated container, services constructed
-5. RunConstruct                   BaseSetup -> Setup -> SetupCompletion (sync, then async of each)
-6. LoadedScope                    caller runs Initialize() -> Loaded phase
+5. RunSetup                       OnSetup of every IScopeSetup
+6. LoadedScope                    the caller starts what the scope runs (its loop, its session)
 ```
 
 ### Entity scope (`IEntityBuilder`)
@@ -110,21 +110,34 @@ Constructor parameters are bound at compile time to: a registration in this scop
 
 `WithParameter` gives the value to its own registration only (`request.GetParameter<T>(typeof(Implementation), n)`). A constructor parameter that can hold the value (the exact type first, then an interface or a base class of it) takes it before anything else: a registration of the type in the scope (written before or after), a parent scope, and also what the scope gives by itself (`IContainer`, `ILifetime`, `IReadOnlyLifetime`). So `.WithParameter(builder.ScopeLifetime)` gives the class `ScopeLifetime`, not the lifetime of the container. Several values that fit one parameter without an exact one are CINGR014. A `WithParameter` that no parameter can hold is not used: warning CINGR015.
 
-## Lifecycle Phases
+## Setup
 
-Interfaces in `tools/framework/client/core/Runtime/Scopes/Common/Events/ScopeDefaultCallbacks.cs`, invoked by `EventLoop`. Register a service under the interface to get the call: `builder.Register<X>().As<IX>().As<IScopeSetup>()`.
+One phase: `IScopeSetup.OnSetup(lifetime)` (`tools/framework/client/core/Runtime/Scopes/Common/Events/IScopeSetup.cs`), called by
+`EventLoop.RunSetup` once the container is built. Register a service under it to get the call:
+`builder.Register<X>().As<IX>().As<IScopeSetup>()`. A type that implements `IScopeSetup` and no registration of which lists it is
+CINGR018. The lifetime is the scope lifetime: every `Advise` / `View` / `Listen` made there ends with the scope (see `COMMON_LIFETIMES.md`).
 
-| Phase | Sync / async | When |
-|-------|--------------|------|
-| `IScopeBaseSetup.OnBaseSetup(lifetime)` | `IScopeBaseSetupAsync` | first, right after the container is built |
-| `IScopeSetup.OnSetup(lifetime)` | `IScopeSetupAsync` | main setup: subscriptions, wiring |
-| `IScopeSetupCompletion.OnSetupCompletion(lifetime)` | `IScopeSetupCompletionAsync` | after every service finished setup |
-| `IScopeLoaded.OnLoaded(lifetime)` | `IScopeLoadedAsync` | `ILoadedScope.Initialize()` (service scopes only) |
-| `IScopeDispose.OnDispose()` | `IScopeDisposeAsync` | `ILoadedScope.Dispose()`, before the lifetime terminates |
+Listeners run one by one in the order of their registrations, and that order means nothing. Three rules replace the phases:
 
-Sync listeners of a phase run one by one, async listeners start together (`UniTask.WhenAll`). Do not depend on the order of services inside one phase: if B needs A initialized, move A to an earlier phase. Resolving the phase list also constructs those services. `RunCustom<T>` / `RunCustomAwaited<T>` on `IEventLoop` run the same kind of phase for a custom interface.
+- **Ready from the constructor.** What a service needs to be used is done in its constructor (`[Inject]` method of a MonoBehaviour):
+  its own state, the values of its dependencies (`Settings<TSave>` takes its save from the loaded `ISaves`). It does no I/O: a
+  storage is read by an explicit, awaited call in the installer (`await builder.AddSaves(saves)` calls `ISaves.Load()`).
+  The container builds the dependencies of a service before the service, so a constructor reads them ready, and the setup of any
+  service may already use it (`AudioPlayer` plays, `GlobalCamera` enables, `ISafeArea.Area` has its value). A constructor that needs
+  the lifetime takes `IReadOnlyLifetime` (the lifetime of the container) or `.WithScopeLifetime()`.
+- **`OnSetup` starts behaviour.** Subscriptions, the updater, the reactions to the values of other services; it never reads state
+  another `OnSetup` prepares.
+- **Any other order is a call.** What must happen before the services exist (the saves, a platform API: `AddSaves`,
+  `SteamApi.Start` in `AddSteam`) is a call in the installer; what runs once the scope is loaded (the loop of the game, a session, a warmup that the start waits for) is
+  called by the owner after `Load`: `scope.Resolve<GameLoop>().Start(scope.Lifetime)`. Work that must not hold the scope (a
+  connection) is started from `OnSetup` without awaiting, and its readiness is a property others wait for.
 
-The lifetime passed to every callback is the scope lifetime: every `Advise` / `View` / `Listen` made there ends with the scope (see `COMMON_LIFETIMES.md`).
+There is no async phase: a load of the scope waits only for what its owner writes there. There is no dispose phase: teardown is
+`lifetime.Listen(...)` on the lifetime of `OnSetup`, which ends before the container is disposed and the asset groups are released
+(an entity sets its services up on a child of its lifetime that its teardown ends first).
+
+`IEventLoop.RunCustom<T>(lifetime, invoker)` is an event of the owner: every registration of `T` is called at the moment the owner
+chooses (`IGameStarted`, `IMetaSetupCompleted`), one by one, each under its own span of the profiler.
 
 ## Plain Service (default)
 
@@ -229,12 +242,12 @@ The generator reports errors at compile time; the Unity console shows them as co
 | CINGR009 | Warning: a constructor / `[Inject]` parameter takes the last of several registrations of its type (`Resolve` gives the same one) | Take `IReadOnlyList<T>` to get all of them, or register one |
 | CINGR010 | The `[Inject]` method cannot be called: several of them on the type and its base classes, generic, not accessible, `internal` or private in another assembly | Keep one non-generic `public` method |
 | CINGR011 | The registered type cannot be constructed: struct, interface, abstract, static, not accessible, no accessible constructor, several constructors with the longest parameter count | Register a concrete class with one longest accessible constructor |
-| CINGR012 | A transient registration listens to several scope phases: each phase would get a new instance | Register it as a singleton or scoped |
 | CINGR013 | A scope root is overloaded: the runtime finds a root by its name only | Rename one of the methods |
 | CINGR014 | Several `WithParameter` values of one registration fit one parameter and none has exactly its type | Pass one, or one of exactly the type of the parameter |
 | CINGR015 | Warning: no parameter of the registered type can take a `WithParameter` value, it is not used | Remove the value or fix its type |
 | CINGR016 | Scope root is generic: the method, a method around it or a type around it has type parameters | A non-generic root that calls a generic installer |
 | CINGR017 | A lambda or an anonymous method is given as a scope root (`Func<IScopeBuilder, UniTask>`, `Func<IEntityBuilder, UniTask>`, the `construct` of the entity loader): the runtime finds the class by the name of the root method, every load would throw | A method group or a local function (it closes over the same values); one argument: `ScopeLoadOptions.Create(parent, Construct, arg)` |
+| CINGR018 | A type implements `IScopeSetup` and no registration of it lists `IScopeSetup`: its `OnSetup` is never called | `.As<IScopeSetup>()` on the registration |
 
 - `Tools/Container Debugger` (Play mode): live containers, registrations, resolve history, allocations per phase and per listener.
 - `Tools/Container Graph` (Play mode): Graph Toolkit view of live scopes and their parent links.
@@ -248,7 +261,7 @@ The generator reports errors at compile time; the Unity console shows them as co
 | Lambda as scope root (`new ScopeLoadOptions(parent, b => ...)`, `LoadRoot(b => ...)`, the entity loader) | CINGR017 at compile time (a delegate built at runtime: `Scope root must be a method group or a local function`) | Pass the `Construct` method group or a local function; one argument: `ScopeLoadOptions.Create(parent, Construct, arg)` |
 | Missing `[ContainerScopeParent]` on a child root | CINGR003 for every parent service | Declare the parent root |
 | `if` choosing implementations inside one root | Both branches are built; alternative not registered at runtime breaks the scope | `switch` between roots; platforms: `#if`, or the branches inside one installer |
-| Service not registered under `IScopeSetup` | `OnSetup` never called | `.As<IScopeSetup>()` |
+| `OnSetup` reads what the `OnSetup` of another service prepares | Works or not by the order of the registrations | Do it in the constructor of the other service, or call it in order where the scope is loaded |
 | Initialization in a constructor / `Awake` that subscribes | No lifetime, leak | Subscribe in `OnSetup(lifetime)` |
 | New scene service dependency before rescanning the scene | CINGR003 | Scan services, save scene, then add the dependency |
 

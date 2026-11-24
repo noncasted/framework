@@ -8,11 +8,13 @@ namespace Global.Web
     // ISafeArea of the WebGL build: Unity does not know the safe area of a page, web-shell.js of the template measures
     // it and WebShell.jslib hands it over as fractions of the canvas. Re-read when the page reports a change or the
     // canvas (Screen) is resized.
-    public class WebSafeArea : ISafeArea, IScopeBaseSetup, IUpdatable
+    public class WebSafeArea : ISafeArea, IScopeSetup, IUpdatable
     {
+        // The area is read when built: a service reads it from its own setup.
         public WebSafeArea(IUpdater updater)
         {
             _updater = updater;
+            Read();
         }
 
         private const int Left = 0;
@@ -44,13 +46,17 @@ namespace Global.Web
             throw Internal.JsLibStub.Missing();
 #endif
 
-        public void OnBaseSetup(IReadOnlyLifetime lifetime)
+        public void OnSetup(IReadOnlyLifetime lifetime)
         {
-            OnUpdate(0f);
             _updater.Add(lifetime, this);
         }
 
         public void OnUpdate(float delta)
+        {
+            Read();
+        }
+
+        private void Read()
         {
             var revision = WebShellSafeAreaRevision();
 

@@ -59,7 +59,7 @@ namespace Internal
                 builder.Events.Bind(container);
 
                 using (GameProfiler.Scope("Setup"))
-                    await builder.Events.RunConstruct(builder.ScopeLifetime);
+                    await builder.Events.RunSetup(builder.ScopeLifetime);
             }
             catch (Exception exception)
             {

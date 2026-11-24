@@ -63,7 +63,7 @@ namespace Internal
             if (diagnostics is ContainerDiagnostics own)
             {
                 own.SetLoadedAssets(loadedAssets);
-                own.RecordAllocation(null, null, buildBytes, false);
+                own.RecordAllocation(null, null, buildBytes);
             }
 
             ContainerRegistryDebug.Add(diagnostics);

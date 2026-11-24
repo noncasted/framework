@@ -1,5 +1,4 @@
 using System;
-using Internal;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -36,27 +35,48 @@ namespace Global.Publisher.Itch.Tests
             const string blob = "{not json";
             PlayerPrefs.SetString(Key, blob);
 
-            var lifetime = new Lifetime();
+            var exception = Assert.Catch<Exception>(() => Loaded());
+            StringAssert.Contains(CorruptKey, exception.Message);
 
-            try
-            {
-                var exception = Assert.Catch<Exception>(() => new ItchSaves().OnBaseSetup(lifetime));
-                StringAssert.Contains(CorruptKey, exception.Message);
+            Assert.DoesNotThrow(() => Loaded(), "the same corrupt save fails every start");
+            Assert.AreEqual(blob, PlayerPrefs.GetString(CorruptKey));
+        }
 
-                Assert.DoesNotThrow(() => new ItchSaves().OnBaseSetup(lifetime), "the same corrupt save fails every start");
-                Assert.AreEqual(blob, PlayerPrefs.GetString(CorruptKey));
-            }
-            finally
-            {
-                lifetime.Terminate();
-            }
+        // Only Load reads the storage: a broken save does not fail the construction.
+        [Test]
+        public void Construct_CorruptSave_NotRead()
+        {
+            PlayerPrefs.SetString(Key, "{not json");
+
+            Assert.DoesNotThrow(() => new ItchSaves());
+        }
+
+        [Test]
+        public void GetBeforeLoad_Throws()
+        {
+            Assert.Catch<InvalidOperationException>(() => new ItchSaves().Get<SavedData>());
+        }
+
+        // A save before the load would write the stored entries over with the new one alone.
+        [Test]
+        public void SaveBeforeLoad_Throws()
+        {
+            Assert.Catch<InvalidOperationException>(() => new ItchSaves().Save(new SavedData()));
+        }
+
+        [Test]
+        public void LoadTwice_Throws()
+        {
+            var saves = Loaded();
+
+            Assert.Catch<InvalidOperationException>(() => saves.Load());
         }
 
         // A null is not a save: JsonUtility gives an empty string, and every next start fails on it in Get.
         [Test]
         public void SaveNull_Throws()
         {
-            Assert.Catch<ArgumentNullException>(() => new ItchSaves().Save<SavedData>(null));
+            Assert.Catch<ArgumentNullException>(() => Loaded().Save<SavedData>(null));
         }
 
         // A broken value of one entry is handled as a broken blob: at the start, once, kept for the report.
@@ -70,36 +90,30 @@ namespace Global.Publisher.Itch.Tests
             });
             PlayerPrefs.SetString(Key, blob);
 
-            var lifetime = new Lifetime();
+            var exception = Assert.Catch<Exception>(() => Loaded());
+            StringAssert.Contains(CorruptKey, exception.Message);
 
-            try
-            {
-                var exception = Assert.Catch<Exception>(() => new ItchSaves().OnBaseSetup(lifetime));
-                StringAssert.Contains(CorruptKey, exception.Message);
-
-                var next = new ItchSaves();
-                Assert.DoesNotThrow(() => next.OnBaseSetup(lifetime));
-                Assert.DoesNotThrow(() => next.Get<SavedData>());
-                Assert.AreEqual(blob, PlayerPrefs.GetString(CorruptKey));
-            }
-            finally
-            {
-                lifetime.Terminate();
-            }
+            var next = Loaded();
+            Assert.DoesNotThrow(() => next.Get<SavedData>());
+            Assert.AreEqual(blob, PlayerPrefs.GetString(CorruptKey));
         }
 
         [Test]
         public void GoodEntry_IsLoaded()
         {
-            var saves = new ItchSaves();
-            saves.Save(new SavedData { Value = 5 });
+            Loaded().Save(new SavedData { Value = 5 });
 
-            var lifetime = new Lifetime();
-            var next = new ItchSaves();
-            next.OnBaseSetup(lifetime);
+            var next = Loaded();
 
             Assert.AreEqual(5, next.Get<SavedData>().Value);
-            lifetime.Terminate();
+        }
+
+        // PlayerPrefs are read at once: the load completes in the call.
+        private static ItchSaves Loaded()
+        {
+            var saves = new ItchSaves();
+            saves.Load().GetAwaiter().GetResult();
+            return saves;
         }
 
         [Serializable]

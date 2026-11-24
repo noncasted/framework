@@ -16,19 +16,6 @@ namespace Internal
 
             var scope = await loader.Load(options);
 
-            try
-            {
-                await scope.Initialize();
-            }
-            catch (Exception exception)
-            {
-                // Nothing else would dispose a root that failed to initialize: its container, scenes and services stay.
-                var teardown = new ScopeTeardown();
-                await teardown.StepAwaited(scope.Dispose);
-                teardown.ThrowWithLoadFailure(exception);
-                throw;
-            }
-
             DisposeOnQuit(scope);
 
             return scope;

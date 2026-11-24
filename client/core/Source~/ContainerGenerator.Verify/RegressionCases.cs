@@ -28,7 +28,9 @@ namespace ContainerGenerator.Verify {
             Run("CINGR001 instead of a dropped assembly when the emitter throws", TestEmitterExceptionIsDiagnostic);
             Run("Resolve and constructor parameters take the same registration", TestDuplicateResolvesLast);
             Run("CINGR009 parameter with several registrations", TestDuplicateWarning);
-            Run("CINGR012 transient phase listener", TestTransientPhaseListener);
+            Run("CINGR018 setup listener registered without IScopeSetup", TestUnregisteredSetup);
+            Run("CINGR018 not for an instance listed as IScopeSetup by another registration", TestSetupListedElsewhere);
+            Run("CINGR018 not for a listener registered as IScopeSetup", TestRegisteredSetup);
         }
 
         private static void TestParameterPerRegistration() {
@@ -147,8 +149,21 @@ namespace ContainerGenerator.Verify {
                 "CINGR009 must name the type and the registration taken: " + message);
         }
 
-        private static void TestTransientPhaseListener() {
-            RequireBlocked(TransientPhaseSource, "TransientPhaseRoot", "CINGR012", "PhaseListener");
+        private static void TestUnregisteredSetup() {
+            var graph = ResolveRoot(UnregisteredSetupSource, "UnregisteredSetupRoot");
+            var error = RequireDiagnostic(graph, "CINGR018");
+            Require(error.Descriptor.DefaultSeverity == DiagnosticSeverity.Error, "CINGR018 severity " + error.Descriptor.DefaultSeverity);
+            Require(error.Location != null, "CINGR018 must point at the registration");
+            var message = error.ToDiagnostic().GetMessage();
+            Require(message.IndexOf("Listener", StringComparison.Ordinal) >= 0, "CINGR018 must name the type: " + message);
+        }
+
+        private static void TestSetupListedElsewhere() {
+            RequireNo(ResolveRoot(SetupListedElsewhereSource, "SetupListedElsewhereRoot"), "CINGR018");
+        }
+
+        private static void TestRegisteredSetup() {
+            RequireNo(ResolveRoot(RegisteredSetupSource, "RegisteredSetupRoot"), "CINGR018");
         }
 
         private static void RequireBlocked(string source, string hint, string id, string fragment) {
@@ -496,16 +511,48 @@ namespace Sample {
 }
 ";
 
-        private const string TransientPhaseSource = @"
+        private const string UnregisteredSetupSource = @"
 using Internal;
 namespace Sample {
-    public class PhaseListener : IScopeSetup, IScopeDispose {
+    public interface IService {}
+    public class Listener : IService, IScopeSetup {
         public void OnSetup(IReadOnlyLifetime lifetime) {}
-        public void OnDispose() {}
     }
-    public static class TransientPhaseRoot {
+    public static class UnregisteredSetupRoot {
         public static void Construct(IScopeBuilder builder) {
-            builder.Register<PhaseListener>(ServiceLifetime.Transient).As<IScopeSetup>().As<IScopeDispose>();
+            builder.Register<Listener>().As<IService>();
+        }
+    }
+}
+";
+
+        private const string SetupListedElsewhereSource = @"
+using Internal;
+namespace Sample {
+    public interface IService {}
+    public class Listener : IService, IScopeSetup {
+        public void OnSetup(IReadOnlyLifetime lifetime) {}
+    }
+    public static class SetupListedElsewhereRoot {
+        public static void Construct(IScopeBuilder builder) {
+            var listener = new Listener();
+            builder.RegisterInstance(listener).As<IService>();
+            builder.RegisterInstance(listener).As<IScopeSetup>();
+        }
+    }
+}
+";
+
+        private const string RegisteredSetupSource = @"
+using Internal;
+namespace Sample {
+    public interface IService {}
+    public class Listener : IService, IScopeSetup {
+        public void OnSetup(IReadOnlyLifetime lifetime) {}
+    }
+    public static class RegisteredSetupRoot {
+        public static void Construct(IScopeBuilder builder) {
+            builder.Register<Listener>().As<IService>().As<IScopeSetup>();
         }
     }
 }

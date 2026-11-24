@@ -42,7 +42,7 @@ namespace Internal
             if (record.Phase == null)
                 return "Build";
 
-            return record.IsAsync ? $"{record.Phase.Name} (sync part)" : record.Phase.Name;
+            return record.Phase.Name;
         }
 
         public static string Listener(AllocationRecord record)

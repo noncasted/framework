@@ -16,8 +16,8 @@ namespace Internal.Tests
         public void SetUp()
         {
             ScopeLoaderProbe.Reset();
-            GeneratedScopeHarness.Register(((Func<IScopeBuilder, UniTask>)AssetGroupRequestRoots.RequestThenFail).Method);
-            GeneratedScopeHarness.Register(((Func<IScopeBuilder, UniTask>)AssetGroupRequestRoots.LoadTwo).Method);
+            GeneratedRoots.Register(((Func<IScopeBuilder, UniTask>)AssetGroupRequestRoots.RequestThenFail).Method);
+            GeneratedRoots.Register(((Func<IScopeBuilder, UniTask>)AssetGroupRequestRoots.LoadTwo).Method);
         }
 
         // Construct fails after RequestAssetGroup: the build events have not run, nothing was retained by this scope.

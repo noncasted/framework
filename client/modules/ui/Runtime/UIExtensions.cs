@@ -72,7 +72,7 @@ namespace Global.UI
         {
             builder.Register<ScreenSafeArea>()
                    .As<ISafeArea>()
-                   .As<IScopeBaseSetup>();
+                   .As<IScopeSetup>();
 
             return builder;
         }

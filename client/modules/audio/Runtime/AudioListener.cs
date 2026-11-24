@@ -7,14 +7,11 @@ namespace Global.Audio
     [RequireComponent(typeof(UnityEngine.AudioListener))]
     public class AudioListener :
         MonoBehaviour,
-        IScopeBaseSetup
+        IScopeSetup
     {
-        private UnityEngine.AudioListener _listener;
-
-        public void OnBaseSetup(IReadOnlyLifetime lifetime)
+        public void OnSetup(IReadOnlyLifetime lifetime)
         {
-            _listener = GetComponent<UnityEngine.AudioListener>();
-            _listener.enabled = true;
+            GetComponent<UnityEngine.AudioListener>().enabled = true;
         }
     }
 }

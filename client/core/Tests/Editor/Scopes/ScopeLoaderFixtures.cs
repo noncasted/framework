@@ -68,18 +68,10 @@ namespace Internal.Tests
         }
 
         [ContainerGraphRoot]
-        public static UniTask ThrowingDispose(IScopeBuilder builder)
-        {
-            ScopeLoaderProbe.Track("throwing", builder.Events, builder.Lifetime);
-            builder.Register<ScopeLoaderThrowingDispose>().As<IScopeDispose>();
-            return UniTask.CompletedTask;
-        }
-
-        [ContainerGraphRoot]
         public static UniTask Parent(IScopeBuilder builder)
         {
             ScopeLoaderProbe.Track("parent", builder.Events, builder.Lifetime);
-            builder.Register<ScopeLoaderParentDispose>().As<IScopeDispose>();
+            builder.Register<ScopeLoaderParentTeardown>().As<IScopeSetup>();
             return UniTask.CompletedTask;
         }
 
@@ -88,25 +80,7 @@ namespace Internal.Tests
         public static UniTask Child(IScopeBuilder builder)
         {
             ScopeLoaderProbe.Track("child", builder.Events, builder.Lifetime);
-            builder.Register<ScopeLoaderChildDispose>().As<IScopeDispose>();
-            return UniTask.CompletedTask;
-        }
-
-        [ContainerGraphRoot]
-        public static UniTask FailingLoaded(IScopeBuilder builder)
-        {
-            ScopeLoaderProbe.Track("failingLoaded", builder.Events, builder.Lifetime);
-            builder.Register<ScopeLoaderThrowingLoaded>().As<IScopeLoaded>();
-            return UniTask.CompletedTask;
-        }
-
-        [ContainerGraphRoot]
-        public static UniTask SeveralDisposeListeners(IScopeBuilder builder)
-        {
-            builder.Register<ScopeLoaderThrowingDispose>().As<IScopeDispose>();
-            builder.Register<ScopeLoaderSecondDispose>().As<IScopeDispose>();
-            builder.Register<ScopeLoaderThrowingAsyncDispose>().As<IScopeDisposeAsync>();
-            builder.Register<ScopeLoaderAsyncDispose>().As<IScopeDisposeAsync>();
+            builder.Register<ScopeLoaderChildTeardown>().As<IScopeSetup>();
             return UniTask.CompletedTask;
         }
     }
@@ -133,40 +107,19 @@ namespace Internal.Tests
         }
     }
 
-    public sealed class ScopeLoaderSecondDispose : IScopeDispose
-    {
-        public void OnDispose()
-        {
-            ScopeLoaderProbe.Log.Add("second.dispose");
-        }
-    }
-
-    public sealed class ScopeLoaderThrowingAsyncDispose : IScopeDisposeAsync
-    {
-        public async UniTask OnDispose()
-        {
-            await UniTask.Yield();
-            throw new InvalidOperationException("async dispose failed");
-        }
-    }
-
-    public sealed class ScopeLoaderAsyncDispose : IScopeDisposeAsync
-    {
-        public async UniTask OnDispose()
-        {
-            await UniTask.Yield();
-            await UniTask.Yield();
-            ScopeLoaderProbe.Log.Add("async.dispose");
-        }
-    }
-
     public static class ScopeEntityRoots
     {
         public static void Entity(IEntityBuilder builder)
         {
             ScopeLoaderProbe.Track("entity", builder.Events, builder.Lifetime);
-            builder.Register<ScopeEntityLoaded>().As<IScopeLoaded>();
-            builder.Register<ScopeEntityDispose>().As<IScopeDispose>();
+            builder.Register<ScopeEntitySetup>().As<IScopeSetup>();
+        }
+
+        // A service that reacts to the end of the entity: it may still use the container and the assets.
+        public static void EndingEntity(IEntityBuilder builder)
+        {
+            ScopeLoaderProbe.Track("ending", builder.Events, builder.Lifetime);
+            builder.Register<ScopeEntityEndListener>().As<IScopeSetup>();
         }
 
         public static void FailingEntity(IEntityBuilder builder)
@@ -179,7 +132,7 @@ namespace Internal.Tests
         public static void RootEntity(IEntityBuilder builder)
         {
             ScopeLoaderProbe.Track("root", builder.Events, builder.Lifetime);
-            builder.Register<ScopeEntityRoot>().WithParameter(builder.ScopeLifetime).AsSelf().As<IScopeDispose>();
+            builder.Register<ScopeEntityRoot>().WithParameter(builder.ScopeLifetime).AsSelf();
         }
 
         // The build events wait: the lifetime may end while the assets of the entity load.
@@ -187,14 +140,14 @@ namespace Internal.Tests
         {
             ScopeLoaderProbe.Track("gated", builder.Events, builder.Lifetime);
             builder.Events.AddBeforeBuild(() => ScopeLoaderProbe.Gate.Task);
-            builder.Register<ScopeEntityLoaded>().As<IScopeLoaded>();
+            builder.Register<ScopeEntitySetup>().As<IScopeSetup>();
         }
 
         public static async UniTask AsyncGatedEntity(IEntityBuilder builder)
         {
             ScopeLoaderProbe.Track("asyncGated", builder.Events, builder.Lifetime);
             await ScopeLoaderProbe.Gate.Task;
-            builder.Register<ScopeEntityLoaded>().As<IScopeLoaded>();
+            builder.Register<ScopeEntitySetup>().As<IScopeSetup>();
         }
     }
 
@@ -206,71 +159,59 @@ namespace Internal.Tests
         }
     }
 
-    public sealed class ScopeLoaderThrowingLoaded : IScopeLoaded
+    // Records the end of its scope; the record of the profiler shows the stage the teardown of the scope goes to.
+    public sealed class ScopeLoaderParentTeardown : IScopeSetup
     {
-        public void OnLoaded(IReadOnlyLifetime lifetime)
+        public void OnSetup(IReadOnlyLifetime lifetime)
         {
-            throw new InvalidOperationException("loaded failed");
+            lifetime.Listen(() => {
+                GameProfiler.Scope("Parent teardown").Dispose();
+                ScopeLoaderProbe.Log.Add("parent.dispose");
+            });
         }
     }
 
-    public sealed class ScopeLoaderThrowingDispose : IScopeDispose
+    public sealed class ScopeLoaderChildTeardown : IScopeSetup
     {
-        public void OnDispose()
+        public void OnSetup(IReadOnlyLifetime lifetime)
         {
-            ScopeLoaderProbe.Log.Add("throwing.dispose");
-            throw new InvalidOperationException("dispose failed");
+            lifetime.Listen(() => ScopeLoaderProbe.Log.Add("child.dispose"));
         }
     }
 
-    public sealed class ScopeLoaderParentDispose : IScopeDispose
+    public sealed class ScopeEntitySetup : IScopeSetup
     {
-        public void OnDispose()
+        public void OnSetup(IReadOnlyLifetime lifetime)
         {
-            ScopeLoaderProbe.Log.Add("parent.dispose");
+            ScopeLoaderProbe.Log.Add("entity.setup");
+            lifetime.Listen(() => ScopeLoaderProbe.Log.Add("entity.dispose"));
         }
     }
 
-    public sealed class ScopeLoaderChildDispose : IScopeDispose
+    public sealed class ScopeEntityEndListener : IScopeSetup
     {
-        public void OnDispose()
+        public ScopeEntityEndListener(IContainer container)
         {
-            ScopeLoaderProbe.Log.Add("child.dispose");
-        }
-    }
-
-    public sealed class ScopeEntityLoaded : IScopeLoaded
-    {
-        public void OnLoaded(IReadOnlyLifetime lifetime)
-        {
-            ScopeLoaderProbe.Log.Add("entity.loaded");
-        }
-    }
-
-    public sealed class ScopeEntityDispose : IScopeDispose
-    {
-        public void OnDispose()
-        {
-            ScopeLoaderProbe.Log.Add("entity.dispose");
-        }
-    }
-
-    public sealed class ScopeEntityRoot : IScopeDispose
-    {
-        public ScopeEntityRoot(ILifetime lifetime, IContainer container)
-        {
-            Lifetime = lifetime;
             _container = container;
         }
 
         private readonly IContainer _container;
 
-        public ILifetime Lifetime { get; }
-
-        public void OnDispose()
+        public void OnSetup(IReadOnlyLifetime lifetime)
         {
-            ScopeLoaderProbe.Log.Add(_container.Lifetime.IsTerminated == true ? "root.dispose.containerOver" : "root.dispose.containerAlive");
+            lifetime.Listen(() => ScopeLoaderProbe.Log.Add(
+                _container.Lifetime.IsTerminated == true ? "end.containerOver" : "end.containerAlive"));
         }
+    }
+
+    public sealed class ScopeEntityRoot
+    {
+        public ScopeEntityRoot(ILifetime lifetime)
+        {
+            Lifetime = lifetime;
+        }
+
+        public ILifetime Lifetime { get; }
     }
 
     public sealed class ScopeEntityThrowingSetup : IScopeSetup

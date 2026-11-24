@@ -6,11 +6,13 @@ namespace Global.UI
 {
     // ISafeArea from Screen.safeArea: editor (Device Simulator), native builds. Substitute replaces it for Play checks
     // (a notch in the plain Game view), like GamepadReader.Substitute.
-    public class ScreenSafeArea : ISafeArea, IScopeBaseSetup, IUpdatable
+    public class ScreenSafeArea : ISafeArea, IScopeSetup, IUpdatable
     {
+        // The area is read when built: a service reads it from its own setup.
         public ScreenSafeArea(IUpdater updater)
         {
             _updater = updater;
+            _area.Set(Screen.safeArea);
         }
 
         private readonly IUpdater _updater;
@@ -20,9 +22,8 @@ namespace Global.UI
 
         public IViewableProperty<Rect> Area => _area;
 
-        public void OnBaseSetup(IReadOnlyLifetime lifetime)
+        public void OnSetup(IReadOnlyLifetime lifetime)
         {
-            OnUpdate(0f);
             _updater.Add(lifetime, this);
         }
 

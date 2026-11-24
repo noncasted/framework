@@ -1,36 +1,43 @@
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using Internal;
 using UnityEngine;
 
 namespace Global.Publisher.Itch
 {
-    public class ItchSaves : ISaves, IScopeBaseSetup
+    public class ItchSaves : ISaves
     {
         // JsonUtility writes [field: SerializeField] as "<Name>k__BackingField", so saves under
         // the old key (written by Newtonsoft) are not readable: they are deleted, the settings are reset once.
         private const string Key = "save_v2";
         private const string LegacyKey = "save";
 
-        // The last broken save (OnBaseSetup), for a report.
+        // The last broken save (Load), for a report.
         private const string CorruptKey = "save_v2_corrupt";
 
         private readonly Dictionary<string, string> _entries = new();
 
-        public void OnBaseSetup(IReadOnlyLifetime lifetime)
+        private bool _isLoaded;
+
+        // PlayerPrefs are read at once: the load completes in the call.
+        public UniTask Load()
         {
+            if (_isLoaded == true)
+                throw new InvalidOperationException("[ItchSaves] Loaded twice");
+
+            _isLoaded = true;
+
             if (PlayerPrefs.HasKey(LegacyKey) == true)
                 PlayerPrefs.DeleteKey(LegacyKey);
 
             if (PlayerPrefs.HasKey(Key) == false)
-                return;
+                return UniTask.CompletedTask;
 
             var raw = PlayerPrefs.GetString(Key);
 
             try
             {
-                Load(raw);
+                Read(raw);
             }
             catch (Exception exception)
             {
@@ -45,10 +52,14 @@ namespace Global.Publisher.Itch
                     $"[ItchSaves] {Key} is broken, kept as {CorruptKey}: the saves start empty from the next start",
                     exception);
             }
+
+            return UniTask.CompletedTask;
         }
 
         public T Get<T>() where T : class, new()
         {
+            ThrowIfNotLoaded();
+
             var key = typeof(T).FullName!;
 
             if (_entries.TryGetValue(key, out var rawEntry) == false)
@@ -59,6 +70,8 @@ namespace Global.Publisher.Itch
 
         public UniTask Save<T>(T data)
         {
+            ThrowIfNotLoaded();
+
             if (data == null)
                 throw new ArgumentNullException(nameof(data), $"[ItchSaves] A null {typeof(T).Name} is saved");
 
@@ -78,8 +91,14 @@ namespace Global.Publisher.Itch
             return UniTask.CompletedTask;
         }
 
+        private void ThrowIfNotLoaded()
+        {
+            if (_isLoaded == false)
+                throw new InvalidOperationException("[ItchSaves] Used before Load");
+        }
+
         // Only Save writes the key: a value that does not parse or an entry without a key is a broken save.
-        private void Load(string raw)
+        private void Read(string raw)
         {
             var container = Parse<SaveEntries>(Key, raw);
 

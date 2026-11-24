@@ -18,8 +18,8 @@ namespace Internal.Tests
         public void SetUp()
         {
             ScopeLoaderProbe.Reset();
-            GeneratedScopeHarness.Register(((Action<IEntityBuilder>)ScopeEntityRoots.Entity).Method);
-            GeneratedScopeHarness.Register(((Func<IScopeBuilder, UniTask>)ScopeLoaderRoots.Parent).Method);
+            GeneratedRoots.Register(((Action<IEntityBuilder>)ScopeEntityRoots.Entity).Method);
+            GeneratedRoots.Register(((Func<IScopeBuilder, UniTask>)ScopeLoaderRoots.Parent).Method);
             GameProfiler.Begin(nameof(ProfilerNestingTests));
         }
 
@@ -205,8 +205,7 @@ namespace Internal.Tests
             var trace = Finish();
             var entity = $"Entity: {nameof(ScopeTestEntityView)}";
             AssertParent(trace, entity, "Lobby");
-            AssertParent(trace, "Resolve: IScopeBaseSetup", entity);
-            AssertParent(trace, "Resolve: IScopeLoaded", entity);
+            AssertParent(trace, "Resolve: IScopeSetup", entity);
         });
 
         // The root of the chain is a stage, so what follows the load of the root scope stays in it.
@@ -233,7 +232,7 @@ namespace Internal.Tests
 
             await scope.Dispose();
 
-            AssertParent(Finish(), "Resolve: IScopeDispose", "Menu");
+            AssertParent(Finish(), "Parent teardown", "Menu");
         });
 
         private static ProfilerTraceData Finish()

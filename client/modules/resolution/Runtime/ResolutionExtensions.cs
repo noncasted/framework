@@ -18,7 +18,7 @@ namespace Global.Resolution
 #endif
 
             builder.Register<RenderResolution>()
-                   .As<IScopeSetupCompletion>();
+                   .As<IScopeSetup>();
 
             return builder;
         }

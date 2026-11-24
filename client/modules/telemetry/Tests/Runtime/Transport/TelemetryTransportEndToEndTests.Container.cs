@@ -34,7 +34,7 @@ namespace Global.Telemetry.Tests.Transport
             {
                 TelemetryTransportRoots.Use(client, updater, tag);
                 var scope = await new ServiceScopeLoader().Load(new ScopeLoadOptions(null, TelemetryTransportRoots.Game));
-                await scope.Initialize();
+                scope.Resolve<TelemetryTransportGameSession>().Enter(scope.Lifetime);
 
                 var row = await TelemetryTransportHost.Until(
                     async () => {

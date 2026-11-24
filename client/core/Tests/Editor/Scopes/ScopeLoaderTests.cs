@@ -13,17 +13,15 @@ namespace Internal.Tests
         public void SetUp()
         {
             ScopeLoaderProbe.Reset();
-            GeneratedScopeHarness.Register(((Func<IScopeBuilder, UniTask>)ScopeLoaderRoots.FailingSetup).Method);
-            GeneratedScopeHarness.Register(((Func<IScopeBuilder, UniTask>)ScopeLoaderRoots.ThrowingDispose).Method);
-            GeneratedScopeHarness.Register(((Func<IScopeBuilder, UniTask>)ScopeLoaderRoots.Parent).Method);
-            GeneratedScopeHarness.Register(((Func<IScopeBuilder, UniTask>)ScopeLoaderRoots.Child).Method);
-            GeneratedScopeHarness.Register(((Action<IEntityBuilder>)ScopeEntityRoots.Entity).Method);
-            GeneratedScopeHarness.Register(((Action<IEntityBuilder>)ScopeEntityRoots.FailingEntity).Method);
-            GeneratedScopeHarness.Register(((Action<IEntityBuilder>)ScopeEntityRoots.GatedEntity).Method);
-            GeneratedScopeHarness.Register(((Action<IEntityBuilder>)ScopeEntityRoots.RootEntity).Method);
-            GeneratedScopeHarness.Register(((Func<IEntityBuilder, UniTask>)ScopeEntityRoots.AsyncGatedEntity).Method);
-            GeneratedScopeHarness.Register(((Func<IScopeBuilder, UniTask>)ScopeLoaderRoots.SeveralDisposeListeners).Method);
-            GeneratedScopeHarness.Register(((Func<IScopeBuilder, UniTask>)ScopeLoaderRoots.FailingLoaded).Method);
+            GeneratedRoots.Register(((Func<IScopeBuilder, UniTask>)ScopeLoaderRoots.FailingSetup).Method);
+            GeneratedRoots.Register(((Func<IScopeBuilder, UniTask>)ScopeLoaderRoots.Parent).Method);
+            GeneratedRoots.Register(((Func<IScopeBuilder, UniTask>)ScopeLoaderRoots.Child).Method);
+            GeneratedRoots.Register(((Action<IEntityBuilder>)ScopeEntityRoots.Entity).Method);
+            GeneratedRoots.Register(((Action<IEntityBuilder>)ScopeEntityRoots.FailingEntity).Method);
+            GeneratedRoots.Register(((Action<IEntityBuilder>)ScopeEntityRoots.EndingEntity).Method);
+            GeneratedRoots.Register(((Action<IEntityBuilder>)ScopeEntityRoots.GatedEntity).Method);
+            GeneratedRoots.Register(((Action<IEntityBuilder>)ScopeEntityRoots.RootEntity).Method);
+            GeneratedRoots.Register(((Func<IEntityBuilder, UniTask>)ScopeEntityRoots.AsyncGatedEntity).Method);
         }
 
         // A scope that fails to load is torn down: its lifetime ends and its asset groups are released.
@@ -38,49 +36,8 @@ namespace Internal.Tests
             Assert.AreEqual(1, ScopeLoaderProbe.Count("failing.afterDispose"), "asset groups were not released");
         });
 
-        // The root whose loaded phase throws is disposed: nothing else would ever dispose it.
-        [UnityTest]
-        public IEnumerator LoadRoot_InitializeThrows_DisposesRoot() => UniTask.ToCoroutine(async () =>
-        {
-            var caught = await Catch(() => new ServiceScopeLoader().LoadRoot(ScopeLoaderRoots.FailingLoaded));
-
-            Assert.AreEqual("loaded failed", caught.Message);
-            Assert.IsTrue(ScopeLoaderProbe.Lifetimes["failingLoaded"].IsTerminated, "the root lifetime survived the failed load");
-            Assert.AreEqual(1, ScopeLoaderProbe.Count("failingLoaded.afterDispose"), "asset groups were not released");
-        });
-
-        // A throwing dispose listener does not stop the teardown, and the error still reaches the caller.
-        [UnityTest]
-        public IEnumerator Dispose_ListenerThrows_TeardownCompletes() => UniTask.ToCoroutine(async () =>
-        {
-            var loader = new ServiceScopeLoader();
-            var scope = await loader.Load(new ScopeLoadOptions(null, ScopeLoaderRoots.ThrowingDispose));
-            var container = scope.Container;
-
-            var caught = await Catch(() => scope.Dispose());
-
-            Assert.AreEqual("dispose failed", caught.Message);
-            Assert.IsTrue(scope.Lifetime.IsTerminated, "scope lifetime survived the dispose");
-            Assert.IsTrue(container.Lifetime.IsTerminated, "container was not disposed");
-            Assert.AreEqual(1, ScopeLoaderProbe.Count("throwing.afterDispose"), "asset groups were not released");
-        });
-
-        // Every dispose listener runs whatever another one has thrown; the errors reach the caller at the end.
-        [UnityTest]
-        public IEnumerator Dispose_ListenerThrows_OtherListenersRun() => UniTask.ToCoroutine(async () =>
-        {
-            var scope = await new ServiceScopeLoader().Load(new ScopeLoadOptions(null, ScopeLoaderRoots.SeveralDisposeListeners));
-
-            var caught = await Catch(() => scope.Dispose());
-
-            Assert.AreEqual(1, ScopeLoaderProbe.Count("second.dispose"), "a throwing OnDispose stopped the next OnDispose");
-            Assert.AreEqual(1, ScopeLoaderProbe.Count("async.dispose"), "a throwing OnDispose stopped OnDispose");
-            StringAssert.Contains("dispose failed", caught.ToString());
-            StringAssert.Contains("async dispose failed", caught.ToString());
-        });
-
-        // A root given builder.ScopeLifetime gets exactly it, and ends the entity through it: the dispose phase, the
-        // container, then the asset groups. The container is still alive during the dispose phase.
+        // A root given builder.ScopeLifetime gets exactly it, and ends the entity through it: the container, then the
+        // asset groups.
         [UnityTest]
         public IEnumerator Entity_RootEndsScopeLifetime_TeardownInOrder() => UniTask.ToCoroutine(async () =>
         {
@@ -100,7 +57,7 @@ namespace Internal.Tests
 
             root.Lifetime.Terminate();
 
-            CollectionAssert.AreEqual(new[] { "root.dispose.containerAlive", "root.afterDispose" }, ScopeLoaderProbe.Log);
+            CollectionAssert.AreEqual(new[] { "root.afterDispose" }, ScopeLoaderProbe.Log);
             Assert.IsTrue(container.Lifetime.IsTerminated, "the container was not disposed");
 
             parentLifetime.Terminate();
@@ -127,7 +84,7 @@ namespace Internal.Tests
             var caught = await Catch(() => load);
 
             Assert.IsInstanceOf<OperationCanceledException>(caught);
-            Assert.AreEqual(0, ScopeLoaderProbe.Count("entity.loaded"), "the entity was set up on a dead lifetime");
+            Assert.AreEqual(0, ScopeLoaderProbe.Count("entity.setup"), "the entity was set up on a dead lifetime");
             parent.Dispose();
         });
 
@@ -150,7 +107,7 @@ namespace Internal.Tests
             var caught = await Catch(() => load);
 
             Assert.IsInstanceOf<OperationCanceledException>(caught);
-            Assert.AreEqual(0, ScopeLoaderProbe.Count("entity.loaded"), "the entity was set up on a dead lifetime");
+            Assert.AreEqual(0, ScopeLoaderProbe.Count("entity.setup"), "the entity was set up on a dead lifetime");
             parent.Dispose();
         });
 
@@ -196,9 +153,9 @@ namespace Internal.Tests
             Assert.AreEqual(1, ScopeLoaderProbe.Count("child.afterDispose"));
         });
 
-        // An entity scope goes through the same phases as a service scope: loaded, disposed, assets released.
+        // An entity scope is set up like a service scope, and its end reaches the listeners and releases the assets.
         [UnityTest]
-        public IEnumerator Entity_RunsLoadedAndDisposePhases() => UniTask.ToCoroutine(async () =>
+        public IEnumerator Entity_SetUpThenTornDown() => UniTask.ToCoroutine(async () =>
         {
             var parentLifetime = new Lifetime();
             var parent = GeneratedScopeHarness.Build(ScopeRuntimeRoots.Empty);
@@ -208,8 +165,23 @@ namespace Internal.Tests
             parentLifetime.Terminate();
 
             CollectionAssert.AreEqual(
-                new[] { "entity.loaded", "entity.dispose", "entity.afterDispose" },
+                new[] { "entity.setup", "entity.dispose", "entity.afterDispose" },
                 ScopeLoaderProbe.Log);
+            parent.Dispose();
+        });
+
+        // The end of an entity reaches the listeners of its setup first, as the end of a service scope does: the container
+        // and the asset groups go after them.
+        [UnityTest]
+        public IEnumerator Entity_Ends_SetupListenersBeforeTheContainerAndTheAssets() => UniTask.ToCoroutine(async () =>
+        {
+            var parentLifetime = new Lifetime();
+            var parent = GeneratedScopeHarness.Build(ScopeRuntimeRoots.Empty);
+
+            await new EntityScopeLoader().Load(parentLifetime, parent, new ScopeTestEntityView(), ScopeEntityRoots.EndingEntity);
+            parentLifetime.Terminate();
+
+            CollectionAssert.AreEqual(new[] { "end.containerAlive", "ending.afterDispose" }, ScopeLoaderProbe.Log);
             parent.Dispose();
         });
 

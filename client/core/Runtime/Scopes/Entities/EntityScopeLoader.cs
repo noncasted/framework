@@ -90,9 +90,8 @@ namespace Internal
                 : NullProfilerScope.Instance;
         }
 
-        // The end of the scope lifetime tears the entity down: the dispose phase, the container, then the asset
-        // groups. A load that fails ends the lifetime and is torn down the same way, without the dispose phase unless
-        // the setup has completed.
+        // The end of the scope lifetime tears the entity down: the listeners of the setup, the container, then the asset
+        // groups. A load that fails ends the lifetime and is torn down the same way.
         private EntityBuilder CreateBuilder(
             IReadOnlyLifetime parentLifetime,
             IContainer parent,
@@ -138,25 +137,23 @@ namespace Internal
 
             builder.Events.Bind(container);
 
-            // A teardown that comes during the setup waits for it: the services that have started their setup are
-            // disposed, and the setup does not resolve from a disposed container.
-            teardown.BeginConstruct();
+            // The services are set up on a child of the scope lifetime: the teardown ends it first, so what they listen
+            // to runs while the container and the asset groups of the entity are alive, as in a service scope (the
+            // teardown is the first listener of the scope lifetime). A teardown that comes during the setup waits for
+            // it: the setup does not resolve from a disposed container.
+            var setupLifetime = builder.ScopeLifetime.Child();
+            teardown.BeginSetup(setupLifetime);
 
             try
             {
-                await builder.Events.RunConstruct(builder.ScopeLifetime);
-                teardown.EndConstruct(true);
+                await builder.Events.RunSetup(setupLifetime);
             }
-            catch
+            finally
             {
-                teardown.EndConstruct(false);
-                throw;
+                teardown.EndSetup();
             }
 
             builder.ScopeLifetime.Token.ThrowIfCancellationRequested();
-
-            // An entity has no Initialize of its own: it is loaded once its setup is done.
-            await builder.Events.RunLoaded(builder.ScopeLifetime);
 
             return new EntityScopeResult(container, builder.ScopeLifetime);
         }
@@ -172,8 +169,9 @@ namespace Internal
 
             private IContainer _container;
 
-            // The result of the setup: true when it has completed, so the dispose phase runs.
-            private UniTaskCompletionSource<bool> _construct;
+            // The end of the setup, completed or failed, and the lifetime the services were set up on.
+            private UniTaskCompletionSource _setup;
+            private ILifetime _setupLifetime;
             private UniTaskCompletionSource _over;
 
             public void SetContainer(IContainer container)
@@ -181,14 +179,15 @@ namespace Internal
                 _container = container;
             }
 
-            public void BeginConstruct()
+            public void BeginSetup(ILifetime setupLifetime)
             {
-                _construct = new UniTaskCompletionSource<bool>();
+                _setup = new UniTaskCompletionSource();
+                _setupLifetime = setupLifetime;
             }
 
-            public void EndConstruct(bool isCompleted)
+            public void EndSetup()
             {
-                _construct.TrySetResult(isCompleted);
+                _setup.TrySetResult();
             }
 
             public void Run()
@@ -217,8 +216,11 @@ namespace Internal
             {
                 var teardown = new ScopeTeardown();
 
-                if (_construct != null && await _construct.Task == true)
-                    await teardown.StepAwaited(_events.RunDispose);
+                if (_setup != null)
+                {
+                    await _setup.Task;
+                    teardown.Step(_setupLifetime.Terminate);
+                }
 
                 if (_container != null)
                     teardown.Step(_container.Dispose);

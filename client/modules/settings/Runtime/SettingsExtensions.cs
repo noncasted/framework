@@ -13,8 +13,7 @@ namespace Global.Settings
             builder.Register<Settings>()
                    .As<ISettings>()
                    .As<ISettings<SettingsSave>>()
-                   .As<IAudioVolume>()
-                   .As<IScopeSetupAsync>();
+                   .As<IAudioVolume>();
 
             return builder;
         }
@@ -34,8 +33,7 @@ namespace Global.Settings
                    .As<ISettings>()
                    .As<ISettings<TSave>>()
                    .As<TService>()
-                   .As<IAudioVolume>()
-                   .As<IScopeSetupAsync>();
+                   .As<IAudioVolume>();
 
             return builder;
         }

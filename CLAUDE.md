@@ -249,7 +249,7 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   - `layout` (`Internal.Layout`, `Internal.Layout.Editor`, namespace `Global.UI`): design layouts of `RectTransform`s
     (`DesignContainer`, `DesignGrid`, `DesignItem`) and their inspectors, without uGUI / TMP / inputs, so a game without
     `ui` (sprites only) uses them too.
-  - `publish`: platform abstractions (`ISaves`, `IPlatformAuth`, back button, inventory, invites, achievements). The project
+  - `publish`: platform abstractions (`ISaves`: `Load` once, awaited by `await builder.AddSaves(saves)` in the installer, `IPlatformAuth`, back button, inventory, invites, achievements). The project
     composes its publisher from the platforms; registrations under a runtime `if` around another installer are all
     built by the generator, so a platform choice is made with `#if` or inside one installer.
   - `browser` (`Internal.Browser`): fullscreen, leave confirmation and clipboard of a web page.
@@ -314,7 +314,7 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
     root `Page` (navigation, files with sizes and cache, the gap to the build, the spans of the template); the build puts
     `WebTemplate~/startup-trace.js` (`window.startupTrace.begin/end/mark`) first into the `<head>` of the built `index.html`
     (`TelemetryStartupTraceInjection`), the template of the game only calls it. Depends on `network`.
-- **Platforms.** `itch` (`AddItchSaves`: saves in PlayerPrefs), `web` (`AddWebLoadingScreen`, `AddWebSafeArea`,
+- **Platforms.** `itch` (`await AddItchSaves()`: saves in PlayerPrefs, loaded by `AddSaves` of `publish` while the scope is built), `web` (`AddWebLoadingScreen`, `AddWebSafeArea`,
   `WebShell.UseMobileCheck`, which also turns Run In Background off on a mobile page; needs `window.loadingScreen` and, for the shell, `TemplateData/web-shell.js` in the
   WebGL template; register only under `#if UNITY_WEBGL && !UNITY_EDITOR`; editor: `Internal.WebGlBuild.Build`,
   the batchmode build with the active build profile inside `PlayerBuildSteps.Run`, exit code 1 on any failure; every WebGL
@@ -372,8 +372,8 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1772, common 96, Verify 184, control 24, telemetry 84, EditMode 1299 (4 of them skipped, the
-benchmarks of `ContainerBenchmarkTests`), PlayMode 145 (24 of them skipped, the end to end tests of the telemetry without their host);
+Release build replaces it. The expected numbers: backend 1782, common 96, Verify 186, control 24, telemetry 84, EditMode 1333 (4 of them skipped, the
+benchmarks of `ContainerBenchmarkTests`), PlayMode 151 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 
 `tools/scripts/test-telemetry-transport.sh` runs those 24 against a real backend: it starts `ClientTelemetry.TestHost` (needs Docker) and takes

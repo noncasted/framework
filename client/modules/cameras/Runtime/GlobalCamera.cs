@@ -11,23 +11,20 @@ namespace Global.Cameras
     }
 
     [DisallowMultipleComponent]
-    public class GlobalCamera : MonoBehaviour, IGlobalCamera, IScopeBaseSetup
+    public class GlobalCamera : MonoBehaviour, IGlobalCamera
     {
         private ICurrentCamera _currentCamera;
         private IReadOnlyLifetime _lifetime;
 
         public Camera Camera { get; private set; }
 
+        // Ready once injected: a service may enable it from its own setup.
         [Inject]
-        public void Construct(ICurrentCamera currentCamera)
+        public void Construct(ICurrentCamera currentCamera, IReadOnlyLifetime lifetime)
         {
             _currentCamera = currentCamera;
-        }
-
-        public void OnBaseSetup(IReadOnlyLifetime lifetime)
-        {
-            Camera = GetComponent<Camera>();
             _lifetime = lifetime;
+            Camera = GetComponent<Camera>();
         }
 
         public void Enable()

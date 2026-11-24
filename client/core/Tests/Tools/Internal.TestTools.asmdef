@@ -2,6 +2,7 @@
     "name": "Internal.TestTools",
     "rootNamespace": "",
     "references": [
+        "Internal",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

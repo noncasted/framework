@@ -13,10 +13,10 @@ namespace Global.Audio
 
             builder.RegisterComponent(player)
                    .As<IAudioPlayer>()
-                   .As<IScopeSetupCompletion>();
+                   .As<IScopeSetup>();
 
             builder.RegisterComponent(listener)
-                   .As<IScopeBaseSetup>();
+                   .As<IScopeSetup>();
 
             return builder;
         }

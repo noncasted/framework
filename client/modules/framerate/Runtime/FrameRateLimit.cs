@@ -9,7 +9,7 @@ namespace Global.FrameRate
     // on the web turns a limit that divides the rate of the screen into every n-th requestAnimationFrame (30 on 60 Hz: every
     // second one, no setTimeout), and takes a new limit on the fly. Time.deltaTime follows the real time, so the game runs
     // at the same speed; settings.target_fps of the telemetry reports the limit.
-    public class FrameRateLimit : IScopeSetupCompletion
+    public class FrameRateLimit : IScopeSetup
     {
         public FrameRateLimit(AutoFrameRateOptions options, IFrameRateSetting setting, IFrameRateRequest request,
             IAutoFrameRate auto, PlatformOptions platform)
@@ -32,7 +32,7 @@ namespace Global.FrameRate
         // Application.targetFrameRate without a limit: the rate of the screen.
         public const int Native = -1;
 
-        public void OnSetupCompletion(IReadOnlyLifetime lifetime)
+        public void OnSetup(IReadOnlyLifetime lifetime)
         {
             if (_request.TryGet(out var limit) == true)
             {

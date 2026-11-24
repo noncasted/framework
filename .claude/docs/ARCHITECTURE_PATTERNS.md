@@ -44,11 +44,14 @@
 - **C-DI-1** Если нужна логика / состояние / фабрика -> plain class с конструкторной инъекцией, регистрация в
   installer-extension `builder.Register<T>().As<I>()`, installer возвращает builder. `DECISION_TREES.md` § 3;
   `COMMON_CONTAINER.md` § Registration API, § Plain Service.
-- **C-DI-2** Если сервису нужны подписки / инициализация -> `.As<IScopeSetup>()` и подписка в `OnSetup(lifetime)`;
-  никаких подписок в конструкторе или `Awake`; `.WithScopeLifetime()` только если lifetime нужен конструктору.
-  `COMMON_CONTAINER.md` § Lifecycle Phases, § Common Mistakes; `DECISION_TREES.md` § 2.
-- **C-DI-3** Если сервис B зависит от инициализации A -> A в более ранней фазе (`BaseSetup` -> `Setup` ->
-  `SetupCompletion` -> `Loaded`), порядок внутри фазы не используется. `COMMON_CONTAINER.md` § Lifecycle Phases.
+- **C-DI-2** Если сервису нужны подписки -> `.As<IScopeSetup>()` и подписка в `OnSetup(lifetime)`; никаких подписок в
+  `Awake`; то, без чего сервисом нельзя пользоваться (своё состояние, прочитанные данные), делается в конструкторе
+  (`[Inject]` у MonoBehaviour), lifetime в нём через `IReadOnlyLifetime` / `.WithScopeLifetime()`.
+  `COMMON_CONTAINER.md` § Setup, § Common Mistakes; `DECISION_TREES.md` § 2.
+- **C-DI-3** Если сервис B зависит от инициализации A -> A готовится в своём конструкторе, B берёт A зависимостью
+  (контейнер строит A раньше B); другой порядок пишется вызовом: до сервисов в installer, после загрузки у владельца
+  scope (`scope.Resolve<GameLoop>().Start(scope.Lifetime)`). Фаза одна (`IScopeSetup`), её порядок не используется,
+  async-фазы нет. `COMMON_CONTAINER.md` § Setup.
 - **C-DI-4** Если появляется новый scope -> корень `Construct` передаётся method group-ом (не лямбдой), у дочернего
   корня `[ContainerScopeParent]`, выбрана сцена scope (`WithRuntimeScene` / `WithAssetScene` / без сцены).
   `COMMON_CONTAINER.md` § Service scope, § Common Mistakes.

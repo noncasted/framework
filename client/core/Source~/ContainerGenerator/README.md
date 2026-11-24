@@ -116,11 +116,13 @@ All are errors.
 | CINGR009 | Warning: a parameter takes the last of several registrations of its type |
 | CINGR010 | The `[Inject]` method cannot be called: several of them (the type and its base classes), generic, not accessible, internal or private in another assembly |
 | CINGR011 | The registered type cannot be constructed: struct, interface, abstract, static, not accessible, no accessible constructor, several constructors with the longest parameter count |
-| CINGR012 | A transient registration listens to several scope phases (each phase would get a new instance) |
+| CINGR012 | Retired (0.14): there is one scope phase, a transient listener cannot get two |
 | CINGR013 | A scope root is overloaded: the runtime finds a root by its name only |
 | CINGR014 | Several `WithParameter` values of a registration fit one parameter and none has exactly its type |
 | CINGR015 | Warning: a `WithParameter` value of a registration that no parameter can take |
 | CINGR016 | A scope root is generic: the method, a method around it or a type around it has type parameters. A generic installer is fine |
+| CINGR017 | A lambda or an anonymous method is given as a scope root: the runtime finds the class by the name of the root method |
+| CINGR018 | A type implements `IScopeSetup` and no registration of it lists `IScopeSetup`: its `OnSetup` is never called |
 
 An exception inside the generator is reported as CINGR001 for the scope it happened in; the other scopes of the
 assembly are still emitted.

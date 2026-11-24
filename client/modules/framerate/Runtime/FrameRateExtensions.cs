@@ -25,7 +25,7 @@ namespace Global.FrameRate
                    .As<IAutoFrameRate>();
 
             builder.Register<FrameRateLimit>()
-                   .As<IScopeSetupCompletion>();
+                   .As<IScopeSetup>();
 
             return builder;
         }

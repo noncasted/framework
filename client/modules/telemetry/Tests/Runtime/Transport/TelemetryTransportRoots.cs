@@ -24,7 +24,7 @@ namespace Global.Telemetry.Tests.Transport
             builder.RegisterInstance(Updater);
             builder.AddSocketClientTelemetry(new ClientTelemetryOptions(0.1f, 0.05f, enabledInEditor: true));
             builder.AddStandardTelemetryCollectors();
-            builder.Register<TelemetryTransportGameSession>().As<IScopeLoaded>();
+            builder.Register<TelemetryTransportGameSession>().AsSelf();
 
             return UniTask.CompletedTask;
         }

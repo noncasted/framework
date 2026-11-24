@@ -35,8 +35,8 @@ namespace Global.Audio.Tests
 
             try
             {
-                player.Construct(new Volume(), updater);
-                player.OnSetupCompletion(lifetime);
+                player.Construct(new Volume(), updater, lifetime);
+                player.OnSetup(lifetime);
 
                 updater.Pause();
                 player.PlayLoopMusic(new Sound(clip, 1f, null, "track"), 0.1f);
@@ -80,8 +80,8 @@ namespace Global.Audio.Tests
 
             try
             {
-                player.Construct(new Volume(), updater);
-                player.OnSetupCompletion(lifetime);
+                player.Construct(new Volume(), updater, lifetime);
+                player.OnSetup(lifetime);
 
                 player.PlayLoopMusic(new Sound(first, 1f, null, "first"), 0.1f);
                 player.PlayLoopMusic(new Sound(second, 1f, null, "second"), 0.1f);
@@ -100,7 +100,7 @@ namespace Global.Audio.Tests
         }
 
         [Test]
-        public void Setup_NotTwoMusicSources_Throws()
+        public void Construct_NotTwoMusicSources_Throws()
         {
             var gameObject = new GameObject("audio");
             var player = gameObject.AddComponent<AudioPlayer>();
@@ -114,8 +114,7 @@ namespace Global.Audio.Tests
 
             try
             {
-                player.Construct(new Volume(), new FakeUpdater());
-                Assert.Throws<InvalidOperationException>(() => player.OnSetupCompletion(lifetime));
+                Assert.Throws<InvalidOperationException>(() => player.Construct(new Volume(), new FakeUpdater(), lifetime));
             }
             finally
             {
@@ -517,8 +516,8 @@ namespace Global.Audio.Tests
                 Fill(serialized.FindProperty("_soundSources"), Sounds);
                 serialized.ApplyModifiedPropertiesWithoutUndo();
 
-                Player.Construct(Volume, Updater);
-                Player.OnSetupCompletion(_lifetime);
+                Player.Construct(Volume, Updater, _lifetime);
+                Player.OnSetup(_lifetime);
             }
 
             private readonly GameObject _gameObject;

@@ -4,41 +4,39 @@ using System.Globalization;
 
 namespace ContainerGenerator {
     internal static class PhaseListeners {
-        private static readonly string[] PhaseMarkers = {
-            "global::Internal.IScopeBaseSetup",
-            "global::Internal.IScopeBaseSetupAsync",
-            "global::Internal.IScopeSetup",
-            "global::Internal.IScopeSetupAsync",
-            "global::Internal.IScopeSetupCompletion",
-            "global::Internal.IScopeSetupCompletionAsync",
-            "global::Internal.IScopeLoaded",
-            "global::Internal.IScopeLoadedAsync",
-            "global::Internal.IScopeDispose",
-            "global::Internal.IScopeDisposeAsync",
-        };
+        private const string SetupMarker = "global::Internal.IScopeSetup";
 
-        // Every phase resolves its listeners anew: a transient that listens to setup and dispose would get them
-        // on two different instances.
-        public static void ReportTransientPhaseListeners(ScopeGraph graph) {
+        // The setup calls only what is registered as IScopeSetup: a type that implements it under other services alone
+        // would never be set up. One object may come in several registrations (an instance, a component), so a type is
+        // fine when any registration of it lists the marker.
+        public static void ReportUnregisteredSetup(ScopeGraph graph, TypeIndex types) {
+            var marker = types.Find(SetupMarker);
+            if (marker == null)
+                return;
+
+            var listed = new HashSet<string>(StringComparer.Ordinal);
             for (var i = 0; i < graph.Registrations.Count; i++) {
                 var registration = graph.Registrations[i];
-                if (registration.Lifetime != "Transient")
+                if (registration.ServiceTypes.Contains(SetupMarker))
+                    listed.Add(registration.ImplementationType);
+            }
+
+            var reported = new HashSet<string>(StringComparer.Ordinal);
+            for (var i = 0; i < graph.Registrations.Count; i++) {
+                var registration = graph.Registrations[i];
+                var implementation = registration.ImplementationType;
+                if (string.IsNullOrEmpty(implementation) || listed.Contains(implementation) || reported.Contains(implementation))
                     continue;
 
-                var phases = new List<string>();
-                for (var s = 0; s < registration.ServiceTypes.Count; s++) {
-                    if (Array.IndexOf(PhaseMarkers, registration.ServiceTypes[s]) >= 0)
-                        phases.Add(registration.ServiceTypes[s].Substring("global::Internal.".Length));
-                }
-
-                if (phases.Count < 2)
+                var symbol = types.Find(implementation);
+                if (symbol == null || symbol.Implements(marker) == false)
                     continue;
 
+                reported.Add(implementation);
                 graph.Diagnostics.Add(new DiagnosticInfo(
-                    GraphDescriptors.TransientPhaseListener,
+                    GraphDescriptors.UnregisteredSetup,
                     registration.Location,
-                    registration.ImplementationType,
-                    string.Join(", ", phases),
+                    implementation,
                     registration.File ?? "",
                     registration.Line.ToString(CultureInfo.InvariantCulture)));
             }

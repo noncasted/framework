@@ -119,7 +119,7 @@ namespace Global.FrameRate.Tests
             var limit = new FrameRateLimit(new AutoFrameRateOptions(), _settings, new FakeRequest(request), _auto,
                 new PlatformOptions());
 
-            limit.OnSetupCompletion(_lifetime);
+            limit.OnSetup(_lifetime);
         }
 
         private class FakeRequest : IFrameRateRequest

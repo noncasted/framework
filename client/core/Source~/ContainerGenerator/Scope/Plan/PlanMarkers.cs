@@ -63,16 +63,7 @@ namespace ContainerGenerator {
         }
 
         private static void AddKnownMarkers(HashSet<string> wanted) {
-            wanted.Add("global::Internal.IScopeBaseSetup");
-            wanted.Add("global::Internal.IScopeBaseSetupAsync");
             wanted.Add("global::Internal.IScopeSetup");
-            wanted.Add("global::Internal.IScopeSetupAsync");
-            wanted.Add("global::Internal.IScopeSetupCompletion");
-            wanted.Add("global::Internal.IScopeSetupCompletionAsync");
-            wanted.Add("global::Internal.IScopeLoaded");
-            wanted.Add("global::Internal.IScopeLoadedAsync");
-            wanted.Add("global::Internal.IScopeDispose");
-            wanted.Add("global::Internal.IScopeDisposeAsync");
             wanted.Add("global::Internal.ISceneService");
             wanted.Add("global::Internal.IEntityComponent");
         }

@@ -35,7 +35,7 @@ Need to send notification/signal?
 
 ```
 Subscribing to something?
-├─ In a lifecycle callback (OnSetup / OnLoaded / ... (lifetime))?
+├─ In OnSetup(lifetime) or an event of RunCustom (lifetime)?
 │  └─ Use parameter lifetime directly
 │     onEvent.Advise(lifetime, callback)
 │
@@ -64,7 +64,7 @@ Subscribing to something?
 ```
 
 **Quick Reference:**
-- **OnSetup(lifetime) / other phase** → use parameter
+- **OnSetup(lifetime) / an event of RunCustom** → use parameter
 - **Service class** → subscribe in OnSetup(lifetime); `.WithScopeLifetime()` if the constructor needs it
 - **Collection item** → item.Lifetime if exists, else Child()
 - **One-shot operation** → new Lifetime() then Terminate()

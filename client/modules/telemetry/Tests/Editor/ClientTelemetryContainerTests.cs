@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Linq;
-using System.Reflection;
 using Cysharp.Threading.Tasks;
 using Internal;
 using NUnit.Framework;
@@ -17,10 +16,16 @@ namespace Global.Telemetry.Tests
     {
         private static void RegisterGenerated(Func<IScopeBuilder, UniTask> root)
         {
-            ContainerTestRoots.Register(root);
+            GeneratedRoots.Register(root.Method);
         }
 
         private static readonly TimeSpan _timeout = TimeSpan.FromSeconds(10);
+
+        // The game enters the part of the scope once it is loaded: the call its loader makes.
+        private static void Enter(ILoadedScope scope)
+        {
+            scope.Resolve<SessionOnLoad>().Enter(scope.Lifetime);
+        }
 
         [UnityTest]
         public IEnumerator Scope_TwoCollectors_BothInTheBatches() => UniTask.ToCoroutine(async () =>
@@ -29,7 +34,7 @@ namespace Global.Telemetry.Tests
             RegisterGenerated(ContainerRoots.WithCollectors);
             var scope = await new ServiceScopeLoader().Load(new ScopeLoadOptions(null, ContainerRoots.WithCollectors));
 
-            await scope.Initialize();
+            Enter(scope);
             await UniTask.WaitUntil(() => NamesSent().Contains("second")).Timeout(_timeout);
             await scope.Dispose();
 
@@ -46,7 +51,7 @@ namespace Global.Telemetry.Tests
             RegisterGenerated(ContainerRoots.WithoutCollectors);
             var scope = await new ServiceScopeLoader().Load(new ScopeLoadOptions(null, ContainerRoots.WithoutCollectors));
 
-            await scope.Initialize();
+            Enter(scope);
             await UniTask.WaitUntil(() => ContainerProbe.Transport.Starts.Count > 0).Timeout(_timeout);
             await scope.Dispose();
 
@@ -61,7 +66,6 @@ namespace Global.Telemetry.Tests
             RegisterGenerated(ContainerRoots.WithoutSession);
             var scope = await new ServiceScopeLoader().Load(new ScopeLoadOptions(null, ContainerRoots.WithoutSession));
 
-            await scope.Initialize();
             await UniTask.Delay(100, DelayType.Realtime);
             await scope.Dispose();
 
@@ -75,7 +79,7 @@ namespace Global.Telemetry.Tests
             RegisterGenerated(ContainerRoots.OffInEditor);
             var scope = await new ServiceScopeLoader().Load(new ScopeLoadOptions(null, ContainerRoots.OffInEditor));
 
-            await scope.Initialize();
+            Enter(scope);
             await UniTask.Delay(100, DelayType.Realtime);
             await scope.Dispose();
 
@@ -93,7 +97,7 @@ namespace Global.Telemetry.Tests
             RegisterGenerated(ContainerRoots.WithStandardCollectors);
             var scope = await new ServiceScopeLoader().Load(new ScopeLoadOptions(null, ContainerRoots.WithStandardCollectors));
 
-            await scope.Initialize();
+            Enter(scope);
             await UniTask.WaitUntil(() => NamesSent().Contains("gc.collections")).Timeout(_timeout);
             await scope.Dispose();
             UnityEngine.Object.DestroyImmediate(updater.gameObject);
@@ -112,7 +116,7 @@ namespace Global.Telemetry.Tests
             RegisterGenerated(ContainerRoots.WithoutCollectors);
             var scope = await new ServiceScopeLoader().Load(new ScopeLoadOptions(null, ContainerRoots.WithoutCollectors));
 
-            await scope.Initialize();
+            Enter(scope);
             Debug.LogError("Broken in the scope");
             await UniTask.WaitUntil(() => ContainerProbe.Transport.Batches
                          .SelectMany(call => call.Batch.Errors)
@@ -137,7 +141,7 @@ namespace Global.Telemetry.Tests
             RegisterGenerated(ContainerRoots.OverTheSocket);
             var scope = await new ServiceScopeLoader().Load(new ScopeLoadOptions(null, ContainerRoots.OverTheSocket));
 
-            await scope.Initialize();
+            Enter(scope);
             await UniTask.WaitUntil(() => ContainerProbe.Writer.Requests.Count > 0).Timeout(_timeout);
             await scope.Dispose();
 
@@ -153,12 +157,11 @@ namespace Global.Telemetry.Tests
             RegisterGenerated(ContainerRoots.MetaOfAGame);
             RegisterGenerated(ContainerRoots.BelowTheMeta);
             var meta = await new ServiceScopeLoader().Load(new ScopeLoadOptions(null, ContainerRoots.MetaOfAGame));
-            await meta.Initialize();
             await UniTask.Delay(50, DelayType.Realtime);
             Assert.IsEmpty(ContainerProbe.Writer.Requests);
 
             var below = await new ServiceScopeLoader().Load(new ScopeLoadOptions(meta, ContainerRoots.BelowTheMeta));
-            await below.Initialize();
+            Enter(below);
             await UniTask.WaitUntil(() => ContainerProbe.Writer.Requests.Count > 0).Timeout(_timeout);
 
             await below.Dispose();
@@ -175,7 +178,6 @@ namespace Global.Telemetry.Tests
             RegisterGenerated(ContainerRoots.OverHttp);
             var scope = await new ServiceScopeLoader().Load(new ScopeLoadOptions(null, ContainerRoots.OverHttp));
 
-            await scope.Initialize();
             await scope.Dispose();
         });
 
@@ -202,19 +204,6 @@ namespace Global.Telemetry.Tests
         }
     }
 
-    public static class ContainerTestRoots
-    {
-        // RuntimeInitializeOnLoadMethod is not called in edit mode, so the generated classes are registered here.
-        public static void Register(Func<IScopeBuilder, UniTask> root)
-        {
-            var name = root.Method.DeclaringType.Name + root.Method.Name + "Container";
-            var type = root.Method.DeclaringType.Assembly.GetType(root.Method.DeclaringType.Namespace + "." + name, true);
-
-            if (GeneratedScopes.IsRegistered(GeneratedScopes.RootId(root.Method)) == false)
-                type.GetMethod("RegisterGenerated", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, null);
-        }
-    }
-
     public static class ContainerProbe
     {
         public static RecordingTransport Transport { get; private set; }
@@ -236,7 +225,7 @@ namespace Global.Telemetry.Tests
     }
 
     // What a game does: opens a session when it gets to a part of the game, here on the lifetime of the scope.
-    public class SessionOnLoad : IScopeLoaded
+    public class SessionOnLoad
     {
         public SessionOnLoad(IClientTelemetry telemetry)
         {
@@ -245,7 +234,7 @@ namespace Global.Telemetry.Tests
 
         private readonly IClientTelemetry _telemetry;
 
-        public void OnLoaded(IReadOnlyLifetime lifetime)
+        public void Enter(IReadOnlyLifetime lifetime)
         {
             _telemetry.StartSession(lifetime, "probe");
         }
@@ -271,7 +260,7 @@ namespace Global.Telemetry.Tests
         public static UniTask WithCollectors(IScopeBuilder builder)
         {
             AddTelemetry(builder, true);
-            builder.Register<SessionOnLoad>().As<IScopeLoaded>();
+            builder.Register<SessionOnLoad>().AsSelf();
             builder.Register<FirstCollector>().As<ITelemetryCollector>();
             builder.Register<SecondCollector>().As<ITelemetryCollector>();
             return UniTask.CompletedTask;
@@ -281,7 +270,7 @@ namespace Global.Telemetry.Tests
         public static UniTask WithoutCollectors(IScopeBuilder builder)
         {
             AddTelemetry(builder, true);
-            builder.Register<SessionOnLoad>().As<IScopeLoaded>();
+            builder.Register<SessionOnLoad>().AsSelf();
             return UniTask.CompletedTask;
         }
 
@@ -298,7 +287,7 @@ namespace Global.Telemetry.Tests
         {
             builder.RegisterInstance<IUpdater>(ContainerProbe.Updater);
             AddTelemetry(builder, true);
-            builder.Register<SessionOnLoad>().As<IScopeLoaded>();
+            builder.Register<SessionOnLoad>().AsSelf();
             builder.AddStandardTelemetryCollectors();
             return UniTask.CompletedTask;
         }
@@ -308,7 +297,7 @@ namespace Global.Telemetry.Tests
         {
             builder.RegisterInstance<ITelemetrySocket>(ContainerProbe.Socket);
             builder.AddSocketClientTelemetry(Options(true));
-            builder.Register<SessionOnLoad>().As<IScopeLoaded>();
+            builder.Register<SessionOnLoad>().AsSelf();
             return UniTask.CompletedTask;
         }
 
@@ -331,7 +320,7 @@ namespace Global.Telemetry.Tests
         [ContainerScopeParent(typeof(ContainerRoots), nameof(MetaOfAGame))]
         public static UniTask BelowTheMeta(IScopeBuilder builder)
         {
-            builder.Register<SessionOnLoad>().As<IScopeLoaded>();
+            builder.Register<SessionOnLoad>().AsSelf();
             return UniTask.CompletedTask;
         }
 
@@ -339,7 +328,7 @@ namespace Global.Telemetry.Tests
         public static UniTask OffInEditor(IScopeBuilder builder)
         {
             AddTelemetry(builder, false);
-            builder.Register<SessionOnLoad>().As<IScopeLoaded>();
+            builder.Register<SessionOnLoad>().AsSelf();
             return UniTask.CompletedTask;
         }
     }
