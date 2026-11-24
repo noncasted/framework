@@ -203,7 +203,9 @@ builder.RequestAudioGroup(SfxAudio.Group);
 await builder.LoadEnvAssetGroup(GlobalAssets.Group);  // loaded now: needed while registering
 ```
 
-`Request*` defers loading to the before-build step; `Load*` awaits immediately and is used only when `Construct` itself reads the assets. Generated getters throw if the group is not loaded. Do not call `group.Retain()` from gameplay code; one lazy asset of a content bundle is `builder.RequestContent(reference, out var slot)` / `await builder.LoadContent(reference)` in a scope, or `IContentLoader.Load(lifetime, reference)` during the game (`CONTENT.md`). Code: `client/Assets/Common/Internal/Runtime/Catalogues/*/*Extensions.cs`, `.../Catalogues/Shared/AssetGroupBuilderExtensions.cs`.
+`Request*` defers loading to the before-build step; `Load*` awaits immediately and is used only when `Construct` itself reads the assets. Generated getters throw if the group is not loaded.
+
+New asset of a catalogue: the getter (`InternalAssets.X`) exists only after the generator ran (`Tools/Framework/Codegen/Assets Catalog`, or Regenerate All), and the generator runs only in a project that compiles. So: the asset (group in its `.meta`), the asmdef reference of the content assembly to the assembly of its type (the generated class names the type), the generation, and only then the code that reads the getter. Code written first breaks the compile, and the generator cannot run until it is removed. Do not call `group.Retain()` from gameplay code; one lazy asset of a content bundle is `builder.RequestContent(reference, out var slot)` / `await builder.LoadContent(reference)` in a scope, or `IContentLoader.Load(lifetime, reference)` during the game (`CONTENT.md`). Code: `client/Assets/Common/Internal/Runtime/Catalogues/*/*Extensions.cs`, `.../Catalogues/Shared/AssetGroupBuilderExtensions.cs`.
 
 ## Runtime Access
 
