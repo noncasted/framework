@@ -111,7 +111,11 @@ namespace Unity.Web.Stripping.Editor
             }
         }
 
-        internal static void LoadSettings()
+        /// <summary>
+        /// Reads the active settings and the post-build flag from the project settings of the package.
+        /// A batchmode build calls it before building: the retry of Initialize may not run before -executeMethod.
+        /// </summary>
+        public static void LoadSettings()
         {
             // Set backing fields directly to avoid the property setter triggering SaveSettings().
             s_StripAutomaticallyAfterBuild = PackageSettings.GetProjectSetting(k_StripAutomaticallyAfterBuildKey, s_StripAutomaticallyAfterBuild);
