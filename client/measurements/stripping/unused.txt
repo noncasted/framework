@@ -1,0 +1,13 @@
+# Code no measured scene calls (tools/coverage.py on aggressive-lean and aggressive-lean-assetbundles), in the
+# definitions engine_unused.json and bcl_unused.json of the stripping tool fork, written by tools/unused_definition.py:
+# the reason of each group in its description. "?": the definitions name the functions of one Unity version.
+? Safe Binary Read
+? Graphics State Collection
+? Platform Audio
+? Content Load Backend
+? Text From Binary Renderer
+? Content Load Manager
+? BCL Event Source
+? BCL JavaScript Interop
+# Only with UseSystemResourceKeys (linkerArgs of the lean variants): otherwise the BCL looks its messages up.
+? BCL Resources

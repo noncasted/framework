@@ -1,0 +1,235 @@
+{
+  "unity": "7000.0.0a20",
+  "variant": "base",
+  "description": "The stripping of pixel-swarm: a game works with it (sprites, 2D physics, audio, uGUI and TextMeshPro with static SDF fonts)",
+  "measured": "2026-11-19 15:45 UTC",
+  "build": {
+    "unityVersion": "7000.0.0a20",
+    "result": "Succeeded",
+    "buildSeconds": 229.1963955,
+    "reportedSize": 20781852,
+    "errors": 0,
+    "warnings": 5,
+    "strippedSubmodules": 94,
+    "missingSubmodules": "Ignore",
+    "profiled": false
+  },
+  "strippingSkipped": [],
+  "overrides": [
+    "the uGUI fork is the built-in package of 7000.0.0a10; 7000.0.0a20 ships uGUI 7.0.0 with new runtime code (TextMesh Pro, layout, event system): its built-in package with the patches of the fork"
+  ],
+  "files": [
+    {
+      "name": "2e1d1093f1d51a844a96fbac7d4bce08.loader.js",
+      "kind": "loader",
+      "compressed": 28175,
+      "raw": 28175
+    },
+    {
+      "name": "77242c1667188cdc53478179d6fde19f.wasm.br",
+      "kind": "wasm",
+      "compressed": 3805033,
+      "raw": 14459459,
+      "sections": {
+        "type": 5057,
+        "import": 10577,
+        "function": 66606,
+        "table": 9,
+        "memory": 7,
+        "tag": 5,
+        "global": 9,
+        "export": 542,
+        "element": 246829,
+        "datacount": 2,
+        "code": 11798426,
+        "data": 2331345
+      }
+    },
+    {
+      "name": "da5258f1653c808ac70dcbfd51b22e4f.framework.js.br",
+      "kind": "framework",
+      "compressed": 64454,
+      "raw": 324587
+    },
+    {
+      "name": "fecbaef800a5ee1ac354b9aca0d16653.data.br",
+      "kind": "data",
+      "compressed": 1641153,
+      "raw": 5785290,
+      "contents": [
+        {
+          "name": "RuntimeInitializeOnLoads.json",
+          "raw": 162,
+          "compressed": 126
+        },
+        {
+          "name": "ScriptingAssemblies.json",
+          "raw": 3884,
+          "compressed": 743
+        },
+        {
+          "name": "data.unity3d",
+          "raw": 348416,
+          "compressed": 266844
+        },
+        {
+          "name": "sharedassets0.resource",
+          "raw": 10237,
+          "compressed": 9495
+        },
+        {
+          "name": "boot.config",
+          "raw": 114,
+          "compressed": 95
+        },
+        {
+          "name": "Il2CppData/Icu/icudt.dat",
+          "raw": 1526128,
+          "compressed": 329770
+        },
+        {
+          "name": "Il2CppData/Metadata/global-metadata.dat",
+          "raw": 3207396,
+          "compressed": 854339
+        },
+        {
+          "name": "Il2CppData/Resources/System.Collections.Concurrent.dll-resources.dat",
+          "raw": 5854,
+          "compressed": 1797
+        },
+        {
+          "name": "Il2CppData/Resources/System.Collections.dll-resources.dat",
+          "raw": 4704,
+          "compressed": 1695
+        },
+        {
+          "name": "Il2CppData/Resources/System.Linq.dll-resources.dat",
+          "raw": 622,
+          "compressed": 344
+        },
+        {
+          "name": "Il2CppData/Resources/System.Memory.dll-resources.dat",
+          "raw": 1505,
+          "compressed": 753
+        },
+        {
+          "name": "Il2CppData/Resources/System.ObjectModel.dll-resources.dat",
+          "raw": 2055,
+          "compressed": 925
+        },
+        {
+          "name": "Il2CppData/Resources/System.Private.CoreLib.dll-resources.dat",
+          "raw": 195415,
+          "compressed": 50673
+        },
+        {
+          "name": "Il2CppData/Resources/System.Runtime.InteropServices.JavaScript.dll-resources.dat",
+          "raw": 3463,
+          "compressed": 1421
+        },
+        {
+          "name": "Il2CppData/Resources/System.Runtime.Serialization.Formatters.dll-resources.dat",
+          "raw": 9418,
+          "compressed": 3050
+        },
+        {
+          "name": "Resources/unity default resources",
+          "raw": 465008,
+          "compressed": 105817
+        }
+      ]
+    }
+  ],
+  "wasmBeforeStripping": {
+    "compressed": 6765413,
+    "raw": 29668380
+  },
+  "managed": {
+    "System.Private.CoreLib.dll": 1846272,
+    "UnityEngine.CoreModule.dll": 525824,
+    "Unity.TextMeshPro.dll": 363008,
+    "UnityEngine.EntitiesModule.dll": 323584,
+    "UnityEngine.UI.dll": 232960,
+    "UnityEngine.ManagedKernelModule.dll": 137728,
+    "UnityEngine.PhysicsCore2DModule.dll": 119296,
+    "UnityEngine.TextCoreTextEngineModule.dll": 114176,
+    "UniTask.dll": 85504,
+    "UnityEngine.dll": 61952,
+    "MemoryPack.Core.dll": 58368,
+    "System.Linq.dll": 57344,
+    "Unity.Scripting.dll": 44544,
+    "System.Runtime.InteropServices.JavaScript.dll": 44032,
+    "UnityEngine.TextCoreFontEngineModule.dll": 39936,
+    "UnityEngine.BurstModule.dll": 36352,
+    "UnityEngine.U2DRuntimeModule.dll": 35840,
+    "UnityEngine.ScriptingModule.dll": 32256,
+    "System.Collections.Concurrent.dll": 32256,
+    "UnityEngine.AudioModule.dll": 29184,
+    "System.Collections.dll": 28672,
+    "Measurement.Runtime.dll": 25600,
+    "UnityEngine.UIModule.dll": 22016,
+    "UnityEngine.TextRenderingModule.dll": 17408,
+    "System.Runtime.Serialization.Formatters.dll": 17408,
+    "System.Memory.dll": 16384,
+    "UnityEngine.MathematicsModule.dll": 15360,
+    "UnityEngine.Physics2DModule.dll": 15360,
+    "System.ObjectModel.dll": 15360,
+    "Framework.Common.dll": 13824,
+    "UnityEngine.ContentLoadModule.dll": 13312,
+    "UnityEngine.TypeRegistryModule.dll": 12800,
+    "UnityEngine.ParticleSystemModule.dll": 12800,
+    "UnityEngine.UICommonModule.dll": 10240,
+    "UnityEngine.InputLegacyModule.dll": 9728,
+    "Measurement.Physics.dll": 7168,
+    "Measurement.UI.dll": 6656,
+    "System.ComponentModel.dll": 5120,
+    "Unity.InternalAPIEngineBridge.004.dll": 3584
+  },
+  "smoke": {
+    "status": "ready",
+    "line": "[measurement] ready libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames; audio: 0.50 s clip, playing True; hud: 21 characters, 30 clicks; physics: 16 of 16 bodies fell",
+    "seconds": 3.7,
+    "errors": [],
+    "console": [
+      "log:     \"memorysetup-temp-allocator-size-background-worker=32768\"\n",
+      "log:     \"memorysetup-allocator-temp-initial-block-size-main=262144\"\n",
+      "log:     \"memorysetup-allocator-temp-initial-block-size-worker=262144\"\n",
+      "log:     \"memorysetup-entities-archetype-allocator-budget=16777216\"\n",
+      "log:     \"memorysetup-entities-query-allocator-budget=16777216\"\n",
+      "log:     \"memorysetup-temp-allocator-size-audio-worker=65536\"\n",
+      "log:     \"memorysetup-remapper-allocator-initial-capacity=32768\"\n",
+      "log: CodeReloadManager initialized\n",
+      "log: Loading player data from data.unity3d\n",
+      "log: Initialize engine version: 7000.0.0a20 (f4e960bd2f88)\n",
+      "log: [EntityIdStore] init: page-table path, blockCount=262144, entitiesPerBlock=1024, top-level=2097152 bytes, sizeof(Block)=16512 (lazily allocated per committed block)\n",
+      "log: Creating WebGL 2.0 context.",
+      "log: Renderer: WebKit WebGL\n",
+      "log: Vendor:   WebKit\n",
+      "log: Version:  OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))\n",
+      "log: GLES:     3\n",
+      "log:  EXT_clip_control EXT_color_buffer_float EXT_color_buffer_half_float EXT_conservative_depth EXT_depth_clamp EXT_disjoint_timer_query_webgl2 EXT_float_blend EXT_polygon_offset_clamp EXT_texture_compression_bptc EXT_texture_compression_rgtc EXT_texture_filter_anisotropic NV_shader_noperspective_interp",
+      "log: mpressed_texture_astc GL_WEBGL_compressed_texture_etc GL_WEBGL_compressed_texture_etc1 GL_WEBGL_compressed_texture_s3tc GL_WEBGL_compressed_texture_s3tc_srgb GL_WEBGL_debug_renderer_info GL_WEBGL_debug_shaders GL_WEBGL_lose_context GL_WEBGL_multi_draw GL_WEBGL_polygon_mode\n",
+      "log: OPENGL LOG: Creating OpenGL ES 3.0 graphics device ; Context level  <OpenGL ES 3.0> ; Context handle 0x1\n",
+      "log: Input Manager initialize...\n",
+      "log: UnloadTime: 1.500000 ms\n",
+      "log: Audio context resumed after 0.100 seconds.",
+      "log: [measurement] part libraries\n",
+      "log: [measurement] part sprites\n",
+      "log: [measurement] part audio\n",
+      "log: Trying to get length of sound which is not loaded yet.",
+      "log: Trying to get metadata of sound which is not loaded.",
+      "log: [measurement] part hud\n",
+      "log: [measurement] part physics\n",
+      "log: [measurement] ready libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames; audio: 0.50 s clip, playing True; hud: 21 characters, 30 clicks; physics: 16 of 16 bodies fell\n"
+    ],
+    "requests": [
+      "/",
+      "/Build/2e1d1093f1d51a844a96fbac7d4bce08.loader.js",
+      "/Build/da5258f1653c808ac70dcbfd51b22e4f.framework.js.br",
+      "/Build/77242c1667188cdc53478179d6fde19f.wasm.br",
+      "/favicon.ico",
+      "/Build/fecbaef800a5ee1ac354b9aca0d16653.data.br"
+    ],
+    "screenshot": "/projects/framework/client/measurements/projects/7000.0.0a20-base/smoke.png"
+  }
+}

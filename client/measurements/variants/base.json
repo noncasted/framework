@@ -24,6 +24,13 @@
           "only": "Assets/TextMesh Pro/Shaders/"
         }
       ]
+    },
+    {
+      "from": "7000.0.0a20",
+      "why": "the uGUI fork is the built-in package of 7000.0.0a10; 7000.0.0a20 ships uGUI 7.0.0 with new runtime code (TextMesh Pro, layout, event system): its built-in package with the patches of the fork",
+      "packages": {
+        "com.unity.ugui": "builtin+framework:client/packages/com.unity.ugui"
+      }
     }
   ]
 }

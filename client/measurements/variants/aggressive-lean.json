@@ -1,0 +1,46 @@
+{
+  "description": "aggressive with every size switch at once: the invariant globalization (as aggressive-invariant), the resource keys instead of the exception messages of the BCL (UseSystemResourceKeys), no vectorized branches of the BCL (vector-substitutions.xml: IL2CPP answers false to IsHardwareAccelerated anyway), the IL2CPP code generation Optimize Size, the non-incremental GC, the data of the wasm no code left after the stripping reaches zeroed (tools/dead_data.py) and the stripped wasm optimized once more (--gufa-optimizing -Oz)",
+  "parts": [],
+  "packages": {
+    "com.unity.modules.accessibility": null,
+    "com.unity.modules.adaptiveperformance": null,
+    "com.unity.modules.ai": null,
+    "com.unity.modules.androidjni": null,
+    "com.unity.modules.animation": null,
+    "com.unity.modules.assetbundle": null,
+    "com.unity.modules.director": null,
+    "com.unity.modules.particlesystem": null,
+    "com.unity.modules.physics": null,
+    "com.unity.modules.physics2d": null,
+    "com.unity.modules.physicscore2d": null,
+    "com.unity.modules.screencapture": null,
+    "com.unity.modules.tilemap": null,
+    "com.unity.modules.timelinefoundation": null,
+    "com.unity.modules.umbra": null,
+    "com.unity.modules.unityanalytics": null,
+    "com.unity.modules.unitywebrequest": null,
+    "com.unity.modules.unitywebrequestassetbundle": null,
+    "com.unity.modules.unitywebrequestaudio": null,
+    "com.unity.modules.unitywebrequesttexture": null,
+    "com.unity.modules.unitywebrequestwww": null,
+    "com.unity.modules.video": null
+  },
+  "strip": [
+    "base.txt",
+    "aggressive.txt",
+    "physics2d.txt",
+    "invariant.txt",
+    "unused.txt"
+  ],
+  "linkerArgs": "--dotnet-runtime-feature=InvariantGlobalization,UseSystemResourceKeys --substitutions=../../stripping/vector-substitutions.xml",
+  "dropData": [
+    "Il2CppData/Icu/icudt.dat"
+  ],
+  "zeroDeadData": true,
+  "reoptimize": true,
+  "profile": {
+    "il2cppCodeGeneration": 1,
+    "gcIncremental": 0,
+    "additionalIl2CppArgs": "--compiler-flags=-DIL2CPP_SYSTEM_GLOBALIZATION_INVARIANT=1"
+  }
+}

@@ -1,9 +1,11 @@
 // Runs a measured WebGL build in headless Chromium (the launcher of the web-bench stand, SwiftShader) until the
 // scene logs its ready or failed line (Measurement.MeasurementRun), then prints one JSON object to stdout:
 // { status: ready | failed | timeout, line, seconds, errors[], screenshot }.
-// Usage: node smoke.mjs <build dir> <screenshot.png> [submodule-report.json]
+// Usage: node smoke.mjs <build dir> <screenshot.png> [submodule-report.json] [--wasm-profile <file>]
 // With a report path the build is one instrumented by the submodule profiling of the stripping tool: after the ready
 // line the page builds its report (the "Download Report" button of the overlay, its download caught) into that file.
+// With --wasm-profile the wasm is one instrumented by `wasm-split --instrument` (tools/coverage.py): after the ready
+// line the page writes the profile of the functions it called (export __write_profile) into that file.
 // The build is served on 127.0.0.1 (a secure context) with Content-Encoding for *.br / *.gz, as the hosting does.
 import fs from 'node:fs';
 import http from 'node:http';
@@ -17,9 +19,12 @@ const READY = '[measurement] ready';
 const FAILED = '[measurement] failed';
 const TIMEOUT_MS = 120000;
 
-const [buildArgument, screenshot, reportPath] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const profileFlag = args.indexOf('--wasm-profile');
+const wasmProfilePath = profileFlag >= 0 ? args.splice(profileFlag, 2)[1] : null;
+const [buildArgument, screenshot, reportPath] = args;
 if (!buildArgument || !screenshot)
-    throw new Error('Usage: node smoke.mjs <build dir> <screenshot.png>');
+    throw new Error('Usage: node smoke.mjs <build dir> <screenshot.png> [submodule-report.json] [--wasm-profile <file>]');
 const buildDir = path.resolve(buildArgument);
 
 const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.wasm': 'application/wasm', '.data': 'application/octet-stream',
@@ -34,6 +39,31 @@ const CATCH_REPORT = `{
         fetch(this.href).then(response => response.text()).then(text => { window.__submoduleReport = text; });
     };
 }`;
+
+// The instance of the wasm, kept for the profile of wasm-split: emscripten does not expose its exports.
+const KEEP_INSTANCE = `{
+    const keep = (result) => { window.__wasmInstance = result.instance ?? result; return result; };
+    const streaming = WebAssembly.instantiateStreaming;
+    WebAssembly.instantiateStreaming = (...args) => streaming.apply(WebAssembly, args).then(keep);
+    const plain = WebAssembly.instantiate;
+    WebAssembly.instantiate = (...args) => plain.apply(WebAssembly, args).then(keep);
+}`;
+
+async function wasmProfile(session) {
+    const result = await session.send('Runtime.evaluate', { returnByValue: true, expression: `(() => {
+        const exports = window.__wasmInstance.exports;
+        if (!exports.__write_profile)
+            throw new Error('no __write_profile export: the wasm is not instrumented by wasm-split');
+        const memory = Object.values(exports).find(value => value instanceof WebAssembly.Memory);
+        const size = 1 << 22;
+        const pointer = exports.malloc(size);
+        const written = exports.__write_profile(pointer, size);
+        return Array.from(new Uint8Array(memory.buffer, pointer, written));
+    })()` }, 60000);
+    if (result.exceptionDetails)
+        throw new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text);
+    return Buffer.from(result.result.value);
+}
 
 async function submoduleReport(session) {
     const clicked = await session.send('Runtime.evaluate', { returnByValue: true, expression:
@@ -104,6 +134,8 @@ try {
         session.on('Runtime.exceptionThrown', (event) => errors.push((event.exceptionDetails.exception?.description ?? event.exceptionDetails.text).slice(0, 500)));
         if (reportPath)
             await session.send('Page.addScriptToEvaluateOnNewDocument', { source: CATCH_REPORT });
+        if (wasmProfilePath)
+            await session.send('Page.addScriptToEvaluateOnNewDocument', { source: KEEP_INSTANCE });
         await session.send('Runtime.enable');
         await session.send('Page.enable');
         await session.send('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/` });
@@ -113,6 +145,15 @@ try {
             fs.writeFileSync(reportPath, await submoduleReport(session));
         } catch (error) {
             outcome.reportError = error.message;
+        }
+    }
+    if (wasmProfilePath && outcome.status === 'ready') {
+        // A few seconds more: the frames after the ready line (the steady loop of the scene) are part of the profile.
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        try {
+            fs.writeFileSync(wasmProfilePath, await wasmProfile(session));
+        } catch (error) {
+            outcome.wasmProfileError = error.message;
         }
     }
     // The picture is for a look by hand: a renderer too busy to answer in time leaves the outcome as it is.

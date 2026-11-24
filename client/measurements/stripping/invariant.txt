@@ -1,0 +1,3 @@
+# The ICU of the .NET BCL (definition SubmoduleDefinitions/bcl_globalization.json of the stripping tool fork): only with
+# the BCL in the invariant globalization mode, see variants/aggressive-invariant.json.
+? BCL Globalization ICU

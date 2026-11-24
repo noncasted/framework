@@ -1,0 +1,184 @@
+{
+  "unity": "7000.0.0a21",
+  "variant": "aggressive-lean",
+  "description": "aggressive with every size switch at once: the invariant globalization (as aggressive-invariant), the resource keys instead of the exception messages of the BCL (UseSystemResourceKeys), no vectorized branches of the BCL (vector-substitutions.xml: IL2CPP answers false to IsHardwareAccelerated anyway), the IL2CPP code generation Optimize Size, the non-incremental GC, the data of the wasm no code left after the stripping reaches zeroed (tools/dead_data.py) and the stripped wasm optimized once more (--gufa-optimizing -Oz)",
+  "measured": "2026-11-24 14:20 UTC",
+  "build": {
+    "unityVersion": "7000.0.0a21",
+    "result": "Succeeded",
+    "buildSeconds": 122.2412887,
+    "reportedSize": 9341756,
+    "errors": 0,
+    "warnings": 0,
+    "strippedSubmodules": 140,
+    "missingSubmodules": "Ignore",
+    "profiled": false
+  },
+  "strippingSkipped": [],
+  "overrides": [],
+  "linkerArgs": "--dotnet-runtime-feature=InvariantGlobalization,UseSystemResourceKeys --substitutions=../../stripping/vector-substitutions.xml",
+  "dropData": [
+    "Il2CppData/Icu/icudt.dat"
+  ],
+  "deadData": {
+    "deadBytes": 396026,
+    "deadSymbols": 5808,
+    "brotliBefore": 2159208,
+    "brotliAfter": 2060161,
+    "gzipBefore": 2927654,
+    "gzipAfter": 2811464
+  },
+  "files": [
+    {
+      "name": "150e926028bfc1611caa63c11ff1960b.wasm.br",
+      "kind": "wasm",
+      "compressed": 2037816,
+      "raw": 7274488,
+      "sections": {
+        "type": 3655,
+        "import": 10215,
+        "function": 36958,
+        "table": 9,
+        "memory": 7,
+        "tag": 3,
+        "global": 9,
+        "export": 538,
+        "element": 96196,
+        "datacount": 2,
+        "code": 6087102,
+        "data": 1039750
+      }
+    },
+    {
+      "name": "77e36d2645df9cea8c367f82c3d15458.loader.js",
+      "kind": "loader",
+      "compressed": 28175,
+      "raw": 28175
+    },
+    {
+      "name": "84835948ae7095944758b3512199c99c.framework.js.br",
+      "kind": "framework",
+      "compressed": 63450,
+      "raw": 320149
+    },
+    {
+      "name": "bf831559f8b0e56c820c528bec1e99a8.data.br",
+      "kind": "data",
+      "compressed": 839498,
+      "raw": 2879117,
+      "contents": [
+        {
+          "name": "RuntimeInitializeOnLoads.json",
+          "raw": 162,
+          "compressed": 126
+        },
+        {
+          "name": "ScriptingAssemblies.json",
+          "raw": 3737,
+          "compressed": 711
+        },
+        {
+          "name": "data.unity3d",
+          "raw": 261104,
+          "compressed": 193574
+        },
+        {
+          "name": "sharedassets0.resource",
+          "raw": 10237,
+          "compressed": 9495
+        },
+        {
+          "name": "boot.config",
+          "raw": 279,
+          "compressed": 191
+        },
+        {
+          "name": "Il2CppData/Metadata/global-metadata.dat",
+          "raw": 2138300,
+          "compressed": 525186
+        },
+        {
+          "name": "Resources/unity default resources",
+          "raw": 465024,
+          "compressed": 105854
+        }
+      ]
+    }
+  ],
+  "wasmBeforeStripping": {
+    "compressed": 3888403,
+    "raw": 16202695
+  },
+  "managed": {
+    "System.Private.CoreLib.dll": 1556992,
+    "UnityEngine.CoreModule.dll": 425984,
+    "UnityEngine.EntitiesModule.dll": 353280,
+    "UnityEngine.ManagedKernelModule.dll": 140288,
+    "UniTask.dll": 71680,
+    "UnityEngine.dll": 51712,
+    "System.Linq.dll": 47616,
+    "Unity.Scripting.dll": 44544,
+    "System.Runtime.InteropServices.JavaScript.dll": 40448,
+    "MemoryPack.Core.dll": 38400,
+    "UnityEngine.BurstModule.dll": 36864,
+    "UnityEngine.U2DRuntimeModule.dll": 35840,
+    "UnityEngine.ScriptingModule.dll": 29184,
+    "UnityEngine.AudioModule.dll": 29184,
+    "Measurement.Runtime.dll": 25600,
+    "System.Collections.Concurrent.dll": 18432,
+    "UnityEngine.MathematicsModule.dll": 15360,
+    "System.Memory.dll": 14336,
+    "Framework.Common.dll": 13824,
+    "UnityEngine.ContentLoadModule.dll": 13312,
+    "UnityEngine.TypeRegistryModule.dll": 12288,
+    "System.Runtime.Serialization.Formatters.dll": 7680,
+    "System.ComponentModel.dll": 5120
+  },
+  "smoke": {
+    "status": "ready",
+    "line": "[measurement] ready libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames; audio: 0.50 s clip, playing True",
+    "seconds": 2,
+    "errors": [],
+    "console": [
+      "log:     \"memorysetup-job-temp-allocator-block-size-background=1048576\"\n",
+      "log:     \"memorysetup-job-temp-allocator-reduction-small-platforms=262144\"\n",
+      "log:     \"memorysetup-temp-allocator-size-background-worker=32768\"\n",
+      "log:     \"memorysetup-allocator-temp-initial-block-size-main=262144\"\n",
+      "log:     \"memorysetup-allocator-temp-initial-block-size-worker=262144\"\n",
+      "log:     \"memorysetup-entities-archetype-allocator-budget=16777216\"\n",
+      "log:     \"memorysetup-entities-query-allocator-budget=16777216\"\n",
+      "log:     \"memorysetup-temp-allocator-size-audio-worker=65536\"\n",
+      "log:     \"memorysetup-remapper-allocator-initial-capacity=32768\"\n",
+      "log: CodeReloadManager initialized\n",
+      "log: Loading player data from data.unity3d\n",
+      "log: Initialize engine version: 7000.0.0a21 (b2c0d9d3a6f3)\n",
+      "log: [EntityIdStore] init: page-table path, blockCount=262144, entitiesPerBlock=1024, top-level=2097152 bytes, sizeof(Block)=16512 (lazily allocated per committed block)\n",
+      "log: Creating WebGL 2.0 context.",
+      "log: Renderer: WebKit WebGL\n",
+      "log: Vendor:   WebKit\n",
+      "log: Version:  OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))\n",
+      "log: GLES:     3\n",
+      "log:  EXT_clip_control EXT_color_buffer_float EXT_color_buffer_half_float EXT_conservative_depth EXT_depth_clamp EXT_disjoint_timer_query_webgl2 EXT_float_blend EXT_polygon_offset_clamp EXT_texture_compression_bptc EXT_texture_compression_rgtc EXT_texture_filter_anisotropic NV_shader_noperspective_interp",
+      "log: mpressed_texture_astc GL_WEBGL_compressed_texture_etc GL_WEBGL_compressed_texture_etc1 GL_WEBGL_compressed_texture_s3tc GL_WEBGL_compressed_texture_s3tc_srgb GL_WEBGL_debug_renderer_info GL_WEBGL_debug_shaders GL_WEBGL_lose_context GL_WEBGL_multi_draw GL_WEBGL_polygon_mode\n",
+      "log: OPENGL LOG: Creating OpenGL ES 3.0 graphics device ; Context level  <OpenGL ES 3.0> ; Context handle 0x1\n",
+      "log: Input Manager initialize...\n",
+      "log: UnloadTime: 0.400000 ms\n",
+      "log: Audio context resumed after 0.064 seconds.",
+      "log: [measurement] part libraries\n",
+      "log: [measurement] part sprites\n",
+      "log: [measurement] part audio\n",
+      "log: Trying to get length of sound which is not loaded yet.",
+      "log: Trying to get metadata of sound which is not loaded.",
+      "log: [measurement] ready libraries: reactive 165, packet 755 B, text 135 chars, caught expected, task 7; sprites: 64 renderers, 30 frames; audio: 0.50 s clip, playing True\n"
+    ],
+    "requests": [
+      "/",
+      "/Build/77e36d2645df9cea8c367f82c3d15458.loader.js",
+      "/Build/84835948ae7095944758b3512199c99c.framework.js.br",
+      "/Build/150e926028bfc1611caa63c11ff1960b.wasm.br",
+      "/favicon.ico",
+      "/Build/bf831559f8b0e56c820c528bec1e99a8.data.br"
+    ],
+    "screenshot": "/projects/framework/client/measurements/projects/7000.0.0a21-aggressive-lean/smoke.png"
+  }
+}

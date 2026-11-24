@@ -24,6 +24,7 @@ Environment: UNITY_BUILD_SLOTS (2), the batchmode builds at once on the machine,
 import argparse
 import fcntl
 import glob
+import hashlib
 import json
 import os
 import shutil
@@ -35,6 +36,9 @@ import sys
 import time
 from datetime import datetime, timezone
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import dead_data  # noqa: E402
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRAMEWORK = os.path.dirname(os.path.dirname(ROOT))
 TOOLS = os.path.join(ROOT, 'tools')
@@ -43,6 +47,9 @@ BUILD_TIMEOUT = 3600
 FRAMEWORK_PREFIX = 'framework:'
 # The version of the package the editor ships (BuiltInPackages): one override for every editor of a major version.
 BUILTIN = 'builtin'
+# The package the editor ships with the patches of a fork of the framework ("builtin+framework:<fork folder>"): for an
+# editor whose built-in package has new code under the version the fork was taken from.
+PATCHED_PREFIX = 'builtin+framework:'
 OPTIONAL_PREFIX = '?'
 PROFILE = 'Assets/Measurement/Profile/Web.asset'
 
@@ -124,9 +131,23 @@ def assemble_and_build(editor, version, paths, config, strip, flags):
     for entry in config['unitypackages']:
         extract_unitypackage(editor, entry, paths.project)
     bootstrap(editor, paths.project, manifest)
+    if config.get('linkerArgs'):
+        flags = flags + ['-measurementLinkerArgs', config['linkerArgs']]
     build(editor, paths, flags)
     if read_json(os.path.join(paths.project, 'Packages', 'manifest.json')) != manifest:
         raise MeasurementError('Unity changed the manifest (packages of a new project?): the build has packages the variant does not list')
+    if config.get('linkerArgs'):
+        check_linker_args(paths.log, config['linkerArgs'])
+    if config.get('dropData'):
+        drop_data(os.path.join(paths.output, 'Build'), config['dropData'])
+    if config.get('zeroDeadData'):
+        try:
+            stats = dead_data.zero_build(paths.project)
+        except dead_data.DeadDataError as error:
+            raise MeasurementError(f'zero dead data: {error}')
+        write_json(os.path.join(paths.project, 'DeadData', 'stats.json'), stats)
+    if config.get('reoptimize'):
+        reoptimize(editor, os.path.join(paths.output, 'Build'))
 
 
 def measure(editor, version, variant, skip_build, skip_smoke, trace_missing):
@@ -152,6 +173,9 @@ def measure(editor, version, variant, skip_build, skip_smoke, trace_missing):
         'build': record,
         'strippingSkipped': skipped,
         'overrides': config['applied'],
+        'linkerArgs': config.get('linkerArgs'),
+        'dropData': config.get('dropData', []),
+        'deadData': read_json(os.path.join(project, 'DeadData', 'stats.json')) if config.get('zeroDeadData') else None,
         'files': measure_files(os.path.join(output, 'Build')) + streaming_files(os.path.join(output, 'StreamingAssets')),
         'wasmBeforeStripping': wasm_before_stripping(project),
         'managed': managed_assemblies(project),
@@ -273,16 +297,18 @@ def assemble(editor, project, config, strip, version):
 
 
 def apply_profile(path, settings):
-    """A variant may change player settings of the web profile per platform ("profile": {"il2cppCodeGeneration": 1}):
-    the WebGL entry of each named map of the profile copied into the project is replaced."""
+    """A variant may change player settings of the web profile ("profile": {"il2cppCodeGeneration": 1, "gcIncremental": 0}):
+    the WebGL entry of a map per platform, or the value of a plain setting, in the profile copied into the project."""
     if not settings:
         return
     with open(path) as file:
         content = file.read()
     for key, value in settings.items():
         content, count = re.subn(rf'(\n  {key}:\n(?:    \w+: [^\n]*\n)*?    WebGL: )[^\n]*', rf'\g<1>{value}', content)
+        if count == 0:
+            content, count = re.subn(rf'(\n  {key}: )[^\n]*', rf'\g<1>{value}', content)
         if count != 1:
-            raise MeasurementError(f'{PROFILE}: no WebGL entry of {key}')
+            raise MeasurementError(f'{PROFILE}: no WebGL entry or value of {key}')
     with open(path, 'w') as file:
         file.write(content)
 
@@ -304,6 +330,79 @@ def bootstrap(editor, project, manifest):
         raise MeasurementError(f'the first start (exit {code}) wrote no ProjectSettings, see {log}')
     if read_json(os.path.join(project, 'Packages', 'manifest.json')) != manifest:
         raise MeasurementError('the first start changed the manifest (packages of a new project)')
+
+
+def check_linker_args(log, arguments):
+    """The diagnostic switch is internal API: the build log must show UnityLinker ran with the arguments."""
+    with open(log, errors='replace') as file:
+        if not any('UnityLinker' in line and arguments in line for line in file):
+            raise MeasurementError(f'UnityLinker did not get {arguments}: no such command line in {log}')
+
+
+def drop_data(build_dir, names):
+    """Takes files out of the UnityWebData1.0 container (.data) after the build, as a post-build step of a game would:
+    the build has no switch for some of them (the ICU data of the BCL is packed even when the BCL never loads it). The
+    container is written again and compressed with brotli -q 11. Its default window is 24 bits, Unity's brotli keeps 22:
+    the same file is about 1.4% smaller (every step that rewrites a file after the build has that part too)."""
+    paths = glob.glob(os.path.join(build_dir, '*.data*'))
+    if len(paths) != 1 or not paths[0].endswith('.br'):
+        raise MeasurementError(f'drop data: expected one .data.br in {build_dir}, found {paths}')
+    path = paths[0]
+    content = decompress(path)
+    magic = b'UnityWebData1.0\0'
+    if not content.startswith(magic):
+        raise MeasurementError('the .data file is not a UnityWebData1.0 container')
+    offset = len(magic)
+    header = struct.unpack_from('<I', content, offset)[0]
+    offset += 4
+    entries = []
+    while offset < header:
+        start, size, length = struct.unpack_from('<III', content, offset)
+        offset += 12
+        name = content[offset:offset + length]
+        offset += length
+        entries.append((name, content[start:start + size]))
+    kept = [(name, data) for name, data in entries if name.decode() not in names]
+    missing = set(names) - {name.decode() for name, _ in entries}
+    if missing:
+        raise MeasurementError(f'drop data: no {sorted(missing)} in {path}')
+    header = len(magic) + 4 + sum(12 + len(name) for name, _ in kept)
+    table, body, start = bytearray(), bytearray(), header
+    for name, data in kept:
+        table += struct.pack('<III', start, len(data), len(name)) + name
+        body += data
+        start += len(data)
+    packed = magic + struct.pack('<I', header) + bytes(table) + bytes(body)
+    compressed = subprocess.run(['brotli', '-c', '-q', '11'], input=packed, stdout=subprocess.PIPE, check=True).stdout
+    with open(path, 'wb') as file:
+        file.write(compressed)
+    print(f'Dropped {", ".join(names)} from {os.path.basename(path)}: {len(content) // 1024} -> {len(packed) // 1024} KiB raw', flush=True)
+
+
+def reoptimize(editor, build_dir):
+    """Optimizes the stripped wasm once more (variant option reoptimize), with the binaryen of the editor: the stripping
+    tool runs one -Oz after it removes the functions; --gufa-optimizing then follows through the whole program the
+    values the stubs of the removed functions return and drops the branches they decide, and -Oz runs again. The
+    features are those the stripping tool passes; --optimize-stack-ir as the last pass (without it binaryen writes a
+    larger binary than the one it read). Recompressed with brotli -q 11."""
+    paths = glob.glob(os.path.join(build_dir, '*.wasm.br'))
+    if len(paths) != 1:
+        raise MeasurementError(f'reoptimize: expected one .wasm.br in {build_dir}, found {paths}')
+    binaryen = os.path.join(os.path.dirname(editor), 'Data', 'PlaybackEngines', 'WebGLSupport', 'BuildTools', 'Emscripten', 'binaryen', 'bin')
+    source = paths[0][:-len('.br')]
+    target = source + '.opt'
+    with open(source, 'wb') as file:
+        file.write(decompress(paths[0]))
+    subprocess.run([os.path.join(binaryen, 'wasm-opt'), source, '-o', target, '--enable-simd', '--enable-exception-handling',
+                    '--enable-bulk-memory', '--enable-bulk-memory-opt', '--enable-nontrapping-float-to-int', '--traps-never-happen',
+                    '--low-memory-unused', '--zero-filled-memory', '--gufa-optimizing', '-Oz', '--optimize-stack-ir'], check=True)
+    before = os.path.getsize(paths[0])
+    with open(paths[0], 'wb') as file:
+        subprocess.run(['brotli', '-c', '-q', '11', target], stdout=file, check=True)
+    after = os.path.getsize(paths[0])
+    os.remove(source)
+    os.remove(target)
+    print(f'Optimized {os.path.basename(paths[0])} again: {before // 1024} -> {after // 1024} KiB brotli', flush=True)
 
 
 def extract_unitypackage(editor, entry, project):
@@ -343,12 +442,57 @@ def builtin_packages(editor):
 def package_reference(editor, name, value, packages):
     if value == BUILTIN:
         return read_json(os.path.join(builtin_packages(editor), name, 'package.json'))['version']
+    if value.startswith(PATCHED_PREFIX):
+        return 'file:' + os.path.relpath(patched_builtin(editor, name, value[len(PATCHED_PREFIX):], packages), packages)
     if not value.startswith(FRAMEWORK_PREFIX):
         return value
     target = os.path.join(FRAMEWORK, value[len(FRAMEWORK_PREFIX):])
     if not os.path.isdir(target):
         raise MeasurementError(f'no package folder {target}')
     return 'file:' + os.path.relpath(target, packages)
+
+
+def patched_builtin(editor, name, fork, packages):
+    """A copy of the built-in package of the editor with the patches of a fork of the framework: a fork is its pristine
+    upstream commit and a commit per patch (FORK.md), so the patches are the diff of the fork folder since the commit that
+    added it, FORK.md left out. The copy is Patched/<name> next to Packages, written again only when the built-in package
+    or the patches change (a new copy is a reimport of the package)."""
+    source = os.path.join(builtin_packages(editor), name)
+    if not os.path.isdir(source):
+        raise MeasurementError(f'no built-in package {source}')
+    if not os.path.isdir(os.path.join(FRAMEWORK, fork)):
+        raise MeasurementError(f'no fork folder {fork}')
+    added = git('log', '--format=%H', '--diff-filter=A', '--', f'{fork}/package.json').split()
+    if not added:
+        raise MeasurementError(f'{fork}/package.json was never committed: no upstream commit of the fork')
+    patch = git('diff', '--binary', added[-1], '--', fork, f':(exclude){fork}/FORK.md', f':(exclude){fork}/FORK.md.meta')
+    if not patch:
+        raise MeasurementError(f'{fork} has no patches over its upstream commit {added[-1][:8]}')
+    with open(source + '.sha1') as file:
+        stamp = hashlib.sha256((file.read() + patch).encode()).hexdigest()
+
+    target = os.path.join(os.path.dirname(packages), 'Patched', name)
+    stamp_path = target + '.stamp'
+    if os.path.isfile(stamp_path) and open(stamp_path).read() == stamp:
+        return target
+    shutil.rmtree(target, ignore_errors=True)
+    if os.path.isfile(stamp_path):
+        os.remove(stamp_path)
+    shutil.copytree(source, target)
+    # Paths of the patch are relative to the repository: -p drops a/<fork>/, --directory puts the copy in their place.
+    depth = len(fork.strip('/').split('/')) + 1
+    applied = subprocess.run(['git', 'apply', f'-p{depth}', f'--directory={os.path.relpath(target, FRAMEWORK)}'], cwd=FRAMEWORK,
+                             input=patch, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if applied.returncode != 0:
+        raise MeasurementError(f'the patches of {fork} do not apply to {source}:\n{applied.stderr.strip()}')
+    with open(stamp_path, 'w') as file:
+        file.write(stamp)
+    print(f'{name}: the built-in package of the editor with the patches of {fork}', flush=True)
+    return target
+
+
+def git(*args):
+    return subprocess.run(['git', *args], cwd=FRAMEWORK, stdout=subprocess.PIPE, text=True, check=True).stdout
 
 
 def resolve_stripping(editor, files):

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Reflection;
 using Unity.Web.Stripping.Editor;
 using UnityEditor;
 using UnityEditor.Build.Profile;
@@ -13,7 +14,8 @@ namespace Measurement
     ///     Batchmode entry of tools/measure.py (one call per project):
     ///     Unity -batchmode -buildTarget WebGL -projectPath projects/&lt;version&gt;-&lt;variant&gt;
     ///     -executeMethod Measurement.MeasurementBuild.Run -buildOutput &lt;dir&gt; -measurementStrip &lt;list&gt;
-    ///     -measurementRecord &lt;json&gt; -measurementMissing Ignore|LogError [-measurementProfile].
+    ///     -measurementRecord &lt;json&gt; -measurementMissing Ignore|LogError [-measurementProfile]
+    ///     [-measurementLinkerArgs &lt;arguments of UnityLinker&gt;].
     ///     Makes the scene and its assets, activates the stripping of the variant and builds with the web profile
     ///     copied from pixel-swarm (<see cref="ProfilePath" />). With -measurementProfile the build is not stripped
     ///     but instrumented by the submodule profiling of the stripping tool: the page records which submodules the
@@ -57,6 +59,10 @@ namespace Measurement
             var submodules = profiling ? MeasurementStripping.Deactivate() : MeasurementStripping.Activate(strip, missing);
             AssetDatabase.SaveAssets();
 
+            var linkerArgs = OptionalArgument("-measurementLinkerArgs");
+            if (linkerArgs != null)
+                SetLinkerArguments(linkerArgs);
+
             var profile = MeasurementAssets.Load<BuildProfile>(ProfilePath);
             var started = DateTime.UtcNow;
 
@@ -98,6 +104,24 @@ namespace Measurement
 
             if (!WebBuildProcessor.InstrumentBuild(build))
                 throw new Exception($"The submodule profiling of {output} failed, see the log");
+        }
+
+        // The editor passes extra arguments to UnityLinker only from the diagnostic switch VMUnityLinkerAdditionalArgs
+        // (BeeBuildPostprocessor.LinkerConfigFor of 7000), e.g. --dotnet-runtime-feature=InvariantGlobalization: the
+        // feature switches of the BCL the player settings do not expose. Internal API, so by reflection.
+        private static void SetLinkerArguments(string arguments)
+        {
+            var get = typeof(Debug).GetMethod("GetDiagnosticSwitch", BindingFlags.NonPublic | BindingFlags.Static)
+                      ?? throw new MissingMethodException("UnityEngine.Debug.GetDiagnosticSwitch");
+            var diagnosticSwitch = get.Invoke(null, new object[] { "VMUnityLinkerAdditionalArgs" })
+                                   ?? throw new InvalidOperationException("No diagnostic switch VMUnityLinkerAdditionalArgs in this editor");
+            diagnosticSwitch.GetType().GetProperty("value").SetValue(diagnosticSwitch, arguments);
+            Debug.Log($"[measurement] UnityLinker arguments: {arguments}");
+        }
+
+        private static string OptionalArgument(string name)
+        {
+            return HasArgument(name) ? Argument(name) : null;
         }
 
         private static bool HasArgument(string name)

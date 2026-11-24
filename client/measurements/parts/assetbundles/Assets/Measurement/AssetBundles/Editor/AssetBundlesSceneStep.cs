@@ -40,7 +40,10 @@ namespace Measurement
                 new AssetBundleBuild { assetBundleName = AssetBundlesPart.Scene, assetNames = new[] { scene } }
             };
 
-            var manifest = BuildPipeline.BuildAssetBundles(Output, builds, BuildAssetBundleOptions.ChunkBasedCompression, BuildTarget.WebGL);
+            // Without type trees, as ContentBuild of the framework writes the bundles of a game: a bundle with type trees
+            // makes the player generate the type trees of the loaded types (GenerateTypeTreeTransfer) to compare them.
+            var options = BuildAssetBundleOptions.ChunkBasedCompression | BuildAssetBundleOptions.DisableWriteTypeTree;
+            var manifest = BuildPipeline.BuildAssetBundles(Output, builds, options, BuildTarget.WebGL);
 
             if (manifest == null)
                 throw new InvalidOperationException($"The asset bundles were not built into {Output}");
