@@ -14,6 +14,9 @@ namespace Shared
         [MemoryPackable]
         public partial class Search : INetworkContext
         {
+            // The queue of the game the match is searched in, 0 by default: the matches of different queues never
+            // mix. Only a number here: its meaning (a mode, a map) belongs to the game.
+            public int Queue { get; set; }
         }
 
         // A private match session for the caller alone, without a lobby (a solo run, a tutorial).

@@ -14,8 +14,9 @@ namespace Game.Hosting;
 // the user into the session; the user id is the one of the authenticated meta socket.
 public interface ISessionRequester
 {
-    // A public match session with a free place, or the lobby of the late players of a running one (Result.IsLobby).
-    Task<SharedSessionRequests.Result> Request(Guid userId);
+    // A public match session with a free place in the queue of the game (0 by default; the queues never mix), or the
+    // lobby of the late players of a running one (Result.IsLobby).
+    Task<SharedSessionRequests.Result> Request(Guid userId, int queue);
 
     // A new private match session for the user alone, without a lobby and a code.
     Task<SharedSessionRequests.Result> CreateSolo(Guid userId);
@@ -61,18 +62,20 @@ public class SessionRequester : ISessionRequester
     private readonly ISessionTicketIssuer _tickets;
     private readonly ILogger<SessionRequester> _logger;
 
-    public async Task<SharedSessionRequests.Result> Request(Guid userId)
+    public async Task<SharedSessionRequests.Result> Request(Guid userId, int queue)
     {
         var targetServer = _balancer.Pick();
         var serverUrl = targetServer.Url.ServerUrlToWebSocket();
 
         var request = new SessionPayloads.Search.Request
         {
-            UserId = userId
+            UserId = userId,
+            Queue = queue
         };
 
-        _logger.LogInformation("{UserId} [Session] [Meta] Requesting session from server {ServerURL}",
+        _logger.LogInformation("{UserId} [Session] [Meta] Requesting session in queue {Queue} from server {ServerURL}",
             userId,
+            queue,
             serverUrl);
 
         var pipeId = new MessagePipeServiceRequestId(targetServer, request.GetType());

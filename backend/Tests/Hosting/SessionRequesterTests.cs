@@ -388,7 +388,7 @@ public class SessionRequesterTests : LifetimeTest
         var first = Guid.NewGuid();
         var second = Guid.NewGuid();
 
-        var found = await meta.Request(first);
+        var found = await meta.Request(first, 0);
 
         found.Status.Should().Be(SharedSessionRequests.EntryStatus.Ok);
         found.IsLobby.Should().BeFalse();
@@ -400,8 +400,28 @@ public class SessionRequesterTests : LifetimeTest
         match.Session.IsPrivate.Should().BeFalse();
         meta.Game.Enter(found.SessionId, first).Should().NotBeNull();
 
-        (await meta.Request(second)).SessionId.Should().Be(found.SessionId);
+        (await meta.Request(second, 0)).SessionId.Should().Be(found.SessionId);
         meta.Game.Enter(found.SessionId, second).Should().NotBeNull();
+    }
+
+    // The queue goes from the meta through the pipe and SessionEndpoints to the search of the game: the world finds
+    // only the matches of the same queue.
+    [Fact]
+    public async Task Request_InAnotherQueue_GetsAnotherMatch_TheSameQueueGetsTheSameMatch()
+    {
+        var meta = new MetaWorld(TestLifetime);
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var third = Guid.NewGuid();
+
+        var inQueue = await meta.Request(first, 2);
+        var inDefault = await meta.Request(second, 0);
+        var inSameQueue = await meta.Request(third, 2);
+
+        inDefault.SessionId.Should().NotBe(inQueue.SessionId);
+        inSameQueue.SessionId.Should().Be(inQueue.SessionId);
+        meta.Game.Enter(inQueue.SessionId, third).Should().NotBeNull();
+        meta.Game.Enter(inDefault.SessionId, second).Should().NotBeNull();
     }
 
     [Fact]
@@ -492,9 +512,9 @@ public class SessionRequesterTests : LifetimeTest
         public readonly SessionTickets Tickets = TestTickets.Create();
         public readonly SessionRequester Requester;
 
-        public async Task<SharedSessionRequests.Result> Request(Guid userId)
+        public async Task<SharedSessionRequests.Result> Request(Guid userId, int queue)
         {
-            return Checked(userId, await Requester.Request(userId));
+            return Checked(userId, await Requester.Request(userId, queue));
         }
 
         public async Task<SharedSessionRequests.Result> CreateSolo(Guid userId)

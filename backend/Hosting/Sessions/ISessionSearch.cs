@@ -6,5 +6,7 @@ namespace Game.Hosting;
 // can be entered and builds the containers of its sessions.
 public interface ISessionSearch
 {
-    Guid GetOrCreate(Guid userId, out bool isLobby);
+    // queue: the queue of the search (SharedSessionRequests.Search.Queue, 0 by default) - a session found or created
+    // for one queue is never given to another. What a queue means is up to the game.
+    Guid GetOrCreate(Guid userId, int queue, out bool isLobby);
 }
