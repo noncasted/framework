@@ -25,6 +25,7 @@
 | [0.12.0](0.12.0.md) | 2026-11-20 | Оверлей пинга в своей сборке `Internal.Network.Overlay`: `Internal.Network` без uGUI / TMP | Да: `NetworkOverlayOptions`, `AddNetworkLatencyOverlay` в скоупе сессии |
 | [0.13.0](0.13.0.md) | 2026-11-24 | Очередь игры в быстром поиске; MemoryPack клиента без редких коллекций; Web Stripping Tool 1.4.1 и новые субмодули; `GAMEPLAY_ARCHITECTURE.md`, `/orchestrate --architecture`; Лайтбокс | Да: `ISessionSearch.GetOrCreate(userId, queue, ...)`, `ISessionRequester.Request(userId, queue)`, золотые файлы и хеш протокола |
 | [0.13.1](0.13.1.md) | 2026-11-25 | Каталог спрайтов: клипы полосы PNG (Multiple Animations), `EditorCatalogues.Bind` для каталогов вне Play mode | Нет |
+| [0.14.0](0.14.0.md) | 2026-11-25 | Одна фаза скоупа `IScopeSetup`, порядок - явными вызовами; сохранения грузятся явно (`ISaves.Load`, `AddSaves`); конец сущности доходит до слушателей раньше контейнера и ассетов; `CINGR018`; код лобби возвращается из матча в новое лобби; события сети без источника не теряются | Да: стадии скоупа -> конструктор / `OnSetup` / явные вызовы, `scope.Initialize()` -> `Start`, `await AddItchSaves()`, `ISaves.Load` в фейках, `PassToMatch(…, leaderId, userIds)` |
 
 ## Версии
 
