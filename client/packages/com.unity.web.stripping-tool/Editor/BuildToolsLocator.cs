@@ -126,7 +126,12 @@ namespace Unity.Web.Stripping.Editor
         public static string GetSubmoduleDefinitionFilePath(WasmTarget target)
         {
             // TODO: Add a dedicated modules_wasm64 folder when Wasm64-specific submodule definitions are available
+            // Unity 7 always enables Wasm2023, so the "modules" base folder no longer exists.
+#if UNITY_7000_0_OR_NEWER
+            var moduleFolderName = "modules_wasm23";
+#else
             var moduleFolderName = "modules";
+#endif
             if (target.HasFlag(WasmTarget.MultithreadedFlag))
                 moduleFolderName = "modules_mt_wasm23";
             else if (target.HasFlag(WasmTarget.Wasm2023Flag) || target.HasFlag(WasmTarget.Wasm64Flag))

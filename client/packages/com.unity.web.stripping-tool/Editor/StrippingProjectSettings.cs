@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEditor;
-using System.Linq;
 using System;
 using System.Diagnostics.CodeAnalysis;
 
@@ -38,7 +37,8 @@ namespace Unity.Web.Stripping.Editor
         /// <summary>
         /// Enables a submodule stripping pass after a build has completed using the currently active settings, if they're set.
         /// </summary>
-        public static bool StripAutomaticallyAfterBuild {
+        public static bool StripAutomaticallyAfterBuild
+        {
             get => s_StripAutomaticallyAfterBuild;
 
             set
@@ -63,18 +63,19 @@ namespace Unity.Web.Stripping.Editor
         {
             AssemblyReloadEvents.beforeAssemblyReload += SaveSettings;
             LoadSettings();
-
-            // Unity 7000 can't load the asset this early: without a retry the empty path gets
-            // saved on the next domain reload and post-build stripping is silently skipped.
-            if (s_ActiveSettings == null)
-                EditorApplication.delayCall += LoadSettings;
         }
 
         internal static SubmoduleStrippingSettings[] FindSettings()
         {
-            return AssetDatabase.FindAssets($"t:{nameof(SubmoduleStrippingSettings)}")
-                .Select(path => AssetDatabase.LoadAssetAtPath<SubmoduleStrippingSettings>(AssetDatabase.GUIDToAssetPath(path)))
-                .ToArray();
+            var settingGuids = AssetDatabase.FindAssets($"t:{nameof(SubmoduleStrippingSettings)}");
+            var submoduleStrippingSettings = new SubmoduleStrippingSettings[settingGuids.Length];
+
+            for (int i = 0; i < settingGuids.Length; i++)
+            {
+                submoduleStrippingSettings[i] = AssetDatabase.LoadAssetAtPath<SubmoduleStrippingSettings>(AssetDatabase.GUIDToAssetPath(settingGuids[i]));
+            }
+
+            return submoduleStrippingSettings;
         }
 
         const string k_SetAsActiveMenuItem = "Assets/" + SubmoduleStrippingSettings.RootMenuName + "/Set as Active Submodule Stripping Settings";
@@ -105,22 +106,13 @@ namespace Unity.Web.Stripping.Editor
             }
         }
 
-        /// <summary>
-        /// Reads the active settings and the post-build flag from the project settings of the package.
-        /// A batchmode build calls it before building: the retry of Initialize may not run before -executeMethod.
-        /// </summary>
-        public static void LoadSettings()
+        internal static void LoadSettings()
         {
             // Set backing fields directly to avoid the property setter triggering SaveSettings().
             s_StripAutomaticallyAfterBuild = PackageSettings.GetProjectSetting(k_StripAutomaticallyAfterBuildKey, s_StripAutomaticallyAfterBuild);
 
             // the rest is ActiveSettings handling
             var assetPath = PackageSettings.GetProjectSetting(k_AssetPathKey, string.Empty);
-
-            // Recover a path that was already lost that way when the project has a single settings asset.
-            if (string.IsNullOrEmpty(assetPath) && FindSettings() is { Length: 1 } found)
-                assetPath = AssetDatabase.GetAssetPath(found[0]);
-
             if (!AssetDatabase.AssetPathExists(assetPath))
                 return;
 
@@ -150,8 +142,7 @@ namespace Unity.Web.Stripping.Editor
                 string[] movedFromAssetPaths,
                 bool didDomainReload)
             {
-                // ActiveSettings first: FindSettings searches the project, 27 ms on every refresh of the database.
-                if (deletedAssets.Contains(DefaultSettingsPath) || ActiveSettings != null || FindSettings().Length > 0)
+                if (Array.Exists(deletedAssets, (asset) => asset == DefaultSettingsPath) || FindSettings().Length > 0)
                     return;
 
                 // PVP-300-4 requires an empty console after a package has been added to a project

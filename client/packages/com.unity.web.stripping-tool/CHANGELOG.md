@@ -4,6 +4,22 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-11-23
+
+### Added
+
+- Added documentation for Audio Random Container and Graphics State Collection Serializer submodules available in Unity 7.
+
+### Changed
+
+- Don't use obsolete `wasm2023`, `webAssemblyBigInt`, and `webAssemblyTable` settings in Unity 7.
+
+### Fixed
+
+- Fixed CoreCLR compatibility.
+- Fixed copying of MethodMap for Unity 7 builds.
+- Fixed Submodule Selection window failing to load submodule definitions in Unity 7 due to changed path.
+
 ## [1.4.0] - 2026-10-09
 
 ### Added

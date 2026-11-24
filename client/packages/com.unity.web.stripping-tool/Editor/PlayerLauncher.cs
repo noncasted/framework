@@ -12,9 +12,13 @@ namespace Unity.Web.Stripping.Editor
         // NOTE: UnityEditor.WebGL.Browser is IDisposable but we don't take that into consideration right now;
         // disposability is used to close the browser process but we have no need for it.
         internal object m_Browser;
-        internal static MethodInfo s_CreateMethod;
-        internal static MethodInfo s_LaunchMethod;
-        internal static MethodInfo s_QuitMethod;
+        static WeakReference<MethodInfo> s_CreateMethodRef;
+        static WeakReference<MethodInfo> s_LaunchMethodRef;
+        static WeakReference<MethodInfo> s_QuitMethodRef;
+
+        internal static MethodInfo s_CreateMethod => GetCachedMethod(ref s_CreateMethodRef, nameof(s_CreateMethod));
+        internal static MethodInfo s_LaunchMethod => GetCachedMethod(ref s_LaunchMethodRef, nameof(s_LaunchMethod));
+        internal static MethodInfo s_QuitMethod => GetCachedMethod(ref s_QuitMethodRef, nameof(s_QuitMethod));
 
         public string BuildPath { get; private set; }
         public string ClientUrl { get; private set; }
@@ -22,27 +26,14 @@ namespace Unity.Web.Stripping.Editor
         public bool IsServing =>
             SimpleWebServerHelper.s_IsRunning && !string.IsNullOrEmpty(BuildPath) && !string.IsNullOrEmpty(ClientUrl);
 
-        public PlayerLauncher()
-        {
-            if (!BuildToolsLocator.IsWebBuildSupportInstalled)
-                return;
-            if (s_CreateMethod != null && s_LaunchMethod != null && s_QuitMethod != null)
-                return;
-
-            const string assemblyName = "UnityEditor.WebGL.Extensions";
-            const string className = "UnityEditor.WebGL.Browser";
-            var assembly = Assembly.Load(assemblyName)
-                ?? throw new TargetException($"Type '{assemblyName}' not found in assembly.");
-            var classType = assembly.GetType(className)
-                ?? throw new TargetException($"Type '{className}' not found in assembly '{assemblyName}'.");
-            s_CreateMethod = GetMethod(classType, "Create", BindingFlags.Static | BindingFlags.Public);
-            s_LaunchMethod = GetMethod(classType, "Launch");
-            s_QuitMethod = GetMethod(classType, "Quit");
-        }
-
         public void OpenInPreferredBrowser(string query = "")
         {
             if (string.IsNullOrEmpty(ClientUrl))
+                return;
+
+            var createMethod = s_CreateMethod;
+            var launchMethod = s_LaunchMethod;
+            if (createMethod == null || launchMethod == null)
                 return;
 
             // if configurable browser is not worth of the reflection shenanigans, could simply do
@@ -58,9 +49,9 @@ namespace Unity.Web.Stripping.Editor
                 url = $"\"{url}?{query}\"";
             }
 
-            if (s_CreateMethod.GetParameters().Length == 5)
+            if (createMethod.GetParameters().Length == 5)
             {
-                m_Browser = s_CreateMethod.Invoke(
+                m_Browser = createMethod.Invoke(
                     null,
                     new object[]
                     {
@@ -72,10 +63,10 @@ namespace Unity.Web.Stripping.Editor
                     }
                 );
             }
-            else if (s_CreateMethod.GetParameters().Length == 6)
+            else if (createMethod.GetParameters().Length == 6)
             {
                 // Since Unity 6000.7.0a5 this expects 6 parameters
-                m_Browser = s_CreateMethod.Invoke(
+                m_Browser = createMethod.Invoke(
                     null,
                     new object[]
                     {
@@ -90,9 +81,9 @@ namespace Unity.Web.Stripping.Editor
             }
             else
             {
-                throw new Exception($"UnityEditor.WebGL.Browser::Create() expects unsupported number of parameters: {s_CreateMethod.GetParameters().Length}. Please update the package.");
+                throw new Exception($"UnityEditor.WebGL.Browser::Create() expects unsupported number of parameters: {createMethod.GetParameters().Length}. Please update the package.");
             }
-            s_LaunchMethod.Invoke(m_Browser, null);
+            launchMethod.Invoke(m_Browser, null);
         }
 
         public string ServeBuild(string buildPath)
@@ -125,25 +116,34 @@ namespace Unity.Web.Stripping.Editor
             ClientUrl = string.Empty;
         }
 
-        void QuitBrowser()
+        static MethodInfo GetCachedMethod(ref WeakReference<MethodInfo> weakRef, string name)
         {
-            if (m_Browser == null)
-                return;
+            if (weakRef != null && weakRef.TryGetTarget(out var method))
+                return method;
+            if (!BuildToolsLocator.IsWebBuildSupportInstalled)
+                return null;
 
-            try
-            {
-                s_QuitMethod.Invoke(m_Browser, null);
-            }
-            catch (TargetInvocationException e)
-            {
-                // Process is likely already stopped. We can ignore InvalidOperationExceptions.
-                if (e.InnerException is not InvalidOperationException)
-                    throw;
-            }
-            finally
-            {
-                m_Browser = null;
-            }
+            ResolveMethods();
+            if (weakRef != null && weakRef.TryGetTarget(out method))
+                return method;
+
+            Debug.LogError($"Failed to resolve UnityEditor.WebGL.Browser.{name} via reflection.");
+            return null;
+        }
+
+        static void ResolveMethods()
+        {
+            const string assemblyName = "UnityEditor.WebGL.Extensions";
+            const string className = "UnityEditor.WebGL.Browser";
+            var assembly = AssemblyHelper.FindLoadedAssembly(assemblyName);
+            if (assembly == null)
+                return;
+            var classType = assembly.GetType(className);
+            if (classType == null)
+                return;
+            s_CreateMethodRef = new WeakReference<MethodInfo>(GetMethod(classType, "Create", BindingFlags.Static | BindingFlags.Public));
+            s_LaunchMethodRef = new WeakReference<MethodInfo>(GetMethod(classType, "Launch"));
+            s_QuitMethodRef = new WeakReference<MethodInfo>(GetMethod(classType, "Quit"));
         }
 
         static MethodInfo GetMethod(Type classType, string methodName, BindingFlags? bindingFlags = null)
@@ -156,6 +156,27 @@ namespace Unity.Web.Stripping.Editor
                 throw new TargetException($"Method '{methodName}' not found in '{classType.FullName}'.");
 
             return methodInfo;
+        }
+
+        void QuitBrowser()
+        {
+            if (m_Browser == null)
+                return;
+
+            try
+            {
+                s_QuitMethod?.Invoke(m_Browser, null);
+            }
+            catch (TargetInvocationException e)
+            {
+                // Process is likely already stopped. We can ignore InvalidOperationExceptions.
+                if (e.InnerException is not InvalidOperationException)
+                    throw;
+            }
+            finally
+            {
+                m_Browser = null;
+            }
         }
     }
 }

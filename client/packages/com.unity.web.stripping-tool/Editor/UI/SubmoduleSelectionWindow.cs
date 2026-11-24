@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
@@ -189,8 +188,14 @@ namespace Unity.Web.Stripping.Editor
         private void LoadSubmoduleDefinition()
         {
             // Load submodule definition
+            // Unity 7 always enables Wasm2023, so the base modules folder no longer exists.
+#if UNITY_7000_0_OR_NEWER
+            var target = WasmTarget.Wasm2023;
+#else
+            var target = WasmTarget.WasmBase;
+#endif
             var config = SubmoduleDefinitionLoader.Load(
-                BuildToolsLocator.GetSubmoduleDefinitionFilePaths(WasmTarget.WasmBase),
+                BuildToolsLocator.GetSubmoduleDefinitionFilePaths(target),
                 Application.unityVersion
             );
 
@@ -285,7 +290,7 @@ namespace Unity.Web.Stripping.Editor
             [ExcludeFromCodeCoverage] // Can't test dialog with automated testing
             MergeBehavior OverwriteSelection()
             {
-                if (!SelectedSubmodules.Any())
+                if (SelectedSubmodules.Count == 0)
                     return MergeBehavior.Overwrite;
 
                 return (MergeBehavior)EditorUtility.DisplayDialogComplex(
@@ -308,13 +313,13 @@ namespace Unity.Web.Stripping.Editor
 
             var report = SubmoduleProfilingReport.LoadFromFile(path);
 
-            var mergeBehavior = SelectedSubmodules.Any() ? mergeBehaviorSelector() : MergeBehavior.Overwrite;
+            var mergeBehavior = SelectedSubmodules.Count > 0 ? mergeBehaviorSelector() : MergeBehavior.Overwrite;
             if (mergeBehavior == MergeBehavior.Cancel)
                 return;
 
             // When loading multiple files we want to select submodules for stripping
             // that are unused in all reports.
-            if (mergeBehavior == MergeBehavior.Combine && SelectedSubmodules.Any())
+            if (mergeBehavior == MergeBehavior.Combine && SelectedSubmodules.Count > 0)
                 report.MergeWith(m_Hierarchy.GetSubmoduleProfilingReport());
 
             SelectedSubmodules = report.UnusedSubmodules;

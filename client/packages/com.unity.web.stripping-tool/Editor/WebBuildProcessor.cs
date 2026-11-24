@@ -56,18 +56,9 @@ namespace Unity.Web.Stripping.Editor
                     return false;
                 }
 
-                if (!string.IsNullOrEmpty(build.EmscriptenVersion) && build.EmscriptenVersion != BuildToolsLocator.EmscriptenVersion)
-                {
-                    Debug.LogError($"Build was created with a different Emscripten version than available in the Unity Editor: '{build.EmscriptenVersion}'. The editor uses '{BuildToolsLocator.EmscriptenVersion}'. Please rebuild the project or open the project with a different editor version.");
-                    return false;
-                }
-
                 DefaultProgressCallback(0, 1, "Add profiling to build.");
 
-                // Get Emscripten version of build
-                var emscriptenVersion = !string.IsNullOrEmpty(build.EmscriptenVersion)
-                    ? build.EmscriptenVersion
-                    : "Unknown";
+                var editorEmscriptenVersion = BuildToolsLocator.EmscriptenVersion ?? "";
 
                 // Create backup of framework and wasm file
                 var originalWasmFile = BackUpBuildFile(build, build.WasmFilePath);
@@ -87,7 +78,7 @@ namespace Unity.Web.Stripping.Editor
                     SevenZipPath = BuildToolsLocator.SevenZipPath,
                     EnableThreadSupport = playerSettings.threadsSupport,
                     EnableWasm64 = playerSettings.Wasm64,
-                    EnableEmscripten4Features = emscriptenVersion.StartsWith("4."),
+                    EnableEmscripten4Features = editorEmscriptenVersion.StartsWith("4."),
                     LogFunctionCode = TemplateAssetsHelper.GetFunctionCode("SubmoduleProfilingOverlay.wasmimport"),
                     MinifiedLogFunctionCode = TemplateAssetsHelper.GetFunctionCode("MinifiedSubmoduleProfilingOverlay.wasmimport")
                 };
@@ -228,12 +219,6 @@ namespace Unity.Web.Stripping.Editor
                 return false;
             }
 
-            if (!string.IsNullOrEmpty(build.EmscriptenVersion) && build.EmscriptenVersion != BuildToolsLocator.EmscriptenVersion)
-            {
-                Debug.LogError($"Build was created with a different Emscripten version than available in the Unity Editor: '{build.EmscriptenVersion}'. The editor uses '{BuildToolsLocator.EmscriptenVersion}'. Please rebuild the project or open the project with a different editor version.");
-                return false;
-            }
-
             // Remove submodule profiling code if present
             if (build.HasSubmoduleProfiling)
             {
@@ -306,10 +291,7 @@ namespace Unity.Web.Stripping.Editor
             // if user selected no debug symbols in the player options (WebGLDebugSymbolMode.Off).
             var removeDebugInformation = playerSettings.debugSymbolMode == WebGLDebugSymbolMode.Off;
 
-            // Get Emscripten version of build
-            var emscriptenVersion = !string.IsNullOrEmpty(build.EmscriptenVersion)
-                ? build.EmscriptenVersion
-                : "Unknown";
+            var editorEmscriptenVersion = BuildToolsLocator.EmscriptenVersion ?? "";
 
             // Start stripping process
             var submoduleStripper = new SubmoduleStripper()
@@ -322,7 +304,7 @@ namespace Unity.Web.Stripping.Editor
                 EnableThreadSupport = playerSettings.threadsSupport,
                 EnableBigIntSupport = playerSettings.WasmBigIntEnabled,
                 EnableWasm64 = playerSettings.Wasm64,
-                EnableEmscripten4Features = emscriptenVersion.StartsWith("4."),
+                EnableEmscripten4Features = editorEmscriptenVersion.StartsWith("4."),
                 Development = playerSettings.BuildSettings.development,
                 CodeOptimization = playerSettings.BuildSettings.codeOptimization,
                 EnableLoggingOfMissingSubmodule = enableLoggingOfMissingSubmodule,

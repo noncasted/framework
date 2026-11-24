@@ -130,12 +130,8 @@ namespace Unity.Web.Stripping.Editor
             {
                 if (EnableEmscripten4Features && EnableWasm2023)
                     return " --enable-bulk-memory --enable-bulk-memory-opt --enable-nontrapping-float-to-int -n";
-                // Local patch: without --enable-exception-handling binaryen assumes calls never throw and -O3 drops
-                // every try/catch of a -fwasm-exceptions build. Any exception (even one caught in C#, e.g.
-                // OperationCanceledException of a cancelled search) crashes the player. With Wasm 2023 the flag
-                // comes from EnableWasm2023Arg already.
                 else if (EnableEmscripten4Features && !EnableWasm2023)
-                    return " --enable-exception-handling -n";
+                    return " -n";
                 else
                     return "";
             }

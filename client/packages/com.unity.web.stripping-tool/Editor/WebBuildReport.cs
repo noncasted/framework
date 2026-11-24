@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using System.Text;
 using Newtonsoft.Json;
 using UnityEngine; // GUID is here beginning in 6000.4.0a4
 using UnityEditor; // GUID was here until 6000.4.0a4
@@ -82,8 +82,19 @@ namespace Unity.Web.Stripping.Editor
         {
             static string SanitizeFileName(string name)
             {
+                if (string.IsNullOrEmpty(name))
+                    return name;
+
                 var invalidChars = Path.GetInvalidFileNameChars();
-                return new string(name?.Where(c => !invalidChars.Contains(c)).ToArray());
+                var stringBuilder = new StringBuilder();
+
+                foreach (var c in name)
+                {
+                    if (!Array.Exists(invalidChars, (invalidChar) => invalidChar == c))
+                        stringBuilder.Append(c);
+                }
+
+                return stringBuilder.ToString();
             }
 
             return Path.Combine(
@@ -149,11 +160,17 @@ namespace Unity.Web.Stripping.Editor
 
             // TODO should we handle multiple .wasm(.bak) files in the folder? Could happen theoretically.
             WasmFilePath = SelectBuildFile(
-                GetFiles(buildPath, WasmFilePattern).Where(fn => !fn.EndsWith(FileBackup.BackupFileExtension)),
+                Array.FindAll(
+                    GetFiles(buildPath, WasmFilePattern),
+                    fn => !fn.EndsWith(FileBackup.BackupFileExtension)
+                ),
                 WasmFileExtension);
             // back-up files are stored in separate folder now but we still use the .bak extension
             WasmBackupFilePath = SelectBuildFile(
-                GetFiles(backupPath, WasmFilePattern).Where(fn => fn.EndsWith(FileBackup.BackupFileExtension)),
+                Array.FindAll(
+                    GetFiles(backupPath, WasmFilePattern),
+                    fn => fn.EndsWith(FileBackup.BackupFileExtension)
+                ),
                 WasmFileExtension + FileBackup.BackupFileExtension);
 
             if (IsValid)
@@ -174,19 +191,24 @@ namespace Unity.Web.Stripping.Editor
             }
 
             FrameworkFilePath = SelectBuildFile(
-                GetFiles(buildPath, FrameworkFilePattern).Where(fn => !fn.EndsWith(FileBackup.BackupFileExtension)),
+                Array.FindAll(
+                    GetFiles(buildPath, FrameworkFilePattern),
+                    fn => !fn.EndsWith(FileBackup.BackupFileExtension)
+                ),
                 FrameworkFileExtension);
 
             FrameworkBackupFilePath = SelectBuildFile(
-                GetFiles(backupPath, FrameworkFilePattern).Where(fn => fn.EndsWith(FileBackup.BackupFileExtension)),
+                Array.FindAll(
+                    GetFiles(backupPath, FrameworkFilePattern),
+                    fn => fn.EndsWith(FileBackup.BackupFileExtension)
+                ),
                 FrameworkFileExtension + FileBackup.BackupFileExtension);
 
             SymbolFilePath = SelectBuildFile(
                 GetFiles(buildPath, SymbolFilePattern),
                 SymbolFileExtension);
 
-            StrippingInfoFilePath = GetFiles(backupPath, SubmoduleStripper.StrippingInfoFileName)
-                .FirstOrDefault();
+            StrippingInfoFilePath = Utils.FirstOrDefault(GetFiles(backupPath, SubmoduleStripper.StrippingInfoFileName));
             if (!string.IsNullOrEmpty(StrippingInfoFilePath))
                 AdditionalFiles.Add(StrippingInfoFilePath);
 
@@ -199,11 +221,11 @@ namespace Unity.Web.Stripping.Editor
                     File.Delete(ogPlayerSettingsInBackupPath);
                 File.Move(ogPlayerSettingsInBuildPath, ogPlayerSettingsInBackupPath);
             }
-            OriginalPlayerSettingsFilePath = GetFiles(backupPath, ogPlayerSettingFileName).FirstOrDefault();
+            OriginalPlayerSettingsFilePath = Utils.FirstOrDefault(GetFiles(backupPath, ogPlayerSettingFileName));
 
-            PlayerSettingsFilePath = GetFiles(backupPath, PlayerSettingFileName).FirstOrDefault();
+            PlayerSettingsFilePath = Utils.FirstOrDefault(GetFiles(backupPath, PlayerSettingFileName));
 
-            MethodMapFilePath = GetFiles(backupPath, MethodMapFileName).FirstOrDefault();
+            MethodMapFilePath = Utils.FirstOrDefault(GetFiles(backupPath, MethodMapFileName));
         }
 
         /// <summary>
@@ -404,11 +426,31 @@ namespace Unity.Web.Stripping.Editor
 
         // "*.wasm.*" matches MyBuild.wasm and its .br/.gz variants, and Directory.GetFiles() gives no
         // ordering. Pick the plain extension, then break ties by name, so the result is deterministic.
-        internal static string SelectBuildFile(IEnumerable<string> files, string extension) =>
-            files
-                .OrderBy(fn => fn.EndsWith(extension, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
-                .ThenBy(fn => fn, StringComparer.Ordinal)
-                .FirstOrDefault();
+        internal static string SelectBuildFile(string[] files, string extension)
+        {
+            if (files.Length == 0)
+                return null;
+
+            string best = null;
+            foreach (var fn in files)
+            {
+                if (best == null)
+                {
+                    best = fn;
+                    continue;
+                }
+
+                bool fnMatchesExt = fn.EndsWith(extension, StringComparison.OrdinalIgnoreCase);
+                bool bestMatchesExt = best.EndsWith(extension, StringComparison.OrdinalIgnoreCase);
+
+                if (fnMatchesExt && !bestMatchesExt)
+                    best = fn;
+                else if (fnMatchesExt == bestMatchesExt && string.Compare(fn, best, StringComparison.Ordinal) < 0)
+                    best = fn;
+            }
+
+            return best;
+        }
 
         /// <summary>
         /// Returns true if the build at Path is a valid web build.

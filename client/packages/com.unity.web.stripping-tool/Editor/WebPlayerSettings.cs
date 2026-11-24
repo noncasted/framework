@@ -1,8 +1,6 @@
 using System;
 using System.ComponentModel;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Content;
@@ -26,7 +24,12 @@ namespace Unity.Web.Stripping.Editor
         {
             "wasmArithmeticExceptions",
             "analyzeBuildSize",
-            "enableWebGPU" // simply removed in 6.1a without becoming deprecated first
+            "enableWebGPU", // simply removed in 6.1a without becoming deprecated first
+#if UNITY_7000_0_OR_NEWER
+            "wasm2023",
+            "webAssemblyBigInt",
+            "webAssemblyTable",
+#endif
         };
 
         /// <summary>
@@ -78,12 +81,16 @@ namespace Unity.Web.Stripping.Editor
             showSplashScreen = PlayerSettings.SplashScreen.show;
             threadsSupport = PlayerSettings.WebGL.threadsSupport;
             useEmbeddedResources = PlayerSettings.WebGL.useEmbeddedResources;
-            // NOTE technically Wasm2023 was introduced already in 2023.3.0a16
-#if UNITY_6000_0_OR_NEWER
+#if UNITY_7000_0_OR_NEWER
+            // These settings are obsolete in Unity 7 and always enabled.
+            wasm2023 = true;
+            webAssemblyBigInt = true;
+            webAssemblyTable = true;
+#else
             wasm2023 = PlayerSettings.WebGL.wasm2023;
-#endif
             webAssemblyBigInt = PlayerSettings.WebGL.webAssemblyBigInt;
             webAssemblyTable = PlayerSettings.WebGL.webAssemblyTable;
+#endif
             enableSubmoduleStrippingCompatibility = PlayerSettingsHelper.EnableSubmoduleStrippingCompatibility;
             managedStrippingLevel = GetManagedStrippingLevel();
             stripEngineCode = PlayerSettings.stripEngineCode;
@@ -132,11 +139,11 @@ namespace Unity.Web.Stripping.Editor
                 PlayerSettings.SplashScreen.show = showSplashScreen.Value;
             PlayerSettings.WebGL.threadsSupport = threadsSupport;
             PlayerSettings.WebGL.useEmbeddedResources = useEmbeddedResources;
-#if UNITY_6000_0_OR_NEWER
+#if !UNITY_7000_0_OR_NEWER
             PlayerSettings.WebGL.wasm2023 = wasm2023;
-#endif
             PlayerSettings.WebGL.webAssemblyBigInt = webAssemblyBigInt;
             PlayerSettings.WebGL.webAssemblyTable = webAssemblyTable;
+#endif
             PlayerSettingsHelper.EnableSubmoduleStrippingCompatibility = enableSubmoduleStrippingCompatibility;
             SetManagedStrippingLevel(managedStrippingLevel);
             if (stripEngineCode.HasValue)
@@ -265,14 +272,17 @@ namespace Unity.Web.Stripping.Editor
         public bool useEmbeddedResources;
         /// <summary>
         /// Refer to [`PlayerSettings.WebGL.wasm2023`](xref:UnityEditor.PlayerSettings.WebGL.wasm2023).
+        /// Obsolete in Unity 7, where it is always enabled.
         /// </summary>
         public bool wasm2023;
         /// <summary>
         /// Refer to [`PlayerSettings.WebGL.webAssemblyBigInt`](xref:UnityEditor.PlayerSettings.WebGL.webAssemblyBigInt).
+        /// Obsolete in Unity 7, where it is always enabled.
         /// </summary>
         public bool webAssemblyBigInt;
         /// <summary>
         /// Refer to [`PlayerSettings.WebGL.webAssemblyTable`](xref:UnityEditor.PlayerSettings.WebGL.webAssemblyTable).
+        /// Obsolete in Unity 7, where it is always enabled.
         /// </summary>
         public bool webAssemblyTable;
         /// <summary>
@@ -365,7 +375,7 @@ namespace Unity.Web.Stripping.Editor
         /// Check whether Player settings contain additional Emscripten args that
         /// are incompatible with submodule profiling and stripping.
         /// </summary>
-        internal bool HasIncompatibleEmscriptenArg => FindIncompatibleEmscriptenArgs(emscriptenArgs).Any() && debugSymbolMode == WebGLDebugSymbolMode.External;
+        internal bool HasIncompatibleEmscriptenArg => HasIncompatibleEmscriptenArgs(emscriptenArgs) && debugSymbolMode == WebGLDebugSymbolMode.External;
 
         internal static ManagedStrippingLevel GetManagedStrippingLevel() =>
             PlayerSettings.GetManagedStrippingLevel(NamedBuildTarget.WebGL);
@@ -381,9 +391,14 @@ namespace Unity.Web.Stripping.Editor
             PlayerSettings.GetIl2CppCompilerConfiguration(NamedBuildTarget.WebGL);
         internal static void SetIl2CppCompilerConfiguration(Il2CppCompilerConfiguration l) =>
             PlayerSettings.SetIl2CppCompilerConfiguration(NamedBuildTarget.WebGL, l);
-        internal static IEnumerable<string> FindIncompatibleEmscriptenArgs(string emscriptenArgs) =>
+        static bool IsIncompatibleEmscriptenArg(string arg) => arg == "--profiling-funcs" || arg == "--profiling";
+
+        internal static bool HasIncompatibleEmscriptenArgs(string emscriptenArgs) =>
+            !string.IsNullOrEmpty(emscriptenArgs) && Array.Exists(emscriptenArgs.Split(' '), IsIncompatibleEmscriptenArg);
+
+        internal static string[] FindIncompatibleEmscriptenArgs(string emscriptenArgs) =>
             string.IsNullOrEmpty(emscriptenArgs)
-                ? new string[0]
-                : emscriptenArgs.Split(' ').Where(arg => arg == "--profiling-funcs" || arg == "--profiling");
+                ? Array.Empty<string>()
+                : Array.FindAll(emscriptenArgs.Split(' '), IsIncompatibleEmscriptenArg);
     }
 }

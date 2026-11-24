@@ -1,6 +1,6 @@
-# FORK: com.unity.web.stripping-tool 1.4.0
+# FORK: com.unity.web.stripping-tool 1.4.1
 
-Base: registry package 1.4.0. Removed from the base: `Documentation~`, `Samples~`.
+Base: registry package 1.4.1. Removed from the base: `Documentation~`, `Samples~`.
 
 ## Patches
 

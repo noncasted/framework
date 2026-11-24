@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -188,7 +187,7 @@ namespace Unity.Web.Stripping.Editor
             var hasSettings = m_SerializedSettings != null;
 
             var propFields = rootVisualElement.Query<PropertyField>().ToList();
-            if (!propFields.Any())
+            if (propFields.Count == 0)
                 CreatePropertyFields();
 
             propFields = rootVisualElement.Query<PropertyField>().ToList();
@@ -210,7 +209,7 @@ namespace Unity.Web.Stripping.Editor
                 UIUtils.SetVisible(m_SelectSubmoduleButtonContainer, hasSettings);
 
             // If Submodule Selection window is open, make sure to refresh it
-            var selectionWnd = Resources.FindObjectsOfTypeAll<SubmoduleSelectionWindow>().FirstOrDefault();
+            var selectionWnd = Utils.FirstOrDefault(Resources.FindObjectsOfTypeAll<SubmoduleSelectionWindow>());
             if (selectionWnd != null)
                 OpenOrRefreshSubmoduleSelectionWindow();
 
@@ -490,11 +489,10 @@ namespace Unity.Web.Stripping.Editor
             var optionsContainer = rootVisualElement.Q("settings-container");
 
             // We want to show editors for all public instance fields of SubmoduleStrippingSettings
-            foreach (
-                var prop in
-                typeof(SubmoduleStrippingSettings).GetFields(BindingFlags.Public | BindingFlags.Instance).Select(p => p.Name))
+            foreach (var fieldInfo in typeof(SubmoduleStrippingSettings).GetFields(BindingFlags.Public | BindingFlags.Instance))
             {
                 // Use different label for RemoveEmbeddedDebugSymbols
+                var prop = fieldInfo.Name;
                 string label = prop == nameof(SubmoduleStrippingSettings.RemoveEmbeddedDebugSymbols)
                     ? ObjectNames.NicifyVariableName(nameof(SubmoduleStrippingSettings.RemoveDebugInformation))
                     : ObjectNames.NicifyVariableName(prop);
@@ -544,7 +542,12 @@ namespace Unity.Web.Stripping.Editor
 
         void OnSelectedIndicesChanged(IEnumerable<int> selectedItems)
         {
-            var index = selectedItems.Any() ? selectedItems.FirstOrDefault() : -1;
+            int index = -1;
+            foreach (var item in selectedItems)
+            {
+                index = item;
+                break;
+            }
             var build = index >= 0 && index < Builds.Count ? Builds[index] : null;
             UpdateUI(build);
         }

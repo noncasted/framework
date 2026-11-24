@@ -11,8 +11,27 @@ namespace Unity.Web.Stripping.Editor
     // Pre-/postprocesses Web builds to be suitable for submodule stripping
     class WebBuildPreprocessor : IPostprocessBuildWithReport, IPreprocessBuildWithReport
     {
-        public static string LibraryMethodMapPath =>
-            Path.Combine(Utils.LibraryPath, "Bee/artifacts/WebGL/il2cppOutput/cpp/Symbols/MethodMap.tsv");
+        static readonly string[] k_MethodMapRelativePaths =
+        {
+            "Bee/artifacts/WebGL/il2cppOutput/wasm/cpp/Symbols/MethodMap.tsv",
+            "Bee/artifacts/WebGL/il2cppOutput/cpp/Symbols/MethodMap.tsv",
+        };
+
+        public static string LibraryMethodMapPath
+        {
+            get
+            {
+                foreach (var relativePath in k_MethodMapRelativePaths)
+                {
+                    var path = Path.Combine(Utils.LibraryPath, relativePath);
+                    if (File.Exists(path))
+                        return path;
+                }
+
+                // Fall back to the first path so callers get a deterministic value
+                return Path.Combine(Utils.LibraryPath, k_MethodMapRelativePaths[0]);
+            }
+        }
 
         public int callbackOrder => 0; // SubmoduleStrippingBuildProcessor has 1
 
@@ -79,6 +98,9 @@ namespace Unity.Web.Stripping.Editor
 
     static class Utils
     {
+        public static T FirstOrDefault<T>(T[] array) where T : class =>
+            array.Length > 0 ? array[0] : null;
+
         // filePath can be absolute or just a file name
         public static string GetBackupFileName(string backupDirectory, string filePath, string bakFileExt) =>
             Path.Combine(backupDirectory, $"{Path.GetFileName(filePath)}{bakFileExt}");
