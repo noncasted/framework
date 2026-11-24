@@ -1,0 +1,4 @@
+#!/bin/bash
+# Let the user pick among visual variants in a zoomable grid; prints {"selected": [...], "note": "..."}, exit 3 when cancelled.
+#   lightbox-pick --title '<what is chosen>' --from '<origin>' "A=<path>:<caption>" ...
+exec python3 "$(dirname "$(readlink -f "$0")")/lightbox.py" pick "$@"

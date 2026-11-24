@@ -107,8 +107,17 @@ Read the result PNG yourself before showing it: labels readable, nothing cropped
 Выбор: <пусто до ответа пользователя>
 ```
 
-Then show the sheet (read the PNG so it is in the conversation), give one line per variant and a recommendation
-with the reason, and ask which one to take (a mix is fine: "B, но рамка из D"). Do not implement before the answer.
+Then give one line per variant and a recommendation with the reason, and let the user choose (a mix is fine: "B, но
+рамка из D"). Do not implement before the answer.
+
+- With Лайтбокс (`lightbox-pick` on the PATH): pass the variant sources, not the sheet, so each one zooms on its own, and run it in
+  the background (`run_in_background: true`); its JSON is the answer, `note` carries the mix:
+  ```
+  lightbox-pick --title "<topic>: <short brief>" --from "/visualize <topic>: <tools that drew them>" \
+      "A=<dir>/A_<slug>.png:<caption>" "B=<dir>/B_<slug>/:<caption>" ...
+  ```
+  A folder of frames plays at `--delay` ms. A cancelled pick (exit 3) is no answer: ask in text.
+- Without it: read the sheet PNG so it is in the conversation and ask in text.
 
 Under `/auto` the user is not there: take the recommended variant, record the choice and the alternatives in the
 decisions file (`auto` skill), and continue - the sheet stays for the user to overrule.

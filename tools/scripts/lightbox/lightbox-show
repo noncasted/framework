@@ -1,0 +1,5 @@
+#!/bin/bash
+# Show images in the lightbox (Лайтбокс) window of this terminal, each captioned with where it came from.
+#   lightbox-show --from '<origin>' <path>...
+#   lightbox-show --hook        (PostToolUse(Read) hook: the images Claude reads)
+exec python3 "$(dirname "$(readlink -f "$0")")/lightbox.py" show "$@"

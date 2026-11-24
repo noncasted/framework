@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Лайтбокс</title>
+<link rel="stylesheet" href="cv://ui/style.css">
+</head>
+<body>
+<header id="tabs">
+  <button class="tab active" data-pane="view">Просмотр <span id="view-count">0</span></button>
+  <button class="tab" data-pane="pick" id="pick-tab" hidden>Выбор</button>
+  <span class="spacer"></span>
+  <span class="hint">колесо — зум, тащить левой кнопкой или зажатым колесом — сдвиг, 0 — вписать, 1 — 1:1, двойной клик — крупно</span>
+</header>
+
+<section id="view" class="pane active">
+  <div class="caption">
+    <div class="from" id="view-from">Пока ничего не показано</div>
+    <div class="meta" id="view-meta"></div>
+  </div>
+  <div class="viewport" id="view-port"><img alt=""><span class="zoom"></span></div>
+  <div class="strip" id="view-strip"></div>
+</section>
+
+<section id="pick" class="pane">
+  <div class="caption">
+    <div class="from" id="pick-title"></div>
+    <div class="meta" id="pick-meta"></div>
+  </div>
+  <div class="sent" id="sent" hidden></div>
+  <div class="toolbar">
+    <label>Колонки
+      <button id="cols-less">−</button><span id="cols-value"></span><button id="cols-more">+</button>
+    </label>
+    <label><input type="checkbox" id="sync" checked> общий зум</label>
+    <button id="zoom-fit">Вписать (0)</button>
+    <button id="zoom-pixel">1:1 (1)</button>
+    <span class="spacer"></span>
+    <span class="hint">клик по картинке или буква — отметить, «Выбрать» — сразу этот</span>
+  </div>
+  <div class="grid" id="grid"></div>
+  <footer class="answer">
+    <input id="note" placeholder="Комментарий: например «B, но рамка из D»" autocomplete="off">
+    <span id="marked">Отмечено: —</span>
+    <button id="submit" class="primary">Отправить отмеченные</button>
+    <button id="cancel">Отмена</button>
+  </footer>
+</section>
+
+<div id="detail" hidden>
+  <div class="caption">
+    <label class="check"><input type="checkbox" id="detail-check"><b id="detail-label"></b></label>
+    <span id="detail-caption"></span>
+    <span class="spacer"></span>
+    <button id="detail-choose" class="primary">Выбрать этот</button>
+    <button id="detail-close">Закрыть (Esc)</button>
+  </div>
+  <div class="viewport" id="detail-port"><img alt=""><span class="zoom"></span></div>
+  <div class="meta" id="detail-meta"></div>
+</div>
+
+<script src="cv://ui/viewport.js"></script>
+<script src="cv://ui/pick.js"></script>
+<script src="cv://ui/app.js"></script>
+</body>
+</html>

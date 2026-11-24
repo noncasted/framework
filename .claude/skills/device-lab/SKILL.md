@@ -112,7 +112,7 @@ another build.
 In Russian: what ran (build, device or preset, CPU rate, steps), the numbers with their units and frames (ms/frame, GL calls per
 frame, fps), the A/B as before / after / delta with the spread of the runs and the load of the machine, the files (absolute
 paths: summary, profiles, screenshots), and anything that makes a number doubtful (load, heat, a failed step). Open screenshots
-with `claude-show-image`.
+with `lightbox-show --from '<device, build, step>'`.
 
 The WebGL problems already met and how they were found: `.claude/docs/WEBGL_TROUBLESHOOTING.md` of the framework (`WEBGL_IOS.md`
 in a tree that does not have it yet).

@@ -47,7 +47,9 @@ backend/
 .claude/docs/           docs of the patterns shared by the games, for Claude Code (INDEX.md: principles, keyword table)
 .claude/skills/         skills shared by the games, linked from `.claude/skills` of each project
 tools/scripts/          scripts shared by the projects; web-bench/: the headless stand and the devices of the web client
-                        (skill device-lab)
+                        (skill device-lab); lightbox/: Лайтбокс, the image window of Claude Code on Hyprland,
+                        `lightbox-show` (images with their origin) and `lightbox-pick` (a zoomable grid of variants, the choice
+                        as JSON; skill visualize), linked into ~/.local/bin by its install.sh
 releases/               releases: X.Y.Z.md with the steps a game takes to update, unreleased.md, README.md (format, versions)
 ```
 
