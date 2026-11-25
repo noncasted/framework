@@ -2,6 +2,7 @@
 
 `registry.json` is the map of every deployment of the games: which VPS hosts which project, the Coolify uuids, the public
 domains, the deploy branch. Sessions and scripts (logs, deploy, `claude-coolify`) read it to know where to go. No secrets.
+`tools/scripts/deploy/prod registry show [<project>]` prints one project with its server (skill `backend-logs`).
 
 ## Schema
 
@@ -25,8 +26,8 @@ A game submodule lags behind main, so scripts read the latest main, not the work
 ## Rules
 
 - A new deploy, a move to another VPS or a domain change updates the registry in the same commit.
-- Secrets stay out: Coolify tokens are in `~/.claude/mcp/coolify.json`, any read tokens in
-  `~/.config/framework/deploy-secrets.json`.
-- `registry verify` (a later step, `tools/scripts/deploy`) checks the registry against both Coolify: every uuid exists and no
-  Coolify project is missing here.
+- Secrets stay out: Coolify tokens are in `~/.claude/mcp/coolify.json`; the logs and traces are read over ssh, with no token.
+- `tools/scripts/deploy/prod registry verify` (skill `backend-logs`) checks the registry against both Coolify: every uuid
+  exists with its type and project name, and no Coolify project or resource is missing here. Run it after a change of the
+  registry or of a Coolify project.
 - `deploy/observability/` holds the logs/traces stack, installed on both servers (its README.md).

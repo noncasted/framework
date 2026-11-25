@@ -101,11 +101,11 @@ game goes here, a pattern tied to the assets or rules of one game stays in that 
 ## Tests
 
 `tools/scripts/test-all.sh` runs the whole suite on the current tree, uncommitted edits included: `dotnet build
-framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to them `control` and `telemetry` (python, the tests of these skills), Unity EditMode (`client/project`, needs
+framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to them `control`, `telemetry` and `deploy` (python, the tests of these skills and of `tools/scripts/deploy`), Unity EditMode (`client/project`, needs
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1819, common 96, Verify 188, control 24, telemetry 86, EditMode 1381 (4 of them skipped, the
+Release build replaces it. The expected numbers: backend 1819, common 96, Verify 188, control 24, telemetry 86, deploy 39, EditMode 1381 (4 of them skipped, the
 benchmarks of `ContainerBenchmarkTests`), PlayMode 151 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 
