@@ -632,7 +632,7 @@ switcher does. A test after the game has hung the GPU measures the stuck browser
   from 250 ms), `web.raf.dt.*` (the browser's own frame), `frame.gpu.query` where the timer query exists, `render.*` (buffer size,
   DPR), `web.gl.*` (errors, emscripten errors, compiles / links, buffer and texture uploads, context loss), the marks `webgl.*`,
   `page.*` (hidden, pagehide, fullscreen, resize), `audio.context.*`, `memory.*`, `web.wasm.heap`, `settings.*`. A session that
-  died is reported by the next start (`SessionStart.Previous`). The table of the framework `CLAUDE.md` (telemetry) lists them.
+  died is reported by the next start (`SessionStart.Previous`). `client/modules/telemetry/CLAUDE.md` lists them.
 - **`?glcheck=1`:** `getError` after every call of the context, the failing call named in `webgl.check.<code>`. Slow: a diagnostic
   session, not a measurement.
 - **Startup trace:** the `Page` root (navigation, files with sizes and cache) to the first frame; `AssetLoads` marks `load.*`.

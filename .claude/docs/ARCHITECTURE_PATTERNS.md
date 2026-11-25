@@ -13,7 +13,7 @@ the rule rests on the other sources of the line.
 
 - **G-1** If the plan adds error handling, a fallback, `try/catch` or null checks -> the plan says explicitly that the
   user asked for the degradation; otherwise throw / `Debug.LogError` (fail fast). `CLAUDE.md` § MOST IMPORTANT RULE.
-- **G-2** If the task touches `tools/framework` -> the plan has: read `tools/framework/CLAUDE.md`, commit and push
+- **G-2** If the task touches `tools/framework` -> the plan has: read `tools/framework/CLAUDE.md` and the `CLAUDE.md` of the touched folder, commit and push
   inside the submodule, then commit the submodule pointer; an estimate of the effect on the other games. `CLAUDE.md` § Framework.
 - **G-3** If a new asmdef appears that references `Internal` (a temporary one, a benchmark, a build script included) ->
   the plan references `Internal.Content` too. `CLAUDE.md` § Framework; `CLAUDE_MISTAKES.md` § G37.
@@ -56,7 +56,7 @@ the rule rests on the other sources of the line.
   `[ContainerScopeParent]`, the scene of the scope is chosen (`WithRuntimeScene` / `WithAssetScene` / no scene).
   `COMMON_CONTAINER.md` § Service scope, § Common Mistakes.
 - **C-DI-5** If implementations are chosen by a condition -> the variants are different roots through a `switch` at the call site;
-  inside a root only a `bool` / a closed enum changes the graph (CINGR005). A platform: `#if` or branches inside one installer (`CLAUDE.md` framework § Modules, publish).
+  inside a root only a `bool` / a closed enum changes the graph (CINGR005). A platform: `#if` or branches inside one installer (`client/modules/CLAUDE.md` of the framework, publish).
   `COMMON_CONTAINER.md` § Entity scope ("One graph per root"); `CLAUDE_MISTAKES.md` § F2, § F3.
 - **C-DI-6** If one scope has several alternatives with a marker interface of a phase -> at most one group of alternatives
   with `IScopeSetup` and the like; a platform service with a phase is registered on every platform and checks the platform itself.
