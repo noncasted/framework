@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
 
 namespace Internal
 {
     // What a file bakes into: the animations of its tags and custom animations, and the unique frames they use.
     internal static class AsepriteBakePlan
     {
-        private const string LogTag = "AsepriteAnimationBaker";
+        private static readonly ILog _log = Logs.Of(typeof(AsepriteBakePlan));
 
         internal static List<AsepriteBakeRequest> ResolveRequests(
             string assetPath,
@@ -29,8 +28,8 @@ namespace Internal
 
                 if (tag == null)
                 {
-                    Debug.LogError(
-                        $"[{LogTag}] Custom animation '{custom.Name}' in {assetPath} refers to missing tag '{custom.Source}'");
+                    _log.Error("Custom animation '{Animation}' in {Path} refers to missing tag '{Tag}'", custom.Name, assetPath,
+                        custom.Source);
                     continue;
                 }
 

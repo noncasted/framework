@@ -4,7 +4,6 @@ using System.IO;
 using Newtonsoft.Json;
 using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
-using UnityEngine;
 
 namespace Internal
 {
@@ -22,11 +21,14 @@ namespace Internal
 
         private static readonly JsonSerializerSettings ReadSettings = new() { MissingMemberHandling = MissingMemberHandling.Error };
 
+        private readonly ILog _log;
+
         private string[] _cachedGroups;
         private HashSet<string> _cachedPreloaded;
 
         protected CatalogGroupsRegistry(string logTag, string assetPath)
         {
+            _log = Logs.Of(GetType());
             LogTag = logTag;
             AssetPath = assetPath;
         }
@@ -59,7 +61,7 @@ namespace Internal
 
             if (string.IsNullOrEmpty(groupName))
             {
-                Debug.LogError($"[{LogTag}] Group name is empty after sanitize.");
+                _log.Error("Group name is empty after sanitize.");
                 return false;
             }
 

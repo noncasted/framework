@@ -8,7 +8,7 @@ namespace Internal
     // The bindings of one loaded scene: all the classes are written first, then one refresh.
     internal static class HierarchyBindingsSceneBatch
     {
-        private const string LogTag = HierarchyBindingsLog.Tag;
+        private const string LogTag = "HierarchyBindingsGenerator";
 
         public static string RegenerateScene(Scene scene)
         {

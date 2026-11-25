@@ -23,6 +23,8 @@ namespace Internal
     {
         private const string ScenesSuffix = "__scenes";
 
+        private static readonly ILog _log = Logs.Of(typeof(ContentBundleBuilder));
+
         public static IReadOnlyList<ContentBuiltBundle> Build(IReadOnlyList<ContentBundlePlan> plans, BuildTarget target, string output, bool isTypeTree)
         {
             ContentUnsavedScenes.ThrowIfDirty();
@@ -62,7 +64,8 @@ namespace Internal
             if (code < ReturnCode.Success)
                 throw new BuildFailedException($"[ContentBuild] The content bundles were not built into {output}: {code} (the reason is in the log above)");
 
-            Debug.Log($"[ContentBuild] {builds.Count} asset bundles for {target} built into {output} in {(DateTime.Now - started).TotalSeconds:0.0} s");
+            _log.Info("{Bundles} asset bundles for {Target} built into {Output} in {Seconds} s", builds.Count, target, output,
+                Math.Round((DateTime.Now - started).TotalSeconds, 1));
 
             var owners = plans.SelectMany(plan => new[] { (AssetsName(plan), plan.Name), (ScenesName(plan), plan.Name) }).ToDictionary(entry => entry.Item1, entry => entry.Item2);
             return plans.Select(plan => Built(plan, results.BundleInfos, output, owners)).ToArray();

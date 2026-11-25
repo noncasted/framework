@@ -14,6 +14,8 @@ namespace Internal
     {
         private const string LogTag = "AsepriteDocument";
 
+        private static readonly ILog _log = Logs.Of<AsepriteDocument>();
+
         private static readonly Dictionary<string, CachedDocument> Cache = new(StringComparer.Ordinal);
 
         private readonly Dictionary<(int Frame, int Layer), AsepriteCell> _cells;
@@ -73,7 +75,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogError($"[{LogTag}] Failed to read {assetPath}: {exception}");
+                _log.Error(exception, "Failed to read {Path}", assetPath);
                 return null;
             }
         }

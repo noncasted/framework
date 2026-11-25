@@ -11,6 +11,8 @@ namespace Internal
     /// </summary>
     public class ContainerDebuggerWindow : EditorWindow
     {
+        private static readonly ILog _log = Logs.Of<ContainerDebuggerWindow>();
+
         private static readonly string UssPath = FrameworkSettings.Package("Editor/Tools/Container/ContainerDebuggerWindow.uss");
 
         private readonly ContainerDebuggerSelection _selection = new();
@@ -43,7 +45,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
             }
 
             EditorApplication.playModeStateChanged += OnPlayModeChanged;
@@ -98,7 +100,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
                 SetStatus("Failed to read container diagnostics", true);
             }
             finally

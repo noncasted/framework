@@ -20,7 +20,7 @@ namespace Internal
                 WriteGroupAsset(path, group);
             }
 
-            CatalogGroupAssets.DeleteStale<SpriteGroupAsset>(groupsFolder, writtenPaths, "SpriteGenerator");
+            CatalogGroupAssets.DeleteStale<SpriteGroupAsset>(groupsFolder, writtenPaths);
         }
 
         private static void WriteGroupAsset(string path, SpriteGroupDefinition group)

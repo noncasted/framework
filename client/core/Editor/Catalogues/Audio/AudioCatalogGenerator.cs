@@ -13,6 +13,7 @@ namespace Internal
         private const string LogTag = "AudioCatalogGenerator";
 
         private static readonly CatalogGenerationRunner Runner = new(LogTag, GenerateInternal);
+        private static readonly ILog _log = Logs.Of(typeof(AudioCatalogGenerator));
 
         [InitializeOnLoadMethod]
         private static void OnEditorReload()
@@ -87,7 +88,7 @@ namespace Internal
             AudioGroupsRegistry.Instance.Invalidate();
             AssetDatabase.SaveAssets();
 
-            Debug.Log($"[{LogTag}] Generated {groups.Count} audio group(s).");
+            _log.Info("Generated {Groups} audio group(s).", groups.Count);
         }
     }
 }

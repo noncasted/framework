@@ -4,7 +4,6 @@ using System.Linq;
 using System.Runtime.ExceptionServices;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
-using UnityEngine;
 
 namespace Internal
 {
@@ -16,6 +15,8 @@ namespace Internal
     /// </summary>
     public static class PlayerBuildSteps
     {
+        private static readonly ILog _log = Logs.Of(typeof(PlayerBuildSteps));
+
         /// <returns>The report of <paramref name="build" />.</returns>
         /// <exception cref="AggregateException">More than one of the build and the steps threw.</exception>
         /// <remarks>
@@ -30,7 +31,7 @@ namespace Internal
             BuildReport report = null;
 
             if (steps.Count > 0)
-                Debug.Log($"[PlayerBuildSteps] {target}: {string.Join(", ", steps.Select(step => step.GetType().FullName))}");
+                _log.Info("{Target}: {Steps}", target, string.Join(", ", steps.Select(step => step.GetType().FullName)));
 
             try
             {

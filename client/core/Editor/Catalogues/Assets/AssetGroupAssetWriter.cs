@@ -7,8 +7,6 @@ namespace Internal
 {
     internal static class AssetGroupAssetWriter
     {
-        private const string LogTag = "AssetCatalogGenerator";
-
         internal static void WriteGroupAssets(IReadOnlyList<AssetGroupDefinition> groups, string groupsFolder)
         {
             var writtenPaths = new HashSet<string>(StringComparer.Ordinal);
@@ -16,7 +14,7 @@ namespace Internal
             CatalogGroupAssets.WriteAll(groups, groupsFolder, group => $"{groupsFolder}/{group.Name}.asset", WriteGroupAsset, writtenPaths);
 
             // The search covers the subfolders: the assets a previous version kept in Resources are stale too.
-            CatalogGroupAssets.DeleteStale<EnvAssetGroupAsset>(groupsFolder, writtenPaths, LogTag);
+            CatalogGroupAssets.DeleteStale<EnvAssetGroupAsset>(groupsFolder, writtenPaths);
         }
 
         private static void WriteGroupAsset(string path, AssetGroupDefinition group)

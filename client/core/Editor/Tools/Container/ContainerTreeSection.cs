@@ -8,6 +8,8 @@ namespace Internal
     // The tree of live containers; choosing a node selects the container.
     internal sealed class ContainerTreeSection
     {
+        private static readonly ILog _log = Logs.Of<ContainerTreeSection>();
+
         public ContainerTreeSection(ContainerDebuggerSelection selection, Action onContainerChanged)
         {
             _selection = selection;
@@ -137,7 +139,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
                 label.text = "(error)";
                 label.tooltip = exception.Message;
             }
@@ -159,7 +161,7 @@ namespace Internal
                 }
                 catch (Exception exception)
                 {
-                    Debug.LogException(exception);
+                    _log.Exception(exception);
                 }
             }
 

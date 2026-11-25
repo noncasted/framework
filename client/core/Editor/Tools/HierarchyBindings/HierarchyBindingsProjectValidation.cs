@@ -12,6 +12,11 @@ namespace Internal
     {
         private const string RequestedKey = "Internal.HierarchyBindings.ProjectValidation";
 
+        private const string ResultTemplate =
+            "Regenerate All: {Prefabs} prefabs and {Scenes} scenes validated in {Ms} ms, {Errors} validation errors.";
+
+        private static readonly ILog _log = Logs.Of(typeof(HierarchyBindingsProjectValidation));
+
         public static bool IsRequested => SessionState.GetBool(RequestedKey, false);
 
         public static void Request()
@@ -48,9 +53,11 @@ namespace Internal
                 scenes++;
             }
 
-            HierarchyBindingsLog.ReportResult(
-                $"Regenerate All: {prefabs.Count} prefabs and {scenes} scenes validated in " +
-                $"{watch.ElapsedMilliseconds} ms, {errors} validation errors.", errors);
+            // An error when the validation found something.
+            if (errors > 0)
+                _log.Error(ResultTemplate, prefabs.Count, scenes, watch.ElapsedMilliseconds, errors);
+            else
+                _log.Info(ResultTemplate, prefabs.Count, scenes, watch.ElapsedMilliseconds, errors);
         }
     }
 }

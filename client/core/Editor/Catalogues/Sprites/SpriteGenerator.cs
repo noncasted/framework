@@ -2,13 +2,14 @@ using System;
 using System.Collections.Generic;
 using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
-using UnityEngine;
 
 namespace Internal
 {
     [NoAutoStaticsCleanup]
     public static class SpriteGenerator
     {
+        private static readonly ILog _log = Logs.Of(typeof(SpriteGenerator));
+
         public static string GroupsFolder => FrameworkSettings.Content("Runtime/Catalogues/Sprites");
 
 
@@ -66,7 +67,7 @@ namespace Internal
             SpriteGroupsRegistry.Instance.Invalidate();
             AssetDatabase.SaveAssets();
 
-            Debug.Log($"[SpriteGenerator] Generated {groups.Count} sprite group(s).");
+            _log.Info("Generated {Groups} sprite group(s).", groups.Count);
         }
 
         private static void BakeAnimations(List<SpriteSource> sources)

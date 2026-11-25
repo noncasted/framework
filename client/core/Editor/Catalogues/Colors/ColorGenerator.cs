@@ -12,7 +12,8 @@ namespace Internal
         public static string GeneratedFolder => FrameworkSettings.Content("Runtime/Catalogues/Colors");
 
         private const string GeneratedFileName = "Colors.cs";
-        private const string LogTag = "ColorGenerator";
+
+        private static readonly ILog _log = Logs.Of(typeof(ColorGenerator));
 
         // The path is repeated by ColorCatalog.Refresh (runtime assembly).
         [MenuItem(FrameworkMenu.Codegen + "Colors", priority = FrameworkMenu.TrailingPriority)]
@@ -67,8 +68,8 @@ namespace Internal
 
             var source = BuildSource(catalog, out var groupCount);
             CatalogPaths.EnsureFolder(GeneratedFolder);
-            GeneratedFile.WriteIfChanged(LogTag, $"{GeneratedFolder}/{GeneratedFileName}", source);
-            Debug.Log($"[ColorGenerator] Generated {groupCount} color group(s).");
+            GeneratedFile.WriteIfChanged($"{GeneratedFolder}/{GeneratedFileName}", source);
+            _log.Info("Generated {Groups} color group(s).", groupCount);
         }
 
         internal static string BuildSource(ColorCatalog catalog, out int groupCount)
@@ -93,7 +94,7 @@ namespace Internal
 
                 if (source == null)
                 {
-                    Debug.LogError($"[ColorGenerator] Group at index {i} is null");
+                    _log.Error("Group at index {Index} is null", i);
                     continue;
                 }
 
@@ -101,15 +102,13 @@ namespace Internal
 
                 if (string.IsNullOrEmpty(groupName))
                 {
-                    Debug.LogError($"[ColorGenerator] Group name is empty at index {i}");
+                    _log.Error("Group name is empty at index {Index}", i);
                     continue;
                 }
 
                 if (usedGroupNames.Add(groupName) == false)
                 {
-                    Debug.LogError(
-                            $"[ColorGenerator] Duplicate group identifier '{groupName}'. Skipping group at index {i}."
-                        );
+                    _log.Error("Duplicate group identifier '{Group}'. Skipping group at index {Index}.", groupName, i);
                     continue;
                 }
 
@@ -129,9 +128,7 @@ namespace Internal
 
                         if (entry == null)
                         {
-                            Debug.LogError(
-                                    $"[ColorGenerator] Entry at index {entryIndex} in group '{groupName}' is null"
-                                );
+                            _log.Error("Entry at index {Index} in group '{Group}' is null", entryIndex, groupName);
                             continue;
                         }
 
@@ -139,17 +136,14 @@ namespace Internal
 
                         if (string.IsNullOrEmpty(entryName))
                         {
-                            Debug.LogError(
-                                    $"[ColorGenerator] Color name is empty at index {entryIndex} in group '{groupName}'"
-                                );
+                            _log.Error("Color name is empty at index {Index} in group '{Group}'", entryIndex, groupName);
                             continue;
                         }
 
                         if (usedEntryNames.Add(entryName) == false)
                         {
-                            Debug.LogError(
-                                    $"[ColorGenerator] Duplicate color identifier '{entryName}' in group '{groupName}'. Skipping."
-                                );
+                            _log.Error("Duplicate color identifier '{Color}' in group '{Group}'. Skipping.", entryName,
+                                groupName);
                             continue;
                         }
 

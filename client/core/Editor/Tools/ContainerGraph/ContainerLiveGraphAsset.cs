@@ -1,13 +1,14 @@
 using System;
 using System.IO;
 using Unity.GraphToolkit.Editor;
-using UnityEngine;
 
 namespace Internal
 {
     // The transient asset file of the graph: loaded when it exists, created otherwise.
     internal static class ContainerLiveGraphAsset
     {
+        private static readonly ILog _log = Logs.Of(typeof(ContainerLiveGraphAsset));
+
         public static ContainerLiveGraph Ensure()
         {
             var directory = CatalogPaths.ToFullPath(Path.GetDirectoryName(ContainerLiveGraph.AssetPath));
@@ -26,7 +27,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
             }
 
             return GraphDatabase.CreateGraph<ContainerLiveGraph>(ContainerLiveGraph.AssetPath);

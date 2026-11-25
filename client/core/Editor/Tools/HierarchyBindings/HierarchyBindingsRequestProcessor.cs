@@ -8,7 +8,7 @@ namespace Internal
     // The second phase of one request, after the reload: the class is attached to the object and its references filled.
     internal static class HierarchyBindingsRequestProcessor
     {
-        private const string LogTag = HierarchyBindingsLog.Tag;
+        private static readonly ILog _log = Logs.Of(typeof(HierarchyBindingsRequestProcessor));
 
         public static bool Process(HierarchyBindingsRequest request)
         {
@@ -16,8 +16,7 @@ namespace Internal
 
             if (type == null)
             {
-                Debug.LogError(
-                    $"[{LogTag}] Generated type '{request.TypeName}' not found. Fix compilation errors and generate again.");
+                _log.Error("Generated type '{Type}' not found. Fix compilation errors and generate again.", request.TypeName);
                 return false;
             }
 
@@ -25,7 +24,7 @@ namespace Internal
 
             if (target == null)
             {
-                Debug.LogError($"[{LogTag}] {resolveError}");
+                _log.Error("{Error}", resolveError);
                 return false;
             }
 
@@ -33,7 +32,9 @@ namespace Internal
 
             if (HierarchyBindingsBinder.Bind(target.Root, type, request, errors) == false)
             {
-                HierarchyBindingsLog.Report(errors, target.Root);
+                foreach (var error in errors)
+                    Debug.LogError($"[HierarchyBindingsGenerator] {error}", target.Root);
+
                 return false;
             }
 

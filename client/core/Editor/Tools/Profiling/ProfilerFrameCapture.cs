@@ -18,7 +18,6 @@ namespace Internal
     [NoAutoStaticsCleanup]
     public static class ProfilerFrameCapture
     {
-
         private const string EnabledKey = "Internal.Profiler.CaptureFrames";
 
         /// <summary>
@@ -29,6 +28,7 @@ namespace Internal
         private const int TailTicks = 30;
 
         private static readonly ProfilerFrameOffsets _offsets = new();
+        private static readonly ILog _log = Logs.Of(typeof(ProfilerFrameCapture));
 
         private static ProfilerTraceData _pending;
         private static string _pendingPath;
@@ -134,13 +134,12 @@ namespace Internal
                 var frames = Capture(trace);
                 ProfilerFramesStorage.Save(path, frames);
 
-                Debug.Log($"[Profiler] Captured {frames.Frames.Count} profiler frames" +
-                          (frames.MissedFrames > 0 ? $", {frames.MissedFrames} missed" : string.Empty) +
-                          $" -> {path}");
+                _log.Info("Captured {Frames} profiler frames{Missed} -> {Path}", frames.Frames.Count,
+                    frames.MissedFrames > 0 ? $", {frames.MissedFrames} missed" : string.Empty, path);
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[Profiler] Failed to capture profiler frames: {e.Message}");
+                _log.Warning("Failed to capture profiler frames: {Error}", e.Message);
             }
         }
 

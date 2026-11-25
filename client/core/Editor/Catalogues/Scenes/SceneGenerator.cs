@@ -4,7 +4,6 @@ using System.IO;
 using System.Text;
 using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
-using UnityEngine;
 
 namespace Internal
 {
@@ -16,6 +15,7 @@ namespace Internal
         // Like the other catalogues: nothing is written or imported while the domain loads, the run waits for the
         // first editor tick and for the end of an import or a compilation.
         private static readonly CatalogGenerationRunner Runner = new("SceneGenerator", Generate);
+        private static readonly ILog _log = Logs.Of(typeof(SceneGenerator));
 
         [InitializeOnLoadMethod]
         private static void OnEditorReload()
@@ -56,7 +56,7 @@ namespace Internal
             {
                 ScenesClassGenerator.Generate(scenes);
                 ContentRootGenerator.ScheduleGenerate();
-                Debug.Log($"[SceneGenerator] Found {scenes.Count} scene(s).");
+                _log.Info("Found {Scenes} scene(s).", scenes.Count);
             });
         }
 

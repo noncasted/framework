@@ -2,14 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
-using UnityEngine;
 
 namespace Internal
 {
     // Scenes that are not loaded are not opened by Regenerate All: the ones with bindings are named in the log.
     internal static class HierarchyBindingsSkippedScenes
     {
-        private const string LogTag = HierarchyBindingsLog.Tag;
+        private static readonly ILog _log = Logs.Of(typeof(HierarchyBindingsSkippedScenes));
 
         public static void Log(HashSet<string> loadedScenes)
         {
@@ -29,9 +28,8 @@ namespace Internal
             if (skipped.Count == 0)
                 return;
 
-            Debug.Log(
-                $"[{LogTag}] Not loaded scenes with bindings were skipped (open each and use Project Tools > " +
-                $"Current Scene > Regenerate All Bindings): {string.Join(", ", skipped)}");
+            _log.Info("Not loaded scenes with bindings were skipped (open each and use Project Tools > Current Scene > " +
+                      "Regenerate All Bindings): {Scenes}", string.Join(", ", skipped));
         }
 
         private static List<string> CollectBindingsScriptGuids()

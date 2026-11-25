@@ -16,6 +16,8 @@ namespace Internal
     /// </summary>
     public class ProfilerTraceWindow : EditorWindow
     {
+        private static readonly ILog _log = Logs.Of<ProfilerTraceWindow>();
+
         private List<string> _files = new();
         private string _external;
         private ProfilerTraceData _trace;
@@ -170,7 +172,7 @@ namespace Internal
 
             EditorGUIUtility.systemCopyBuffer = path;
             ShowNotification(new GUIContent("Path copied"));
-            Debug.Log($"[Profiler] Trace path copied: {path}");
+            _log.Info("Trace path copied: {Path}", path);
         }
 
         private void RebuildTracesMenu()

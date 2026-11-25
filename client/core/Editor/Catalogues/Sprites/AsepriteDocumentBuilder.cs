@@ -1,13 +1,12 @@
 using System.Collections.Generic;
 using UnityEditor.U2D.Aseprite;
-using UnityEngine;
 
 namespace Internal
 {
     // Turns an open aseprite file into a document: image layers, tags and copies of the cells.
     internal static class AsepriteDocumentBuilder
     {
-        private const string LogTag = "AsepriteDocument";
+        private static readonly ILog _log = Logs.Of(typeof(AsepriteDocumentBuilder));
 
         internal static AsepriteDocument Build(AsepriteFile file, string assetPath)
         {
@@ -90,8 +89,8 @@ namespace Internal
                     continue;
 
                 if (layer.blendMode != BlendModes.Normal)
-                    Debug.LogWarning(
-                        $"[{LogTag}] Layer '{path}' in {assetPath} uses {layer.blendMode} blending, composed as Normal.");
+                    _log.Warning("Layer '{Layer}' in {Path} uses {Blend} blending, composed as Normal.", path, assetPath,
+                        layer.blendMode);
 
                 layers.Add(new AsepriteLayer(index, path, visible, layer.opacity / 255f));
             }

@@ -1,6 +1,5 @@
 using System;
 using UnityEditor;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Internal
@@ -8,6 +7,8 @@ namespace Internal
     [ProjectToolsTab(400)]
     public class AssetsTab : ProjectToolsTab
     {
+        private static readonly ILog _log = Logs.Of<AssetsTab>();
+
         public override string Title => "Assets";
 
         protected override void BuildContent(VisualElement parent)
@@ -82,7 +83,7 @@ namespace Internal
             catch (Exception ex)
             {
                 Host.SetStatus(failedMessage, true);
-                Debug.LogError($"[ProjectTools] {failedMessage}: {ex}");
+                _log.Error(ex, "{Failed}", failedMessage);
             }
         }
     }

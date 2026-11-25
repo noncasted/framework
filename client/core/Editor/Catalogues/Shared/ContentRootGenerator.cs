@@ -20,6 +20,7 @@ namespace Internal
         private const string LogTag = "ContentRootGenerator";
 
         private static readonly CatalogGenerationRunner Runner = new(LogTag, Generate);
+        private static readonly ILog _log = Logs.Of(typeof(ContentRootGenerator));
 
         // The paths of the groups and scenes left out of the root being written; empty outside GenerateWithout.
         private static IReadOnlyCollection<string> _without = Array.Empty<string>();
@@ -97,7 +98,8 @@ namespace Internal
             EditorUtility.SetDirty(root);
             AssetDatabase.SaveAssetIfDirty(root);
 
-            Debug.Log($"[{LogTag}] {Path}: {groups.Count} group(s), {preloaded.Count} preloaded, {scenes.Count} scene(s).");
+            _log.Info("{Path}: {Groups} group(s), {Preloaded} preloaded, {Scenes} scene(s).", Path, groups.Count, preloaded.Count,
+                scenes.Count);
         }
 
         // The group assets of one catalogue by path; a catalogue without a registry has no preloaded groups.

@@ -2,8 +2,7 @@
 
 The logger of the client: `client/core/Runtime/Logging` (assembly `Internal`, namespace `Internal`). The code of a game logs
 through it, runtime and Editor, not through `Debug.Log*` (release 0.15.0, step 4). What stays on `Debug.Log*`: a call with a context
-object (`Debug.Log(text, gameObject)`, the console of the editor highlights it) and the code of an `ILogSink`. The editor tools of
-the framework itself are still on `Debug.Log`.
+object (`Debug.Log(text, gameObject)`, the console of the editor highlights it) and the code of an `ILogSink`.
 
 ## Getting a log
 

@@ -1,7 +1,6 @@
 using System;
 using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
-using UnityEngine;
 
 namespace Internal
 {
@@ -16,6 +15,8 @@ namespace Internal
         // generators, and a generation of the catalogues of the project between two tests costs seconds. A run due
         // while paused is dropped; Run, RunNow and the menu items still generate.
         private static int _pauses;
+
+        [NoAutoStaticsCleanup] private static readonly ILog _log = Logs.Of<CatalogGenerationRunner>();
 
         private readonly string _logTag;
         private readonly Action _generate;
@@ -66,7 +67,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogError($"[{_logTag}] Generate failed: {exception}");
+                _log.Error(exception, "{Generator}: generate failed", _logTag);
             }
             finally
             {

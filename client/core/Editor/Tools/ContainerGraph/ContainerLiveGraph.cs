@@ -30,6 +30,8 @@ namespace Internal
         private const float SiblingGap = 24f;
         private const float RootGap = 64f;
 
+        private static readonly ILog _log = Logs.Of<ContainerLiveGraph>();
+
         [NonSerialized]
         private Lifetime _lifetime;
 
@@ -65,7 +67,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
             }
         }
 
@@ -82,7 +84,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
             }
 
             EditorApplication.playModeStateChanged -= OnPlayModeChanged;
@@ -112,7 +114,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
                 Status = "Failed to read container diagnostics";
             }
             finally
@@ -187,7 +189,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
             }
         }
 

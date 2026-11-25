@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Internal
 {
     // Reads of the container diagnostics for the editor tools: a source that throws is logged and shows a placeholder.
     internal static class ContainerGraphRead
     {
+        private static readonly ILog _log = Logs.Of(typeof(ContainerGraphRead));
+
         public static IReadOnlyList<T> List<T>(Func<IReadOnlyList<T>> read)
         {
             try
@@ -15,7 +16,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
                 return Array.Empty<T>();
             }
         }
@@ -31,7 +32,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
                 return null;
             }
         }
@@ -47,7 +48,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
                 return "(error)";
             }
         }

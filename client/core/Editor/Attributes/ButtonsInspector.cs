@@ -13,6 +13,8 @@ namespace Internal
         private const BindingFlags MethodFlags =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
 
+        private static readonly ILog _log = Logs.Of<ButtonsInspector>();
+
         private readonly List<(MethodInfo Method, string Text)> _buttons = new();
 
         protected virtual void OnEnable()
@@ -31,7 +33,7 @@ namespace Internal
 
                 if (method.GetParameters().Length > 0)
                 {
-                    Debug.LogWarning($"{nameof(ButtonAttribute)} works only with parameterless methods: {method.Name}");
+                    _log.Warning("{Attribute} works only with parameterless methods: {Method}", nameof(ButtonAttribute), method.Name);
                     continue;
                 }
 

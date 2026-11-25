@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.Build;
-using UnityEngine;
 
 namespace Internal
 {
@@ -22,6 +21,8 @@ namespace Internal
     {
         // Not under Library: BuildAssetBundles refuses it ("Building to the Library folder is not allowed").
         public const string Output = "Temp/ContentBundles";
+
+        private static readonly ILog _log = Logs.Of<ContentBuild>();
 
         // The bundles of the running player build, null between builds.
         public static ContentBuildOutput Current { get; private set; }
@@ -51,8 +52,8 @@ namespace Internal
             ContentPlayerStamp.WriteCatalog(output.Catalog);
             ContentPlayerStamp.WritePreloadManifest(output.Catalog);
             ContentBuildLog.Write(output);
-            Debug.Log($"[ContentBuild] {bundles.Count} content bundles for {target}: StreamingAssets/{ContentShippedPaths.Folder} from {output.Shipped}, " +
-                      $"catalog {ContentPlayerStamp.CatalogAsset}");
+            _log.Info("{Bundles} content bundles for {Target}: {Shipped}, catalog {Catalog}", bundles.Count, target,
+                $"StreamingAssets/{ContentShippedPaths.Folder} from {output.Shipped}", ContentPlayerStamp.CatalogAsset);
 
             Current = output;
             return Current;
@@ -80,7 +81,7 @@ namespace Internal
             var bundles = ContentBundleAssets.All();
 
             if (build.Excluded.Count > 0)
-                Debug.Log($"[ContentBuild] Left out of this build: {string.Join(", ", build.Excluded)}");
+                _log.Info("Left out of this build: {Bundles}", string.Join(", ", build.Excluded));
 
             build.Resolve(ExcludedBundles(bundles, build.Excluded));
 

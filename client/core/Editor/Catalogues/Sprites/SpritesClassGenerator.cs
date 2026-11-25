@@ -8,8 +8,6 @@ namespace Internal
     {
         public static string GeneratedFolder => FrameworkSettings.Content("Runtime/Catalogues/Sprites");
 
-        private const string LogTag = "SpritesClassGenerator";
-
         internal static void Generate(IReadOnlyList<SpriteGroupDefinition> groups)
         {
             CatalogPaths.EnsureFolder(GeneratedFolder);
@@ -20,10 +18,10 @@ namespace Internal
             foreach (var pair in sources)
             {
                 written.Add(pair.Key);
-                GeneratedFile.WriteIfChanged(LogTag, $"{GeneratedFolder}/{pair.Key}", pair.Value);
+                GeneratedFile.WriteIfChanged($"{GeneratedFolder}/{pair.Key}", pair.Value);
             }
 
-            GeneratedFile.DeleteStale(LogTag, GeneratedFolder, written, ".cs");
+            GeneratedFile.DeleteStale(GeneratedFolder, written, ".cs");
         }
 
         // File name -> source of every class of the catalogue.

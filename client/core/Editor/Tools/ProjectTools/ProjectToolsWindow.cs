@@ -25,6 +25,7 @@ namespace Internal
         private const string ActiveTabPrefsKey = "Internal.ProjectTools.ActiveTab";
 
         private static readonly string UssPath = FrameworkSettings.Package("Editor/Tools/ProjectTools/ProjectToolsWindow.uss");
+        private static readonly ILog _log = Logs.Of<ProjectToolsWindow>();
 
         // A content is null until its tab is shown.
         private readonly List<VisualElement> _tabContents = new();
@@ -244,7 +245,7 @@ namespace Internal
             EditorUtility.SetDirty(_options);
             AssetDatabase.SaveAssets();
             SetStatus("Settings saved", false);
-            Debug.Log("[ProjectTools] Settings saved");
+            _log.Info("Settings saved");
         }
 
         private OptionsContainer LoadOptions()
@@ -253,12 +254,12 @@ namespace Internal
 
             if (guids.Length == 0)
             {
-                Debug.LogError("[ProjectTools] OptionsContainer asset is missing");
+                _log.Error("OptionsContainer asset is missing");
                 return null;
             }
 
             if (guids.Length > 1)
-                Debug.LogWarning($"[ProjectTools] Found {guids.Length} OptionsContainer assets, using the first one");
+                _log.Warning("Found {Count} OptionsContainer assets, using the first one", guids.Length);
 
             return AssetDatabase.LoadAssetAtPath<OptionsContainer>(AssetDatabase.GUIDToAssetPath(guids[0]));
         }

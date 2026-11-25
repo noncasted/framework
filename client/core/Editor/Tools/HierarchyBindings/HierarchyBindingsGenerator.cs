@@ -12,8 +12,10 @@ namespace Internal
     {
         public const string TypeNameSuffix = HierarchyBindingsGeneratedTypes.TypeNameSuffix;
 
-        private const string LogTag = HierarchyBindingsLog.Tag;
+        private const string LogTag = "HierarchyBindingsGenerator";
         private const string AwaitingReloadKey = "Internal.HierarchyBindings.AwaitingReload";
+
+        private static readonly ILog _log = Logs.Of(typeof(HierarchyBindingsGenerator));
 
         public static string ToTypeName(string bindingsName)
         {
@@ -177,7 +179,7 @@ namespace Internal
             if (bound > 0)
             {
                 AssetDatabase.SaveAssets();
-                Debug.Log($"[{LogTag}] Bound {bound} of {requests.Count} bindings.");
+                _log.Info("Bound {Bound} of {Requests} bindings.", bound, requests.Count);
             }
 
             HierarchyBindingsBatch.OnPendingProcessed();

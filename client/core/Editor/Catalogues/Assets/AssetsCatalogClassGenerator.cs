@@ -28,7 +28,7 @@ namespace Internal
                 WriteFolder(pair.Key, pair.Value);
             }
 
-            GeneratedFile.DeleteFromUnusedFolders(LogTag, InternalGeneratedFolder, OwnedSuffix, writtenFolders);
+            GeneratedFile.DeleteFromUnusedFolders(InternalGeneratedFolder, OwnedSuffix, writtenFolders);
         }
 
         public static string GetAssemblyGeneratedFolder(string assemblyName)
@@ -48,9 +48,9 @@ namespace Internal
                 sources.Add(group.ClassName + ".cs", BuildGroupClass(group));
 
             foreach (var pair in sources)
-                GeneratedFile.WriteIfChanged(LogTag, $"{folder}/{pair.Key}", pair.Value);
+                GeneratedFile.WriteIfChanged($"{folder}/{pair.Key}", pair.Value);
 
-            GeneratedFile.DeleteStale(LogTag, folder, new HashSet<string>(sources.Keys, StringComparer.Ordinal),
+            GeneratedFile.DeleteStale(folder, new HashSet<string>(sources.Keys, StringComparer.Ordinal),
                 OwnedSuffix);
         }
 

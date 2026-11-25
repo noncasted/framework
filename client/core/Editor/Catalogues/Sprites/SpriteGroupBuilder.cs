@@ -8,6 +8,8 @@ namespace Internal
     // Sorts the sources by priority and turns them into groups with unique property names.
     internal static class SpriteGroupBuilder
     {
+        private static readonly ILog _log = Logs.Of(typeof(SpriteGroupBuilder));
+
         internal static List<SpriteGroupDefinition> BuildGroups(List<SpriteSource> sources)
         {
             sources.Sort(CompareSources);
@@ -33,9 +35,8 @@ namespace Internal
                     // In the group asset the key stays flat ("GrandIdleFace"); it is unique within the group.
                     if (usedNames[source.Group].Add(source.PropertyName) == false)
                     {
-                        Debug.LogError(
-                                $"[SpriteGenerator] Duplicate identifier '{source.PropertyName}' in group '{group.Path}'. Skipping {source.Path}."
-                            );
+                        _log.Error("Duplicate identifier '{Name}' in group '{Group}'. Skipping {Path}.", source.PropertyName,
+                            group.Path, source.Path);
                         continue;
                     }
 
@@ -90,8 +91,7 @@ namespace Internal
 
                     if (string.IsNullOrEmpty(propertyName))
                     {
-                        Debug.LogError(
-                            $"[SpriteGenerator] Identifier is empty for sprite '{sprite.name}' in {source.Path}");
+                        _log.Error("Identifier is empty for sprite '{Sprite}' in {Path}", sprite.name, source.Path);
                         continue;
                     }
 
@@ -149,9 +149,8 @@ namespace Internal
         {
             if (usedNames.Add(propertyName) == false)
             {
-                Debug.LogError(
-                        $"[SpriteGenerator] Duplicate identifier '{propertyName}' in group '{group.Name}'. Skipping lower-priority source {sourcePath}."
-                    );
+                _log.Error("Duplicate identifier '{Name}' in group '{Group}'. Skipping lower-priority source {Path}.",
+                    propertyName, group.Name, sourcePath);
                 return false;
             }
 

@@ -40,7 +40,7 @@ namespace Internal.EditorTests
             }
 
             Assert.That(messages.FindAll(message =>
-                    message.Contains("[PrefabCatalogGenerator]") || message.Contains("[ContainerGraph]")),
+                    message.Contains("[PrefabCatalogGenerator]") || message.Contains("[ContainerGraphPostprocessor]")),
                 Is.Empty);
         }
     }

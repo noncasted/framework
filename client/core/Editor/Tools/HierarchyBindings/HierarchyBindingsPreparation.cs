@@ -7,7 +7,9 @@ namespace Internal
     // The first phase of the generation: the object is scanned, its code is written, the request waits for the reload.
     internal static class HierarchyBindingsPreparation
     {
-        private const string LogTag = HierarchyBindingsLog.Tag;
+        private const string LogTag = "HierarchyBindingsGenerator";
+
+        private static readonly ILog _log = Logs.Of(typeof(HierarchyBindingsPreparation));
 
         // Code is written separately from triggering compilation: batch regeneration writes all the
         // classes and only then calls Refresh once - otherwise the domain would reload mid-traversal.
@@ -29,7 +31,7 @@ namespace Internal
 
             if (string.IsNullOrEmpty(typeName))
             {
-                Debug.LogError($"[{LogTag}] '{bindingsName}' is not a C# identifier.");
+                _log.Error("'{Name}' is not a C# identifier.", bindingsName);
                 return false;
             }
 
@@ -79,7 +81,9 @@ namespace Internal
 
             if (code == null)
             {
-                HierarchyBindingsLog.Report(errors, root);
+                foreach (var error in errors)
+                    Debug.LogError($"[{LogTag}] {error}", root);
+
                 return false;
             }
 
@@ -96,7 +100,7 @@ namespace Internal
             // The code is written before the request is queued: a failed write throws and leaves no request waiting
             // for a reload that never comes. Changed means written, so a reload follows.
             CatalogPaths.EnsureFolder(folder);
-            changed = GeneratedFile.WriteIfChanged(LogTag, filePath, code);
+            changed = GeneratedFile.WriteIfChanged(filePath, code);
 
             // Same code but a stale hash on the object: an earlier binding failed or never ran (the object was
             // saved with old references). Bind again, otherwise the object never catches up with its code.

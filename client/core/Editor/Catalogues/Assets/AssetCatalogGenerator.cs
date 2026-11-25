@@ -1,6 +1,5 @@
 using Unity.Scripting.LifecycleManagement;
 using UnityEditor;
-using UnityEngine;
 
 namespace Internal
 {
@@ -12,6 +11,7 @@ namespace Internal
         private const string LogTag = "AssetCatalogGenerator";
 
         private static readonly CatalogGenerationRunner Runner = new(LogTag, GenerateInternal);
+        private static readonly ILog _log = Logs.Of(typeof(AssetCatalogGenerator));
 
         [InitializeOnLoadMethod]
         private static void OnEditorReload()
@@ -56,7 +56,7 @@ namespace Internal
             AssetGroupsRegistry.Instance.Invalidate();
             AssetDatabase.SaveAssets();
 
-            Debug.Log($"[{LogTag}] Generated {groups.Count} asset group(s).");
+            _log.Info("Generated {Groups} asset group(s).", groups.Count);
         }
     }
 }

@@ -215,8 +215,7 @@ namespace Internal.EditorTests
         [Test]
         public void FailedWrite_Throws()
         {
-            Assert.Catch<Exception>(() => GeneratedFile.WriteIfChanged("HierarchyBindingsBatchTests",
-                "ProjectSettings/ProjectVersion.txt/X.cs", "x"));
+            Assert.Catch<Exception>(() => GeneratedFile.WriteIfChanged("ProjectSettings/ProjectVersion.txt/X.cs", "x"));
         }
 
         // Every operation of the queue goes through its json in SessionState, so this is the round trip a domain

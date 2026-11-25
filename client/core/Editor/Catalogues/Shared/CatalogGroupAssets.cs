@@ -8,6 +8,8 @@ namespace Internal
     // The group assets of a catalog: written, deleted when stale.
     internal static class CatalogGroupAssets
     {
+        private static readonly ILog _log = Logs.Of(typeof(CatalogGroupAssets));
+
         public static void WriteAll<TGroup>(
             IReadOnlyList<TGroup> groups,
             string groupsFolder,
@@ -25,7 +27,7 @@ namespace Internal
             }
         }
 
-        public static void DeleteStale<TAsset>(string groupsFolder, HashSet<string> writtenPaths, string logTag)
+        public static void DeleteStale<TAsset>(string groupsFolder, HashSet<string> writtenPaths)
             where TAsset : ScriptableObject
         {
             if (AssetDatabase.IsValidFolder(groupsFolder) == false)
@@ -39,7 +41,7 @@ namespace Internal
                     continue;
 
                 AssetDatabase.DeleteAsset(path);
-                Debug.Log($"[{logTag}] Deleted stale group asset: {path}");
+                _log.Info("Deleted stale group asset: {Path}", path);
             }
         }
     }

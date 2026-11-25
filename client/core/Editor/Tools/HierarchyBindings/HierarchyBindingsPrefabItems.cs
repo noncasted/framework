@@ -9,7 +9,7 @@ namespace Internal
     // The bindings declared in prefab assets, as a batch plans them.
     internal static class HierarchyBindingsPrefabItems
     {
-        private const string LogTag = HierarchyBindingsLog.Tag;
+        private static readonly ILog _log = Logs.Of(typeof(HierarchyBindingsPrefabItems));
 
         public static void CollectPrefab(string assetPath, List<HierarchyBindingsPrefabItem> items)
         {
@@ -70,7 +70,7 @@ namespace Internal
                     continue;
 
                 valid = false;
-                Debug.LogError($"[{LogTag}] '{group.Key}' is declared on more than one object: {Places(group)}.");
+                _log.Error("'{Type}' is declared on more than one object: {Places}.", group.Key, Places(group));
             }
 
             foreach (var group in items.GroupBy(item => GeneratedFilePath(item.Request)))
@@ -81,9 +81,8 @@ namespace Internal
                     continue;
 
                 valid = false;
-                Debug.LogError(
-                    $"[{LogTag}] {string.Join(", ", types)} are all generated into {group.Key}: {Places(group)}. " +
-                    "Rename all of them but one.");
+                _log.Error("{Types} are all generated into {File}: {Places}. Rename all of them but one.",
+                    string.Join(", ", types), group.Key, Places(group));
             }
 
             return valid;

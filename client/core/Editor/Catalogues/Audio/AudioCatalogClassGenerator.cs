@@ -12,8 +12,6 @@ namespace Internal
         // Clips are UnityEngine types, so the classes of all groups live in Internal rather than in module assemblies.
         private const string OwnedSuffix = "Audio.cs";
 
-        private const string LogTag = "AudioCatalogClassGenerator";
-
         internal static void Generate(IReadOnlyList<AudioGroupDefinition> groups)
         {
             CatalogPaths.EnsureFolder(GeneratedFolder);
@@ -26,9 +24,9 @@ namespace Internal
                 sources.Add(group.ClassName + ".cs", BuildGroupClass(group));
 
             foreach (var pair in sources)
-                GeneratedFile.WriteIfChanged(LogTag, $"{GeneratedFolder}/{pair.Key}", pair.Value);
+                GeneratedFile.WriteIfChanged($"{GeneratedFolder}/{pair.Key}", pair.Value);
 
-            GeneratedFile.DeleteStale(LogTag, GeneratedFolder,
+            GeneratedFile.DeleteStale(GeneratedFolder,
                 new HashSet<string>(sources.Keys, StringComparer.Ordinal), OwnedSuffix);
         }
 

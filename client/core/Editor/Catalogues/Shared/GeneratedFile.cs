@@ -10,9 +10,11 @@ namespace Internal
     // the generator did not produce in this run.
     public static class GeneratedFile
     {
+        private static readonly ILog _log = Logs.Of(typeof(GeneratedFile));
+
         // Returns true if the file was written. A failed read or write throws: a caller that waits for the
         // recompilation of what it wrote would otherwise wait for a reload that never comes.
-        public static bool WriteIfChanged(string logTag, string assetPath, string content)
+        public static bool WriteIfChanged(string assetPath, string content)
         {
             var fullPath = CatalogPaths.ToFullPath(assetPath);
 
@@ -26,22 +28,22 @@ namespace Internal
 
             File.WriteAllText(fullPath, content);
             AssetDatabase.ImportAsset(assetPath);
-            Debug.Log($"[{logTag}] Generated {assetPath}");
+            _log.Debug("Generated {Path}", assetPath);
             return true;
         }
 
         // Several generators share the Generated folder, so foreign files are filtered out by the class name
         // suffix: the prefab catalog touches only *Prefabs.cs, the asset catalog only *Assets.cs.
-        public static void DeleteStale(string logTag, string folder, HashSet<string> writtenNames, string ownedSuffix)
+        public static void DeleteStale(string folder, HashSet<string> writtenNames, string ownedSuffix)
         {
-            foreach (var file in EnumerateScripts(logTag, folder))
+            foreach (var file in EnumerateScripts(folder))
             {
                 var fileName = Path.GetFileName(file);
 
                 if (writtenNames.Contains(fileName) || IsOwned(fileName, ownedSuffix) == false)
                     continue;
 
-                Delete(logTag, $"{folder}/{fileName}", file);
+                Delete($"{folder}/{fileName}", file);
             }
         }
 
@@ -78,14 +80,10 @@ namespace Internal
         }
 
         // The classes of this generator in every other Generated folder of the project.
-        public static void DeleteFromUnusedFolders(
-            string logTag,
-            string internalFolder,
-            string ownedSuffix,
-            HashSet<string> writtenFolders)
+        public static void DeleteFromUnusedFolders(string internalFolder, string ownedSuffix, HashSet<string> writtenFolders)
         {
             if (writtenFolders.Contains(internalFolder) == false)
-                DeleteFolderScripts(logTag, internalFolder, ownedSuffix);
+                DeleteFolderScripts(internalFolder, ownedSuffix);
 
             var assetsRoot = Application.dataPath;
 
@@ -103,20 +101,20 @@ namespace Internal
                 if (writtenFolders.Contains(folder))
                     continue;
 
-                DeleteFolderScripts(logTag, folder, ownedSuffix);
+                DeleteFolderScripts(folder, ownedSuffix);
             }
         }
 
-        public static void DeleteFolderScripts(string logTag, string folder, string ownedSuffix)
+        public static void DeleteFolderScripts(string folder, string ownedSuffix)
         {
-            foreach (var file in EnumerateScripts(logTag, folder))
+            foreach (var file in EnumerateScripts(folder))
             {
                 var fileName = Path.GetFileName(file);
 
                 if (IsOwned(fileName, ownedSuffix) == false)
                     continue;
 
-                Delete(logTag, $"{folder}/{fileName}", file);
+                Delete($"{folder}/{fileName}", file);
             }
         }
 
@@ -125,7 +123,7 @@ namespace Internal
             return fileName.EndsWith(ownedSuffix, StringComparison.Ordinal);
         }
 
-        private static IReadOnlyList<string> EnumerateScripts(string logTag, string folder)
+        private static IReadOnlyList<string> EnumerateScripts(string folder)
         {
             if (AssetDatabase.IsValidFolder(folder) == false)
                 return Array.Empty<string>();
@@ -133,7 +131,7 @@ namespace Internal
             return Directory.GetFiles(CatalogPaths.ToFullPath(folder), "*.cs", SearchOption.TopDirectoryOnly);
         }
 
-        private static void Delete(string logTag, string assetPath, string fullPath)
+        private static void Delete(string assetPath, string fullPath)
         {
             if (AssetDatabase.DeleteAsset(assetPath) == false)
             {
@@ -143,12 +141,12 @@ namespace Internal
                 }
                 catch (Exception exception)
                 {
-                    Debug.LogError($"[{logTag}] Failed to delete {assetPath}: {exception}");
+                    _log.Error(exception, "Failed to delete {Path}", assetPath);
                     return;
                 }
             }
 
-            Debug.Log($"[{logTag}] Deleted stale file: {assetPath}");
+            _log.Info("Deleted stale file: {Path}", assetPath);
         }
     }
 }

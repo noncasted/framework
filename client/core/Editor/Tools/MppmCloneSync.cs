@@ -35,6 +35,8 @@ namespace Internal
         private const BindingFlags Members = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
         private const BindingFlags Statics = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
 
+        private static readonly ILog _log = Logs.Of(typeof(MppmCloneSync));
+
         private static double _restoreDeadline;
 
         private static string _assembliesDirectory;
@@ -107,7 +109,7 @@ namespace Internal
                     continue;
 
                 state.GetType().GetField("IsCommunicative", Members)?.SetValue(state, true);
-                Debug.Log($"[MPPM] Restored connection state of clone {key} after domain reload");
+                _log.Info("Restored connection state of clone {Clone} after domain reload", key);
             }
 
             Finish();
@@ -163,7 +165,7 @@ namespace Internal
             {
                 // Not an empty list: taken for "no clones", the restore would erase the snapshot and the save write an
                 // empty one. The restore polls again until its deadline.
-                Debug.LogWarning($"[MPPM] Clone sync is unavailable: {exception.Message}");
+                _log.Warning("Clone sync is unavailable: {Error}", exception.Message);
                 return null;
             }
         }
@@ -224,7 +226,7 @@ namespace Internal
             }
 
             _loadedAssembliesTime = time;
-            Debug.Log("[MPPM] Script assemblies changed in the main editor, reloading clone domain");
+            _log.Info("Script assemblies changed in the main editor, reloading clone domain");
             EditorUtility.RequestScriptReload();
         }
 

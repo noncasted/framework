@@ -10,6 +10,8 @@ namespace Internal
     [NoAutoStaticsCleanup]
     internal static class PrefabRootResolver
     {
+        private static readonly ILog _log = Logs.Of(typeof(PrefabRootResolver));
+
         private static readonly List<MetadataFix> _metadataFixes = new();
 
         internal static void Reset()
@@ -59,7 +61,7 @@ namespace Internal
             });
 
             if (string.IsNullOrEmpty(componentType) == false && actualType != componentType)
-                Debug.Log($"[PrefabCatalogGenerator] Root type moved: '{componentType}' -> '{actualType}' for {path}.");
+                _log.Info("Root type moved: '{Old}' -> '{New}' for {Path}.", componentType, actualType, path);
 
             return actualType;
         }

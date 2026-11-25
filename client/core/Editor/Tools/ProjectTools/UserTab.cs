@@ -12,6 +12,7 @@ namespace Internal
         private const string Empty = "<none>";
 
         private static readonly BackendEnvironment[] Environments = (BackendEnvironment[])Enum.GetValues(typeof(BackendEnvironment));
+        private static readonly ILog _log = Logs.Of<UserTab>();
 
         // The guests of this project copy, one per backend environment (LocalStorageKeys.Guest).
         private static string GuestKey(BackendEnvironment environment) => LocalStorageKeys.Get(LocalStorageKeys.Guest, environment);
@@ -98,7 +99,7 @@ namespace Internal
 
             Refresh();
             Host.SetStatus("Guests cleared", false);
-            Debug.Log("[ProjectTools] Saved guests cleared");
+            _log.Info("Saved guests cleared");
         }
 
         private static string ReadGuestId(BackendEnvironment environment)

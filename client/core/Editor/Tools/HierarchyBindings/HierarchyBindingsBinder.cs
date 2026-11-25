@@ -9,6 +9,8 @@ namespace Internal
     // match by construction and nothing needs to be looked up.
     internal static class HierarchyBindingsBinder
     {
+        private static readonly ILog _log = Logs.Of(typeof(HierarchyBindingsBinder));
+
         public static bool Bind(GameObject root, Type type, HierarchyBindingsRequest request, List<string> errors)
         {
             var component = ResolveComponent(root, type, errors, out var isAdded, out var standalone);
@@ -29,8 +31,8 @@ namespace Internal
             {
                 UnityEngine.Object.DestroyImmediate(standalone, true);
 
-                Debug.Log(
-                    $"[HierarchyBindingsGenerator] Removed standalone {type.Name} from '{root.name}': {component.GetType().Name} inherits it.");
+                _log.Info("Removed standalone {Type} from '{Object}': {Component} inherits it.", type.Name, root.name,
+                    component.GetType().Name);
             }
 
             return true;

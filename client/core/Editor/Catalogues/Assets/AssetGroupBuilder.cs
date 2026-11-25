@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Internal
 {
     internal static class AssetGroupBuilder
     {
         private const string LogTag = "AssetCatalogGenerator";
+
+        private static readonly ILog _log = Logs.Of(typeof(AssetGroupBuilder));
 
         internal static List<AssetGroupDefinition> BuildGroups(List<AssetSource> sources)
         {
@@ -76,8 +77,8 @@ namespace Internal
 
                 if (assemblies.Count > 1)
                 {
-                    Debug.LogError(
-                        $"[{LogTag}] Group '{group.Name}' mixes asset types from {string.Join(", ", assemblies)}. One group must stay in one assembly.");
+                    _log.Error("Group '{Group}' mixes asset types from {Assemblies}. One group must stay in one assembly.",
+                        group.Name, string.Join(", ", assemblies));
                     group.DisableCodegen();
                     continue;
                 }

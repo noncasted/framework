@@ -16,6 +16,8 @@ namespace Internal
         private const string LogTag = "AsepriteAnimationBaker";
         private const int BakeVersion = 2;
 
+        private static readonly ILog _log = Logs.Of(typeof(AsepriteAnimationBaker));
+
         public static List<BakedAnimation> Bake(
             string assetPath,
             string group,
@@ -71,7 +73,7 @@ namespace Internal
                     continue;
 
                 AssetDatabase.DeleteAsset(path);
-                Debug.Log($"[{LogTag}] Deleted stale baked animations: {path}");
+                _log.Info("Deleted stale baked animations: {Path}", path);
             }
         }
 

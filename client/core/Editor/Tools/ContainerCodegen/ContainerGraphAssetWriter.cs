@@ -25,7 +25,7 @@ namespace Internal
                     prefabs.Add(asset);
             }
 
-            GeneratedFile.WriteIfChanged("ContainerGraph", OutputPath, Build(prefabs, scenes));
+            GeneratedFile.WriteIfChanged(OutputPath, Build(prefabs, scenes));
         }
 
         private static string Build(List<ContainerGraphAsset> prefabs, List<ContainerGraphAsset> scenes)

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Internal
 {
@@ -8,6 +7,8 @@ namespace Internal
     internal static class AudioGroupBuilder
     {
         private const string LogTag = "AudioCatalogGenerator";
+
+        private static readonly ILog _log = Logs.Of(typeof(AudioGroupBuilder));
 
         internal static List<AudioGroupDefinition> BuildGroups(List<ClipSource> sources)
         {
@@ -67,8 +68,8 @@ namespace Internal
                 {
                     if (usedNames.Contains(key.Name))
                     {
-                        Debug.LogError(
-                            $"[{LogTag}] Variation list '{key.Name}' in group '{group.Name}' clashes with a single clip. Skipping variations.");
+                        _log.Error("Variation list '{List}' in group '{Group}' clashes with a single clip. Skipping variations.",
+                            key.Name, group.Name);
                         variations.Add(key.Name, null);
                         continue;
                     }

@@ -7,8 +7,6 @@ namespace Internal
 {
     internal static class AudioGroupAssetWriter
     {
-        private const string LogTag = "AudioCatalogGenerator";
-
         internal static void WriteGroupAssets(IReadOnlyList<AudioGroupDefinition> groups, string groupsFolder)
         {
             CatalogPaths.EnsureFolder(groupsFolder);
@@ -22,7 +20,7 @@ namespace Internal
                 WriteGroupAsset(path, group);
             }
 
-            CatalogGroupAssets.DeleteStale<AudioGroupAsset>(groupsFolder, writtenPaths, LogTag);
+            CatalogGroupAssets.DeleteStale<AudioGroupAsset>(groupsFolder, writtenPaths);
         }
 
         private static void WriteGroupAsset(string path, AudioGroupDefinition group)

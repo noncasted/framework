@@ -11,7 +11,6 @@ namespace Internal
     // (CatalogContent) under the GUID of the scene.
     public static class ScenesClassGenerator
     {
-        private const string LogTag = "ScenesClassGenerator";
         private const string ClassName = "Scenes";
 
         // 1_Intro.unity gives Scene1Intro.
@@ -27,7 +26,7 @@ namespace Internal
             if (scenes.Count == 0 && File.Exists(CatalogPaths.ToFullPath(OutputPath)) == false)
                 return;
 
-            GeneratedFile.WriteIfChanged(LogTag, OutputPath, source);
+            GeneratedFile.WriteIfChanged(OutputPath, source);
         }
 
         internal static string Build(List<(string sceneName, string sceneGuid)> scenes)

@@ -18,6 +18,8 @@ namespace Internal
     {
         private const string DefaultOutput = "build";
 
+        private static readonly ILog _log = Logs.Of(typeof(WebGlBuild));
+
         [MenuItem(FrameworkMenu.Build + "WebGL", priority = FrameworkMenu.GroupPriority)]
         public static void Build()
         {
@@ -38,7 +40,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
                 EditorApplication.Exit(1);
                 return;
             }
@@ -53,7 +55,7 @@ namespace Internal
             var report = PlayerBuildSteps.Run(BuildTarget.WebGL, () => BuildPlayer(output));
             var summary = report.summary;
 
-            Debug.Log($"WebGL build {summary.result}: {summary.totalSize} bytes -> {output}");
+            _log.Info("WebGL build {Result}: {Bytes} bytes -> {Output}", summary.result, summary.totalSize, output);
 
             if (summary.result != BuildResult.Succeeded)
                 throw new Exception($"WebGL build failed: {summary.result}");

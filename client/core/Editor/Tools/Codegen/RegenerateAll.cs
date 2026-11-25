@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEditor;
-using UnityEngine;
 
 namespace Internal
 {
@@ -27,6 +26,8 @@ namespace Internal
     {
         private const string LogTag = "RegenerateAll";
 
+        private static readonly ILog _log = Logs.Of(typeof(RegenerateAll));
+
         [MenuItem(FrameworkMenu.Codegen + "Regenerate All", priority = FrameworkMenu.GroupPriority)]
         public static void Run()
         {
@@ -37,13 +38,12 @@ namespace Internal
                 throw new InvalidOperationException($"[{LogTag}] Scripts are compiling, run it after the reload.");
 
             if (ScriptTypeNames.IsDomainStale)
-                Debug.LogWarning(
-                    $"[{LogTag}] The last compile failed: the previous domain is running, type names are read from the script sources.");
+                _log.Warning("The last compile failed: the previous domain is running, type names are read from the script sources.");
 
             if (ColorGenerator.HasCatalog())
                 Step("Colors", ColorGenerator.GenerateNow);
             else
-                Debug.Log($"[{LogTag}] Colors skipped: the project has no ColorCatalog asset.");
+                _log.Info("Colors skipped: the project has no ColorCatalog asset.");
 
             Step("Scenes", SceneGenerator.Generate);
             Step("Sprites", SpriteGenerator.GenerateNow);
@@ -75,7 +75,7 @@ namespace Internal
                 AssetDatabase.Refresh();
             }
 
-            Debug.Log($"[{LogTag}] Done: {bindings} bindings checked. Changed scripts recompile now.");
+            _log.Info("Done: {Bindings} bindings checked. Changed scripts recompile now.", bindings);
         }
 
         // The steps of the project ([RegenerateAllStep]) in the order Regenerate All runs them.
@@ -99,7 +99,7 @@ namespace Internal
 
         private static void Step(string name, Action action)
         {
-            Debug.Log($"[{LogTag}] {name}");
+            _log.Debug("{Step}", name);
             action();
         }
 

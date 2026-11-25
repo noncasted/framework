@@ -9,9 +9,10 @@ namespace Internal
     // The texture asset of a baked file: one sprite per frame, reused while its hash is the same.
     internal static class AsepriteBakedTexture
     {
-        private const string LogTag = "AsepriteAnimationBaker";
         private const string HashAssetName = "BakeHash";
         private const int Padding = 1;
+
+        private static readonly ILog _log = Logs.Of(typeof(AsepriteBakedTexture));
 
         // Empty border around the canvas inside the sprite: the outline is drawn into it (Game/Sprite Outline).
         private const int Border = 1;
@@ -129,7 +130,7 @@ namespace Internal
 
             AssetDatabase.AddObjectToAsset(new TextAsset(hash) { name = HashAssetName }, texture);
             AssetDatabase.SaveAssetIfDirty(texture);
-            Debug.Log($"[{LogTag}] Baked {frames.Count} frame(s) into {path}");
+            _log.Debug("Baked {Frames} frame(s) into {Path}", frames.Count, path);
             return sprites;
         }
 

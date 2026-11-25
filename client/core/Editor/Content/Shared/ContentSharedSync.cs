@@ -18,11 +18,13 @@ namespace Internal
         private const string LogTag = "ContentSharedSync";
         private const int MaxPasses = 16;
 
+        private static readonly ILog _log = Logs.Of(typeof(ContentSharedSync));
+
         [MenuItem(FrameworkMenu.Codegen + "Sync Shared Content Bundles", priority = FrameworkMenu.TrailingPriority)]
         public static void Menu()
         {
             if (Run() == false)
-                Debug.Log($"[{LogTag}] The project has no {nameof(IContentSharedBundles)}: nothing to sync");
+                _log.Info("The project has no {Interface}: nothing to sync", nameof(IContentSharedBundles));
         }
 
         // The shared bundles of the IContentSharedBundles of the project; false without one.
@@ -144,7 +146,7 @@ namespace Internal
                     if (bundle != null)
                     {
                         AssetDatabase.DeleteAsset(path);
-                        Debug.Log($"[{LogTag}] {path}: nothing shared, deleted");
+                        _log.Info("{Path}: nothing shared, deleted", path);
                         changed = true;
                     }
 
@@ -165,7 +167,7 @@ namespace Internal
                 bundle.Init(objects, definition.IsPreloaded, definition.IsGzip);
                 EditorUtility.SetDirty(bundle);
                 AssetDatabase.SaveAssetIfDirty(bundle);
-                Debug.Log($"[{LogTag}] {path}: {own.Count} root(s)");
+                _log.Info("{Path}: {Roots} root(s)", path, own.Count);
                 changed = true;
             }
 

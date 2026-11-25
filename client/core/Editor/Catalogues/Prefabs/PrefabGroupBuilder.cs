@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Internal
 {
     // Groups the sources with unique property names and picks the assembly the class of each group is generated in.
     internal static class PrefabGroupBuilder
     {
+        private static readonly ILog _log = Logs.Of(typeof(PrefabGroupBuilder));
+
         internal static List<PrefabGroupDefinition> BuildGroups(List<PrefabSource> sources)
         {
             sources.Sort((left, right) => {
@@ -79,9 +80,8 @@ namespace Internal
 
                 if (assemblies.Count > 1)
                 {
-                    Debug.LogError(
-                            $"[PrefabCatalogGenerator] Group '{group.Name}' mixes root types from {string.Join(", ", assemblies)}. One group must stay in one assembly."
-                        );
+                    _log.Error("Group '{Group}' mixes root types from {Assemblies}. One group must stay in one assembly.",
+                        group.Name, string.Join(", ", assemblies));
                     group.DisableCodegen();
                     continue;
                 }

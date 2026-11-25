@@ -11,6 +11,7 @@ namespace Internal
     public sealed class ContainerGraphPostprocessor : AssetPostprocessor
     {
         private static readonly CatalogGenerationRunner Runner = new("ContainerGraph", GenerateInternal);
+        private static readonly ILog _log = Logs.Of<ContainerGraphPostprocessor>();
 
         // Short names of the holder and component types of the last written map (the map itself is compiled into the
         // content assembly of the project, which this assembly does not reference). Filled on every generation, and
@@ -61,7 +62,7 @@ namespace Internal
             var assets = ContainerGraphAssetScanner.Scan(assetsRoot);
             ContainerGraphAssetWriter.Write(assets);
             CollectMappedTypes(assets);
-            Debug.Log("[ContainerGraph] Wrote " + assets.Count + " asset graph entries.");
+            _log.Info("Wrote {Entries} asset graph entries.", assets.Count);
         }
 
         private static void CollectMappedTypes(IReadOnlyList<ContainerGraphAsset> assets)

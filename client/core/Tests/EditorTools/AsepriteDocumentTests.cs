@@ -155,7 +155,7 @@ namespace Internal.EditorTests
                 .Cell(0, 0, 0, 0, 1, 1, new[] { Red })
                 .Write(_path);
 
-            LogAssert.Expect(LogType.Warning, new Regex(@"\[AsepriteDocument\] Layer 'A' in .* composed as Normal"));
+            LogAssert.Expect(LogType.Warning, new Regex(@"\[AsepriteDocumentBuilder\] Layer 'A' in .* composed as Normal"));
 
             Assert.That(AsepriteDocument.Read(_path).Compose(0, new[] { "A" }), Is.EqualTo(new[] { Red }));
         }

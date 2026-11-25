@@ -189,8 +189,9 @@ phase that loads it first), a flag cannot say it.
 The build opens no scene: an open scene with unsaved changes stops it (`The open scenes ... have unsaved changes`; the Scriptable Build
 Pipeline builds nothing then). Save them; a tool or a test opens a new scene first and restores its scenes after.
 
-The log (`[ContentBuild]`): per bundle its files and bytes, how the player gets it, dependencies, roots, assets, scenes, lazy targets,
-the assets the engine copied in, and a warning for built-in resources copied in.
+The log (`[ContentBuildLog]`, the totals under `[ContentBuild]` and `[ContentBundleBuilder]`): per bundle its files and bytes,
+how the player gets it, dependencies, roots, assets, scenes, lazy targets, the assets the engine copied in, and a warning for
+built-in resources copied in.
 
 **The server** sends a `.bundle` and a `.gz` as they are (a `.gz` with or without `Content-Encoding: gzip`: a body without the gzip
 magic is taken as decoded); a plain `.bundle` it may gzip itself. All names are of one build: `Cache-Control: immutable` is safe.

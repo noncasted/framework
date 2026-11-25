@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
-using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace Internal
@@ -18,7 +17,12 @@ namespace Internal
     // The plan of the phases lives in SessionState: the domain reloads between the phases.
     public static class HierarchyBindingsBatch
     {
-        private const string LogTag = HierarchyBindingsLog.Tag;
+        private const string LogTag = "HierarchyBindingsGenerator";
+
+        private const string ResultTemplate =
+            "Prefab batch done: {Prefabs} prefabs, {Synced} entity view lists updated, {Errors} validation errors.";
+
+        private static readonly ILog _log = Logs.Of(typeof(HierarchyBindingsBatch));
 
         public static bool IsRunning => HierarchyBindingsPrefabPlans.Load() != null;
 
@@ -48,8 +52,8 @@ namespace Internal
                 return "Duplicate bindings types. See the console.";
 
             HierarchyBindingsPrefabPlans.Save(plan);
-            Debug.Log($"[{LogTag}] Prefab batch: {items.Count} bindings in {paths.Count} prefabs, " +
-                      $"{plan.Phases.Count} phases.");
+            _log.Info("Prefab batch: {Bindings} bindings in {Prefabs} prefabs, {Phases} phases.", items.Count, paths.Count,
+                plan.Phases.Count);
             RunNextPhase();
             return Status();
         }
@@ -71,7 +75,7 @@ namespace Internal
         public static void Cancel()
         {
             Abort();
-            Debug.LogWarning($"[{LogTag}] Prefab batch cancelled.");
+            _log.Warning("Prefab batch cancelled.");
         }
 
         // A step of the batch threw: nothing pending may wait for a pass that will not come.
@@ -177,8 +181,8 @@ namespace Internal
                 if (prepared == 0)
                     continue;
 
-                Debug.Log($"[{LogTag}] Prefab batch: phase {plan.Next} of {plan.Phases.Count}, " +
-                          $"{prepared} bindings{(changed ? ", compiling" : string.Empty)}.");
+                _log.Info("Prefab batch: phase {Phase} of {Phases}, {Bindings} bindings{Compiling}.", plan.Next,
+                    plan.Phases.Count, prepared, changed ? ", compiling" : string.Empty);
                 HierarchyBindingsGenerator.Flush(changed);
                 return;
             }
@@ -216,9 +220,11 @@ namespace Internal
                 AssetDatabase.SaveAssets();
 
             var errors = HierarchyBindingsValidator.ValidatePrefabs(plan.Assets);
-            HierarchyBindingsLog.ReportResult(
-                $"Prefab batch done: {plan.Assets.Count} prefabs, {synced} entity view lists updated, " +
-                $"{errors} validation errors.", errors);
+            // An error when the validation found something.
+            if (errors > 0)
+                _log.Error(ResultTemplate, plan.Assets.Count, synced, errors);
+            else
+                _log.Info(ResultTemplate, plan.Assets.Count, synced, errors);
         }
     }
 }

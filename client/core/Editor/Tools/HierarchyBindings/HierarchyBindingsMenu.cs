@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
-using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace Internal
@@ -15,7 +14,8 @@ namespace Internal
         private const string CancelBatchPath = FrameworkMenu.ObjectBindings + "Cancel Prefab Batch";
         private const string RegeneratePrefabsPath = "Assets/Object Bindings/Regenerate Prefabs";
         private const string ValidatePrefabsPath = "Assets/Object Bindings/Validate Prefabs";
-        private const string LogTag = "HierarchyBindingsGenerator";
+
+        private static readonly ILog _log = Logs.Of(typeof(HierarchyBindingsMenu));
 
         // The validator must be parameterless, otherwise Unity does not register the item at all.
         // We work from Selection, not MenuCommand: this way the item is invoked once,
@@ -48,7 +48,7 @@ namespace Internal
         [MenuItem(RegeneratePrefabsPath, false, 1000)]
         private static void RegeneratePrefabs()
         {
-            Debug.Log($"[{LogTag}] {HierarchyBindingsBatch.RegeneratePrefabs(SelectedPrefabs())}");
+            _log.Info("Regenerate prefabs: {Status}", HierarchyBindingsBatch.RegeneratePrefabs(SelectedPrefabs()));
         }
 
         [MenuItem(RegeneratePrefabsPath, true)]
@@ -102,12 +102,10 @@ namespace Internal
 
         private static void Report(int errors, string scope)
         {
-            var message = $"[{LogTag}] Validated {scope}: {errors} errors.";
-
             if (errors > 0)
-                Debug.LogError(message);
+                _log.Error("Validated {Scope}: {Errors} errors.", scope, errors);
             else
-                Debug.Log(message);
+                _log.Info("Validated {Scope}: {Errors} errors.", scope, errors);
         }
 
         private static List<string> SelectedPrefabs()
@@ -139,7 +137,7 @@ namespace Internal
 
             if (target == null)
             {
-                Debug.LogWarning("[HierarchyBindingsGenerator] Select a GameObject first.");
+                _log.Warning("Select a GameObject first.");
                 return;
             }
 

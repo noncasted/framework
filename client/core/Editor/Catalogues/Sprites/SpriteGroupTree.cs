@@ -1,12 +1,11 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Internal
 {
     internal static class SpriteGroupTree
     {
-        private const string LogTag = "SpritesClassGenerator";
+        private static readonly ILog _log = Logs.Of(typeof(SpriteGroupTree));
 
         // Group path "Game.Players" is laid out as a tree: Sprites.Game.Players.
         // An intermediate node without its own group is just a container for nested ones.
@@ -59,9 +58,8 @@ namespace Internal
 
             foreach (var name in conflicts)
             {
-                Debug.LogError(
-                        $"[{LogTag}] Group '{node.Path}.{name}' conflicts with a sprite of group '{node.Path}'. Skipping the nested group."
-                    );
+                _log.Error("Group '{Parent}.{Name}' conflicts with a sprite of group '{Group}'. Skipping the nested group.",
+                    node.Path, name, node.Path);
                 node.Children.Remove(name);
             }
         }

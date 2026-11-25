@@ -7,8 +7,6 @@ namespace Internal
 {
     internal static class PrefabGroupAssetWriter
     {
-        private const string LogTag = "PrefabCatalogGenerator";
-
         internal static void WriteGroupAssets(IReadOnlyList<PrefabGroupDefinition> groups, string groupsFolder)
         {
             var writtenPaths = new HashSet<string>(StringComparer.Ordinal);
@@ -16,7 +14,7 @@ namespace Internal
             CatalogGroupAssets.WriteAll(groups, groupsFolder, group => $"{groupsFolder}/{group.Name}.asset", WriteGroupAsset, writtenPaths);
 
             // The search covers the subfolders: the assets a previous version kept in Resources are stale too.
-            CatalogGroupAssets.DeleteStale<PrefabGroupAsset>(groupsFolder, writtenPaths, LogTag);
+            CatalogGroupAssets.DeleteStale<PrefabGroupAsset>(groupsFolder, writtenPaths);
         }
 
         private static void WriteGroupAsset(string path, PrefabGroupDefinition group)
