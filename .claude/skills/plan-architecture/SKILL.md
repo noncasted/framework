@@ -20,9 +20,11 @@ Sources, by authority:
    touched layers (table in Step 2) in both files, never a whole file.
 3. `tools/framework/.claude/docs/GAMEPLAY_ARCHITECTURE.md` - the layout of a gameplay assembly, entities, states; read
    it whole when the task touches gameplay.
-4. `.claude/docs/ARCHITECTURE_DECISIONS.md` - session decisions. `[пользователь]` = rule; `[агент]` = NOT a
-   rule: a hint marked "(неподтверждено, ARCHITECTURE_DECISIONS §N)" or a question.
-5. `docs/tasks/complete/REFACTOR_OVERVIEW.md` § «Общая идея» - the model of what the user calls a problem in code.
+4. `.claude/docs/ARCHITECTURE_DECISIONS.md` - session decisions. `[user]` = rule; `[agent]` = NOT a
+   rule: a hint marked "(unconfirmed, ARCHITECTURE_DECISIONS §N)" or a question. A file of a game written in Russian
+   marks them `[пользователь]` and `[агент]`.
+5. `docs/tasks/complete/REFACTOR_OVERVIEW.md` § "General idea" («Общая идея» in a file written in Russian) - the model
+   of what the user calls a problem in code.
 
 A source of the game (`.claude/docs/...`, `docs/tasks/complete/...`) the project lacks is skipped, not a stop.
 
@@ -36,6 +38,10 @@ never copied doc text.
 - Plain text and no workspace: create it as `workflow` Phase 1 steps 1-8 (`.claude/skills/workflow/SKILL.md`); skip
   its Step 9, do not start implementation.
 - Done steps (`[x]`) are history: never rewrite them; a gap in them becomes a risk or a new follow-up step.
+- A plan written before the English templates may carry the Russian names (`### Аудит`, `### Изменения поведения`,
+  `### Риски`, `### Вопросы пользователю`, `### Архитектурная сверка`, step fields `Статус` / `Цель` / `Как` / `Проверка` /
+  `Файлы` / `Зависит от` / `Блокирует`, the rest as in the Rules of `workflow`): extend those sections under their names,
+  do not add English duplicates.
 
 ## Step 2 — Layers and touched code
 
@@ -84,9 +90,9 @@ leftovers of moves. Draw the hierarchy of the area: **root / composer -> feature
 
 Per principle: applies / n/a; for each applicable one, the step that meets it, else a gap. Typical gaps:
 
-- **P10** refactoring: step `[0]` "эталон «до»" (data dump, deterministic harness with md5, frames rendered without
-  stealing focus) and tests on the **old** code before any edit; later steps check "after == before". A feature:
-  acceptance tests of the new behaviour. Always a list "Изменения поведения" ("нет" is an explicit answer).
+- **P10** refactoring: step `[0]` "the 'before' reference" (data dump, deterministic harness with md5, frames rendered
+  without stealing focus) and tests on the **old** code before any edit; later steps check "after == before". A feature:
+  acceptance tests of the new behaviour. Always a list "Behaviour changes" ("none" is an explicit answer).
 - **P5** new asset / kind in the network: explicit `_id` (next free), uniqueness throw at load + a test.
 - **P3** new runtime objects: prefab + bindings or `PrefabPool<T>`, look in the prefab, a grep in the acceptance.
 - **P1 / P14** several things: a class per thing, a composer on top; features talk through the composer's interfaces /
@@ -98,13 +104,13 @@ Per principle: applies / n/a; for each applicable one, the step that meets it, e
   (`GAMEPLAY_ARCHITECTURE.md`, C-LAY-2, C-EN-1, C-SM-1).
 - **P9** separate roots per variant. **P7** many per-frame entities -> the ECS world of the game. **P8** no fallbacks.
 - **P11-P13** the confirmed audit findings: a refactoring cuts / moves / deletes them all in its area; a feature fixes
-  only what it touches (a class it extends past 300 lines, a folder it adds to) - the rest goes to "Аудит" as
-  "вне задачи".
+  only what it touches (a class it extends past 300 lines, a folder it adds to) - the rest goes to "Audit" as
+  "outside the task".
 - **Process** (DECISIONS §9, PATTERNS E-1): steps of 2-4 items with own acceptance; one editor owner for compile,
   generators, migrations, tests, Play; a step touching another active task's files goes after it.
 
-Conflicts: PATTERNS §8 (K-*), DECISIONS «Конфликты» (К*), two principles pulling apart, or only an `[агент]` source ->
-a question to the user, not a silent choice.
+Conflicts: PATTERNS §8 (K-*), DECISIONS "Conflicts" («Конфликты», К* in a file written in Russian), two principles
+pulling apart, or only an `[agent]` source -> a question to the user, not a silent choice.
 
 ## Step 5 — Write into the plan
 
@@ -112,27 +118,28 @@ Edit `<task>_info.md` in place, minimal diff, `workflow` format:
 
 - **Order of steps - top-down (P14):** `[0]` reference / tests -> data -> the root and its wiring -> the feature
   classes -> the utilities extracted from their repeats -> cleanup (dead code, folders) -> verification -> docs. A
-  utility whose repeat already exists in the code (ten copies of a pool) may come first - say so in the сверка. Do not renumber
-  done steps; new ones get free numbers and the dependencies say the order.
-- New steps: a full `workflow` block (`Статус: [ ] pending`, Цель / Как / Проверка / Файлы / Зависит от /
-  Блокирует); fix `total_steps`. Fixed steps: edit only the "Как" / "Проверка" line.
+  utility whose repeat already exists in the code (ten copies of a pool) may come first - say so in the architecture
+  check. Do not renumber done steps; new ones get free numbers and the dependencies say the order.
+- New steps: a full `workflow` block (`Status: [ ] pending`, Goal / How / Check / Files / Depends on /
+  Blocks); fix `total_steps`. Fixed steps: edit only the "How" / "Check" line.
 - Each addition ends with its basis: `(P3)`, `(P10; ARCHITECTURE_PATTERNS T-7)`, `(HIERARCHY_BINDINGS.md § ...)`.
-- `### Аудит` - table `| Файл | Строк | Проблема | Принцип | Шаг / вне задачи |`, confirmed findings only, then the
+- `### Audit` - table `| File | Lines | Problem | Principle | Step / outside the task |`, confirmed findings only, then the
   hierarchy root -> features -> utilities in 3-6 lines (as is, and as planned if it changes).
-- `### Изменения поведения`, `### Риски` (append, no duplicates), `### Вопросы пользователю` (numbered, options and
-  source, `блокирует [N]`), `### Архитектурная сверка` (one line per principle: `P3 - шаг [4]`, `P5 - n/a`).
+- `### Behaviour changes`, `### Risks` (append, no duplicates), `### Questions to the user` (numbered, options and
+  source, `blocks [N]`), `### Architecture check` (one line per principle: `P3 - step [4]`, `P5 - n/a`).
 
 Budget: follow the size of the task - a feature usually 3-8 edits and an audit of 3-8 rows; an existing plan grows by
-at most ~25%. "Вне задачи" findings: one row each for the worst, the rest of the sizes in one row. A met principle gets
-only its line in the сверка. No sections beyond these five.
+at most ~25%. "Outside the task" findings: one row each for the worst, the rest of the sizes in one row. A met
+principle gets only its line in the architecture check. No sections beyond these five.
 
 ## Step 6 — Report
 
-Short, in Russian: the plan path; the audit findings (top ones); what was added / changed, by principle; the
-questions, blocking ones first. Do not start implementation - the user decides.
+Short, in Russian (the chat with the user; the plan itself is written in English): the plan path; the audit findings
+(top ones); what was added / changed, by principle; the questions, blocking ones first. Do not start implementation - the user decides.
 
 ## Rules
 
 - Edit only the plan (and the new workspace of Step 1). Never `ARCHITECTURE_*.md`, docs, code, other tasks.
 - Facts about code come from grep and the audit, not memory; a path in the plan is a real path.
-- A recorded "Решение пользователя" of this task overrides a principle: note it in the сверка, do not reopen it.
+- A recorded "User decision" ("Решение пользователя" in an older file) of this task overrides a principle: note it in the
+  architecture check, do not reopen it.

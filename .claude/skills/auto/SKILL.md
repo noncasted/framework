@@ -24,10 +24,12 @@ below into every brief).
 1. Find the decisions file:
    - a task workspace exists - `docs/tasks/current/<task>/<task>_decisions.md`;
    - otherwise - `docs/tasks/auto/<YYYY-MM-DD>_<short_slug>_decisions.md`.
-   Create it if missing (template below); if it exists, append a new session section.
+   Create it if missing (template below); if it exists, append a new session section. A file written before the
+   English template may carry the Russian names (`## Сессия`, `### Требуют внимания`, `### Решения`, `### Инциденты`,
+   `### Отложено до пользователя`): the new session section takes the English names.
 2. Write down the starting point in it: the task, `git status --short | head -30`, the HEAD commit, the state of the
    Unity editor (`pgrep -af unityhub-unity-editor`, Play on/off) and of the cluster.
-3. Do not wait for confirmations anywhere - the "Начинаем реализацию?" of `workflow`, the Step 5.5 gate, the wave
+3. Do not wait for confirmations anywhere - the "Start the implementation?" of `workflow`, the Step 5.5 gate, the wave
    preview of `orchestrate`: decide and record the decision instead.
 
 ```markdown
@@ -36,23 +38,23 @@ task: <task>
 updated: <YYYY-MM-DD HH:MM>
 ---
 
-# Решения, принятые без пользователя
+# Decisions taken without the user
 
-## Сессия <YYYY-MM-DD HH:MM>
-Старт: <HEAD sha>, <кратко git status>, Unity: <pid / нет>, кластер: <да / нет>
+## Session <YYYY-MM-DD HH:MM>
+Start: <HEAD sha>, <git status in short>, Unity: <pid / none>, cluster: <yes / no>
 
-### Требуют внимания
+### Needs attention
 <!-- decisions the user is most likely to want to change, and postponed actions; keep at the top -->
 
-### Решения
-| # | Время | Вопрос | Решение | Альтернативы | Почему | Как откатить |
-|---|-------|--------|---------|--------------|--------|--------------|
+### Decisions
+| # | Time | Question | Decision | Alternatives | Why | How to roll back |
+|---|------|----------|----------|--------------|-----|------------------|
 
-### Инциденты
-| Время | Что упало / зависло | Признаки | Что сделано | Итог |
-|-------|---------------------|----------|-------------|------|
+### Incidents
+| Time | What crashed / hung | Signs | What was done | Result |
+|------|---------------------|-------|---------------|--------|
 
-### Отложено до пользователя
+### Postponed for the user
 <!-- actions that are forbidden in auto mode, with the exact command to run -->
 ```
 
@@ -66,10 +68,10 @@ Never call `AskUserQuestion`, never end a turn with a question. When a question 
    produce variants (`visualize` skill) and continue with the most fitting one, keeping the rest for the user.
 3. Record it in the decisions table at once (before acting): question, decision, alternatives, reason, how to roll
    back (file, commit, flag). A decision that changes the requirements or the architecture also goes to
-   "Требуют внимания".
+   "Needs attention".
 4. Keep working. Do not stop to wait for the user's opinion on a decision already recorded.
 
-Forbidden in auto mode even when it seems right (record it under "Отложено до пользователя" with the exact command and
+Forbidden in auto mode even when it seems right (record it under "Postponed for the user" with the exact command and
 continue with something else): `git push`, commits outside the task branch / without a request in the task, deploy
 (`deploy-client`, Coolify, Steam), deleting user data, untracked files or branches, `git reset --hard`,
 `git checkout -- <files>` over changes not made in this session, force operations, changing credentials or the
@@ -102,7 +104,7 @@ Restart procedure:
    alternative; if it crashed twice in the same way, find another route and add the case to
    `UNITY_EDITOR_WORKFLOW.md` / `.claude/docs/CLAUDE_MISTAKES.md`.
 4. Three restarts within an hour without progress - stop using the editor: continue with what does not need it (code
-   that must compile, backend, docs), and put the rest under "Требуют внимания".
+   that must compile, backend, docs), and put the rest under "Needs attention".
 
 The MPPM clone (two clients) is restarted through its scenario `Stop()` / `Start()` from the main editor, not killed
 (`UNITY_EDITOR_WORKFLOW.md`).
@@ -131,19 +133,20 @@ The MPPM clone (two clients) is restarted through its scenario `Stop()` / `Start
 When the task is done or nothing more can move:
 1. Final state into the decisions file: what is done, what is blocked, the editor / cluster state (Play off, scenes
    saved, console without new errors), `git status --short`.
-2. Sort "Требуют внимания" by importance.
+2. Sort "Needs attention" by importance.
 3. Notify (`PushNotification` if available) and write the final message in Russian: result in 3-7 lines, link to the
-   decisions file, number of decisions / incidents, the list "Требуют внимания" and "Отложено до пользователя".
+   decisions file, number of decisions / incidents, the list "Needs attention" and "Postponed for the user".
 
 ---
 
 ## Rules for agents (put into every agent brief in auto mode)
 
 ```
-Пользователь недоступен. Не задавай вопросов: выбирай обратимый вариант, ближайший к существующим паттернам, и
-перечисляй принятые решения в итоговом отчёте (вопрос / решение / альтернативы / почему). Не делай push, deploy,
-reset --hard и удалений чужих файлов. Для работы в редакторе бери свою копию (`control copy create <name>`, скилл `control`) и
-передавай её `unity_instance` в каждый вызов MCP. Упавший или зависший редактор и кластер перезапускай сам через `control`.
+The user is unavailable. Do not ask questions: choose the reversible option closest to the existing patterns, and
+list the decisions you took in the final report (question / decision / alternatives / why). Do not push, deploy,
+reset --hard or delete files that are not yours. For work in the editor take your own copy (`control copy create <name>`,
+skill `control`) and pass its `unity_instance` to every MCP call. Restart a crashed or hung editor and cluster yourself
+through `control`.
 ```
 
 The session (or the orchestrator) copies the agents' decisions and incidents into the decisions file.
@@ -154,4 +157,4 @@ The session (or the orchestrator) copies the agents' decisions and incidents int
 - Every decision and incident goes to the decisions file before or right after the action.
 - Irreversible and outward-facing actions are postponed, never taken.
 - Restart only what is down by the documented signs; save the evidence first.
-- Prose in Russian, identifiers and paths in English.
+- The decisions file, task files and agent briefs in English, identifiers and paths too; the chat with the user in Russian.

@@ -1,235 +1,235 @@
-# Architecture Patterns (база для проверки планов)
+# Architecture Patterns (the base for checking plans)
 
-Назначение: список проверяемых паттернов, общих для игр на framework, для скилла, который создаёт или правит план
-задачи. Формат строки: **если** в задаче есть X -> **план должен содержать** Y. У каждого паттерна - источник
-(`DOC.md` § Раздел). Идентификаторы сквозные с `ARCHITECTURE_PATTERNS.md` игры, номера с пропусками: остальные
-паттерны (сеть, UI, тесты, редактор) привязаны к докам игры и лежат там. Источник, которого нет рядом
-(`CLAUDE_MISTAKES.md`, `ENTITIES.md`, `CODEGEN.md`, `CLAUDE.md`), - это док игры, см. `INDEX.md`; в игре без него
-правило держится на остальных источниках строки.
+Purpose: a list of checkable patterns shared by the games on the framework, for the skill that creates or edits the plan of a
+task. The format of a line: **if** the task has X -> **the plan must contain** Y. Every pattern has a source
+(`DOC.md` § Section). The ids are shared with the `ARCHITECTURE_PATTERNS.md` of a game, the numbers have gaps: the other
+patterns (network, UI, tests, editor) are tied to the docs of the game and live there. A source that is not next to this file
+(`CLAUDE_MISTAKES.md`, `ENTITIES.md`, `CODEGEN.md`, `CLAUDE.md`) is a doc of the game, see `INDEX.md`; in a game without it
+the rule rests on the other sources of the line.
 
 ---
 
-## 0. Общие правила (G)
+## 0. General rules (G)
 
-- **G-1** Если план добавляет обработку ошибок, fallback, `try/catch` или null-проверки -> в плане явно указано, что
-  пользователь просил деградацию; иначе - throw / `Debug.LogError` (fail fast). `CLAUDE.md` § MOST IMPORTANT RULE.
-- **G-2** Если задача трогает `tools/framework` -> план содержит: прочитать `tools/framework/CLAUDE.md`, коммит и push
-  внутри сабмодуля, затем коммит указателя сабмодуля; оценку влияния на другие игры. `CLAUDE.md` § Framework.
-- **G-3** Если появляется новый asmdef, ссылающийся на `Internal` (в том числе временный, бенчмарк, build-скрипт) ->
-  в плане есть ссылка и на `Internal.Content`. `CLAUDE.md` § Framework; `CLAUDE_MISTAKES.md` § G37.
-- **G-4** Если тип регистрируется из другой сборки и имеет `[Inject]`-метод -> метод `public`.
+- **G-1** If the plan adds error handling, a fallback, `try/catch` or null checks -> the plan says explicitly that the
+  user asked for the degradation; otherwise throw / `Debug.LogError` (fail fast). `CLAUDE.md` § MOST IMPORTANT RULE.
+- **G-2** If the task touches `tools/framework` -> the plan has: read `tools/framework/CLAUDE.md`, commit and push
+  inside the submodule, then commit the submodule pointer; an estimate of the effect on the other games. `CLAUDE.md` § Framework.
+- **G-3** If a new asmdef appears that references `Internal` (a temporary one, a benchmark, a build script included) ->
+  the plan references `Internal.Content` too. `CLAUDE.md` § Framework; `CLAUDE_MISTAKES.md` § G37.
+- **G-4** If a type is registered from another assembly and has an `[Inject]` method -> the method is `public`.
   `CLAUDE.md` § Framework; `COMMON_CONTAINER.md` § MonoBehaviour Services.
-- **G-5** Если план смешивает слои -> клиентские паттерны (контейнер, MonoBehaviour) только в клиенте, grain-паттерн
-  только в backend. `CLAUDE.md` § Critical Rules (8).
-- **G-6** Если задача переносит тип в framework -> тот же шаг удаляет игровой дубликат (иначе игровой интерфейс с тем же
-  именем затеняет framework-овый при регистрации). `CLAUDE_MISTAKES.md` § G22.
-- **G-8** Если в задаче новые знания об ошибках агента -> шаг «обновить базу знаний» (`CLAUDE_MISTAKES.md`, профильный
-  док). `CLAUDE.md` § Critical Rules (5).
+- **G-5** If the plan mixes layers -> the client patterns (container, MonoBehaviour) only in the client, the grain pattern
+  only in the backend. `CLAUDE.md` § Critical Rules (8).
+- **G-6** If the task moves a type into the framework -> the same step deletes the duplicate of the game (otherwise the
+  interface of the game with the same name shadows the one of the framework at registration). `CLAUDE_MISTAKES.md` § G22.
+- **G-8** If the task brings new knowledge about the mistakes of the agent -> a step "update the knowledge base"
+  (`CLAUDE_MISTAKES.md`, the doc of the area). `CLAUDE.md` § Critical Rules (5).
 
 ---
 
-## 1. Клиент
+## 1. Client
 
-### 1.0 Раскладка геймплея (C-LAY)
+### 1.0 Gameplay layout (C-LAY)
 
-- **C-LAY-1** Если новая фича геймплея -> папка фичи по образцу её ближайшего аналога в эталоне игры
-  (`.claude/project-skills.md` § architecture, иначе pixel-swarm `client/Assets/GamePlay`); в плане названы аналог и
-  папки фичи. `GAMEPLAY_ARCHITECTURE.md` § Layout of a gameplay assembly.
-- **C-LAY-2** Если план делит фичу по слоям (`Model` / `Views` / `Logic` / `Data` / `Network`, отдельная сборка «чистой
-  модели» для тестов или для детерминизма) -> вместо этого сущность или сервисы фичи в одной папке; порядок тика держит
-  корень забега. `GAMEPLAY_ARCHITECTURE.md` § Layout of a gameplay assembly.
+- **C-LAY-1** If a new gameplay feature -> the folder of the feature follows its closest analogue in the reference of the game
+  (`.claude/project-skills.md` § architecture, otherwise pixel-swarm `client/Assets/GamePlay`); the plan names the analogue and
+  the folders of the feature. `GAMEPLAY_ARCHITECTURE.md` § Layout of a gameplay assembly.
+- **C-LAY-2** If the plan splits a feature by layers (`Model` / `Views` / `Logic` / `Data` / `Network`, a separate assembly of a
+  "pure model" for tests or for determinism) -> instead the entity or the services of the feature in one folder; the order of the
+  tick is kept by the root of the run. `GAMEPLAY_ARCHITECTURE.md` § Layout of a gameplay assembly.
 
-### 1.1 DI и сервисы (C-DI)
+### 1.1 DI and services (C-DI)
 
-- **C-DI-1** Если нужна логика / состояние / фабрика -> plain class с конструкторной инъекцией, регистрация в
-  installer-extension `builder.Register<T>().As<I>()`, installer возвращает builder. `DECISION_TREES.md` § 3;
+- **C-DI-1** If logic / state / a factory is needed -> a plain class with constructor injection, registered in an
+  installer extension `builder.Register<T>().As<I>()`, the installer returns the builder. `DECISION_TREES.md` § 3;
   `COMMON_CONTAINER.md` § Registration API, § Plain Service.
-- **C-DI-2** Если сервису нужны подписки -> `.As<IScopeSetup>()` и подписка в `OnSetup(lifetime)`; никаких подписок в
-  `Awake`; то, без чего сервисом нельзя пользоваться (своё состояние, прочитанные данные), делается в конструкторе
-  (`[Inject]` у MonoBehaviour), lifetime в нём через `IReadOnlyLifetime` / `.WithScopeLifetime()`.
+- **C-DI-2** If a service needs subscriptions -> `.As<IScopeSetup>()` and the subscription in `OnSetup(lifetime)`; no subscriptions
+  in `Awake`; what the service cannot be used without (its own state, the data it read) is done in the constructor
+  (`[Inject]` of a MonoBehaviour), a lifetime there through `IReadOnlyLifetime` / `.WithScopeLifetime()`.
   `COMMON_CONTAINER.md` § Setup, § Common Mistakes; `DECISION_TREES.md` § 2.
-- **C-DI-3** Если сервис B зависит от инициализации A -> A готовится в своём конструкторе, B берёт A зависимостью
-  (контейнер строит A раньше B); другой порядок пишется вызовом: до сервисов в installer, после загрузки у владельца
-  scope (`scope.Resolve<GameLoop>().Start(scope.Lifetime)`). Фаза одна (`IScopeSetup`), её порядок не используется,
-  async-фазы нет. `COMMON_CONTAINER.md` § Setup.
-- **C-DI-4** Если появляется новый scope -> корень `Construct` передаётся method group-ом (не лямбдой), у дочернего
-  корня `[ContainerScopeParent]`, выбрана сцена scope (`WithRuntimeScene` / `WithAssetScene` / без сцены).
+- **C-DI-3** If service B depends on the initialization of A -> A gets ready in its constructor, B takes A as a dependency
+  (the container builds A before B); any other order is written as a call: before the services in the installer, after the load
+  at the owner of the scope (`scope.Resolve<GameLoop>().Start(scope.Lifetime)`). There is one phase (`IScopeSetup`), its order is
+  not used, there is no async phase. `COMMON_CONTAINER.md` § Setup.
+- **C-DI-4** If a new scope appears -> the root `Construct` is passed as a method group (not a lambda), a child root has
+  `[ContainerScopeParent]`, the scene of the scope is chosen (`WithRuntimeScene` / `WithAssetScene` / no scene).
   `COMMON_CONTAINER.md` § Service scope, § Common Mistakes.
-- **C-DI-5** Если реализации выбираются по условию -> варианты = разные корни через `switch` на месте вызова;
-  внутри корня граф меняют только `bool` / закрытый enum (CINGR005). Платформа: `#if` или ветки внутри одного installer (`CLAUDE.md` framework § Modules, publish).
-  `COMMON_CONTAINER.md` § Entity scope («One graph per root»); `CLAUDE_MISTAKES.md` § F2, § F3.
-- **C-DI-6** Если в одном scope несколько альтернатив с маркер-интерфейсом фазы -> не более одной группы альтернатив
-  с `IScopeSetup` и т.п.; платформенный сервис с фазой регистрируется на всех платформах и сам проверяет платформу.
+- **C-DI-5** If implementations are chosen by a condition -> the variants are different roots through a `switch` at the call site;
+  inside a root only a `bool` / a closed enum changes the graph (CINGR005). A platform: `#if` or branches inside one installer (`CLAUDE.md` framework § Modules, publish).
+  `COMMON_CONTAINER.md` § Entity scope ("One graph per root"); `CLAUDE_MISTAKES.md` § F2, § F3.
+- **C-DI-6** If one scope has several alternatives with a marker interface of a phase -> at most one group of alternatives
+  with `IScopeSetup` and the like; a platform service with a phase is registered on every platform and checks the platform itself.
   `CLAUDE_MISTAKES.md` § F37.
-- **C-DI-7** `WithParameter` принадлежит своей регистрации и важнее регистрации того же типа, родительского scope и `IContainer` / `ILifetime` / `IReadOnlyLifetime` scope: параметр берёт значение точного типа, иначе значение, которое может принять (несколько таких: CINGR014). `COMMON_CONTAINER.md` § WithParameter belongs to its registration and wins.
-- **C-DI-8** Если сервису нужны ассеты каталога -> `Request*Group` в installer (или `Load*Group`, только если
-  `Construct` читает ассеты сам); никаких `Retain` в геймплее; одна ссылка `ContentReference<T>` -> `RequestContent` /
-  `LoadContent` в installer или `IContentLoader.Load` на lifetime владельца. `COMMON_CONTAINER.md` § Asset Groups, `CONTENT.md`.
-- **C-DI-9** Если код берёт `IContainer` / `Resolve` -> только фабрики и инструменты; сервисы - через конструктор;
-  контейнер только в main thread. `COMMON_CONTAINER.md` § Runtime Access.
-- **C-DI-10** Если возможен цикл зависимостей -> план разрывает его (событие, `Lazy<>`, разделение сервиса); в backend
-  цикл через `As<>` вешает сервисы без исключения. `COMMON_CONTAINER.md` § Diagnostics (CINGR004); `CLAUDE_MISTAKES.md` § F50.
-- **C-DI-11** Если меняется foundation-asmdef (`Internal`, `Internal.Editor`) -> никаких ссылок на `Flow`, `Global`,
-  `Meta`, `Menu`, `GamePlay`; редакторский код игры - в editor-asmdef своего слоя. `CLAUDE_MISTAKES.md` § F5.
+- **C-DI-7** `WithParameter` belongs to its registration and wins over a registration of the same type, the parent scope and `IContainer` / `ILifetime` / `IReadOnlyLifetime` of the scope: a parameter takes the value of the exact type, otherwise a value it can accept (several such: CINGR014). `COMMON_CONTAINER.md` § WithParameter belongs to its registration and wins.
+- **C-DI-8** If a service needs the assets of a catalogue -> `Request*Group` in the installer (or `Load*Group`, only if
+  `Construct` reads the assets itself); no `Retain` in the gameplay; one reference `ContentReference<T>` -> `RequestContent` /
+  `LoadContent` in the installer or `IContentLoader.Load` on the lifetime of the owner. `COMMON_CONTAINER.md` § Asset Groups, `CONTENT.md`.
+- **C-DI-9** If code takes `IContainer` / `Resolve` -> only factories and tools; services through the constructor;
+  the container only on the main thread. `COMMON_CONTAINER.md` § Runtime Access.
+- **C-DI-10** If a dependency cycle is possible -> the plan breaks it (an event, `Lazy<>`, a split of the service); in the backend
+  a cycle through `As<>` hangs the services without an exception. `COMMON_CONTAINER.md` § Diagnostics (CINGR004); `CLAUDE_MISTAKES.md` § F50.
+- **C-DI-11** If a foundation asmdef changes (`Internal`, `Internal.Editor`) -> no references to `Flow`, `Global`,
+  `Meta`, `Menu`, `GamePlay`; the editor code of the game goes to the editor asmdef of its layer. `CLAUDE_MISTAKES.md` § F5.
 
-### 1.2 Сцена и MonoBehaviour (C-SC)
+### 1.2 Scene and MonoBehaviour (C-SC)
 
-- **C-SC-1** Если объект живёт в сцене -> MonoBehaviour + `ISceneService.Create(IScopeBuilder)` +
-  `RegisterComponent(this).As<I>()`, зависимости через `[Inject]`-метод, фаза через `.As<IScopeSetup>()`.
+- **C-SC-1** If an object lives in a scene -> MonoBehaviour + `ISceneService.Create(IScopeBuilder)` +
+  `RegisterComponent(this).As<I>()`, dependencies through an `[Inject]` method, the phase through `.As<IScopeSetup>()`.
   `DECISION_TREES.md` § 3; `COMMON_CONTAINER.md` § MonoBehaviour Services; `CLAUDE_MISTAKES.md` § Key Rules (1), § F1.
-- **C-SC-2** Если новый scene service и на него появляется зависимость -> порядок шагов: компонент в сцене ->
-  `Assets/Scan services` -> сохранить сцену -> обновить asset map -> только потом зависимость в конструкторе
-  (иначе CINGR003). `COMMON_CONTAINER.md` § MonoBehaviour Services; `CODEGEN.md` § Bootstrap Order.
-- **C-SC-3** Если префаб инстанцируется сервисным scope (экран загрузки, оверлей) -> `builder.Instantiate` +
+- **C-SC-2** If a new scene service gets a dependency on it -> the order of the steps: the component in the scene ->
+  `Assets/Scan services` -> save the scene -> update the asset map -> only then the dependency in a constructor
+  (otherwise CINGR003). `COMMON_CONTAINER.md` § MonoBehaviour Services; `CODEGEN.md` § Bootstrap Order.
+- **C-SC-3** If a prefab is instantiated by a service scope (a loading screen, an overlay) -> `builder.Instantiate` +
   `builder.Inject` / `RegisterInstance(...).As<>`. `DECISION_TREES.md` § 3; `COMMON_CONTAINER.md` § MonoBehaviour Services.
-- **C-SC-4** Если MonoBehaviour создаётся в runtime и нуждается в зависимостях -> `builder.Injectable<T>()` +
-  `IViewInjector.Inject`; у `T` видимый `[Inject]`-метод (CINGR008). `DECISION_TREES.md` § 3; `COMMON_CONTAINER.md` § Registration API.
-- **C-SC-5** Если у MonoBehaviour есть обработчик -> имя не совпадает с Unity message (`OnPreRender` и т.п.).
+- **C-SC-4** If a MonoBehaviour is created at runtime and needs dependencies -> `builder.Injectable<T>()` +
+  `IViewInjector.Inject`; `T` has a visible `[Inject]` method (CINGR008). `DECISION_TREES.md` § 3; `COMMON_CONTAINER.md` § Registration API.
+- **C-SC-5** If a MonoBehaviour has a handler -> its name does not match a Unity message (`OnPreRender` and the like).
   `CLAUDE_MISTAKES.md` § F44.
-- **C-SC-6** Если runtime-пакет с MonoBehaviour нужно исключить из билда -> `defineConstraints: UNITY_EDITOR`, а не
+- **C-SC-6** If a runtime package with a MonoBehaviour must be excluded from the build -> `defineConstraints: UNITY_EDITOR`, not
   `includePlatforms: Editor`. `CLAUDE_MISTAKES.md` § F38.
 
-### 1.3 Сущности (C-EN)
+### 1.3 Entities (C-EN)
 
-- **C-EN-1** Если новая вещь со своей жизнью и видом (игрок, враг, босс, оружие, поле) -> сущность по порядку
-  `GAMEPLAY_ARCHITECTURE.md` § Entity: `Root` (`IX` / `ILocalX` / `IRemoteX`), префаб с bindings и view-вариантами,
-  `Sync`, компоненты по вариантам, состояния, фабрика с `Build*`.
-- **C-EN-2** Если поведение отличается у владельца и у копии -> отдельные классы Local / Remote, отдельные корни и
-  префабы; никаких `if (IsLocal)` в компонентах. `GAMEPLAY_ARCHITECTURE.md` § Entity (Factory); исключения - в доке игры.
-- **C-EN-3** Если сущность реплицирует состояние -> одно `AddXSync()`, вызываемое в каждом корне; одно свойство на тип
-  значения; пишет только владелец. `GAMEPLAY_ARCHITECTURE.md` § Entity (Network).
-- **C-EN-4** Если на entity-префабе нужен код -> только `ScopeEntityView`-подкласс и сгенерированные bindings;
-  компоненты - plain classes, получающие bindings в конструкторе. `GAMEPLAY_ARCHITECTURE.md` § Entity;
+- **C-EN-1** If a new thing with its own life and look (a player, an enemy, a boss, a weapon, a field) -> an entity in the order of
+  `GAMEPLAY_ARCHITECTURE.md` § Entity: `Root` (`IX` / `ILocalX` / `IRemoteX`), a prefab with bindings and view variants,
+  `Sync`, components per variant, states, a factory with `Build*`.
+- **C-EN-2** If the behaviour differs at the owner and at a copy -> separate Local / Remote classes, separate roots and
+  prefabs; no `if (IsLocal)` in components. `GAMEPLAY_ARCHITECTURE.md` § Entity (Factory); the exceptions are in the doc of the game.
+- **C-EN-3** If an entity replicates state -> one `AddXSync()` called in every root; one property per type of
+  value; only the owner writes. `GAMEPLAY_ARCHITECTURE.md` § Entity (Network).
+- **C-EN-4** If code is needed on an entity prefab -> only a `ScopeEntityView` subclass and the generated bindings;
+  components are plain classes that get the bindings in the constructor. `GAMEPLAY_ARCHITECTURE.md` § Entity;
   `HIERARCHY_BINDINGS.md` (TL;DR).
-- **C-EN-5** Если удаление / уход владельца -> цепочка `entity.Lifetime.Listen(x.Destroy)`.
+- **C-EN-5** If a removal / the leave of the owner -> the chain `entity.Lifetime.Listen(x.Destroy)`.
   `GAMEPLAY_ARCHITECTURE.md` § Entity (Destroy).
-- **C-EN-7** Если у сущности состояние / поведение (lifetime, события, update, input) -> это компонент контейнера с
-  интерфейсом, не поле «модели»; папки `Definitions` - только сериализуемые опции. `GAMEPLAY_ARCHITECTURE.md` § Entity.
+- **C-EN-7** If an entity has state / behaviour (lifetime, events, update, input) -> it is a component of the container with
+  an interface, not a field of a "model"; `Definitions` folders hold only serializable options. `GAMEPLAY_ARCHITECTURE.md` § Entity.
 
-### 1.4 Машины состояний и деревья поведения (C-SM)
+### 1.4 State machines and behaviour trees (C-SM)
 
-- **C-SM-1** Если у сущности состояния (режимы поведения) -> `IState` + `ObjectStateDefinition`, класс на состояние в
-  `States/<State>/`, вход через `TryCreateHandleFromPriorityQueue`, все подписки состояния на `handle.Lifetime`; селектор
-  на `Exited`. `enum State` с ветками в одном `Tick` - не машина состояний. `STATE_MACHINES.md` § API, § Entry via
+- **C-SM-1** If an entity has states (modes of behaviour) -> `IState` + `ObjectStateDefinition`, a class per state in
+  `States/<State>/`, the entry through `TryCreateHandleFromPriorityQueue`, every subscription of a state on `handle.Lifetime`; the
+  selector on `Exited`. An `enum State` with branches in one `Tick` is not a state machine. `STATE_MACHINES.md` § API, § Entry via
   priority queue, § Selector on Exited; `GAMEPLAY_ARCHITECTURE.md` § States.
-- **C-SM-2** Если состояние видно другим клиентам -> пара Local / Remote в одной папке, `RemoteStateMachine`,
-  данные в `IStatePayload` с union-тегом; remote-состояние не выходит само. `STATE_MACHINES.md` § Remote copies;
+- **C-SM-2** If a state is visible to other clients -> a Local / Remote pair in one folder, `RemoteStateMachine`,
+  the data in an `IStatePayload` with a union tag; a remote state does not exit by itself. `STATE_MACHINES.md` § Remote copies;
   `GAMEPLAY_ARCHITECTURE.md` § States.
 
 ### 1.5 Lifetime (C-LT)
 
-- **C-LT-1** Если есть `Advise` / `View` / `Listen` / `ListenClick` -> у каждой подписки lifetime; в плане указано,
-  чей. `COMMON_LIFETIMES.md` § Key Rules; `DECISION_TREES.md` § 2.
-- **C-LT-2** Если подписка на элемент коллекции -> `item.Lifetime` или lifetime входа из `View(lifetime, (entryLifetime, item) => ...)`.
+- **C-LT-1** If there is `Advise` / `View` / `Listen` / `ListenClick` -> every subscription has a lifetime; the plan says
+  whose. `COMMON_LIFETIMES.md` § Key Rules; `DECISION_TREES.md` § 2.
+- **C-LT-2** If a subscription to an item of a collection -> `item.Lifetime` or the lifetime of the entry from `View(lifetime, (entryLifetime, item) => ...)`.
   `DECISION_TREES.md` § 6; `COMMON_REACTIVE_COLLECTIONS.md` § Key Rules; `CLAUDE_MISTAKES.md` § F7.
-- **C-LT-3** Если вложенные объекты (персонаж -> способности) -> иерархия `Child()`; `Intersect` - только когда
-  нужен кратчайший из двух несвязанных. `COMMON_LIFETIMES_PATTERNS.md` § Lifetime Hierarchy, § Lifetime Intersection, § Common Mistakes.
-- **C-LT-4** Если одноразовая операция / обёртка колбэка -> `new Lifetime()` с гарантированным `Terminate`;
-  в cluster-бенчмарках root `new Lifetime()` запрещён, в тестах - `Terminate` в `finally`.
+- **C-LT-3** If nested objects (a character -> its abilities) -> a hierarchy of `Child()`; `Intersect` only when
+  the shorter of two unrelated ones is needed. `COMMON_LIFETIMES_PATTERNS.md` § Lifetime Hierarchy, § Lifetime Intersection, § Common Mistakes.
+- **C-LT-4** If a one-off operation / a wrapper of a callback -> `new Lifetime()` with a guaranteed `Terminate`;
+  in cluster benchmarks a root `new Lifetime()` is forbidden, in tests `Terminate` goes in `finally`.
   `DECISION_TREES.md` § 2; `CLAUDE_MISTAKES.md` § F11.
-- **C-LT-5** Если используется `TerminatedLifetime` -> только как «уже закончилось» (слушатели вызываются сразу),
-  не как «ещё не настроено». `CLAUDE_MISTAKES.md` § F35; `COMMON_LIFETIMES_PATTERNS.md` § Conditional Lifetimes.
-- **C-LT-6** Если план меняет создание lifetime-ов в долгоживущих объектах -> шаг проверки утечек через
+- **C-LT-5** If `TerminatedLifetime` is used -> only as "already over" (the listeners are called at once),
+  not as "not set up yet". `CLAUDE_MISTAKES.md` § F35; `COMMON_LIFETIMES_PATTERNS.md` § Conditional Lifetimes.
+- **C-LT-6** If the plan changes the creation of lifetimes in long-lived objects -> a step that checks for leaks with
   `Tools/Lifetime Graph`. `COMMON_LIFETIMES.md` § Lifetime Graph.
 
 ### 1.6 Reactive (C-RX)
 
-- **C-RX-1** Если нужен сигнал без состояния -> `EventSource`; состояние -> `ViewableProperty`; коллекция ->
-  `ViewableList` / `ViewableDictionary`; наружу - read-only интерфейс. `DECISION_TREES.md` § 1;
+- **C-RX-1** If a signal without state is needed -> `EventSource`; state -> `ViewableProperty`; a collection ->
+  `ViewableList` / `ViewableDictionary`; outwards a read-only interface. `DECISION_TREES.md` § 1;
   `COMMON_REACTIVE_BASICS.md` § Key Rules.
-- **C-RX-2** Если UI показывает значение -> `View` (текущее + будущие); `Advise` только для событий.
+- **C-RX-2** If UI shows a value -> `View` (the current one + the future ones); `Advise` only for events.
   `DECISION_TREES.md` § 5; `COMMON_REACTIVE_VALUES.md` § Common Mistakes; `CLAUDE_MISTAKES.md` § F8.
-- **C-RX-3** Если элемент коллекции обновляется на месте -> мутация + `NotifyChangedAt`, не `RemoveAt` + `Add`.
+- **C-RX-3** If an item of a collection is updated in place -> a mutation + `NotifyChangedAt`, not `RemoveAt` + `Add`.
   `COMMON_REACTIVE_COLLECTIONS.md` § Inplace Update.
-- **C-RX-4** Если используется value lifetime из `View((lt, v) => ...)` -> не передавать его для стартового
-  (не установленного) значения; `ViewNotNull`, срабатывающий при setup, защищён проверкой готовности.
+- **C-RX-4** If the value lifetime of `View((lt, v) => ...)` is used -> do not pass it on for the initial
+  (not set) value; a `ViewNotNull` that fires at setup is guarded by a readiness check.
   `CLAUDE_MISTAKES.md` § F9, § F10; `COMMON_REACTIVE_VALUES.md` § Key Rules.
-- **C-RX-5** Если реактивное значение ставится из нескольких потоков (backend) -> весь apply под одним lock, без
-  await внутри. `CLAUDE_MISTAKES.md` § F33.
-- **C-RX-6** Если обработчик события может вызваться внутри вызывающего кода (хит, смерть тела) -> реакция ставится
-  в очередь и выполняется в своём update, списки вызывающего не трогаются. `CLAUDE_MISTAKES.md` § G10.
+- **C-RX-5** If a reactive value is set from several threads (backend) -> the whole apply under one lock, without
+  an await inside. `CLAUDE_MISTAKES.md` § F33.
+- **C-RX-6** If a handler of an event may be called inside the calling code (a hit, the death of a body) -> the reaction is
+  queued and runs in its own update, the lists of the caller are not touched. `CLAUDE_MISTAKES.md` § G10.
 
-### 1.7 View и префабы (C-VW)
+### 1.7 Views and prefabs (C-VW)
 
-- **C-VW-1** Если нужен runtime-вид -> префаб: составной - дети entity-префаба через bindings; много коротких копий -
-  пул над шаблонным префабом; никаких `new GameObject` + `AddComponent`
-  вне редакторских билдеров и процедурных мешей; в плане - grep-проверка. `HIERARCHY_BINDINGS.md` § Runtime Views
+- **C-VW-1** If a runtime view is needed -> a prefab: a composite one as children of the entity prefab through bindings; many
+  short-lived copies as a pool over a template prefab; no `new GameObject` + `AddComponent`
+  outside editor builders and procedural meshes; the plan has a grep check. `HIERARCHY_BINDINGS.md` § Runtime Views
   Come From Prefabs; `CLAUDE_MISTAKES.md` § G36.
-- **C-VW-2** Если код ищет объекты в иерархии -> generated `*Bindings` вместо `transform.Find` / `GetComponentInChildren`;
-  один bindings-класс на тип объекта, у варианта префаба - свой класс. `HIERARCHY_BINDINGS.md` (TL;DR), § Rules.
-- **C-VW-3** Если меняется иерархия префаба сущности -> шаги: Regenerate bindings -> rescan `ScopeEntityView` ->
-  обновление asset map; проверка, что новые ссылки заполнены (unchanged-биндинги не перепривязываются).
+- **C-VW-2** If code looks for objects in the hierarchy -> the generated `*Bindings` instead of `transform.Find` / `GetComponentInChildren`;
+  one bindings class per type of object, a prefab variant has its own class. `HIERARCHY_BINDINGS.md` (TL;DR), § Rules.
+- **C-VW-3** If the hierarchy of an entity prefab changes -> steps: Regenerate bindings -> rescan `ScopeEntityView` ->
+  update the asset map; a check that the new references are filled (unchanged bindings are not rebound).
   `HIERARCHY_BINDINGS.md` § Rules; `CODEGEN.md` § Regenerate All.
 
-### 1.12 API и стиль кода (C-API)
+### 1.12 API and code style (C-API)
 
-- **C-API-1** Если асинхронный метод -> `UniTask` / `UniTask<T>` без суффикса `Async`; fire-and-forget - `.NoAwait()`.
+- **C-API-1** If an asynchronous method -> `UniTask` / `UniTask<T>` without the `Async` suffix; fire-and-forget is `.NoAwait()`.
   `API_DESIGN_FULL.md` § Rule 1; `DECISION_TREES.md` § 4, § 8; `CODE_STYLE_FULL.md` § UniTask Fire-and-Forget.
-- **C-API-2** Если метод возвращает коллекцию -> `IReadOnlyList<T>`, пустая вместо null. `API_DESIGN_FULL.md` § Rule 2, § Rule 3.
-- **C-API-3** Если callback-API -> обёртка в UniTask. `API_DESIGN_FULL.md` § Rule 5.
-- **C-API-4** Если новый класс -> порядок членов (конструктор -> поля -> публичные -> приватные -> локальные),
-  `_camelCase` без сокращений, коллекции инициализируются inline, `TryGetValue`. `CODE_STYLE_FULL.md` § Member Order,
+- **C-API-2** If a method returns a collection -> `IReadOnlyList<T>`, an empty one instead of null. `API_DESIGN_FULL.md` § Rule 2, § Rule 3.
+- **C-API-3** If a callback API -> a UniTask wrapper. `API_DESIGN_FULL.md` § Rule 5.
+- **C-API-4** If a new class -> the order of members (constructor -> fields -> public -> private -> local),
+  `_camelCase` without abbreviations, collections initialized inline, `TryGetValue`. `CODE_STYLE_FULL.md` § Member Order,
   § Field Naming, § Collections, § Dictionary Lookup.
-- **C-API-5** Если `WhenAll` -> каждая задача - именованная локальная переменная, без inline-лямбд.
-  (Пользовательская память `named-tasks-before-whenall.md`, не `.claude/docs`.)
+- **C-API-5** If `WhenAll` -> every task is a named local variable, no inline lambdas.
+  (The user memory `named-tasks-before-whenall.md`, not `.claude/docs`.)
 
 ---
 
 ## 3. Backend (B)
 
-### 3.1 Orleans и grains
+### 3.1 Orleans and grains
 
-- **B-1** Если новый grain -> интерфейс с одним типом ключа, `[Transaction]` только для транзакционных методов,
-  конструкторная инъекция, `[State]` / `[EventState]`. `COMMON_ORLEANS.md` § Grain Pattern.
-- **B-2** Если код вне grain обращается к Orleans -> `IOrleans` и extension-методы (`GetGrain`, `InTransaction`);
-  внутри grain - `GrainFactory` / `Grains`. `COMMON_ORLEANS.md` § IOrleans Interface.
-- **B-3** Если grain держит observer-ссылку процесса, который может умереть -> `[Reentrant]`, observer сбрасывается
-  при ошибке Send. `CLAUDE_MISTAKES.md` § F15.
-- **B-4** Если нужно держать активацию -> keep-alive на вызовах (`AddObserver` / `BindObserver` / `Publish`), не в
+- **B-1** If a new grain -> an interface with one key type, `[Transaction]` only on the transactional methods,
+  constructor injection, `[State]` / `[EventState]`. `COMMON_ORLEANS.md` § Grain Pattern.
+- **B-2** If code outside a grain calls Orleans -> `IOrleans` and the extension methods (`GetGrain`, `InTransaction`);
+  inside a grain `GrainFactory` / `Grains`. `COMMON_ORLEANS.md` § IOrleans Interface.
+- **B-3** If a grain holds an observer reference of a process that may die -> `[Reentrant]`, the observer is reset
+  on a Send error. `CLAUDE_MISTAKES.md` § F15.
+- **B-4** If an activation must be kept -> keep-alive on the calls (`AddObserver` / `BindObserver` / `Publish`), not in
   `OnDeactivateAsync`. `COMMON_ORLEANS.md` § Messaging; `MESSAGING.md` § RuntimeChannel; `CLAUDE_MISTAKES.md` § F29.
-- **B-5** Если меняется набор сервисов роли / модуля (`IGameModule`) -> проверены конструкторы grain-ов,
-  активируемых на этой роли (`GameCompositionTests`). `COMMON_ORLEANS.md` § Hosts, roles and modules; `CLAUDE_MISTAKES.md` § F32.
-- **B-6** Если процесс сам записал состояние grain-а -> не поллить его для подтверждения; не держать локальные
-  lock-и доставки через привязку observer-а. `CLAUDE_MISTAKES.md` § F16, § F17.
+- **B-5** If the set of services of a role / a module (`IGameModule`) changes -> the constructors of the grains activated
+  on that role are checked (`GameCompositionTests`). `COMMON_ORLEANS.md` § Hosts, roles and modules; `CLAUDE_MISTAKES.md` § F32.
+- **B-6** If a process wrote the state of a grain itself -> do not poll it for a confirmation; do not keep local
+  delivery locks through the binding of an observer. `CLAUDE_MISTAKES.md` § F16, § F17.
 
 ### 3.2 State
 
-- **B-7** Если новое состояние -> `[GrainState]` или `[GrainEventState]`, `[GenerateSerializer]`, `[Id(N)]` подряд,
-  `Version`; регистрация генератором `StatesLookup`; таблица - deploy setup. `COMMON_ORLEANS.md` § State, § Adding New State.
-- **B-8** Если event-sourced состояние -> `Apply` на каждый тип события, `Append` + `Write` парой до любого await,
-  `Append` асинхронный. `COMMON_ORLEANS.md` § Event-sourced state; `CLAUDE_MISTAKES.md` § F18-F21.
-- **B-9** Если состояние на DeployId -> `IDeployScopedState`, только direct. `COMMON_ORLEANS.md` § Adding New State (5).
-- **B-10** Если коллекция, адресуемая по ключу на всех сервисах -> `StateCollection` (+ `AddStateCollection`).
-  `COMMON_ORLEANS.md` § StateCollection. (См. K-6.)
-- **B-11** Если нужно перечислить записи -> только ключи (`ReadAllKeys`), без десериализации. `CLAUDE_MISTAKES.md` § F31.
-- **B-12** Если меняется схема БД -> шаг мигратора идемпотентен (чистая БД, текущая, любая старая).
-  `DEPLOY.md` § (Migrations, строки про `PostResourcesSetup`).
+- **B-7** If a new state -> `[GrainState]` or `[GrainEventState]`, `[GenerateSerializer]`, `[Id(N)]` in a row,
+  `Version`; registered by the `StatesLookup` generator; the table by the deploy setup. `COMMON_ORLEANS.md` § State, § Adding New State.
+- **B-8** If an event-sourced state -> `Apply` for every event type, `Append` + `Write` as a pair before any await,
+  `Append` is asynchronous. `COMMON_ORLEANS.md` § Event-sourced state; `CLAUDE_MISTAKES.md` § F18-F21.
+- **B-9** If a state per DeployId -> `IDeployScopedState`, direct only. `COMMON_ORLEANS.md` § Adding New State (5).
+- **B-10** If a collection addressed by a key on every service -> `StateCollection` (+ `AddStateCollection`).
+  `COMMON_ORLEANS.md` § StateCollection. (See K-6.)
+- **B-11** If records must be listed -> only the keys (`ReadAllKeys`), without deserialization. `CLAUDE_MISTAKES.md` § F31.
+- **B-12** If the database schema changes -> the migrator step is idempotent (a clean database, the current one, any old one).
+  `DEPLOY.md` § (Migrations, the lines about `PostResourcesSetup`).
 
 ### 3.3 Messaging
 
-- **B-13** Если рассылка изменений состояния -> `RuntimeChannel` + обработчик `onGapDetected` (перечитать источник).
+- **B-13** If changes of state are broadcast -> `RuntimeChannel` + an `onGapDetected` handler (reread the source).
   `MESSAGING.md` § RuntimeChannel, § Choosing.
-- **B-14** Если команда должна пережить рестарт -> `DurableQueue` с идемпотентным обработчиком, без расчёта на
-  порядок и на доставку всем. `MESSAGING.md` § DurableQueue.
-- **B-15** Если запрос к одному сервису с ответом -> `RuntimePipe`, вызывающий повторяет сам. `MESSAGING.md` § RuntimePipe.
-- **B-16** Если нужна гарантированная доставка каждому подписчику -> сохранить данные и дать подписчикам читать.
+- **B-14** If a command must survive a restart -> `DurableQueue` with an idempotent handler, relying neither on
+  the order nor on the delivery to everyone. `MESSAGING.md` § DurableQueue.
+- **B-15** If a request to one service with an answer -> `RuntimePipe`, the caller retries itself. `MESSAGING.md` § RuntimePipe.
+- **B-16** If a guaranteed delivery to every subscriber is needed -> store the data and let the subscribers read it.
   `MESSAGING.md` § Choosing.
-- **B-17** Если сообщения Orleans -> `[GenerateSerializer]` + `[Id(N)]`; подписка на lifetime. `COMMON_ORLEANS.md` § Messaging.
+- **B-17** If Orleans messages -> `[GenerateSerializer]` + `[Id(N)]`; the subscription on a lifetime. `COMMON_ORLEANS.md` § Messaging.
 
 ### 3.4 Console (Blazor)
 
-- **B-18** Если страница консоли -> ранний return, `[Inject]` в `@code`, реактивные страницы от `UiComponent`.
-  `BLAZOR.md` (правила в начале и разделы про inject / UiComponent).
+- **B-18** If a page of the console -> early return, `[Inject]` in `@code`, reactive pages derive from `UiComponent`.
+  `BLAZOR.md` (the rules at the top and the sections about inject / UiComponent).
 
 ---
 
 ## 4. Shared (S)
 
-- **S-1** Если тип нужен клиенту и backend -> `shared/` (протокол, модели, конфиги); состояния grain-ов - только
+- **S-1** If both the client and the backend need a type -> `shared/` (protocol, models, configs); the states of grains only in the
   backend. `CLAUDE.md` § Overview; `COMMON_ORLEANS.md` § Direct state class.
-- **S-2** Если payload / state payload / event -> MemoryPack, тег в partial-объявлении union рядом с типом,
-  член union-типа с `[MemoryPackAllowSerialize]`. `NETWORK.md` § Union tags; `GAMEPLAY_ARCHITECTURE.md` § Entity (Network).
-- **S-3** Если логика сессии -> `Framework.Session.Core` (C# 9, синхронно, без Unity и Microsoft.Extensions); списки
-  частей `SessionCore` и `AddSessionServices` синхронны. `NETWORK.md` § Session.
-- **S-5** Если в backend используются `StableHash` / `ErrorCode` -> полное имя `Shared.*` (конфликт с Orleans).
+- **S-2** If a payload / a state payload / an event -> MemoryPack, the tag in the partial declaration of the union next to the type,
+  a member of a union type with `[MemoryPackAllowSerialize]`. `NETWORK.md` § Union tags; `GAMEPLAY_ARCHITECTURE.md` § Entity (Network).
+- **S-3** If session logic -> `Framework.Session.Core` (C# 9, synchronous, without Unity and Microsoft.Extensions); the lists of
+  the parts of `SessionCore` and `AddSessionServices` are kept in sync. `NETWORK.md` § Session.
+- **S-5** If the backend uses `StableHash` / `ErrorCode` -> the full name `Shared.*` (a conflict with Orleans).
   `NETWORK.md` § NetworkProperty, § Request errors.

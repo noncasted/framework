@@ -94,21 +94,21 @@ Read the result PNG yourself before showing it: labels readable, nothing cropped
 `README.md` in the output folder:
 
 ```markdown
-# <topic> - варианты
+# <topic> - variants
 
-Бриф: <условия, палитра, размер>
-Лист: <topic>_variants.png[, <topic>_variants.gif]
-Инструменты: <элемент -> генератор и что варьировалось>; пробелы: <элемент - макет, почему, каким генератором рисовать>
+Brief: <conditions, palette, size>
+Sheet: <topic>_variants.png[, <topic>_variants.gif]
+Tools: <element -> generator and what was varied>; gaps: <element - mockup, why, which generator should draw it>
 
-| Вариант | Идея | Чем отличается | Исходник |
-|---------|------|----------------|----------|
+| Variant | Idea | How it differs | Source |
+|---------|------|----------------|--------|
 | A | ... | ... | A_<slug>.png |
 
-Выбор: <пусто до ответа пользователя>
+Choice: <empty until the user answers>
 ```
 
-Then give one line per variant and a recommendation with the reason, and let the user choose (a mix is fine: "B, но
-рамка из D"). Do not implement before the answer.
+Then give one line per variant and a recommendation with the reason, and let the user choose (a mix is fine: "B with
+the frame of D"). Do not implement before the answer.
 
 - With Лайтбокс (`lightbox-pick` on the PATH): pass the variant sources, not the sheet, so each one zooms on its own, and run it in
   the background (`run_in_background: true`); its JSON is the answer, `note` carries the mix:
@@ -124,7 +124,7 @@ decisions file (`auto` skill), and continue - the sheet stays for the user to ov
 
 ## Step 6 — After the choice
 
-1. Write the choice into `README.md` ("Выбор: B, рамка из D").
+1. Write the choice into `README.md` ("Choice: B, the frame of D").
 2. Implement only the chosen variant in the project (assets, prefabs, settings), following the task's usual rules.
 3. Verify it in game (render) against the variant on the sheet, and show the before / after.
 4. Keep the sheet and the sources (the user may come back to the alternatives); delete only temporary renders from

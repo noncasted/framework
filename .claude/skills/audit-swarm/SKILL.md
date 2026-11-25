@@ -53,7 +53,7 @@ Candidates of audit.sh:
 ```
 
 Save each answer as `docs/audits/<date>_<area>.work/scout-<PREFIX>.md`. A scout that timed out or returned nothing in the format:
-spawn it once more with its package cut in two; a second failure goes to "Не проверено".
+spawn it once more with its package cut in two; a second failure goes to "Not checked".
 
 ## Step 3 - Verifiers
 
@@ -68,14 +68,14 @@ spawn it once more with its package cut in two; a second failure goes to "Не �
 
 ## Step 4 - Report
 
-`docs/audits/<YYYY-MM-DD>_<area>.md`, Russian, identifiers in English, the format of the `code-audit` skill (Итог, Критичные,
-Важные, Мелкие, Не проверено) with these changes:
+`docs/audits/<YYYY-MM-DD>_<area>.md`, in English, the format of the `code-audit` skill (Summary, Critical,
+Important, Minor, Not checked) with these changes:
 
 - only CONFIRMED findings go into the severity sections, with the severity of the verifier;
-- each finding gets the line `- Проверка: <run|reading>, <one sentence of the verifier>`;
-- a section `## Не доказано` - the UNPROVEN ones with what would decide them;
-- a section `## Отброшено` - the FALSE ones, one line each: the claim and the refuting fact (it calibrates the scouts);
-- in `Итог`: packages, scouts, verifiers, how many findings were confirmed / false / unproven.
+- each finding gets the line `- Check: <run|reading>, <one sentence of the verifier>`;
+- a section `## Not proven` - the UNPROVEN ones with what would decide them;
+- a section `## Rejected` - the FALSE ones, one line each: the claim and the refuting fact (it calibrates the scouts);
+- in `Summary`: packages, scouts, verifiers, how many findings were confirmed / false / unproven.
 
 Keep the `.work/` folder: the stronger model that reviews the report reads it for the evidence. In the reply: the path of the report,
 the counts and the three first problems.

@@ -41,11 +41,11 @@ Follow the same research process as `/task`:
 
 Parse the user's message after `/workflow`. **Preserve everything — nothing is noise.**
 
-- Составь полный список ВСЕХ целей, подзадач, ограничений и контекста из сообщения пользователя
-- Если пользователь упомянул 7 пунктов — в списке должно быть 7 пунктов. Ничего не отбрасывай
+- Make a full list of ALL goals, subtasks, constraints and context from the user's message
+- If the user mentioned 7 items, the list must have 7 items. Drop nothing
 - Extract all mentioned class names, system names, file names, features
 - Fix typos, normalize informal names to proper C# identifiers
-- Сохрани пользовательские описания поведения рядом с техническим маппингом
+- Keep the user's descriptions of the behaviour next to the technical mapping
 
 ### Step 2 — Search the codebase
 
@@ -92,7 +92,7 @@ Break the task into ordered concrete steps with two-level decomposition:
 
 Rules:
 - Name the target file explicitly (real path found in Step 2)
-- If a new file must be created, mark it: `[новый файл — добавить в X.csproj]`
+- If a new file must be created, mark it: `[new file — add to X.csproj]`
 - Steps must be sequenced so dependencies come first
 - Each step must have an acceptance criterion — a concrete test, command, or observable behavior that proves the step is done
 
@@ -135,39 +135,39 @@ blocked_steps: []
 **File structure:** Requirements first (stable — do not change without user agreement), then Plan (mutable — update when approach changes).
 
 ```markdown
-## Задача: [short name in Russian]
+## Task: [short name]
 
-### Что я хочу
+### What I want
 
-[Несколько абзацев, подробно передающих суть задачи. Сохрани здесь максимум информации из исходного сообщения пользователя: что нужно сделать, зачем, какие ограничения, примеры, контекст, детали. Не сокращай до одной фразы — распиши развёрнуто, чтобы через неделю можно было восстановить полную картину без перечитывания истории.]
+[Several paragraphs that convey the essence of the task in detail. Keep here as much of the user's original message as possible: what must be done, why, the constraints, examples, context, details. Do not cut it down to one sentence — write it out in full, so that a week later the whole picture can be restored without rereading the history.]
 
-### Цель
-[Полное описание цели. Каждый пункт пользователя должен быть представлен.]
+### Goal
+[The full description of the goal. Every item of the user must be present.]
 
-### Контекст
-[Мотивация, ограничения, предпочтения, связь с другими задачами.]
+### Context
+[Motivation, constraints, preferences, links to other tasks.]
 
-## План реализации
+## Implementation plan
 
-#### [N] Название шага
-- **Статус:** [ ] pending | [/] in_progress | [x] completed | [!] blocked
-- **Цель:** [одно предложение — что должно быть true после шага]
-- **Как:** [конкретные действия]
-- **Проверка:** [конкретный тест, команда, или observable behavior]
-- **Файлы:** [список файлов]
-- **Зависит от:** [шаги или —]
-- **Блокирует:** [шаги или —]
+#### [N] Step title
+- **Status:** [ ] pending | [/] in_progress | [x] completed | [!] blocked
+- **Goal:** [one sentence — what must be true after the step]
+- **How:** [concrete actions]
+- **Check:** [a concrete test, command, or observable behavior]
+- **Files:** [list of files]
+- **Depends on:** [steps or —]
+- **Blocks:** [steps or —]
 
-### Ключевые файлы
+### Key files
 
-| Файл | Роль в задаче |
-|------|---------------|
+| File | Role in the task |
+|------|------------------|
 | `path/to/File.cs` | [what and why] |
 
-### Документация к прочтению
-- `tools/framework/.claude/docs/COMMON_CONTAINER.md` — [конкретная причина]
+### Docs to read
+- `tools/framework/.claude/docs/COMMON_CONTAINER.md` — [the specific reason]
 
-### Риски
+### Risks
 [Specific gotchas. Omit section if no risks.]
 ```
 
@@ -183,12 +183,12 @@ updated: <YYYY-MM-DD>
 
 ## Snapshot
 
-| Шаг | Статус | Evidence | Блокер |
-|-----|--------|----------|--------|
+| Step | Status | Evidence | Blocker |
+|------|--------|----------|---------|
 | [N] | [ ] / [x] | [test name or command] | [or —] |
 
-## Заметки
-<!-- Сюда записываются находки, решения и полезная информация по ходу реализации -->
+## Notes
+<!-- Findings, decisions and useful information are written here during the implementation -->
 ```
 
 ### Step 8 — Initialize `<task_name>_result.md`
@@ -196,28 +196,28 @@ updated: <YYYY-MM-DD>
 Create the file with this template. It is a living document — fill it gradually as steps complete, not only at the end:
 
 ```markdown
-## [Task name] — Результат
+## [Task name] — Result
 
-### Статус: В работе
+### Status: In progress
 
-### Что сделано
+### What was done
 <!-- Populated as steps complete -->
 
-### Измененные файлы
+### Changed files
 
-| Файл | Что изменено | Шаг | Evidence |
-|------|-------------|-----|----------|
+| File | What changed | Step | Evidence |
+|------|--------------|------|----------|
 
-### Отличия от плана
+### Deviations from the plan
 <!-- Recorded immediately when approach changes -->
 
-### Нерешенные вопросы
+### Open questions
 <!-- Populated as open questions arise -->
 ```
 
 ### Step 9 — Confirm with user
 
-Output the brief to the user and ask: **"Начинаем реализацию?"**
+Output the brief to the user and ask, in Russian: **"Start the implementation?"**
 
 ---
 
@@ -262,31 +262,31 @@ Content.
 
 When the task is complete, finalize `<task_name>_result.md`:
 
-1. Change `### Статус:` to `Завершено`.
-2. Ensure `### Что сделано` lists all completed items.
-3. Ensure `### Измененные файлы` table is complete with Evidence column.
-4. Fill `### Отличия от плана` if any.
-5. Fill `### Нерешенные вопросы` if any.
+1. Change `### Status:` to `Done`.
+2. Ensure `### What was done` lists all completed items.
+3. Ensure `### Changed files` table is complete with Evidence column.
+4. Fill `### Deviations from the plan` if any.
+5. Fill `### Open questions` if any.
 
 ```markdown
-## [Task name] — Результат
+## [Task name] — Result
 
-### Статус: Завершено
+### Status: Done
 
-### Что сделано
-[Краткое описание результата — что реализовано, 3-7 пунктов]
+### What was done
+[A short description of the result — what is implemented, 3-7 items]
 
-### Измененные файлы
+### Changed files
 
-| Файл | Что изменено | Шаг | Evidence |
-|------|-------------|-----|----------|
-| `path/to/File.cs` | [краткое описание изменения] | [N] | [test name or command] |
+| File | What changed | Step | Evidence |
+|------|--------------|------|----------|
+| `path/to/File.cs` | [a short description of the change] | [N] | [test name or command] |
 
-### Отличия от плана
-[Что было сделано иначе, чем описано в <task_name>_info.md. Omit if plan was followed exactly.]
+### Deviations from the plan
+[What was done differently from <task_name>_info.md. Omit if plan was followed exactly.]
 
-### Нерешенные вопросы
-[Что осталось сделать или требует внимания. Omit if everything is done.]
+### Open questions
+[What remains to be done or needs attention. Omit if everything is done.]
 ```
 
 ---
@@ -294,13 +294,14 @@ When the task is complete, finalize `<task_name>_result.md`:
 ## Rules
 
 - Code identifiers and file paths — English
-- Prose labels — Russian
+- Prose labels and the text of the task files — English; the chat with the user stays in Russian
 - Steps must name real files found via search, never guessed paths
 - Do not lose user requirements during transformation
 - **Plan (in `_info.md`) is the source of truth. When the approach changes, update the Plan section in `_info.md` and record the diff in `_progress.md` and `_result.md`.**
 - `<task_name>_progress.md` — snapshot first, chronology second; updated continuously
 - `<task_name>_result.md` — living document, populated gradually as steps complete
-- При повторном вызове `/workflow` на ту же задачу — читать `_result.md` как primary source, `_info.md` как актуальный план
-- При повторном вызове `/workflow` на ту же задачу — продолжить работу в существующей папке в `docs/tasks/current/`, не создавать новую
-- Все рабочие файлы (`<task_name>_info.md`, `<task_name>_progress.md`, `<task_name>_result.md`) создаются в `docs/tasks/current/<task_name>/`
-- Перемещение в `docs/tasks/complete/` выполняет только `/workflow-complete`
+- On a repeated `/workflow` call for the same task — read `_result.md` as the primary source, `_info.md` as the current plan
+- On a repeated `/workflow` call for the same task — continue the work in the existing folder in `docs/tasks/current/`, do not create a new one
+- Task files written before the English templates may carry the Russian names: `## Задача:`, `### Что я хочу`, `### Цель`, `### Контекст`, `## План реализации` (step fields `Статус` / `Цель` / `Как` / `Проверка` / `Файлы` / `Зависит от` / `Блокирует`), `## Заметки`, `— Результат`, `### Статус:` (`В работе` / `Завершено`), `### Что сделано`, `### Измененные файлы`, `### Отличия от плана`, `### Нерешенные вопросы`; read and update those sections under their names, do not add English duplicates
+- All working files (`<task_name>_info.md`, `<task_name>_progress.md`, `<task_name>_result.md`) are created in `docs/tasks/current/<task_name>/`
+- Only `/workflow-complete` moves a task to `docs/tasks/complete/`

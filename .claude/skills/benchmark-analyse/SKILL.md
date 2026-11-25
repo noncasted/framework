@@ -101,13 +101,13 @@ curl -s http://localhost:7103/api/benchmarks/group/{group}/history
 Present results in a readable table format:
 
 ```
-## Результаты бенчмарков — {Group}
+## Benchmark results — {Group}
 
 | Benchmark | Result | Metric | Duration | Status |
 |-----------|--------|--------|----------|--------|
 | state     | 12345  | ops/s  | 3200ms   | OK     |
 
-## Анализ трендов (последние N запусков)
+## Trends (the last N runs)
 
 | Benchmark | Current | Previous | Delta | Trend |
 |-----------|---------|----------|-------|-------|

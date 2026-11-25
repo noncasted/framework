@@ -22,6 +22,7 @@ If `task_name` is omitted, find the most recently modified task folder in `docs/
 1. Find the task folder: `docs/tasks/current/<task_name>/`
 2. Read all existing files: `<task_name>_info.md`, `<task_name>_progress.md`, `<task_name>_result.md`
 3. If no task folder is found — tell the user and stop
+4. Files written before the English templates may carry the Russian names: `## План реализации`, `### Что я хочу`, `### Цель`, `### Контекст`, `## Заметки`, `Текущий момент остановки`, `### Что сделано`, `### Измененные файлы`, `### Отличия от плана`, `### Нерешенные вопросы`; update those sections under their names, do not add English duplicates
 
 ---
 
@@ -54,7 +55,7 @@ From the current session, gather:
 
 ## Phase 3 — Update `<task_name>_info.md`
 
-Update the Plan section (under `## План реализации`). Do NOT modify Requirements (`### Что я хочу`, `### Цель`, `### Контекст`).
+Update the Plan section (under `## Implementation plan`). Do NOT modify Requirements (`### What I want`, `### Goal`, `### Context`).
 
 What to update:
 - Step statuses: `[ ]` → `[/]` → `[x]` based on what was completed
@@ -64,8 +65,8 @@ What to update:
 - Update front-matter: `status`, `phase`, `updated`, `completed_steps`, `blocked_steps`
 
 What NOT to update:
-- `### Что я хочу` — Requirements are stable, do not change without user agreement
-- `### Цель` and `### Контекст` — same rule
+- `### What I want` — Requirements are stable, do not change without user agreement
+- `### Goal` and `### Context` — same rule
 
 If the plan is still accurate — only update step statuses and front-matter.
 
@@ -85,24 +86,24 @@ updated: <YYYY-MM-DD>
 
 ## Snapshot
 
-| Шаг | Статус | Evidence | Блокер |
-|-----|--------|----------|--------|
+| Step | Status | Evidence | Blocker |
+|------|--------|----------|---------|
 | [N] | [x] / [ ] | [test name or command] | [or —] |
 
-## Заметки
+## Notes
 
-### [YYYY-MM-DD HH:MM] Разделение сессии
-**Текущий момент остановки:** [Exact description: which file was being edited,
+### [YYYY-MM-DD HH:MM] Session split
+**Where the work stopped:** [Exact description: which file was being edited,
 what line, what exactly was being done. Enough detail for a cold start
 without loss of context.]
 
-**Важные находки:**
+**Important findings:**
 [All non-obvious discoveries from this session: specific files, patterns,
 edge cases, decisions, workarounds, failed approaches.]
 
-**Измененные файлы (на момент разделения):**
-| Файл | Статус | Что изменено |
-|------|--------|-------------|
+**Changed files (at the split):**
+| File | Status | What changed |
+|------|--------|--------------|
 | `path/to/File.cs` | committed / uncommitted | [description] |
 
 [Previous notes from old _progress.md preserved below]
@@ -111,7 +112,7 @@ edge cases, decisions, workarounds, failed approaches.]
 Rules for `_progress.md`:
 - **Preserve all existing notes** — append, don't replace
 - The snapshot table must reflect current state accurately
-- The "Текущий момент остановки" section must be detailed enough for a cold start
+- The "Where the work stopped" section must be detailed enough for a cold start
 - Include file paths, line numbers, and specific context where relevant
 - If there are uncommitted changes — note exactly what they are
 
@@ -122,15 +123,15 @@ Rules for `_progress.md`:
 Result.md is a living document and the primary source for the next session.
 Update it with current progress:
 
-1. In `### Что сделано` — add completed items from this session
-2. In `### Измененные файлы` — add rows for files changed in this session:
+1. In `### What was done` — add completed items from this session
+2. In `### Changed files` — add rows for files changed in this session:
    ```markdown
-   | Файл | Что изменено | Шаг | Evidence |
-   |------|-------------|-----|----------|
+   | File | What changed | Step | Evidence |
+   |------|--------------|------|----------|
    | `path/to/File.cs` | [description] | [N] | [test or command] |
    ```
-3. In `### Отличия от плана` — add any deviations discovered
-4. In `### Нерешенные вопросы` — add open questions from this session
+3. In `### Deviations from the plan` — add any deviations discovered
+4. In `### Open questions` — add open questions from this session
 5. Update front-matter: `updated` field
 
 ---
@@ -144,7 +145,7 @@ After updating the files, output ONLY the following text for the user to paste i
 ```
 [COPY-PASTE THIS INTO THE NEXT SESSION]
 
-В рамках /workflow продолжаем работу над docs/tasks/current/<task_name>/. Прочитай <task_name>_result.md (primary source), <task_name>_info.md (актуальный план) и <task_name>_progress.md (snapshot + находки) и продолжай с момента где остановились.
+Within /workflow, continue the work on docs/tasks/current/<task_name>/. Read <task_name>_result.md (primary source), <task_name>_info.md (the current plan) and <task_name>_progress.md (snapshot + findings) and continue from where the work stopped.
 ```
 
 Nothing else. No summaries, no explanations, no execution. Just the prompt string.
@@ -154,14 +155,14 @@ Nothing else. No summaries, no explanations, no execution. Just the prompt strin
 ## Rules
 
 - Code identifiers and file paths — English
-- Prose — Russian
+- Prose of the task files and of the continuation prompt — English; the chat with the user stays in Russian
 - NEVER guess file paths — verify with Glob/Grep
 - Git diff is the source of truth for changed files
 - Do NOT create commits — only update documentation files
 - Do NOT modify any source code files
 - Preserve all existing content in `_progress.md` notes — only append and restructure to snapshot format
 - The goal is zero information loss between sessions
-- Keep "Текущий момент остановки" as specific as possible — vague descriptions defeat the purpose
+- Keep "Where the work stopped" as specific as possible — vague descriptions defeat the purpose
 - If the task has no meaningful progress yet — say so and skip the update
 - **Front-matter must be updated in ALL three files: `_info.md`, `_progress.md`, `_result.md`**
 - **`_result.md` is the primary source for continuation — it must be kept up to date**

@@ -19,7 +19,8 @@ If `task_name` is omitted, look for the most recently modified task folder in `d
 
 1. Find the task folder: `docs/tasks/current/<task_name>/`
 2. Read all three files: `<task_name>_info.md`, `<task_name>_progress.md`, `<task_name>_result.md`
-3. If `<task_name>_result.md` front-matter has `status: pending` or `phase` is `brief` or `implementation` — ask the user if the task is actually done before proceeding
+3. Files written before the English templates may carry the Russian names: `### Статус:` (`В работе` / `Завершено`), `### Что сделано`, `### Измененные файлы`, `### Отличия от плана`, `### Нерешенные вопросы`, `## Заметки`; finalize those sections under their names, do not add English duplicates
+4. If `<task_name>_result.md` front-matter has `status: pending` or `phase` is `brief` or `implementation` — ask the user if the task is actually done before proceeding
 
 ---
 
@@ -47,7 +48,7 @@ Scan `<task_name>_progress.md` and git commit messages for:
 - Patterns that didn't work as expected
 - Compilation errors that required changes
 
-Record these as entries under `### Отличия от плана` or `### Нерешенные вопросы` in result.md.
+Record these as entries under `### Deviations from the plan` or `### Open questions` in result.md.
 
 ---
 
@@ -61,16 +62,16 @@ Result.md is a living document that was populated gradually during implementatio
    phase: completed
    updated: <YYYY-MM-DD>
    ```
-2. **Ensure `### Статус:` is `Завершено`**
-3. **Complete `### Что сделано`** — add any missing completed items
-4. **Complete `### Измененные файлы`** — table with all changed files, verified against git diff:
+2. **Ensure `### Status:` is `Done`**
+3. **Complete `### What was done`** — add any missing completed items
+4. **Complete `### Changed files`** — table with all changed files, verified against git diff:
    ```markdown
-   | Файл | Что изменено | Шаг | Evidence |
-   |------|-------------|-----|----------|
+   | File | What changed | Step | Evidence |
+   |------|--------------|------|----------|
    | `path/to/File.cs` | [description] | [N] | [test name or command] |
    ```
-5. **Complete `### Отличия от плана`** — what was done differently, problems encountered and solved
-6. **Complete `### Нерешенные вопросы`** — what remains to be done
+5. **Complete `### Deviations from the plan`** — what was done differently, problems encountered and solved
+6. **Complete `### Open questions`** — what remains to be done
 
 The file list MUST match the actual git diff, not just what was planned.
 
@@ -85,21 +86,21 @@ Format:
 ```markdown
 ## [Task name]
 
-### Что сделано
+### What was done
 [3-5 bullet points — the essence of what was implemented, no filler]
 
-### Ключевые файлы
+### Key files
 [Only the most important files — 3-7 max, not the full change list]
 
-### Заметки
+### Notes
 [Non-obvious decisions, gotchas, or things to know for future work. Omit if nothing noteworthy.]
 ```
 
 Rules for the condensed summary:
 - **Maximum ~40 lines** — this is a quick reference, not a full report
-- No "Измененные файлы" table — only key files that matter for understanding
-- No "Отличия от плана" — irrelevant after completion
-- No "Нерешенные вопросы" unless they are blockers for future work
+- No "Changed files" table — only key files that matter for understanding
+- No "Deviations from the plan" — irrelevant after completion
+- No "Open questions" unless they are blockers for future work
 - Write for someone who needs to quickly understand what was done and where to look
 
 ---
@@ -199,28 +200,28 @@ Do NOT save:
 
 ## Phase 8 — Report
 
-Output a summary to the user:
+Output a summary to the user, in Russian, in this structure:
 
 ```markdown
 ## Workflow Complete: [task name]
 
-### Задача завершена
-- `docs/tasks/complete/<task_name>.md` — сводка создана
-- `docs/tasks/current/<task_name>/` — рабочие файлы удалены
-- Front-matter обновлён: `status: completed`, `phase: completed`
+### Task complete
+- `docs/tasks/complete/<task_name>.md` — summary created
+- `docs/tasks/current/<task_name>/` — working files deleted
+- Front-matter updated: `status: completed`, `phase: completed`
 
-### Документация обновлена
+### Docs updated
 - `.claude/docs/PATHFINDING.md` — [what changed]
 - `.claude/docs/VOCABULARY.md` — [what added]
-- (or "Обновления не требуются")
+- (or "No updates needed")
 
-### Ошибки зафиксированы
+### Mistakes recorded
 - `.claude/docs/CLAUDE_MISTAKES.md` — Lesson N: [description]
-- (or "Новых ошибок не обнаружено")
+- (or "No new mistakes found")
 
-### Memory обновлена
+### Memory updated
 - [what was saved]
-- (or "Обновления не требуются")
+- (or "No updates needed")
 ```
 
 ---
@@ -228,7 +229,7 @@ Output a summary to the user:
 ## Rules
 
 - Code identifiers and file paths — English
-- Prose — Russian
+- Prose of the task files, the summary and the docs — English; the report to the user in chat — Russian
 - NEVER guess file paths — verify with Glob/Grep
 - NEVER add documentation for things that didn't actually change
 - Match existing format in every doc you update

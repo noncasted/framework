@@ -1,18 +1,18 @@
-# Ещё не в релизе
+# Not released yet
 
-Шаги для игр из коммитов после последнего тега, формат в [README](README.md). Новый шаг дописывается в конец в том же коммите, что
-и изменение. При релизе шаги переходят в `<версия>.md`, здесь остаётся только этот заголовок.
+Steps for the games from the commits after the last tag, the format is in [README](README.md). A new step is added at the end in the same
+commit as the change. At a release the steps move to `<version>.md`, only this header stays here.
 
-### 1. Агенты `audit-swarm` переехали в скилл, `.omp` в корне игры не нужен
+### 1. The agents of `audit-swarm` moved into the skill, a game needs no `.omp` in its root
 
-Кого касается: игры со ссылками в `.omp/agents` (gamejam-autobattler, mines-leader, storytale-workshop). После обновления указателя
-эти ссылки битые: агентов больше нет в `tools/framework/.omp/agents`.
+Who: games with links in `.omp/agents` (gamejam-autobattler, mines-leader, storytale-workshop). After the pointer moves these links
+are broken: the agents are no longer in `tools/framework/.omp/agents`.
 
-Поиск: `ls -la .omp .omp/agents 2>&1`
+Search: `ls -la .omp .omp/agents 2>&1`
 
-Сделать:
-- `git rm -r .omp` (ссылки `audit-scout.md`, `audit-verifier.md` и свой `config.yml` с теми же лимитами); если `.omp` не в git, то
+Do:
+- `git rm -r .omp` (the links `audit-scout.md`, `audit-verifier.md` and an own `config.yml` with the same limits); if `.omp` is not in git,
   `rm -r .omp`.
-- Один раз на машине: `tools/framework/.claude/skills/audit-swarm/install.sh`. Он ссылается на агентов из
-  `.claude/skills/audit-swarm/agents` в `~/.omp/agent/agents` и ставит лимиты `task.maxRuntimeMs` / `task.maxConcurrency` в глобальный
-  config omp. Если `omp` из любой папки уже видит `audit-scout`, этот шаг пропустить.
+- Once per machine: `tools/framework/.claude/skills/audit-swarm/install.sh`. It links the agents of
+  `.claude/skills/audit-swarm/agents` into `~/.omp/agent/agents` and sets the limits `task.maxRuntimeMs` / `task.maxConcurrency` in the global
+  config of omp. If `omp` already sees `audit-scout` from any folder, skip this step.

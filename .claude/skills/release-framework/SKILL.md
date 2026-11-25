@@ -30,7 +30,8 @@ The sources, all of them:
   what the game must give it (a section of `project-skills.md`, a json, a permission).
 
 Each step has: whom it concerns, the search command (run from the root of a game), the change. A change with no action goes to
-"Без действий" in one line. Do not list the commits of a refactoring one by one.
+"No action" in one line. Do not list the commits of a refactoring one by one. The notes are in English, like everything in the
+repository (the report to the user stays in Russian).
 
 ## 3. Check against the games
 

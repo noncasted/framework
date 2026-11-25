@@ -59,31 +59,31 @@ Every finding is confirmed by a look at the lines, then:
 
 ## Step 4 - Report
 
-Write `docs/audits/<YYYY-MM-DD>_<area>.md` in Russian, identifiers in English:
+Write `docs/audits/<YYYY-MM-DD>_<area>.md` in English (the reply to the user stays in Russian):
 
 ```markdown
-# Аудит кода: <area> (<date>)
+# Code audit: <area> (<date>)
 
-Область: <paths>, файлов: <n>. Проверено правил: архитектура, стиль, структура, баги.
+Area: <paths>, files: <n>. Rules checked: architecture, style, structure, bugs.
 
-## Итог
-Критичных: N, важных: N, мелких: N. <the three problems to fix first>
+## Summary
+Critical: N, important: N, minor: N. <the three problems to fix first>
 
-## Критичные
+## Critical
 ### <short title>
-- Где: `path/File.cs:123`
-- Правило: `P9` / `CODE_STYLE_FULL § Errors` / баг
-- Проблема: <what and the scenario>
-- Как исправить: <a concrete step>
+- Where: `path/File.cs:123`
+- Rule: `P9` / `CODE_STYLE_FULL § Errors` / bug
+- Problem: <what and the scenario>
+- Fix: <a concrete step>
 
-## Важные
-## Мелкие
+## Important
+## Minor
 
-## Не проверено
+## Not checked
 <what was skipped and why>
 ```
 
-Severity: **критичная** - a real bug or data loss; **важная** - a broken principle that makes the code harder to change; **мелкая** - style
+Severity: **critical** - a real bug or data loss; **important** - a broken principle that makes the code harder to change; **minor** - style
 without a risk.
 
 In the reply: the path of the report, the counts by severity and the three first problems. Do not retell the report.
