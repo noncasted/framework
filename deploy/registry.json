@@ -100,6 +100,10 @@
       },
       "repository": "noncasted/pixel-swarm",
       "branch": "deploy-monolith",
+      "compose": {
+        "services": "backend/Tools/deploy/docker-compose.yaml",
+        "monolith": "backend/Tools/deploy/docker-compose.monolith.yaml"
+      },
       "resources": [
         {
           "uuid": "c4b3aasq8hoikkbzgloa5ccd",

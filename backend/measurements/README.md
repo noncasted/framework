@@ -34,7 +34,7 @@ and volumes and prints the summary. The images stay as `backend-measurements/<se
 
 | Part | Values |
 |---|---|
-| layout | `services` (`backend/Tools/deploy/docker-compose.yaml`), `monolith` (`docker-compose.monolith.yaml`) |
+| layout | `services`, `monolith`: the compose file of each is `compose` of the project in `deploy/registry.json` (pixel-swarm: `backend/Tools/deploy/docker-compose.yaml`, `docker-compose.monolith.yaml`) |
 | gc | `server` (the default of the Web SDK, DATAS), `workstation` (`DOTNET_gcServer=0`), `conserve` (`DOTNET_gcServer=0`, `DOTNET_GCConserveMemory=5`) |
 | telemetry | from the source: `aspire` when its compose runs `aspire-dashboard`, `victoria` when it exports into the stack of the host (network `observability`); the run then starts `deploy/observability` of this tree next to it |
 

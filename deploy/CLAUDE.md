@@ -13,7 +13,8 @@ domains, the deploy branch. Sessions and scripts (logs, deploy, `claude-coolify`
   branch, GitHub App).
 - `projects.<repository name>`: `framework` (false for post-radio, storytale, nikita-botik), `server`, `mode` (`services` |
   `monolith`), `namespace` (`service.namespace` of logs, = the key), `coolify` (project uuid, name, environment),
-  `repository`, `branch`, `resources` (uuid, type application / service / database, role), `domains` by role, optional `note`.
+  `repository`, `branch`, optional `compose` (the compose file of each layout, `services` / `monolith`, in the deploy
+  branch: `backend/measurements/tools/local.sh` runs them), `resources` (uuid, type application / service / database, role), `domains` by role, optional `note`.
 - `neon-dodge` has no deploy: it is listed with `"deployed": false` and no server.
 - `storytale` is v1: never redeploy or touch it.
 

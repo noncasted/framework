@@ -7,7 +7,7 @@
 #
 #   project    a key of deploy/registry.json: the deploy branch of its repository (or LOCAL_REF) is checked out into
 #              .build/measurements/<project> (git-ignored), never a working tree of the game
-#   layout     services (backend/Tools/deploy/docker-compose.yaml) | monolith (docker-compose.monolith.yaml)
+#   layout     services | monolith: the compose file of the layout is `compose` of the project in the registry
 #   gc         server (the default of the Web SDK, DATAS) | workstation (DOTNET_gcServer=0) |
 #              conserve (DOTNET_gcServer=0, DOTNET_GCConserveMemory=5)
 #   no variant: the full set, see VARIANTS below
@@ -46,12 +46,18 @@ for variant in "${VARIANTS[@]}"; do
     case "$gc" in server|workstation|conserve) ;; *) echo "unknown gc in $variant" >&2; exit 2 ;; esac
 done
 
-read -r repository branch < <(python3 - "$ROOT/deploy/registry.json" "$project" <<'EOF'
-import json, sys
-entry = json.load(open(sys.argv[1]))["projects"][sys.argv[2]]
-print(entry["repository"], entry["branch"])
+# The registry of this tree (registry.py of tools/scripts/deploy): repository, branch, the Coolify project name (the label
+# coolify.projectName of the hosts) and the compose file of each layout.
+read -r repository branch coolify_name services_compose monolith_compose < <(python3 - "$ROOT" "$project" <<'EOF'
+import sys
+sys.path.insert(0, f"{sys.argv[1]}/tools/scripts/deploy")
+import registry
+entry = registry.find(registry.load(f"{sys.argv[1]}/deploy/registry.json"), sys.argv[2])
+compose = entry.get("compose") or sys.exit(f"{sys.argv[2]}: no compose in the registry (deploy/CLAUDE.md)")
+print(entry["repository"], entry["branch"], entry["coolify"]["name"], compose.get("services", "-"), compose.get("monolith", "-"))
 EOF
 )
+[[ -n "${monolith_compose:-}" ]] || { echo "cannot read $project from deploy/registry.json" >&2; exit 2; }
 
 ref=${LOCAL_REF:-$branch}
 [[ -d "$CHECKOUT/.git" ]] || git clone -q --depth 1 --branch "$branch" "https://github.com/$repository.git" "$CHECKOUT"
@@ -69,7 +75,7 @@ echo "$project $ref @ $commit -> $out"
 run=
 compose() { docker compose -p "$run" -f "$WORK/$run.json" "$@"; }
 cleanup() {
-    if [[ -n "$run" ]]; then
+    if [[ -n "$run" && -f "$WORK/$run.json" ]]; then
         compose down -v --remove-orphans >>"$WORK/$run.log" 2>&1
         run=
     fi
@@ -78,24 +84,29 @@ trap cleanup EXIT
 
 for variant in "${VARIANTS[@]}"; do
     IFS=/ read -r layout gc <<<"$variant"
-    file="$CHECKOUT/backend/Tools/deploy/docker-compose.yaml"
-    [[ "$layout" == monolith ]] && file="$CHECKOUT/backend/Tools/deploy/docker-compose.monolith.yaml"
-    run="measure-$(basename "$out")-$layout-$gc"
-    env="$WORK/$run.env"
+    relative=$services_compose
+    [[ "$layout" == monolith ]] && relative=$monolith_compose
+    [[ "$relative" != - ]] || { echo "$project: no compose for the layout $layout in the registry" >&2; exit 2; }
+    file="$CHECKOUT/$relative"
+    # `run` names the compose project for the cleanup: it is set only once the compose file of the run exists.
+    id="measure-$(basename "$out")-$layout-$gc"
+    env="$WORK/$id.env"
 
     (umask 077 && python3 "$TOOLS/local_compose.py" env "$file" > "$env")
-    docker compose -p "$run" --env-file "$env" -f "$file" config --format json > "$WORK/$run.game.json" 2>>"$WORK/$run.log"
-    telemetry=$(python3 "$TOOLS/local_compose.py" telemetry < "$WORK/$run.game.json")
+    docker compose -p "$id" --env-file "$env" -f "$file" config --format json > "$WORK/$id.game.json" 2>>"$WORK/$id.log"
+    telemetry=$(python3 "$TOOLS/local_compose.py" telemetry < "$WORK/$id.game.json")
     name="$layout-$gc-$telemetry"
     stack=()
     if [[ "$telemetry" == victoria ]]; then
-        docker compose -p "$run" -f "$ROOT/deploy/observability/docker-compose.yaml" config --format json \
-            > "$WORK/$run.stack.json" 2>>"$WORK/$run.log"
-        stack=(--stack "$WORK/$run.stack.json")
+        docker compose -p "$id" -f "$ROOT/deploy/observability/docker-compose.yaml" config --format json \
+            > "$WORK/$id.stack.json" 2>>"$WORK/$id.log"
+        stack=(--stack "$WORK/$id.stack.json")
     fi
-    (umask 077 && python3 "$TOOLS/local_compose.py" transform --run "$run" --namespace "$project" --gc "$gc" \
+    (umask 077 && python3 "$TOOLS/local_compose.py" transform --run "$id" --namespace "$coolify_name" --gc "$gc" \
         --cpus "$CPUS" --postgres-image "$POSTGRES" --env "$env" "${stack[@]}" \
-        < "$WORK/$run.game.json" > "$WORK/$run.json")
+        < "$WORK/$id.game.json" > "$WORK/$id.json")
+
+    run=$id
 
     # A run killed before its cleanup leaves its containers and volumes under the same name: start from nothing.
     compose down -v --remove-orphans >>"$WORK/$run.log" 2>&1
