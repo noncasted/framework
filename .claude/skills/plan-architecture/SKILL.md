@@ -1,6 +1,6 @@
 ---
 name: plan-architecture
-description: Create, review or extend the plan of a development or refactoring task (`<task>_info.md`) against the project architecture principles (ARCHITECTURE_PRINCIPLES.md P1-P14) - audits the touched code (big classes, clutter, dead code, polling, views from code, wrong dependency direction), adds the missing steps, risks and questions to the user, writes no code. Use when the user runs /plan-architecture [task text | plan path | docs/tasks/current/<task>/], or says "проверь план", "спланируй по архитектуре", "архитектурный план", "сверь план с принципами", "architecture plan", "plan by architecture", "review the plan".
+description: Create, review or extend the plan of a development or refactoring task (`<task>_info.md`) against the project architecture principles (ARCHITECTURE_PRINCIPLES.md P1-P14) - audits the touched code (big classes, clutter, dead code, polling, views from code, wrong dependency direction), sets the exact folder tree of the task and asks the user to approve it, adds the missing steps, risks and questions to the user, writes no code. Use when the user runs /plan-architecture [task text | plan path | docs/tasks/current/<task>/], or says "проверь план", "спланируй по архитектуре", "архитектурный план", "сверь план с принципами", "architecture plan", "plan by architecture", "review the plan".
 ---
 
 # Plan Architecture Skill
@@ -108,6 +108,25 @@ Per principle: applies / n/a; for each applicable one, the step that meets it, e
 Conflicts: PATTERNS §8 (K-*), DECISIONS "Conflicts" («Конфликты», К* in a file written in Russian), two principles
 pulling apart, or only an `[agent]` source -> a question to the user, not a silent choice.
 
+## Step 4b — Folder tree, approved by the user
+
+For a task that adds or moves code files (a feature, an entity, a refactoring; not a fix inside existing classes) the
+plan gets the exact target tree before any step is written against it:
+
+- Lay the files of the task into the cells of `GAMEPLAY_ARCHITECTURE.md` § Layout (gameplay) or into the shape of the
+  closest analogue of the reference (other assemblies): every new or moved file with its folder and class name, every
+  folder the task creates or deletes. Existing folders of the area are shown as they are, marked `(new)` / `(moved from
+  <path>)` / `(deleted)`.
+- A folder outside the cells or another name: one line of reason under the tree. No reason - no folder.
+- Write it into `_info.md` as `### Folder tree` (a code block + the reasons), above the steps; every step's `Files`
+  line uses only paths of the tree.
+- **Ask the user to approve it** (one `AskUserQuestion`: «Утвердить» / «Изменить» with the tree in the preview, the
+  reasons in the question). Changes -> rewrite the tree and ask again. Record `Approved: <YYYY-MM-DD>` under the tree;
+  the steps are written only after it. Running non-interactively (a subagent of `orchestrate`): write the tree, mark it
+  `Approved: pending` and return it as the first blocking question of the report.
+- A tree already approved in this plan is not asked again unless the task changed; a step that needs a folder outside
+  it adds a question, it does not change the tree silently.
+
 ## Step 5 — Write into the plan
 
 Edit `<task>_info.md` in place, minimal diff, `workflow` format:
@@ -122,16 +141,18 @@ Edit `<task>_info.md` in place, minimal diff, `workflow` format:
 - `### Audit` - table `| File | Lines | Problem | Principle | Step / outside the task |`, confirmed findings only, then the
   hierarchy root -> features -> utilities in 3-6 lines (as is, and as planned if it changes).
 - `### Behaviour changes`, `### Risks` (append, no duplicates), `### Questions to the user` (numbered, options and
-  source, `blocks [N]`), `### Architecture check` (one line per principle: `P3 - step [4]`, `P5 - n/a`).
+  source, `blocks [N]`), `### Architecture check` (one line per principle: `P3 - step [4]`, `P5 - n/a`),
+  `### Folder tree` (Step 4b).
 
 Budget: follow the size of the task - a feature usually 3-8 edits and an audit of 3-8 rows; an existing plan grows by
 at most ~25%. "Outside the task" findings: one row each for the worst, the rest of the sizes in one row. A met
-principle gets only its line in the architecture check. No sections beyond these five.
+principle gets only its line in the architecture check. No sections beyond these six.
 
 ## Step 6 — Report
 
 Short, in Russian (the chat with the user; the plan itself is written in English): the plan path; the audit findings
-(top ones); what was added / changed, by principle; the questions, blocking ones first. Do not start implementation - the user decides.
+(top ones); the approved tree (or that it waits for approval); what was added / changed, by principle; the questions,
+blocking ones first. Do not start implementation - the user decides.
 
 ## Rules
 

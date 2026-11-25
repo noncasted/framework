@@ -13,20 +13,38 @@ analogue there, not from scratch. Container details: `COMMON_CONTAINER.md` § En
 
 ## Layout of a gameplay assembly
 
+The tree is fixed: these names and these cells only. A plan of a feature writes its own tree in these cells and the
+user approves it before the code (`plan-architecture`, Step 4b). A folder outside the tree, or another name, comes only
+with a reason in the plan. A cell the feature does not need is not created (no `Entity/` for a feature without an entity).
+
 ```
 Gameplay/
-  Loop/         the scope root (GameplayScopeExtensions.Construct), the loop of a run (start, end, restart), its HUD
-  Players/      Entity/{Root,Components,States,Sync}, Services/ (factory, registry, scope extension)
-  <Feature>/    one folder per thing of the game (Arena, Swarm, Obstacles, Coins, ...): its entity or services, options,
-                views and sync together
-  Services/     services of the scope shared by several features (time, hits, pools, sounds, cameras), one folder each
-  <Utility>/    small shared code at the bottom (collisions, randomness, ticks), knowing no feature (P14)
-  Common/       tools, tests, telemetry of the assembly
-  Assets/       scenes, prefabs, options, generated bindings
+  Loop/                      the scope root and the run
+    GameplayScopeExtensions  Construct: one Add<Feature>() per feature, nothing else
+    GameplayLoop             start, end, restart of a run
+    Run/ Hud/ Result/ ...    parts of the run that belong to no thing of the game, a folder each
+  <Feature>/                 a thing of the game: Players, Enemies, Obstacles, Arena, Coins
+    Definitions/             data only: XDefinition (EnvAsset), XOptions, enums of data; no behaviour
+    Entity/                  when the thing is an entity (§ Entity)
+      Root/                  IX, ILocalX, IRemoteX, LocalX, RemoteX, XLocalView, XRemoteView, XRootExtensions
+      Components/<Part>/     plain classes of one part (Movement, Health, Look); XComponentsExtensions next to the folders
+      States/<State>/        XLocal<State>, XRemote<State>; XStateDefinitions, XLocalStateSelector,
+                             XRemoteStateSelector, XStatesExtensions next to the folders
+      Sync/                  XSyncExtensions (network only)
+    Services/                XFactory (Build* roots), the registry of the live entities (IXs), services of the feature
+                             in folders of their own, XScopeExtensions (Add<Feature>)
+    <SubFeature>/            a part with its own data and behaviour (Players/Weapon): the same shape inside
+  Services/<Service>/        services of the scope used by several features: Time, Hits, Pools, Sounds, Cameras
+  <Utility>/                 small shared code at the bottom (Collisions, Randomness, Ticks), knowing no feature (P14)
+  Common/                    Tools/, Tests/, Telemetry/ of the assembly
+  Assets/                    Scenes/, Prefabs/, Options/, Generated/ (bindings)
 ```
 
 - A folder is a feature: everything one thing needs lives in its folder (P12). The first level names the things of the
   game and stays short; a new kind of a thing goes inside its feature (`Obstacles/Kinds/Laser`), not next to it.
+- Where a class goes follows from what it is: data -> `Definitions`, the face of the entity -> `Entity/Root`, one
+  behaviour of the entity -> `Entity/Components/<Part>`, a mode -> `Entity/States/<State>`, creating and tracking the
+  entities -> `Services`. A class that fits no cell is a sign of a missing feature or of a class doing two things.
 - **No layer split.** No `Model` / `Views` / `Logic` / `Data` / `Network` folders or assemblies that cut one feature in
   parts. "A pure model without Unity for the tests" is not a reason: components are plain classes with constructor
   injection, testable as they are, and an entity scope loads in a test. "A deterministic simulation" (a checksum, a
@@ -41,17 +59,8 @@ An entity is a thing created and destroyed during the game with its own view and
 objects updated every frame (the ECS world of the game, P7), short pooled views drawn by a service (projectiles, damage
 numbers), static data (options, definitions).
 
-```
-<Feature>/
-  Entity/
-    Root/        IX, ILocalX : IX, IRemoteX : IX (network only), the root classes, XLocalView / XRemoteView : ScopeEntityView,
-                 XRootExtensions
-    Components/  plain classes by feature (Movement/, Look/, Health/, ...), contexts, XComponentsExtensions
-    States/      <State>/XLocal<State>.cs (+ XRemote<State>.cs), selectors, XStateDefinitions, XStatesExtensions
-    Sync/        XSyncExtensions.AddXSync() (network only)
-  Services/      XFactory (Build* roots), the registry of live entities, XScopeExtensions
-Assets/Prefabs/X.prefab (+ X_Local, X_Remote variants), Assets/Generated/XBindings.g.cs
-```
+Its files take the cells `Entity/{Root,Components,States,Sync}` and `Services/` of its feature (§ Layout); the prefab
+is `Assets/Prefabs/X.prefab` (+ `X_Local`, `X_Remote` variants), the bindings `Assets/Generated/XBindings.g.cs`.
 
 - **Root.** `IX` holds what every copy exposes (`Lifetime`, the read-only state, `Destroy()`); `ILocalX` adds the parts
   of the owner (input, writers). Registered by `XRootExtensions` with `.WithParameter(builder.ScopeLifetime)`; `Destroy()`

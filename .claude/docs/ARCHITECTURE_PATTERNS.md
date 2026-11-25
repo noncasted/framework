@@ -34,7 +34,8 @@ the rule rests on the other sources of the line.
 
 - **C-LAY-1** If a new gameplay feature -> the folder of the feature follows its closest analogue in the reference of the game
   (`.claude/project-skills.md` § architecture, otherwise pixel-swarm `client/Assets/GamePlay`); the plan names the analogue and
-  the folders of the feature. `GAMEPLAY_ARCHITECTURE.md` § Layout of a gameplay assembly.
+  holds the "Folder tree" of the task in the cells of the fixed tree, approved by the user before the steps.
+  `GAMEPLAY_ARCHITECTURE.md` § Layout of a gameplay assembly; `plan-architecture` Step 4b.
 - **C-LAY-2** If the plan splits a feature by layers (`Model` / `Views` / `Logic` / `Data` / `Network`, a separate assembly of a
   "pure model" for tests or for determinism) -> instead the entity or the services of the feature in one folder; the order of the
   tick is kept by the root of the run. `GAMEPLAY_ARCHITECTURE.md` § Layout of a gameplay assembly.

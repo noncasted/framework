@@ -67,7 +67,9 @@ Before the waves, one agent runs the `plan-architecture` skill on the workspace:
 .claude/skills/plan-architecture/SKILL.md for docs/tasks/current/<task>/; the answer is its report (Step 6)". It edits only
 `_info.md`: steps, "Audit", "Architecture check", questions. Its new steps and changed dependencies go into the graph
 of Phase 2. Its "Questions to the user": ask the blocking ones before the steps they block (one `AskUserQuestion`), go on
-with what they do not block; record the answers in `_info.md`.
+with what they do not block; record the answers in `_info.md`. Its "Folder tree" comes back `Approved: pending`: show
+it to the user (`AskUserQuestion`, the tree in the preview) and record `Approved: <date>` or the changes; no code step
+starts before the tree is approved.
 
 ## Phase 2 — Plan the waves
 
@@ -126,7 +128,8 @@ the plan, open questions. Short - do not retell the code.
 ```
 Architecture: read tools/framework/.claude/docs/ARCHITECTURE_PATTERNS.md (the sections of the layers of the step)<,
 GAMEPLAY_ARCHITECTURE.md for gameplay>. Model: <the analogue folder from the "Architecture check" of the plan> - repeat
-its layout. In the final report - "Architecture check of the step": the new folders and classes and why they are there,
+its layout. Files go only into the approved "Folder tree" of the plan; a file that needs another folder - stop and
+report it, do not create the folder. In the final report - "Architecture check of the step": the new folders and classes and why they are there,
 which principles P1-P14 the step touched and how they are met.
 ```
 
@@ -151,7 +154,7 @@ While agents run (they report back by notification; do not poll in a loop):
 - **[arch]** A step that added or changed code is done only after an architecture review: a fresh agent (not the
   implementer) gets the step, its file list and `git diff` range, and the analogue folder - not the orchestrator's
   opinion - and runs `code-audit` Steps 1-3 on the changed files and their feature folders against P1-P14,
-  `GAMEPLAY_ARCHITECTURE.md` and the analogue. It answers with confirmed findings only (file:line, principle). A finding
+  `GAMEPLAY_ARCHITECTURE.md`, the analogue and the approved "Folder tree". It answers with confirmed findings only (file:line, principle). A finding
   in the step: one more round of the same step agent with the findings as notes (`SendMessage`, or a new generation with
   them in the brief), then the review again; a second round with findings -> `blocked`, the user decides. A finding
   outside the step: a follow-up step in `_info.md`. Steps of docs or research skip the review.
