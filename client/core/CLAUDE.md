@@ -24,26 +24,13 @@
   layer, planeDistance)` (Screen Space - Camera: the whole canvas on the layer, the camera asked on every show) or, explicitly,
   `AddScreenCanvasOverlay()`. Without one the scope that builds them does not resolve. The Overlay mode lost its projection on
   iPadOS 18.2 Safari; the camera and its drawing stay in the game.
-- **Content.** AssetBundles of the engine (`CONTENT.md`) instead of Addressables (until 0.8; the content directory of the 0.7 release candidates never shipped):
-  a bundle is a `ContentBundle` asset (roots, `IsPreloaded`, `IsGzip`) holding its roots and what they reach directly and lazily,
-  except the roots of other bundles (dependencies). `ContentBuild` lays them out and checks every dependency has one owner
-  (`ContentBundleLayout`), builds them with every player build (an `IPlayerBuildStep` and a `BuildPlayerProcessor`;
-  `IContentBuildStep.BeforeContentBuild(ContentBuildContext)` runs first, the `ContentRoot` generator among them; a step of the game
-  leaves bundles out of this build with `build.Exclude(name)`: not built, not in the catalog nor the `ContentRoot`, a built bundle that
-  references them fails the build; an `IContentLayoutStep` sees their final set, `build.ExcludedBundles`, in `BeforeLayout` (after the
-  shared bundles, before the layout) and `AfterBundles` (after the bundle build): the `ContentRoot` without their roots is written there),
-  then the shared bundles of the game (`IContentSharedBundles`: its folder and an ordered list of
-  `ContentSharedBundle(name, isPreloaded, isGzip, serves...)`; `ContentSharedSync` makes every asset several bundles need directly a root of
-  the first one that takes it, also in Regenerate All and `Codegen/Sync Shared Content Bundles`), writes the catalog into `Resources`, the types of their
-  objects into a link.xml (`ContentLinkerProcessor`) and ships them as `StreamingAssets/Content/<name>.<hash>.bundle[.gz]`
-  (`IsPreloaded` on WebGL: inside the `.data`). The root scope calls `await builder.AddContent(new ContentOptions(name))` once (the name
-  of the main bundle is a constant of the root scope: the options of the game load after it; the main bundle held as long as the root, `IContentLoader`, the catalogues bound); more bundles with roots of their own:
-  `AddContentBundle(name, registration)`, `await IContentLoadersCollection.Wait(lifetime, name)`, `RootAssets<T>()`. Scopes
-  `LoadContent(reference)` / `RequestContent(reference, out slot)` (container primitives), scenes `FindOrLoadSceneWithServices(ContentScene)`,
-  `WithAssetScene(ContentScene)`; during the game `IContentLoader.Load / LoadNow / LoadScene / Fetch / Progress` on the lifetime of the
-  owner, which holds the whole bundle of the target with its dependencies and unloads it after the last hold. References:
-  `ContentReference<T>`, `ContentScene` (GUID and local id; the catalog knows the bundle). Distributions: local (`StreamingAssets`, Android
-  inside the APK), web (fetch into MEMFS, Cache API `content`, `remoteUrl` for a CDN); Play Mode loads the assets of the project.
+- **Content.** AssetBundles of the engine instead of Addressables (until 0.8; the content directory of the 0.7 release
+  candidates never shipped). The whole contract is `CONTENT.md`: bundles and their layout, the build and its steps, shared
+  bundles, distributions, references, loading in scopes and during the game. In short: a bundle is a `ContentBundle` asset,
+  built with every player build; the root scope calls `await builder.AddContent(new ContentOptions(name))` once (the name of
+  the main bundle is a constant of the root scope: the options of the game load after it); during the game `IContentLoader`
+  loads on the lifetime of the owner, which holds the whole bundle of the target with its dependencies and unloads it after
+  the last hold; Play Mode loads the assets of the project.
 - **Player build steps.** A project step around the build entry points of the platforms implements `IPlayerBuildStep`
   (`core/Editor/Tools/Build`: `BeforeBuild` / `AfterBuild(target, succeeded)`, a parameterless class, found by
   `TypeCache`, ordered by full type name); `PlayerBuildSteps.Run(target, build)` calls `AfterBuild` of every started
@@ -61,15 +48,9 @@
 - **ContainerGenerator.** Sources in `client/core/Source~`, the dll in `client/core/Analyzers` (`RoslynAnalyzer`
   label, every platform off). After a change: build it (it copies itself into `Analyzers`) and run
   `ContainerGenerator.Verify`.
-- **Logging.** `client/core/Runtime/Logging` (`LOGGING.md`): runtime code logs through `ILog<T>` (a parameter of a constructor or an
-  `[Inject]` method, given by every scope without a registration: the generator binds it to `Logs.Of<T>()`; a static class takes
-  `Logs.Of(typeof(X))`), not `Debug.Log*`. Templates with `{Name}` placeholders and 0-4 generic arguments (`Debug` / `Info` /
-  `Warning` / `Error`, `Error(exception, ...)`, `Exception(e)`): nothing formatted or allocated below the level, `Debug` compiled
-  only in the editor, development builds and under `FRAMEWORK_LOG_DEBUG`. The category is the full name of the type; the levels
-  come from `LogOptions` of the `OptionsContainer` of the game (development / release / mark level, rules by prefix), applied by
-  `OptionsContainer.Register`. `Logs.AddSink(lifetime, ILogSink)` takes the records; `Logs.IsWriting` marks the lines it writes
-  into the log of Unity. The telemetry takes its warnings and errors with `Category` and the template as the message, and the
-  records at the mark level as marks `log.<level>`.
+- **Logging.** Runtime code logs through `ILog<T>` (a parameter of a constructor or an `[Inject]` method, given by every
+  scope without a registration; a static class takes `Logs.Of(typeof(X))`), not `Debug.Log*`. Templates, levels (`LogOptions`
+  of the `OptionsContainer` of the game), sinks and what the telemetry takes: `LOGGING.md`.
 - **Updater.** The global scope calls `AddUpdater(prefab)` (core); delays without coroutines:
   `updater.RunDelay(lifetime, time)`; every updater wait (RunDelay, RunUpdateAction, Progression, Tween) ends with
   `OperationCanceledException` when its lifetime ends first. `Pause` / `Continue` are counted (Continue without Pause
