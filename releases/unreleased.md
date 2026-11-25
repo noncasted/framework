@@ -75,3 +75,19 @@ or literal; a check of the health paths (an auth middleware skipping them) calls
 
 Check: a few minutes after the deploy VictoriaTraces of the host has no new span `GET /ready` of the project (LogsQL
 `name:"GET /ready"` over `/select/logsql/query`, through the ssh tunnel of `backend-logs`).
+
+### The analyzer dll in the backend images and the deploy mirror
+
+Who: backend deploy, every game that did step 3 of [0.17.0](0.17.0.md) and whose image context or deploy branch leaves out
+`tools/framework/client` (a `.dockerignore` entry, a backend-only mirror like pixel-swarm `tools/scripts/sync-deploy-branch.sh`).
+Why: `backend/Directory.Build.props` compiles with `tools/framework/client/core/Analyzers/Framework.Analyzers.dll`; without the
+file every project fails with `CS0006: Metadata file ... Framework.Analyzers.dll could not be found` (pixel-swarm: the Coolify
+build of `deploy-monolith` failed in `dotnet publish` of the migrator).
+
+Search: `git grep -nE 'tools/framework/client|FRAMEWORK_PATHS|sparse-checkout' -- .dockerignore 'tools/scripts/*.sh' '.github/workflows/*.yml'`
+
+Do: after `tools/framework/client/` of `.dockerignore` add `!tools/framework/client/core/Analyzers/Framework.Analyzers.dll`; a
+deploy mirror copies that file too, keeping its path (pixel-swarm: `FRAMEWORK_PATHS` of `sync-deploy-branch.sh`, the
+sparse checkout and the `cp --parents` of `.github/workflows/sync-deploy-branch.yml`).
+
+Check: `dotnet publish` of each backend exe from a checkout of the deploy branch (or `docker compose build`) has no `CS0006`.
