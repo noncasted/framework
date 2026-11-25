@@ -1,55 +1,21 @@
 using System.Collections.Concurrent;
-using Common.Extensions;
 using System.Diagnostics.Metrics;
-using System.Reflection;
 using System.Text.Json;
-using Microsoft.Extensions.Hosting;
+using Common.Extensions;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure;
+namespace Cluster.Monitoring;
 
-// Dev-only: snapshots go to backend/.telemetry/metrics of the repository the service runs from. In other
-// environments metrics go through OpenTelemetry only and the service does nothing.
-public class MetricsSnapshotService : IHostedService, IDisposable
+// Listens to BackendMeter in the whole process (the meter is static) and writes metrics_<name>.json into the directory
+// every 10 seconds and once more when disposed. One writer per process: two writers of one process would both hold
+// the totals of the process.
+public sealed class MetricsSnapshotWriter : IDisposable
 {
-    public MetricsSnapshotService(ILogger<MetricsSnapshotService> logger, IHostEnvironment environment)
-        : this(logger, environment, () => TelemetryPaths.RequireTelemetryDir("metrics"))
-    {
-    }
-
-    public MetricsSnapshotService(
-        ILogger<MetricsSnapshotService> logger,
-        IHostEnvironment environment,
-        Func<string> resolveDirectory)
+    public MetricsSnapshotWriter(ILogger logger, string directory, string serviceName)
     {
         _logger = logger;
-        _environment = environment;
-        _resolveDirectory = resolveDirectory;
-    }
-
-    private readonly ILogger<MetricsSnapshotService> _logger;
-    private readonly IHostEnvironment _environment;
-    private readonly Func<string> _resolveDirectory;
-    private readonly ConcurrentDictionary<string, MetricSnapshot> _snapshots = new();
-
-    private MeterListener? _listener;
-    private Timer? _timer;
-    private string _serviceName = "unknown";
-    private string _directory = string.Empty;
-
-    public Task StartAsync(CancellationToken cancellationToken)
-    {
-        if (_environment.IsDevelopment() == false)
-        {
-            _logger.LogInformation("[MetricsSnapshot] File snapshots are disabled outside Development");
-            return Task.CompletedTask;
-        }
-
-        // No repository root in Development is a setup error: fail the start instead of silently writing nothing.
-        _directory = _resolveDirectory();
-
-        _serviceName = Environment.GetEnvironmentVariable("SERVICE_NAME") ??
-                       Assembly.GetEntryAssembly()?.GetName().Name?.ToLowerInvariant() ?? "unknown";
+        _serviceName = serviceName;
+        _path = Path.Combine(directory, $"metrics_{serviceName}.json");
 
         _listener = new MeterListener();
         _listener.InstrumentPublished = OnInstrumentPublished;
@@ -58,22 +24,27 @@ public class MetricsSnapshotService : IHostedService, IDisposable
         _listener.SetMeasurementEventCallback<double>(OnMeasurement);
         _listener.Start();
 
-        _timer = new Timer(WriteSnapshot, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
-
-        return Task.CompletedTask;
+        _timer = new Timer(WriteSnapshot, null, Period, Period);
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        _timer?.Change(Timeout.Infinite, Timeout.Infinite);
-        _listener?.Dispose();
-        return Task.CompletedTask;
-    }
+    private static readonly TimeSpan Period = TimeSpan.FromSeconds(10);
 
+    private readonly ILogger _logger;
+    private readonly string _serviceName;
+    private readonly string _path;
+    private readonly MeterListener _listener;
+    private readonly Timer _timer;
+    private readonly ConcurrentDictionary<string, MetricSnapshot> _snapshots = new();
+
+    // A tick of the timer may still run while Dispose writes the last snapshot.
+    private readonly Lock _writeLock = new();
+
+    // Stops listening and writes the last snapshot.
     public void Dispose()
     {
-        _timer?.Dispose();
-        _listener?.Dispose();
+        _timer.Dispose();
+        _listener.Dispose();
+        WriteSnapshot(null);
     }
 
     private void OnInstrumentPublished(Instrument instrument, MeterListener listener)
@@ -134,11 +105,13 @@ public class MetricsSnapshotService : IHostedService, IDisposable
             };
 
             var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
-            var path = Path.Combine(_directory, $"metrics_{_serviceName}.json");
-            File.WriteAllText(path, json);
+
+            lock (_writeLock)
+                File.WriteAllText(_path, json);
         }
         catch (Exception e)
         {
+            // The boundary of the timer: a failed write is logged, the next tick writes again.
             _logger.LogError(e, "[MetricsSnapshot] Failed to write snapshot");
         }
     }
