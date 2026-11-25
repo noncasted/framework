@@ -1,6 +1,5 @@
 using System;
 using Internal;
-using Shared;
 
 namespace Game.Session
 {
@@ -22,29 +21,5 @@ namespace Game.Session
         ISessionSeat Seat { get; }
         ILifetime Lifetime { get; }
         IUserConnection Connection { get; }
-    }
-
-    // What the session does with the connection of a user: the transport is the host's (a WebSocket of the backend,
-    // a data channel or a loopback of a host client).
-    public interface IUserConnection
-    {
-        void Send(INetworkContext context);
-        void Respond(INetworkContext context, int requestId);
-
-        // The session drops the connection (a stale one of a user that came anew): its end removes the user.
-        void Disconnect();
-    }
-
-    public static class UserExtensions
-    {
-        public static void Send(this IUser user, INetworkContext context)
-        {
-            user.Connection.Send(context);
-        }
-
-        public static void Send(this IUser user, INetworkContext context, int requestId)
-        {
-            user.Connection.Respond(context, requestId);
-        }
     }
 }
