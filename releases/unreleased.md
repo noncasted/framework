@@ -72,6 +72,9 @@ Do:
   the same `Url` / `ApiKey` section. `BackendTraceReader` / `BackendTraceParser` -> `AspireDashboardTraceReader` /
   `AspireDashboardTraceParser`, `OtlpJsonValues` moved to the same namespace, `OtlpSpan` -> `BackendTraceWireSpan`,
   `BackendTraceParser.UnknownService` -> `BackendTraceWireSpan.UnknownService`; `BackendTraceResult.NotFound` carries a message.
+  `BackendTraceParser.Parse(traceId, json)` returning `BackendTraceResult` -> `AspireDashboardTraceParser.Parse(json)` returning
+  `IReadOnlyList<BackendTraceWireSpan>`: a caller builds the trace with `BackendTraceAssembler.Assemble(traceId, spans)`, an empty
+  list is a trace the store does not have (the readers map it to `NotFound`).
 - A deployed console without the dashboard (the observability stack, `deploy/observability/CLAUDE.md`): call
   `builder.AddConsoleVictoriaTraces(builder.Configuration.GetSection("BackendTraces"))` with `BackendTraces__Url=http://victoriatraces:10428`
   in its compose; the console service joins the network `observability`. One source per console: a second call throws, so the
