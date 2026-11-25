@@ -1,0 +1,130 @@
+# Logs and traces of every game on one VPS: VictoriaLogs, VictoriaTraces and a tiny OTLP router.
+#
+# The contract with the games (network, addresses, resource attributes) is in CLAUDE.md next to this file;
+# it only changes compatibly: games on different framework versions export into the same stack.
+# Deployed by Coolify (docker compose build pack) from the branch that the framework publishes; see README.md.
+#
+# Local run (README.md):
+#   docker network create observability
+#   docker compose -p obs-test -f deploy/observability/docker-compose.yaml up -d
+
+name: observability
+
+# Ingest is reachable only inside this network: the game services join it as an external network too.
+# It is created on the host once (README.md), never by this file, so that a redeploy of the stack does not
+# take the network away from the running games. Coolify keeps an external network as declared and adds
+# its own per-resource network next to it.
+networks:
+  observability:
+    external: true
+
+# Coolify renames managed volumes to "<resource uuid>_<name>"; the uuid is stable, so data survives redeploys.
+volumes:
+  victorialogs-data:
+  victoriatraces-data:
+
+# Retention, disk caps and memory limits are literals, not ${VAR:-default}: Coolify stores a variable with its first
+# value and keeps it on later deploys, so a new default here would never reach a host. One set of values fits both
+# VPS (2026-11-25: ovh 58G free of 96G, firstvds 32G free of 79G): the stack takes at most 8 GiB of disk.
+services:
+  victorialogs:
+    image: victoriametrics/victoria-logs:v1.54.0
+    command:
+      - -storageDataPath=/data
+      - -httpListenAddr=:9428
+      - -retentionPeriod=30d
+      - -retention.maxDiskSpaceUsageBytes=4GiB
+    volumes:
+      - victorialogs-data:/data
+    # Reading: the host loopback only, agents come through `ssh -L` (CLAUDE.md). Never 0.0.0.0.
+    ports:
+      - "127.0.0.1:9428:9428"
+    networks:
+      - observability
+    mem_limit: 256m
+    restart: unless-stopped
+    healthcheck:
+      # The image has no shell, curl or wget: the binary checks its own listener.
+      test: ["CMD", "/victoria-logs-prod", "-healthcheck", "-httpListenAddr=:9428"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
+
+  victoriatraces:
+    image: victoriametrics/victoria-traces:v0.13.0
+    command:
+      - -storageDataPath=/data
+      - -httpListenAddr=:10428
+      - -retentionPeriod=14d
+      - -retention.maxDiskSpaceUsageBytes=4GiB
+    volumes:
+      - victoriatraces-data:/data
+    ports:
+      - "127.0.0.1:10428:10428"
+    networks:
+      - observability
+    mem_limit: 256m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/victoria-traces-prod", "-healthcheck", "-httpListenAddr=:10428"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
+
+  # One OTLP/HTTP base address for the games: http://otlp:4318 (/v1/logs, /v1/traces, /v1/metrics).
+  # It sets the stream fields of the logs, so a game does not repeat them, and answers 200 to metrics,
+  # which the stack does not store, so an exporter left on does not retry and log errors.
+  # The config is written inline: a Coolify compose resource has no repository files on the host to mount.
+  # `$$` is a literal `$` for compose. The resolver re-resolves the upstreams after their restart.
+  otlp:
+    image: nginx:1.30.8-alpine-slim
+    command:
+      - /bin/sh
+      - -c
+      - |
+        cat > /etc/nginx/conf.d/default.conf <<'EOF'
+        resolver 127.0.0.11 valid=10s ipv6=off;
+        server {
+          listen 4318;
+          access_log off;
+          client_max_body_size 64m;
+          set $$logs http://victorialogs:9428;
+          set $$traces http://victoriatraces:10428;
+          location = /v1/logs {
+            proxy_set_header VL-Stream-Fields "service.namespace,service.name,deployment.environment";
+            proxy_pass $$logs/insert/opentelemetry/v1/logs;
+          }
+          location = /v1/traces {
+            proxy_pass $$traces/insert/opentelemetry/v1/traces;
+          }
+          location = /v1/metrics {
+            default_type application/x-protobuf;
+            return 200 "";
+          }
+          location = /health {
+            return 200 "ok";
+          }
+          location / {
+            return 404;
+          }
+        }
+        EOF
+        sed -i 's/^worker_processes .*/worker_processes 1;/' /etc/nginx/nginx.conf
+        exec nginx -g 'daemon off;'
+    networks:
+      - observability
+    mem_limit: 32m
+    restart: unless-stopped
+    depends_on:
+      victorialogs:
+        condition: service_healthy
+      victoriatraces:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4318/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
