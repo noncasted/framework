@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <RootNamespace>Framework.Analyzers</RootNamespace>
+    <AssemblyName>Framework.Analyzers</AssemblyName>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <IncludeBuildOutput>true</IncludeBuildOutput>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <NoWarn>$(NoWarn);RS2008</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Unity runs Roslyn 4.x: the analyzers pin the same 4.3.0 API as ContainerGenerator. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" VersionOverride="4.3.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" VersionOverride="3.3.4" PrivateAssets="all" />
+  </ItemGroup>
+  <!-- Only a Release build with -p:CopyToAnalyzers=true writes the dll next to ContainerGenerator.dll: the dll there
+       turns the rules on in every game, so a plain build never puts it there. -->
+  <Target Name="CopyToAnalyzers" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' and '$(CopyToAnalyzers)' == 'true'">
+    <PropertyGroup>
+      <UnityPluginsDir>$(MSBuildProjectDirectory)/../../Analyzers</UnityPluginsDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(UnityPluginsDir)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(UnityPluginsDir)" SkipUnchangedFiles="true" />
+  </Target>
+</Project>
