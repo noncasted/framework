@@ -1,0 +1,309 @@
+{
+  "servers": {
+    "ovh": {
+      "country": "Poland",
+      "city": "Warsaw",
+      "provider": "OVH",
+      "ip": "51.68.143.178",
+      "mcp": "coolify-ovh",
+      "ssh": "ovh",
+      "ssh_user": "ubuntu",
+      "docker": "sudo -n docker",
+      "panel": "https://coolify.ncstd.xyz",
+      "observability": {
+        "logs": "http://127.0.0.1:9428",
+        "traces": "http://127.0.0.1:10428",
+        "access": "ssh-tunnel",
+        "coolify": {
+          "project": "oyccpexpsfyq5naitclnndzp",
+          "name": "observability",
+          "environment": "production",
+          "application": "oukejx1fbca7wtmycipf9rjt",
+          "branch": "observability-deploy",
+          "github_app": "zany-zebra-rywpzntzpmqakdkvrt0"
+        }
+      }
+    },
+    "firstvds": {
+      "country": "Kazakhstan",
+      "city": "Almaty",
+      "provider": "FirstVDS (HostLab)",
+      "ip": "176.12.79.177",
+      "mcp": "coolify-firstvds",
+      "ssh": "firstvds",
+      "ssh_user": "root",
+      "docker": "docker",
+      "panel": "https://coolify.nndd.dev",
+      "observability": {
+        "logs": "http://127.0.0.1:9428",
+        "traces": "http://127.0.0.1:10428",
+        "access": "ssh-tunnel",
+        "coolify": {
+          "project": "6rdlzjfzxzaitdcnnbydvq52",
+          "name": "observability",
+          "environment": "production",
+          "application": "le1rlnmqqf6xybu4ppezstyc",
+          "branch": "observability-deploy",
+          "github_app": "coolify-kz"
+        }
+      }
+    }
+  },
+  "projects": {
+    "mines-leader": {
+      "framework": true,
+      "server": "ovh",
+      "mode": "services",
+      "namespace": "mines-leader",
+      "coolify": {
+        "project": "xyrabeo4mc5g8y97v9oyo30p",
+        "name": "minesleader",
+        "environment": "production"
+      },
+      "repository": "noncasted/mines-leader",
+      "branch": "deploy",
+      "resources": [
+        {
+          "uuid": "f8yz0we2icjsm7edti3g9zp7",
+          "type": "application",
+          "role": "backend"
+        },
+        {
+          "uuid": "rp57atznu171qtglsuupajin",
+          "type": "service",
+          "role": "client"
+        },
+        {
+          "uuid": "w14436sq0m5kp47dadhs533f",
+          "type": "database",
+          "role": "postgres",
+          "name": "postgres"
+        }
+      ],
+      "domains": {
+        "meta": "https://meta.minesleader.xyz",
+        "game": "https://game.minesleader.xyz",
+        "console": "https://console.minesleader.xyz",
+        "aspire": "https://aspire.minesleader.xyz",
+        "client": "https://minesleader.xyz"
+      }
+    },
+    "pixel-swarm": {
+      "framework": true,
+      "server": "ovh",
+      "mode": "monolith",
+      "namespace": "pixel-swarm",
+      "coolify": {
+        "project": "zqfwglgmpyhdwoii2oszwoa5",
+        "name": "pixel-swarm",
+        "environment": "production"
+      },
+      "repository": "noncasted/pixel-swarm",
+      "branch": "deploy-monolith",
+      "resources": [
+        {
+          "uuid": "c4b3aasq8hoikkbzgloa5ccd",
+          "type": "application",
+          "role": "backend"
+        },
+        {
+          "uuid": "kxbnp6f7sld3gppbj6ik7as0",
+          "type": "service",
+          "role": "client"
+        },
+        {
+          "uuid": "vjgu3p4ptf5bxxs7di7f8sw1",
+          "type": "database",
+          "role": "postgres",
+          "name": "postgres"
+        }
+      ],
+      "domains": {
+        "meta": "https://meta.pixel-swarm.xyz",
+        "game": "https://game.pixel-swarm.xyz",
+        "console": "https://console.pixel-swarm.xyz",
+        "aspire": "https://aspire.pixel-swarm.xyz",
+        "client": "https://pixel-swarm.xyz"
+      }
+    },
+    "gamejam-autobattler": {
+      "framework": true,
+      "server": "ovh",
+      "mode": "services",
+      "namespace": "gamejam-autobattler",
+      "coolify": {
+        "project": "dnlb8sxzeai8bflo1x5mk480",
+        "name": "autobattler",
+        "environment": "production"
+      },
+      "repository": "noncasted/gamejam-autobattler",
+      "branch": "deploy",
+      "resources": [
+        {
+          "uuid": "cnbvs6gaztztw7hrt9omywvh",
+          "type": "application",
+          "role": "backend"
+        },
+        {
+          "uuid": "vp7mmjzon4ko5gxhx0ntzt2m",
+          "type": "database",
+          "role": "postgres",
+          "name": "postgres"
+        }
+      ],
+      "domains": {
+        "meta": "https://reddit-meta.pixel-swarm.xyz",
+        "console": "https://reddit-console.pixel-swarm.xyz",
+        "aspire": "https://reddit-aspire.pixel-swarm.xyz"
+      },
+      "note": "Reddit Devvit jam backend; no game domain, no web client."
+    },
+    "peace-data-reborn": {
+      "framework": true,
+      "server": "firstvds",
+      "mode": "services",
+      "namespace": "peace-data-reborn",
+      "coolify": {
+        "project": "p99w9qffp037c2jk1bpaa4ps",
+        "name": "peace-data",
+        "environment": "production"
+      },
+      "repository": "noncasted/peace-data-reborn",
+      "branch": "deploy",
+      "resources": [
+        {
+          "uuid": "cbudjie2nufc2a2o0r3lvjs7",
+          "type": "application",
+          "role": "backend"
+        },
+        {
+          "uuid": "n12mm4nljjffufszx8bnl0zi",
+          "type": "service",
+          "role": "client"
+        },
+        {
+          "uuid": "rjy1dohefinv4ioqg6s6h1yx",
+          "type": "database",
+          "role": "postgres",
+          "name": "peace-data-db"
+        }
+      ],
+      "domains": {
+        "meta": "https://meta.peace-data.io",
+        "game": "https://game.peace-data.io",
+        "console": "https://console.peace-data.io",
+        "aspire": "https://aspire.peace-data.io",
+        "cdn": "https://cdn.peace-data.io",
+        "client": "https://peace-data.io"
+      }
+    },
+    "neon-dodge": {
+      "framework": true,
+      "deployed": false,
+      "mode": "services",
+      "namespace": "neon-dodge",
+      "note": "No Coolify project on either panel."
+    },
+    "post-radio": {
+      "framework": false,
+      "server": "firstvds",
+      "mode": "services",
+      "namespace": "post-radio",
+      "coolify": {
+        "project": "tht1shjm1ll3ag1msacbsyuv",
+        "name": "post-radio",
+        "environment": "production"
+      },
+      "repository": "noncasted/post-radio",
+      "branch": "main",
+      "resources": [
+        {
+          "uuid": "mgo7n5r8ych8ssfb19gi4i29",
+          "type": "application",
+          "role": "backend"
+        },
+        {
+          "uuid": "n6ta9yv9vcd9ofl62pwga5a0",
+          "type": "database",
+          "role": "postgres",
+          "name": "postgres"
+        }
+      ],
+      "domains": {
+        "meta": "https://meta.post-radio.ru",
+        "console": "https://console.post-radio.ru",
+        "aspire": "https://aspire.post-radio.ru",
+        "client": [
+          "https://post-radio.ru",
+          "https://post-radio.com",
+          "https://www.post-radio.ru",
+          "https://www.post-radio.com"
+        ]
+      },
+      "note": "Not on the framework; extra compose services frontend and resource-service."
+    },
+    "storytale": {
+      "framework": false,
+      "server": "firstvds",
+      "mode": "services",
+      "namespace": "storytale",
+      "coolify": {
+        "project": "sj11nl13hwf7mtnyznmjhkd8",
+        "name": "storytale",
+        "environment": "production"
+      },
+      "repository": "noncasted/storytale-workshop",
+      "branch": "deploy",
+      "resources": [
+        {
+          "uuid": "vkdwr70mbl5e3rsgcqcb5t2p",
+          "type": "application",
+          "role": "backend"
+        },
+        {
+          "uuid": "aj5svwp3mr8h1868z38x16aj",
+          "type": "database",
+          "role": "postgres",
+          "name": "storytale-db"
+        }
+      ],
+      "domains": {
+        "meta": "https://meta.storytale.online",
+        "console": "https://console.storytale.online",
+        "aspire": "https://aspire.storytale.online",
+        "s3": "https://s3.storytale.online",
+        "s3-console": "https://s3-console.storytale.online"
+      },
+      "note": "v1, never redeploy or touch."
+    },
+    "nikita-botik": {
+      "framework": false,
+      "server": "firstvds",
+      "mode": "services",
+      "namespace": "nikita-botik",
+      "coolify": {
+        "project": "ylvrhhz0jhqq36mgnbfm1iy6",
+        "name": "nikita-botik",
+        "environment": "production"
+      },
+      "repository": "Ko4ergaPunk/discord-bot",
+      "branch": "master",
+      "resources": [
+        {
+          "uuid": "lzcpak5j8jtm5jyjrigs1q4v",
+          "type": "application",
+          "role": "bot",
+          "build_pack": "dockerfile"
+        },
+        {
+          "uuid": "vle1i4s0cisuyxu4cu54ja39",
+          "type": "database",
+          "role": "postgres",
+          "name": "postgres"
+        }
+      ],
+      "domains": {},
+      "note": "Third-party discord bot; sslip.io domain on the server IP."
+    }
+  }
+}

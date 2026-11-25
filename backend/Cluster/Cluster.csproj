@@ -16,4 +16,8 @@
         <PackageReference Include="Microsoft.Orleans.Sdk"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="Framework.Tests"/>
+    </ItemGroup>
+
 </Project>

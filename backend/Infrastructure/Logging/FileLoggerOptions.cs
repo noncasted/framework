@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Logging;
 
-// Dev-only: registered by ServiceDefaultsExtensions.AddFileLogging in the Development environment.
+// Dev-only: registered by FileLoggingExtensions.AddFileLogging in the Development environment.
 // The properties are init, not private set: ConfigurationBinder writes init and silently skips a private setter.
 public class FileLoggerOptions
 {

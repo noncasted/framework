@@ -9,8 +9,8 @@ authorization (`/start`, `/batch`, `/end`, `/startup`; a link id of the client i
 60 s, below `LostAfter`). A session holds the previous one its client did not close (`previous`, found back by `sessions?previousId=`);
 warnings are counted apart from the errors (`warningCount`). The test host runs without a game: `--token <value>` (required), `--seed`, `--console <folder>` (`theme.css` and
 `app.css` of a console of a game: its pages on this host), `--no-telemetry` (the console of a game without the telemetry).
-`AddConsoleBackendTraces(ConsoleBackendTraceOptions | IConfigurationSection)` on the console (optional) reads the `BackendTraceId` of a
-startup from the HTTP API of the Aspire dashboard (`x-api-key`) and draws it on the startup page; without it the page shows the id.
+`AddConsoleAspireDashboardTraces` or `AddConsoleVictoriaTraces` on the console (optional, `backend/Console/CLAUDE.md` § Backend traces)
+reads the `BackendTraceId` of a startup and draws it on the startup page; without it the page shows the id.
 
 What the client sends: `client/modules/telemetry/CLAUDE.md`. The host and the end to end tests of the transport:
 `backend/ClientTelemetry.TestHost/CLAUDE.md`.

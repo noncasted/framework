@@ -1,0 +1,153 @@
+{
+ "coolify-firstvds": {
+  "projects": [
+   {
+    "uuid": "tht1shjm1ll3ag1msacbsyuv",
+    "name": "post-radio"
+   },
+   {
+    "uuid": "sj11nl13hwf7mtnyznmjhkd8",
+    "name": "storytale"
+   },
+   {
+    "uuid": "ylvrhhz0jhqq36mgnbfm1iy6",
+    "name": "nikita-botik"
+   },
+   {
+    "uuid": "p99w9qffp037c2jk1bpaa4ps",
+    "name": "peace-data"
+   },
+   {
+    "uuid": "6rdlzjfzxzaitdcnnbydvq52",
+    "name": "observability"
+   }
+  ],
+  "applications": [
+   {
+    "uuid": "vkdwr70mbl5e3rsgcqcb5t2p",
+    "name": "backend",
+    "environment_id": 3
+   },
+   {
+    "uuid": "cbudjie2nufc2a2o0r3lvjs7",
+    "name": "backend",
+    "environment_id": 5
+   },
+   {
+    "uuid": "mgo7n5r8ych8ssfb19gi4i29",
+    "name": "backend",
+    "environment_id": 2
+   },
+   {
+    "uuid": "lzcpak5j8jtm5jyjrigs1q4v",
+    "name": "bot",
+    "environment_id": 4
+   },
+   {
+    "uuid": "le1rlnmqqf6xybu4ppezstyc",
+    "name": "observability",
+    "environment_id": 8
+   }
+  ],
+  "services": [
+   {
+    "uuid": "n12mm4nljjffufszx8bnl0zi",
+    "name": "client",
+    "environment_id": 5
+   }
+  ],
+  "databases": [
+   {
+    "uuid": "n6ta9yv9vcd9ofl62pwga5a0",
+    "name": "postgres",
+    "environment_id": 2
+   },
+   {
+    "uuid": "aj5svwp3mr8h1868z38x16aj",
+    "name": "storytale-db",
+    "environment_id": 3
+   },
+   {
+    "uuid": "vle1i4s0cisuyxu4cu54ja39",
+    "name": "postgresql-database-vle1i4s0cisuyxu4cu54ja39",
+    "environment_id": 4
+   },
+   {
+    "uuid": "rjy1dohefinv4ioqg6s6h1yx",
+    "name": "peace-data-db",
+    "environment_id": 5
+   }
+  ]
+ },
+ "coolify-ovh": {
+  "projects": [
+   {
+    "uuid": "xyrabeo4mc5g8y97v9oyo30p",
+    "name": "minesleader"
+   },
+   {
+    "uuid": "zqfwglgmpyhdwoii2oszwoa5",
+    "name": "pixel-swarm"
+   },
+   {
+    "uuid": "dnlb8sxzeai8bflo1x5mk480",
+    "name": "autobattler"
+   },
+   {
+    "uuid": "oyccpexpsfyq5naitclnndzp",
+    "name": "observability"
+   }
+  ],
+  "applications": [
+   {
+    "uuid": "c4b3aasq8hoikkbzgloa5ccd",
+    "name": "backend",
+    "environment_id": 3
+   },
+   {
+    "uuid": "f8yz0we2icjsm7edti3g9zp7",
+    "name": "backend",
+    "environment_id": 2
+   },
+   {
+    "uuid": "cnbvs6gaztztw7hrt9omywvh",
+    "name": "backend",
+    "environment_id": 4
+   },
+   {
+    "uuid": "oukejx1fbca7wtmycipf9rjt",
+    "name": "observability",
+    "environment_id": 5
+   }
+  ],
+  "services": [
+   {
+    "uuid": "rp57atznu171qtglsuupajin",
+    "name": "client",
+    "environment_id": 2
+   },
+   {
+    "uuid": "kxbnp6f7sld3gppbj6ik7as0",
+    "name": "client",
+    "environment_id": 3
+   }
+  ],
+  "databases": [
+   {
+    "uuid": "w14436sq0m5kp47dadhs533f",
+    "name": "postgres",
+    "environment_id": 2
+   },
+   {
+    "uuid": "vjgu3p4ptf5bxxs7di7f8sw1",
+    "name": "postgres",
+    "environment_id": 3
+   },
+   {
+    "uuid": "vp7mmjzon4ko5gxhx0ntzt2m",
+    "name": "postgres",
+    "environment_id": 4
+   }
+  ]
+ }
+}

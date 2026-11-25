@@ -107,3 +107,23 @@ Swap:          16383         634       15749
 | **pixel-swarm** | **total** | | **968** | **636** | **30** | **666** |
 | **all** | | | **3158** | **1902** | **546** | **2447** |
 
+
+## 2026-11-25, pixel-swarm as a monolith (ovh)
+
+Snapshot `results/2026-11-25-monolith`, 07:11 UTC, no load. pixel-swarm runs the monolith (one container `backend`,
+every role, `DOTNET_gcServer=0`, branch `deploy-monolith`), 10 minutes after its deploy; the "before" containers had run
+2-3 hours, so the monolith has had less time to grow. A cross-check at the same uptime: `docker stats` of the five
+services at 06:35 UTC (2 h), right before the switch, was 795 MiB (silo 195, console 175, meta 158, coordinator 139,
+game 128).
+
+| pixel-swarm, MiB | Before: 5 services, server GC | After: monolith, workstation GC |
+|---|---|---|
+| .NET, stats | 816 | 172 |
+| .NET, cost (anon + swap) | 542 | 99 |
+| aspire-dashboard, cost | 75 | 95 |
+| Postgres + pgbouncer + web, cost | 48 | 58 |
+| Total, cost | 666 | 252 |
+
+The roles themselves cost ~4-5 times less in one process: one runtime, one JIT and GC heap instead of five, and the
+workstation GC. The local measurement (fresh Postgres, 90 s settle): server GC 159 MiB, workstation 136 MiB, workstation +
+`DOTNET_GCConserveMemory=5` 137 MiB (stats).

@@ -35,9 +35,9 @@
         <None Update="ClientTelemetry\Golden\*.json" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
 
-    <!-- An answer of the Aspire dashboard 13.5 to GET /api/telemetry/traces/{id}, recorded from a local cluster. -->
+    <!-- The recorded answers of the trace stores: the Aspire dashboard 13.5 (a local cluster) and VictoriaTraces v0.13.0 (victoria_trace_fixture.py). -->
     <ItemGroup>
-        <None Update="Console\BackendTraces\*.json" CopyToOutputDirectory="PreserveNewest"/>
+        <None Update="Console\BackendTraces\**\*.json" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
 
     <ItemGroup>

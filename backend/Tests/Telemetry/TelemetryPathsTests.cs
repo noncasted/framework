@@ -1,5 +1,9 @@
+using Cluster.Discovery;
+using Cluster.Monitoring;
 using FluentAssertions;
 using Infrastructure;
+using Infrastructure.Telemetry;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -76,6 +80,8 @@ public class TelemetryPathsTests : IDisposable
     {
         var service = new MetricsSnapshotService(NullLogger<MetricsSnapshotService>.Instance,
             Environment(Environments.Development),
+            Configuration(),
+            new ServiceEnvironment { Tag = new ServiceTag("Meta") },
             () => throw new InvalidOperationException("no repository root"));
 
         var act = () => service.StartAsync(CancellationToken.None);
@@ -91,6 +97,8 @@ public class TelemetryPathsTests : IDisposable
 
         var service = new MetricsSnapshotService(NullLogger<MetricsSnapshotService>.Instance,
             Environment(Environments.Production),
+            Configuration(),
+            new ServiceEnvironment { Tag = new ServiceTag("Meta") },
             () => {
                 resolved = true;
                 return _root;
@@ -103,10 +111,37 @@ public class TelemetryPathsTests : IDisposable
         resolved.Should().BeFalse("file snapshots are dev only");
     }
 
+    [Fact]
+    public async Task MetricsSnapshot_HostOfMonolith_DoesNotResolveDirectory()
+    {
+        var resolved = false;
+
+        var service = new MetricsSnapshotService(NullLogger<MetricsSnapshotService>.Instance,
+            Environment(Environments.Development),
+            Configuration(new() { [TelemetrySettings.ProcessProvidersKey] = "true" }),
+            new ServiceEnvironment { Tag = new ServiceTag("Meta") },
+            () => {
+                resolved = true;
+                return _root;
+            });
+
+        await service.StartAsync(CancellationToken.None);
+        await service.StopAsync(CancellationToken.None);
+        service.Dispose();
+
+        resolved.Should().BeFalse("the process of a monolith writes one snapshot for all its hosts");
+    }
+
     private static IHostEnvironment Environment(string name)
     {
         var environment = Substitute.For<IHostEnvironment>();
         environment.EnvironmentName.Returns(name);
+        environment.ApplicationName.Returns("Meta");
         return environment;
+    }
+
+    private static IConfiguration Configuration(Dictionary<string, string?>? settings = null)
+    {
+        return new ConfigurationBuilder().AddInMemoryCollection(settings ?? new()).Build();
     }
 }

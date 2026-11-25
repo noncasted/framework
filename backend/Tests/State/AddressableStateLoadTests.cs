@@ -4,6 +4,7 @@ using Framework.Tests.Fixtures;
 using Infrastructure;
 using Infrastructure.State;
 using Internal;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json;
 using NSubstitute;
@@ -54,9 +55,15 @@ public class AddressableStateLoadTests
         storage.IsInitialized.Returns(false);
         storage.SetValue(Arg.Any<TransactionOptions>()).Returns(Task.FromException(new Exception("db down")));
 
-        var init = () => ConfigsInitializer.Init("config.missing", storage, NullLogger.Instance);
+        var root = Directory.CreateTempSubdirectory("configs-initializer-").FullName;
+        File.WriteAllText(Path.Combine(root, "config.transaction.json"), "{}");
+        var environment = Substitute.For<IHostEnvironment>();
+        environment.ContentRootPath.Returns(root);
+
+        var init = () => ConfigsInitializer.Init(environment, "config.transaction", storage, NullLogger.Instance);
 
         await init.Should().ThrowAsync<Exception>().WithMessage("db down");
+        Directory.Delete(root, true);
     }
 
     [Fact]

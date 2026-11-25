@@ -4,7 +4,9 @@ using FluentAssertions;
 using Framework.Tests.Fixtures;
 using Infrastructure;
 using Internal;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NSubstitute;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shared;
 using Xunit;
@@ -62,7 +64,10 @@ public class AddressableStateStorageTests(OrleansTestClusterFixture fixture)
         var restartedLifetime = new Lifetime();
         await restarted.OnOrleansStarted(restartedLifetime);
 
-        await ConfigsInitializer.Init("config.addressableStorageTest", restarted, NullLogger.Instance);
+        // No file in the content root: an initialized state returns before the file is looked up.
+        var environment = Substitute.For<IHostEnvironment>();
+        environment.ContentRootPath.Returns(Path.GetTempPath());
+        await ConfigsInitializer.Init(environment, "config.addressableStorageTest", restarted, NullLogger.Instance);
 
         restarted.Value.Label.Should().Be("edited");
 

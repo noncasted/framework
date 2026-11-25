@@ -2,6 +2,7 @@
 using Internal;
 using Infrastructure;
 using Infrastructure.Execution;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Cluster.Configs;
@@ -15,6 +16,7 @@ public class ClusterConfigsSetup : ICoordinatorSetupCompleted
         IRuntimePipeConfig runtimePipe,
         IRuntimeChannelConfig runtimeChannel,
         ITransactionConfig transactionConfig,
+        IHostEnvironment environment,
         ILogger<ClusterConfigsSetup> logger)
     {
         _sideEffects = sideEffects;
@@ -23,6 +25,7 @@ public class ClusterConfigsSetup : ICoordinatorSetupCompleted
         _runtimePipe = runtimePipe;
         _runtimeChannel = runtimeChannel;
         _transactionConfig = transactionConfig;
+        _environment = environment;
         _logger = logger;
     }
 
@@ -32,15 +35,16 @@ public class ClusterConfigsSetup : ICoordinatorSetupCompleted
     private readonly IRuntimePipeConfig _runtimePipe;
     private readonly IRuntimeChannelConfig _runtimeChannel;
     private readonly ITransactionConfig _transactionConfig;
+    private readonly IHostEnvironment _environment;
     private readonly ILogger<ClusterConfigsSetup> _logger;
 
     public async Task OnCoordinatorSetupCompleted(IReadOnlyLifetime lifetime)
     {
-        await ConfigsInitializer.Init("config.sideEffects", _sideEffects, _logger);
-        await ConfigsInitializer.Init("config.durableQueue", _durableQueue, _logger);
-        await ConfigsInitializer.Init("config.taskBalancer", _taskBalancer, _logger);
-        await ConfigsInitializer.Init("config.runtimePipe", _runtimePipe, _logger);
-        await ConfigsInitializer.Init("config.runtimeChannel", _runtimeChannel, _logger);
-        await ConfigsInitializer.Init("config.transaction", _transactionConfig, _logger);
+        await ConfigsInitializer.Init(_environment, "config.sideEffects", _sideEffects, _logger);
+        await ConfigsInitializer.Init(_environment, "config.durableQueue", _durableQueue, _logger);
+        await ConfigsInitializer.Init(_environment, "config.taskBalancer", _taskBalancer, _logger);
+        await ConfigsInitializer.Init(_environment, "config.runtimePipe", _runtimePipe, _logger);
+        await ConfigsInitializer.Init(_environment, "config.runtimeChannel", _runtimeChannel, _logger);
+        await ConfigsInitializer.Init(_environment, "config.transaction", _transactionConfig, _logger);
     }
 }

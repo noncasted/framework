@@ -1,12 +1,12 @@
 namespace Console.Infrastructure.BackendTraces;
 
-// The spans of the wire as a tree on the own axis of the trace: indices by start, parents by span id, depths, offsets.
+// The spans of a store as a tree on the own axis of the trace: indices by start, parents by span id, depths, offsets.
 public static class BackendTraceAssembler
 {
     private const double _nanosPerMs = 1_000_000;
     private const long _nanosPerTick = 100;
 
-    public static BackendTrace Assemble(string traceId, IReadOnlyList<OtlpSpan> spans)
+    public static BackendTrace Assemble(string traceId, IReadOnlyList<BackendTraceWireSpan> spans)
     {
         var ordered = spans.OrderBy(span => span.StartUnixNano).ThenBy(span => span.SpanId, StringComparer.Ordinal).ToArray();
         var indices = new Dictionary<string, int>(ordered.Length);
@@ -43,9 +43,9 @@ public static class BackendTraceAssembler
         };
     }
 
-    private static int Parent(OtlpSpan span, IReadOnlyDictionary<string, int> indices)
+    private static int Parent(BackendTraceWireSpan span, IReadOnlyDictionary<string, int> indices)
     {
-        return span.ParentSpanId != null && indices.TryGetValue(span.ParentSpanId, out var parent) ? parent : SpanTree<OtlpSpan>.NoParent;
+        return span.ParentSpanId != null && indices.TryGetValue(span.ParentSpanId, out var parent) ? parent : SpanTree<BackendTraceSpan>.NoParent;
     }
 
     // Walks up to a known depth; a cycle of parents is no trace.
@@ -58,7 +58,7 @@ public static class BackendTraceAssembler
             var path = new Stack<int>();
             var current = index;
 
-            while (current != SpanTree<OtlpSpan>.NoParent && depths[current] < 0)
+            while (current != SpanTree<BackendTraceSpan>.NoParent && depths[current] < 0)
             {
                 if (path.Count > parents.Count)
                     throw new InvalidOperationException($"The parents of the span {index} make a cycle");
@@ -67,7 +67,7 @@ public static class BackendTraceAssembler
                 current = parents[current];
             }
 
-            var depth = current == SpanTree<OtlpSpan>.NoParent ? -1 : depths[current];
+            var depth = current == SpanTree<BackendTraceSpan>.NoParent ? -1 : depths[current];
 
             while (path.TryPop(out var node))
                 depths[node] = ++depth;

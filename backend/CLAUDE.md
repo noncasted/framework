@@ -1,6 +1,6 @@
 # Backend
 
-`Cluster`, `Console`, `Session`, `Hosting`, `ClientTelemetry` and `ClientTelemetry.TestHost` keep their contract in their own
+`Cluster`, `Infrastructure` (telemetry defaults), `Console`, `Session`, `Hosting`, `ClientTelemetry` and `ClientTelemetry.TestHost` keep their contract in their own
 `CLAUDE.md`; `MatchMetrics` in `.claude/docs/MATCH_METRICS.md` and `MatchMetrics/Contract/CONTRACT.md`.
 
 ## Persisted type names

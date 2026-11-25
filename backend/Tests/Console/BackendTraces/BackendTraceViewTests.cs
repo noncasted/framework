@@ -1,6 +1,7 @@
 using BlazorBlueprint.Components;
 using Console;
 using Console.Infrastructure.BackendTraces;
+using Console.Infrastructure.BackendTraces.AspireDashboard;
 using Game.ClientTelemetry;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -8,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
-using static Framework.Tests.Console.BackendTraces.OtlpTraceJson;
+using static Framework.Tests.Console.BackendTraces.AspireDashboard.OtlpTraceJson;
 using StartupPage = Console.Infrastructure.ClientTelemetry.TelemetryStartupPage;
 
 namespace Framework.Tests.Console.BackendTraces;
@@ -16,7 +17,7 @@ namespace Framework.Tests.Console.BackendTraces;
 public class BackendTraceViewTests
 {
     private const string TraceId = "1f3d84b522c4413c10965c00928b3fee";
-    private const string NotFoundText = "no longer in the dashboard";
+    private const string NotFoundText = "not in the store yet";
 
     private static BackendTraceResult.Found Found()
     {
@@ -24,7 +25,7 @@ public class BackendTraceViewTests
         failing["status"] = new { code = 2, message = "boom" };
         failing["attributes"] = new[] { Attribute("meta.auth.status", new { stringValue = "Ok" }) };
 
-        return Assert.IsType<BackendTraceResult.Found>(BackendTraceParser.Parse(TraceId, Answer(Resource("meta", Span("a", null, 0, 200), failing))));
+        return new BackendTraceResult.Found(BackendTraceAssembler.Assemble(TraceId, AspireDashboardTraceParser.Parse(Answer(Resource("meta", Span("a", null, 0, 200), failing)))));
     }
 
     [Fact]
@@ -43,9 +44,9 @@ public class BackendTraceViewTests
     }
 
     [Fact]
-    public async Task ATraceGone_TellsTheDashboardKeepsItInMemory()
+    public async Task ATraceNotInTheStore_ShowsTheMessageOfTheSource()
     {
-        Assert.Contains(NotFoundText, await RenderSection(new FakeBackendTraceSource(new BackendTraceResult.NotFound())));
+        Assert.Contains(NotFoundText, await RenderSection(new FakeBackendTraceSource(new BackendTraceResult.NotFound(NotFoundText))));
     }
 
     [Fact]
@@ -57,7 +58,7 @@ public class BackendTraceViewTests
     [Fact]
     public async Task TheStartupPage_WithASource_ReadsTheTraceOfItsSocket()
     {
-        var source = new FakeBackendTraceSource(new BackendTraceResult.NotFound());
+        var source = new FakeBackendTraceSource(new BackendTraceResult.NotFound(NotFoundText));
 
         var html = await RenderStartupPage(services => services.AddSingleton<IBackendTraceSource>(source));
 

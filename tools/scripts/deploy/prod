@@ -1,0 +1,128 @@
+#!/usr/bin/env python3
+# Where the games are deployed and what their backends log (.claude/skills/backend-logs/SKILL.md). Read only. Exit codes: common.py.
+#   prod registry show [<project>]          the project of the current repository, or the given one; all of them outside a game
+#   prod registry verify                    the registry against both Coolify panels (tokens of ~/.claude/mcp/coolify.json)
+#   prod errors [--since 1h] [--service S] [--limit N]     warnings and errors grouped by message template
+#   prod logs --query '<LogsQL>' [--since 1h] [--service S] [--limit N]
+#   prod around <trace id> [--since 1d]     the logs and spans of one trace on one time line
+#   prod trace <trace id> [--since 1d]      the span tree
+#   prod tail [--since 5m] [--service S] [--limit N] [--follow]
+# The store commands take [--project P] (default: the repository of the current directory) and the test aids
+# [--namespace N] (another service.namespace on the server of the project, e.g. smoke-test) and
+# [--logs-url U --traces-url U] (stores reachable without the ssh tunnel, a local stack). Every command takes
+# [--registry FILE] (instead of origin/main:deploy/registry.json of the framework: an unpushed registry) and [--refresh]
+# (fetch main now; otherwise at most every 5 minutes).
+import argparse
+import re
+import signal
+import sys
+
+import commands
+from common import Failure
+
+_SINCE = re.compile(r"^\d+(ms|s|m|h|d|w|y)$")
+_NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+_TRACE = re.compile(r"^[0-9a-fA-F]{32}$")
+
+
+def _since(value):
+    if not _SINCE.match(value):
+        raise argparse.ArgumentTypeError("a duration like 30m, 1h, 2d")
+
+    return value
+
+
+def _name(value):
+    if not _NAME.match(value):
+        raise argparse.ArgumentTypeError("lowercase letters, digits and dashes")
+
+    return value
+
+
+def _trace_id(value):
+    if not _TRACE.match(value):
+        raise argparse.ArgumentTypeError("a trace id is 32 hex digits")
+
+    return value.lower()
+
+
+def _positive(value):
+    number = int(value)
+
+    if number < 1:
+        raise argparse.ArgumentTypeError("must be above 0")
+
+    return number
+
+
+def _parser():
+    common = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    common.add_argument("--registry", help="a registry file instead of origin/main:deploy/registry.json")
+    common.add_argument("--refresh", action="store_true", help="fetch origin/main now, not at most every 5 minutes")
+
+    stores = argparse.ArgumentParser(add_help=False, allow_abbrev=False, parents=[common])
+    stores.add_argument("--project", type=_name)
+    stores.add_argument("--namespace", type=_name, help="test aid: another service.namespace on the server of the project")
+    stores.add_argument("--logs-url", help="test aid: VictoriaLogs reachable without the tunnel")
+    stores.add_argument("--traces-url", help="test aid: VictoriaTraces reachable without the tunnel")
+
+    parser = argparse.ArgumentParser(prog="prod", allow_abbrev=False)
+    top = parser.add_subparsers(dest="command", required=True)
+
+    registry_parser = top.add_parser("registry", allow_abbrev=False)
+    registry_commands = registry_parser.add_subparsers(dest="registry_command", required=True)
+    show = registry_commands.add_parser("show", parents=[common], allow_abbrev=False)
+    show.add_argument("name", nargs="?", type=_name)
+    show.set_defaults(handler=commands.registry_show)
+    check = registry_commands.add_parser("verify", parents=[common], allow_abbrev=False)
+    check.add_argument("--coolify-config", default=commands.default_coolify_config())
+    check.set_defaults(handler=commands.registry_verify)
+
+    def add(name, handler, since, service=True, limit=None):
+        sub = top.add_parser(name, parents=[stores], allow_abbrev=False)
+        sub.add_argument("--since", type=_since, default=since)
+
+        if service:
+            sub.add_argument("--service", type=_name)
+
+        if limit:
+            sub.add_argument("--limit", type=_positive, default=limit)
+
+        sub.set_defaults(handler=handler)
+
+        return sub
+
+    add("errors", commands.errors, "1h", limit=30)
+    add("logs", commands.logs, "1h", limit=200).add_argument("--query", required=True)
+    add("around", commands.around, "1d", service=False).add_argument("trace_id", type=_trace_id)
+    add("trace", commands.trace, "1d", service=False).add_argument("trace_id", type=_trace_id)
+    add("tail", commands.tail, "5m", limit=50).add_argument("--follow", action="store_true")
+
+    return parser
+
+
+def _exit_on(signal_number, frame):
+    # A kill or a closed terminal unwinds the stack like an exception, so the `with` of the tunnel closes its ssh.
+    raise SystemExit(128 + signal_number)
+
+
+def main():
+    for signal_number in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(signal_number, _exit_on)
+
+    parser = _parser()
+    args = parser.parse_args()
+
+    if getattr(args, "logs_url", None) and not args.traces_url or getattr(args, "traces_url", None) and not args.logs_url:
+        parser.error("--logs-url and --traces-url go together")
+
+    try:
+        return args.handler(args)
+    except Failure as failure:
+        print(f"error: {failure.message}", file=sys.stderr)
+
+        return failure.code
+
+
+if __name__ == "__main__":
+    sys.exit(main())
