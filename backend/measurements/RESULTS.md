@@ -43,34 +43,34 @@ Mem:            7837        4867         485         533        3358        2969
 Swap:          16383        5690       10693
 ```
 
-| project | part | containers | stats | anon | swap | cost |
-|---|---|---|---|---|---|---|
-| (other) | web | 2 | 4 | 1 | 7 | 8 |
-| **(other)** | **total** | | **4** | **1** | **7** | **8** |
-| coolify | coolify | 7 | 394 | 113 | 282 | 395 |
-| **coolify** | **total** | | **394** | **113** | **282** | **395** |
-| nikita-botik | other:lzcpak5j8jtm5jyjrigs1q4v | 1 | 35 | 33 | 0 | 33 |
-| nikita-botik | postgres | 1 | 12 | 3 | 17 | 20 |
-| **nikita-botik** | **total** | | **47** | **36** | **17** | **53** |
-| peace-data | aspire-dashboard | 1 | 344 | 302 | 902 | 1205 |
-| peace-data | dotnet | 5 | 416 | 223 | 465 | 687 |
-| peace-data | pgbouncer | 1 | 5 | 0 | 7 | 7 |
-| peace-data | postgres | 1 | 36 | 10 | 13 | 23 |
-| peace-data | web | 2 | 7 | 1 | 7 | 8 |
-| **peace-data** | **total** | | **807** | **537** | **1394** | **1931** |
-| post-radio | aspire-dashboard | 1 | 925 | 886 | 824 | 1710 |
-| post-radio | dotnet | 5 | 423 | 247 | 426 | 674 |
-| post-radio | other:resource | 1 | 14 | 4 | 47 | 51 |
-| post-radio | pgbouncer | 1 | 2 | 0 | 1 | 1 |
-| post-radio | postgres | 1 | 36 | 6 | 13 | 19 |
-| **post-radio** | **total** | | **1400** | **1143** | **1312** | **2455** |
-| storytale | aspire-dashboard | 1 | 216 | 191 | 742 | 933 |
-| storytale | dotnet | 4 | 357 | 216 | 1551 | 1767 |
-| storytale | other:minio | 1 | 432 | 293 | 215 | 508 |
-| storytale | pgbouncer | 1 | 1 | 0 | 1 | 1 |
-| storytale | postgres | 1 | 41 | 10 | 14 | 24 |
-| **storytale** | **total** | | **1047** | **710** | **2523** | **3233** |
-| **all** | | | **3700** | **2541** | **5534** | **8075** |
+| project | part | containers | stats | anon | swap | cost | pss |
+|---|---|---|---|---|---|---|---|
+| (other) | web | 2 | 4 | 1 | 7 | 8 | 2 |
+| **(other)** | **total** |  | **4** | **1** | **7** | **8** | **2** |
+| coolify | coolify | 7 | 394 | 113 | 282 | 395 | 327 |
+| **coolify** | **total** |  | **394** | **113** | **282** | **395** | **327** |
+| nikita-botik | other:lzcpak5j8jtm5jyjrigs1q4v | 1 | 35 | 33 | 0 | 33 | 51 |
+| nikita-botik | postgres | 1 | 12 | 3 | 17 | 20 | 10 |
+| **nikita-botik** | **total** |  | **47** | **36** | **17** | **53** | **62** |
+| peace-data | aspire-dashboard | 1 | 344 | 302 | 902 | 1205 | 323 |
+| peace-data | dotnet | 5 | 416 | 223 | 465 | 687 | 407 |
+| peace-data | pgbouncer | 1 | 5 | 0 | 7 | 7 | 1 |
+| peace-data | postgres | 1 | 36 | 10 | 13 | 23 | 28 |
+| peace-data | web | 2 | 7 | 1 | 7 | 8 | 2 |
+| **peace-data** | **total** |  | **807** | **537** | **1394** | **1931** | **761** |
+| post-radio | aspire-dashboard | 1 | 925 | 886 | 824 | 1710 | 909 |
+| post-radio | dotnet | 5 | 423 | 247 | 426 | 674 | 390 |
+| post-radio | other:resource | 1 | 14 | 4 | 47 | 51 | 7 |
+| post-radio | pgbouncer | 1 | 2 | 0 | 1 | 1 | 1 |
+| post-radio | postgres | 1 | 36 | 6 | 13 | 19 | 26 |
+| **post-radio** | **total** |  | **1400** | **1143** | **1312** | **2455** | **1333** |
+| storytale | aspire-dashboard | 1 | 216 | 191 | 742 | 933 | 213 |
+| storytale | dotnet | 4 | 357 | 216 | 1551 | 1767 | 324 |
+| storytale | other:minio | 1 | 432 | 293 | 215 | 508 | 312 |
+| storytale | pgbouncer | 1 | 1 | 0 | 1 | 1 | 0 |
+| storytale | postgres | 1 | 41 | 10 | 14 | 24 | 30 |
+| **storytale** | **total** |  | **1047** | **710** | **2523** | **3233** | **879** |
+| **all** |  |  | **3700** | **2541** | **5534** | **8075** | **3363** |
 
 ### ovh
 
@@ -81,31 +81,31 @@ Mem:           11676        4470        1562         996        7001        7205
 Swap:          16383         634       15749
 ```
 
-| project | part | containers | stats | anon | swap | cost |
-|---|---|---|---|---|---|---|
-| (other) | other:amnezia | 2 | 40 | 32 | 20 | 52 |
-| (other) | web | 1 | 2 | 1 | 4 | 5 |
-| **(other)** | **total** | | **42** | **33** | **24** | **57** |
-| autobattler | aspire-dashboard | 1 | 72 | 37 | 39 | 75 |
-| autobattler | dotnet | 4 | 461 | 298 | 168 | 466 |
-| autobattler | pgbouncer | 1 | 2 | 1 | 6 | 7 |
-| autobattler | postgres | 1 | 25 | 5 | 10 | 15 |
-| **autobattler** | **total** | | **560** | **341** | **223** | **564** |
-| coolify | coolify | 5 | 437 | 165 | 178 | 343 |
-| **coolify** | **total** | | **437** | **165** | **178** | **343** |
-| minesleader | aspire-dashboard | 1 | 118 | 84 | 0 | 84 |
-| minesleader | dotnet | 5 | 929 | 627 | 0 | 627 |
-| minesleader | pgbouncer | 1 | 8 | 7 | 0 | 7 |
-| minesleader | postgres | 1 | 94 | 8 | 87 | 95 |
-| minesleader | web | 1 | 2 | 1 | 4 | 5 |
-| **minesleader** | **total** | | **1151** | **727** | **91** | **818** |
-| pixel-swarm | aspire-dashboard | 1 | 86 | 75 | 0 | 75 |
-| pixel-swarm | dotnet | 5 | 816 | 542 | 0 | 542 |
-| pixel-swarm | pgbouncer | 1 | 8 | 7 | 0 | 7 |
-| pixel-swarm | postgres | 1 | 56 | 10 | 26 | 36 |
-| pixel-swarm | web | 1 | 2 | 1 | 4 | 5 |
-| **pixel-swarm** | **total** | | **968** | **636** | **30** | **666** |
-| **all** | | | **3158** | **1902** | **546** | **2447** |
+| project | part | containers | stats | anon | swap | cost | pss |
+|---|---|---|---|---|---|---|---|
+| (other) | other:amnezia | 2 | 40 | 32 | 20 | 52 | 37 |
+| (other) | web | 1 | 2 | 1 | 4 | 5 | 4 |
+| **(other)** | **total** |  | **42** | **33** | **24** | **57** | **41** |
+| autobattler | aspire-dashboard | 1 | 72 | 37 | 39 | 75 | 63 |
+| autobattler | dotnet | 4 | 461 | 298 | 168 | 466 | 477 |
+| autobattler | pgbouncer | 1 | 2 | 1 | 6 | 7 | 2 |
+| autobattler | postgres | 1 | 25 | 5 | 10 | 15 | 29 |
+| **autobattler** | **total** |  | **560** | **341** | **223** | **564** | **572** |
+| coolify | coolify | 5 | 437 | 165 | 178 | 343 | 478 |
+| **coolify** | **total** |  | **437** | **165** | **178** | **343** | **478** |
+| minesleader | aspire-dashboard | 1 | 118 | 84 | 0 | 84 | 180 |
+| minesleader | dotnet | 5 | 929 | 627 | 0 | 627 | 1038 |
+| minesleader | pgbouncer | 1 | 8 | 7 | 0 | 7 | 9 |
+| minesleader | postgres | 1 | 94 | 8 | 87 | 95 | 66 |
+| minesleader | web | 1 | 2 | 1 | 4 | 5 | 2 |
+| **minesleader** | **total** |  | **1151** | **727** | **91** | **818** | **1295** |
+| pixel-swarm | aspire-dashboard | 1 | 86 | 75 | 0 | 75 | 103 |
+| pixel-swarm | dotnet | 5 | 816 | 542 | 0 | 542 | 926 |
+| pixel-swarm | pgbouncer | 1 | 8 | 7 | 0 | 7 | 8 |
+| pixel-swarm | postgres | 1 | 56 | 10 | 26 | 36 | 53 |
+| pixel-swarm | web | 1 | 2 | 1 | 4 | 5 | 2 |
+| **pixel-swarm** | **total** |  | **968** | **636** | **30** | **666** | **1092** |
+| **all** |  |  | **3158** | **1902** | **546** | **2447** | **3478** |
 
 
 ## 2026-11-25, pixel-swarm as a monolith (ovh)
@@ -144,3 +144,65 @@ the host (`deploy/observability`), metrics export is off (`Telemetry__ExportMetr
 
 The stack itself (otlp, victorialogs, victoriatraces) costs 32 MiB on ovh, shared by every game of the host that exports
 into it. The .NET process is 87 against 99 MiB: no meter provider now, but one snapshot each is within the noise.
+
+## 2026-11-25, Coolify itself on each VPS
+
+Snapshot `results/2026-11-25-coolify` (07:36 UTC, `SNAPSHOT_FILTER=name=coolify`, read-only), MiB, cost (stats):
+
+| Container | ovh | firstvds |
+|---|---|---|
+| coolify (Laravel app, 4.7.6) | 314 (274) | 321 (205) |
+| coolify-db (Postgres 15) | 10 (59) | 10 (38) |
+| coolify-redis | 6 (6) | 7 (9) |
+| coolify-sentinel | 9 (18) | 22 (39) |
+| coolify-proxy (Traefik 3.6, + error pages and logrotate on firstvds) | 33 (55) | 36 (79) |
+| **Total** | **372 (412)**, PSS 445 | **397 (369)**, PSS 331 |
+
+The same as in the prod snapshots (343 / 395): Coolify costs ~0.4 GiB per host whatever runs on it; most of it is the app
+container, on firstvds mostly in swap.
+
+## 2026-11-25, local Release runs of pixel-swarm
+
+`tools/local.sh` (README.md § Repeat): the deploy compose of the branch `deploy-monolith` built in Release, its own
+Postgres 18, `cpus: 6` per container (the cores of ovh), snapshot 300 s after every healthcheck passed, no load. Machine:
+workstation, 24 cores, 62 GiB, Docker 29.7.2, shared with other work (load average 3-15 during the runs). Source:
+
+- `victoria`: `ccbcf430` (the head of the branch: logs and traces to the stack, metrics export off), folders
+  `results/2026-11-25-local-1` (all six variants) and `results/2026-11-25-local-2` (the repeat of two);
+- `aspire`: `2ea82ace` (the commit before: OTLP gRPC with metrics to `aspire-dashboard`), `results/2026-11-25-local-aspire`.
+
+Cost (anon + swap; no swap in these runs), MiB; PSS and stats of the whole project next to it:
+
+| Layout | GC | Telemetry | .NET | telemetry | Postgres + pgbouncer | **Total cost** | Total PSS | Total stats |
+|---|---|---|---|---|---|---|---|---|
+| services (5) | server (default) | victoria | 252 | 33 | 30 | **315** | 788 | 713 |
+| services (5) | server, repeat | victoria | 276 | 34 | 33 | **342** | 828 | 650 |
+| services (5) | workstation | victoria | 260 | 38 | 26 | **324** | 799 | 622 |
+| services (5) | conserve | victoria | 251 | 37 | 27 | **315** | 789 | 614 |
+| services (5) | server (default) | aspire | 293 | 92 | 32 | **418** | 916 | 748 |
+| monolith | server (default) | victoria | 110 | 35 | 33 | **178** | 373 | 286 |
+| monolith | workstation | victoria | 84 | 26 | 32 | **142** | 369 | 278 |
+| monolith | workstation, repeat | victoria | 84 | 27 | 30 | **141** | 373 | 249 |
+| monolith | conserve | victoria | 84 | 27 | 29 | **140** | 375 | 251 |
+| monolith | workstation | aspire | 94 | 84 | 31 | **209** | 473 | 313 |
+
+`workstation` = `DOTNET_gcServer=0`, `conserve` = `DOTNET_gcServer=0` + `DOTNET_GCConserveMemory=5`; telemetry is
+`aspire-dashboard` (one container) or the stack `otlp` + `victorialogs` + `victoriatraces`.
+
+### Findings
+
+- **The monolith costs a third of the five services**: .NET 84 against 252-276 MiB at the same idle age, the project
+  141-142 against 315-342. Prod at a similar age agrees (99 against 542 after 2-3 h, the section above: the services
+  grow more with time).
+- **GC**: in the monolith the workstation GC saves a quarter of the .NET cost (110 -> 84); `DOTNET_GCConserveMemory=5`
+  adds nothing at idle (84). In the five services the GC makes no difference in cost at 5 minutes (251-260, within the
+  spread of the repeat), only in stats (server GC keeps more of its reserved pages resident: 713 against 614-622).
+- **Telemetry**: the stack costs 26-38 MiB for three containers against 84-92 for `aspire-dashboard` fresh (and 0.9-1.7
+  GiB after weeks on firstvds, the first section); the .NET side also costs 10-40 MiB less without the gRPC exporter and the
+  metrics. On a host the stack is shared by all its games, the dashboard runs once per game.
+- **Repeat**: the monolith gives the same numbers (142 / 141), the services differ by 9% (315 / 342, the .NET part 252 /
+  276): compare local variants of the five services with that margin in mind.
+- **PSS** of the .NET processes is 2-3 times their cost: it counts the mapped runtime, framework and application
+  assemblies (file pages, shared and reclaimable), which cost the host page cache, not private memory.
+- Once a start of the monolith failed on the loaded machine (load average 50; `host Silo stopped by itself`), the rerun
+  passed; no load scenario was run (README.md § Repeat: no headless bots, console benchmarks only in Development).

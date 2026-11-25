@@ -32,3 +32,6 @@ A game submodule lags behind main, so scripts read the latest main, not the work
   registry or of a Coolify project; it reads origin/main, so a change not pushed yet is checked with
   `--registry deploy/registry.json`.
 - `deploy/observability/` holds the logs/traces stack, installed on both servers (its README.md).
+- `backend/measurements/` measures the memory of the deployed backends (a read-only snapshot over the ssh aliases of
+  `servers`) and of a local Release run of the deploy branch of a project (`tools/local.sh`); how to repeat each in its
+  `README.md`, the numbers in `RESULTS.md`.

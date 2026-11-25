@@ -41,7 +41,8 @@ backend/
                         Game.ClientTelemetry; rules in Contract/CONTRACT.md; the panel is in Console/Infrastructure/ClientTelemetry)
   ClientTelemetry.TestHost/  the same without a game: Kestrel, a silo, its own PostgreSQL container
   MatchMetrics/         what a game writes about a match: storage, read API (MATCH_METRICS.md; rules in Contract/CONTRACT.md)
-  measurements/         the memory of the deployed backends on the Coolify hosts: README.md, RESULTS.md, read-only snapshot tools
+  measurements/         the memory of the backends on the Coolify hosts and in local Release runs: README.md, RESULTS.md,
+                        the read-only snapshot, the local run of a game, the tables
 deploy/                 registry.json: where each project is deployed; observability/: the logs and traces stack of the VPS
 .claude/docs/           docs of the patterns shared by the games, for Claude Code (INDEX.md: principles, keyword table)
 .claude/skills/         skills shared by the games, linked from `.claude/skills` of each project
@@ -102,11 +103,11 @@ game goes here, a pattern tied to the assets or rules of one game stays in that 
 ## Tests
 
 `tools/scripts/test-all.sh` runs the whole suite on the current tree, uncommitted edits included: `dotnet build
-framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to them `control`, `telemetry` and `deploy` (python, the tests of these skills and of `tools/scripts/deploy`), Unity EditMode (`client/project`, needs
+framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to them `control`, `telemetry`, `deploy` and `measurements` (python, the tests of these skills, of `tools/scripts/deploy` and of `backend/measurements/tools`), Unity EditMode (`client/project`, needs
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1851, common 96, Verify 188, control 24, telemetry 86, deploy 44, EditMode 1381 (4 of them skipped, the
+Release build replaces it. The expected numbers: backend 1851, common 96, Verify 188, control 24, telemetry 86, deploy 44, measurements 25, EditMode 1381 (4 of them skipped, the
 benchmarks of `ContainerBenchmarkTests`), PlayMode 151 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 

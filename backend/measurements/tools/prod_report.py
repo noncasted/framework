@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
-"""Turns a raw memory snapshot of the Coolify hosts into a per-project table (markdown).
+"""Turns raw memory snapshots (of the Coolify hosts or of a local run) into markdown tables.
 
 Input: a folder with `<host>.txt` (free, docker stats, labels, smaps of every process) and `<host>.cgroup.txt`
 (name, memory.current, memory.swap.current, anon, file, inactive_file of every container cgroup), as written by
-`snapshot.sh`. Output: markdown on stdout.
+`snapshot.sh`; a local run (`local.sh`) names the pair after its variant instead of a host.
+
+    prod_report.py <folder>                 one table per host (or variant): project, part, the columns below
+    prod_report.py --summary <folder>...    one row per host and project: cost of the parts, PSS and stats of the total
 
 Columns, MiB:
 - stats: what `docker stats` shows (memory.current - inactive_file);
 - anon: private memory of the container in RAM (heaps, JIT code);
 - swap: its pages pushed to swap (`docker stats` does not show them);
-- cost: anon + swap, what the container really costs the host besides the shared page cache.
+- cost: anon + swap, what the container really costs the host besides the shared page cache;
+- pss: the proportional set size of its processes (smaps_rollup): resident pages, the shared ones split between
+  the processes that map them; next to cost, RSS would count the shared pages twice.
 """
 
 import sys
@@ -17,8 +22,18 @@ from collections import defaultdict
 from pathlib import Path
 
 MIB = 1024 * 1024
+KIB = 1024
 
 DOTNET_ROLES = {"silo", "coordinator", "meta", "game", "console", "frontend", "resource-service", "backend"}
+OBSERVABILITY = {"otlp", "victorialogs", "victoriatraces"}
+COLUMNS = ("stats", "anon", "swap", "pss")
+
+# The parts of a project in the summary, by the kind of a container (kind_of).
+SUMMARY_PARTS = (
+    (".NET", lambda group: group == "dotnet"),
+    ("telemetry", lambda group: group in ("aspire-dashboard", "observability")),
+    ("Postgres + pgbouncer + web", lambda group: group in ("postgres", "pgbouncer", "web")),
+)
 
 
 def read_sections(path):
@@ -47,6 +62,19 @@ def read_labels(lines):
     return labels
 
 
+def read_pss(lines):
+    """PSS of every container in bytes: the sum over its processes (lines `/name pid rss pss anon`, KiB)."""
+    pss = defaultdict(int)
+
+    for line in lines:
+        parts = line.split()
+        if len(parts) != 5:
+            raise ValueError(f"a smaps line without its values (the snapshot could not read the process): {line!r}")
+        pss[parts[0].lstrip("/")] += int(parts[3]) * KIB
+
+    return pss
+
+
 def read_cgroups(path):
     rows = {}
 
@@ -67,6 +95,8 @@ def kind_of(name, label):
         return "aspire-dashboard"
     if name.startswith("coolify"):
         return "coolify"
+    if role in OBSERVABILITY:
+        return "observability"
     if "postgres" in image:
         return "postgres"
     if role in DOTNET_ROLES:
@@ -78,17 +108,67 @@ def kind_of(name, label):
     return "other:" + role
 
 
+def empty_cell():
+    return {"stats": 0, "anon": 0, "swap": 0, "pss": 0, "n": 0}
+
+
+def read_host(folder, host):
+    """The cells of one snapshot: project -> group -> stats / anon / swap / pss in bytes and the container count."""
+    sections = read_sections(folder / f"{host}.txt")
+    labels = read_labels(sections["labels"])
+    pss = read_pss(sections["pss"])
+    cgroups = read_cgroups(folder / f"{host}.cgroup.txt")
+    projects = defaultdict(lambda: defaultdict(empty_cell))
+
+    for name, cg in cgroups.items():
+        if name not in pss:
+            raise ValueError(f"{host}: container {name} has a cgroup but no smaps lines")
+
+        label = labels.get(name, {"project": None, "service": None, "image": "?"})
+        project = label["project"] or ("coolify" if name.startswith("coolify") else "(other)")
+        kind = kind_of(name, label)
+        group = "dotnet" if kind.startswith("dotnet:") else kind
+        cell = projects[project][group]
+        cell["stats"] += cg["stats"]
+        cell["anon"] += cg["anon"]
+        cell["swap"] += cg["swap"]
+        cell["pss"] += pss[name]
+        cell["n"] += 1
+
+    return sections, projects
+
+
+def hosts_of(folder):
+    hosts = sorted(f.name[:-len(".txt")] for f in folder.glob("*.txt") if not f.name.endswith(".cgroup.txt"))
+    if not hosts:
+        raise ValueError(f"no snapshot in {folder}")
+    return hosts
+
+
+def mib(value):
+    return f"{value / MIB:.0f}"
+
+
+def row(cells, bold=False):
+    text = [f"**{c}**" if bold and c != "" else c for c in cells]
+    return "| " + " | ".join(text) + " |"
+
+
+def values(c):
+    return [mib(c["stats"]), mib(c["anon"]), mib(c["swap"]), mib(c["anon"] + c["swap"]), mib(c["pss"])]
+
+
+def add(total, c):
+    for key in COLUMNS:
+        total[key] += c[key]
+    total["n"] += c["n"]
+
+
 def report(folder):
     out = []
 
-    for host_file in sorted(folder.glob("*.txt")):
-        if host_file.name.endswith(".cgroup.txt"):
-            continue
-
-        host = host_file.stem
-        sections = read_sections(host_file)
-        labels = read_labels(sections["labels"])
-        cgroups = read_cgroups(folder / f"{host}.cgroup.txt")
+    for host in hosts_of(folder):
+        sections, projects = read_host(folder, host)
 
         out.append(f"### {host}")
         out.append("")
@@ -97,45 +177,59 @@ def report(folder):
         out.extend(sections["head"][:3])
         out.append("```")
         out.append("")
-
-        projects = defaultdict(lambda: defaultdict(lambda: {"stats": 0, "anon": 0, "swap": 0, "n": 0}))
-
-        for name, cg in cgroups.items():
-            label = labels.get(name, {"project": None, "service": None, "image": "?"})
-            project = label["project"] or ("coolify" if name.startswith("coolify") else "(other)")
-            kind = kind_of(name, label)
-            group = "dotnet" if kind.startswith("dotnet:") else kind
-            cell = projects[project][group]
-            cell["stats"] += cg["stats"]
-            cell["anon"] += cg["anon"]
-            cell["swap"] += cg["swap"]
-            cell["n"] += 1
-
-        out.append("| project | part | containers | stats | anon | swap | cost |")
-        out.append("|---|---|---|---|---|---|---|")
-        host_total = {"stats": 0, "anon": 0, "swap": 0}
+        out.append("| project | part | containers | stats | anon | swap | cost | pss |")
+        out.append("|---|---|---|---|---|---|---|---|")
+        host_total = empty_cell()
 
         for project in sorted(projects):
-            total = {"stats": 0, "anon": 0, "swap": 0}
+            total = empty_cell()
 
             for group in sorted(projects[project]):
                 c = projects[project][group]
-                out.append(f"| {project} | {group} | {c['n']} | {c['stats'] / MIB:.0f} | {c['anon'] / MIB:.0f} | "
-                           f"{c['swap'] / MIB:.0f} | {(c['anon'] + c['swap']) / MIB:.0f} |")
-                for key in total:
-                    total[key] += c[key]
+                out.append(row([project, group, str(c["n"])] + values(c)))
+                add(total, c)
 
-            out.append(f"| **{project}** | **total** | | **{total['stats'] / MIB:.0f}** | **{total['anon'] / MIB:.0f}** | "
-                       f"**{total['swap'] / MIB:.0f}** | **{(total['anon'] + total['swap']) / MIB:.0f}** |")
-            for key in host_total:
-                host_total[key] += total[key]
+            out.append(row([project, "total", ""] + values(total), bold=True))
+            add(host_total, total)
 
-        out.append(f"| **all** | | | **{host_total['stats'] / MIB:.0f}** | **{host_total['anon'] / MIB:.0f}** | "
-                   f"**{host_total['swap'] / MIB:.0f}** | **{(host_total['anon'] + host_total['swap']) / MIB:.0f}** |")
+        out.append(row(["all", "", ""] + values(host_total), bold=True))
         out.append("")
 
     return "\n".join(out)
 
 
+def summary(folders):
+    head = ["snapshot", "project"] + [f"{name}, cost" for name, _ in SUMMARY_PARTS] + \
+           ["other, cost", "total, cost", "total, pss", "total, stats"]
+    out = [row(head), "|" + "---|" * len(head)]
+
+    for folder in folders:
+        for host in hosts_of(folder):
+            _, projects = read_host(folder, host)
+
+            for project in sorted(projects):
+                parts = [empty_cell() for _ in SUMMARY_PARTS]
+                other, total = empty_cell(), empty_cell()
+
+                for group, c in projects[project].items():
+                    index = next((i for i, (_, test) in enumerate(SUMMARY_PARTS) if test(group)), None)
+                    add(other if index is None else parts[index], c)
+                    add(total, c)
+
+                cost = [mib(p["anon"] + p["swap"]) if p["n"] else "" for p in parts + [other]]
+                out.append(row([f"{folder.name}/{host}", project] + cost +
+                               [mib(total["anon"] + total["swap"]), mib(total["pss"]), mib(total["stats"])]))
+
+    return "\n".join(out)
+
+
+def main(argv):
+    if len(argv) >= 2 and argv[0] == "--summary":
+        return summary([Path(a) for a in argv[1:]])
+    if len(argv) == 1 and not argv[0].startswith("-"):
+        return report(Path(argv[0]))
+    raise SystemExit("usage: prod_report.py <folder> | prod_report.py --summary <folder>...")
+
+
 if __name__ == "__main__":
-    print(report(Path(sys.argv[1])))
+    print(main(sys.argv[1:]))

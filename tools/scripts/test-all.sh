@@ -3,7 +3,8 @@
 #
 #   copy, then in parallel:
 #     build -> backend, common, verify (dotnet, after the build)
-#     control, telemetry, deploy (python, the tests of the skills control and client-telemetry and of tools/scripts/deploy)
+#     control, telemetry, deploy, measurements (python, the tests of the skills control and client-telemetry, of
+#       tools/scripts/deploy and of backend/measurements/tools)
 #     editmode (Unity, client/project)
 #     playmode (Unity, the second copy of the project)
 #
@@ -272,6 +273,7 @@ stage_dotnet 9>&- &
 start_stage control stage_python control "$ROOT/.claude/skills/control/tests"
 start_stage telemetry stage_python telemetry "$ROOT/.claude/skills/client-telemetry/tests"
 start_stage deploy stage_python deploy "$ROOT/tools/scripts/deploy/tests"
+start_stage measurements stage_python measurements "$ROOT/backend/measurements/tools/tests"
 start_stage editmode stage_unity editmode "$PROJECT" EditMode
 start_stage playmode stage_unity playmode "$COPY/client/project" PlayMode
 wait
@@ -284,12 +286,12 @@ if [[ -s "$LOGS/sources.changed" ]]; then
 fi
 
 failed=0
-printf '\n%-10s %8s  %-24s %s\n' stage "time, s" tests result
-for stage in copy build backend common verify control telemetry deploy editmode playmode; do
+printf '\n%-12s %8s  %-24s %s\n' stage "time, s" tests result
+for stage in copy build backend common verify control telemetry deploy measurements editmode playmode; do
     status=FAIL tests=- reason="did not finish"
     [[ -e "$LOGS/$stage.result" ]] && IFS='|' read -r status tests reason <"$LOGS/$stage.result"
     passed "$stage" || failed=1
-    printf '%-10s %8s  %-24s %s\n' "$stage" "$(cat "$LOGS/$stage.time" 2>/dev/null || echo -)" "$tests" "$status${reason:+: $reason}"
+    printf '%-12s %8s  %-24s %s\n' "$stage" "$(cat "$LOGS/$stage.time" 2>/dev/null || echo -)" "$tests" "$status${reason:+: $reason}"
 done
 echo "wall $(seconds_since "$BEGIN_ALL") s, load: $(uptime | sed 's/.*load average: //')"
 
@@ -299,7 +301,7 @@ if [[ -s "$LOGS/sources.changed" ]]; then
     head -n 10 "$LOGS/sources.changed" | sed 's/^/  /'
 fi
 
-for stage in copy build backend common verify control telemetry deploy editmode playmode; do
+for stage in copy build backend common verify control telemetry deploy measurements editmode playmode; do
     passed "$stage" && continue
     echo
     echo "$stage failed, log: $LOGS/$stage.log"
