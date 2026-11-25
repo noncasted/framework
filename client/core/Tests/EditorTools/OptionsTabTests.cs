@@ -28,10 +28,30 @@ namespace Internal.EditorTests
         public void Write_Debug_ReachesTheOptions()
         {
             OptionsTab.Write(_options, OptionsTab.EnableGizmosPath, p => p.boolValue = true);
-            OptionsTab.Write(_options, OptionsTab.EnableLogsPath, p => p.boolValue = true);
 
             Assert.IsTrue(_options.DebugOptions.EnableGizmos);
-            Assert.IsTrue(_options.DebugOptions.EnableLogs);
+        }
+
+        [Test]
+        public void Write_Logs_ReachesTheOptions()
+        {
+            OptionsTab.Write(_options, OptionsTab.LogDevelopmentPath, p => p.intValue = (int)LogLevel.Debug);
+            OptionsTab.Write(_options, OptionsTab.LogReleasePath, p => p.intValue = (int)LogLevel.Error);
+            OptionsTab.Write(_options, OptionsTab.LogMarkPath, p => p.intValue = (int)LogLevel.Info);
+
+            var logs = _options.LogOptions;
+
+            Assert.AreEqual(LogLevel.Debug, logs.Development);
+            Assert.AreEqual(LogLevel.Error, logs.Release);
+            Assert.AreEqual(LogLevel.Info, logs.Mark);
+        }
+
+        [Test]
+        public void RulesPath_ReachesTheRules()
+        {
+            using var serialized = new SerializedObject(_options);
+
+            Assert.IsTrue(serialized.FindProperty(OptionsTab.LogRulesPath).isArray);
         }
 
         [Test]

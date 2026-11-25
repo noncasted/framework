@@ -1,5 +1,6 @@
 using System;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine.UIElements;
 
 namespace Internal
@@ -9,7 +10,10 @@ namespace Internal
     {
         // The fields of the asset: the options have no setters, the tab writes what the serializer stores.
         internal const string EnableGizmosPath = "_debug._enableGizmos";
-        internal const string EnableLogsPath = "_debug._enableLogs";
+        internal const string LogDevelopmentPath = "_logs._development";
+        internal const string LogReleasePath = "_logs._release";
+        internal const string LogMarkPath = "_logs._mark";
+        internal const string LogRulesPath = "_logs._rules";
         internal const string VersionPath = "_version._value";
         internal const string EnvironmentPath = "_backend._environment";
         internal const string ProductionApiUrlPath = "_backend._productionApiUrl";
@@ -33,11 +37,9 @@ namespace Internal
             var gizmos = new Toggle("Enable Gizmos") { value = options.DebugOptions.EnableGizmos };
             gizmos.RegisterValueChangedCallback(e => Write(options, EnableGizmosPath, p => p.boolValue = e.newValue));
             debugSection.Add(gizmos);
-
-            var logs = new Toggle("Enable Logs") { value = options.DebugOptions.EnableLogs };
-            logs.RegisterValueChangedCallback(e => Write(options, EnableLogsPath, p => p.boolValue = e.newValue));
-            debugSection.Add(logs);
             parent.Add(debugSection);
+
+            parent.Add(BuildLogs(options));
 
             var versionSection = BuildSubSection("Version Options");
             var field = new TextField("Version") { value = options.VersionOptions.Value };
@@ -74,6 +76,30 @@ namespace Internal
                 Write(options, PlatformPath, p => p.intValue = (int)(PlatformType)e.newValue));
             platformSection.Add(platformField);
             parent.Add(platformSection);
+        }
+
+        // The levels of every category without a rule, and the rules by prefix (LogOptions); the list is bound to the asset.
+        private VisualElement BuildLogs(OptionsContainer options)
+        {
+            var section = BuildSubSection("Log Options");
+            var logs = options.LogOptions;
+
+            section.Add(LevelField("Development", logs.Development, LogDevelopmentPath, options));
+            section.Add(LevelField("Release", logs.Release, LogReleasePath, options));
+            section.Add(LevelField("Telemetry Marks", logs.Mark, LogMarkPath, options));
+
+            var serialized = new SerializedObject(options);
+            var rules = new PropertyField(serialized.FindProperty(LogRulesPath), "Rules");
+            rules.Bind(serialized);
+            section.Add(rules);
+            return section;
+        }
+
+        private static EnumField LevelField(string label, LogLevel value, string path, OptionsContainer options)
+        {
+            var field = new EnumField(label, value);
+            field.RegisterValueChangedCallback(e => Write(options, path, p => p.intValue = (int)(LogLevel)e.newValue));
+            return field;
         }
 
         // Options now live in an asset, so an edit must mark it dirty (the apply does, with the undo step):
