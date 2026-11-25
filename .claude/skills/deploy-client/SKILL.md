@@ -95,7 +95,7 @@ the other way round, an `index.html` that references a missing `Build/*` payload
 
 The script ends with `==== deploy-client summary ====`: a table stage / result / seconds / details (`preflight`,
 snapshot, copies, tests, `build <t>`, `checks <t>`, `before upload`, `deploy <t>`; the hooks only when the json has them), the total time and memory, `Logs: <folder>` and `DEPLOY-CLIENT PASSED`
-or `DEPLOY-CLIENT FAILED`. Logs (default `/tmp/<game>-deploy-client/<time>/`): `preflight.log`, `before-upload.log`, `snapshot.log`, `tests.log` and `tests/`,
+or `DEPLOY-CLIENT FAILED`. Logs (default `/tmp/<game>-deploy-client/<time>/`): `preflight.log`, `before-upload.log`, `snapshot.log`, `tests.log` and `tests/` (with `tests/report.md` when the tests of the game write one: the steps of the test run and the Unity EditMode tests per assembly),
 `build-<t>.log` (Unity) and `build-<t>.out`, `deploy-<t>.log`, `deploy-<t>-list.log`.
 
 - Exit 0 - everything passed and every target was uploaded, `--list` names the new tag as current.
@@ -116,8 +116,9 @@ below `UNITY_BUILD_MIN_FREE_GB` - report it, the user may close something and re
 
 Tell the user, in Russian, from the summary:
 
-- the tests: passed with the totals per suite (the test summary the script printed), or "skipped by `--notest`", or the
-  failed tests and the log folder
+- the tests: passed with the totals per suite (the test summary the script printed) and the Unity EditMode tests per
+  assembly from `<Logs>/tests/report.md` when it is there (a short table: assembly, total, passed, failed), or "skipped by `--notest`", or
+  the failed tests and the log folder
 - per target: the tag and the size uploaded, the url (`URL: ...` from `deploy-<t>.log` when `PUBLIC_URL` is set in
   `deploy.env`; otherwise the url of `.claude/project-skills.md`; a Telegram Mini App link is the one BotFather has, with the
   trailing slash), and the rollback command `DEPLOY ARGS(t) --rollback <tag>` with the live tag of step 1 (none for a
