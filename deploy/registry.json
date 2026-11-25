@@ -13,7 +13,15 @@
       "observability": {
         "logs": "http://127.0.0.1:9428",
         "traces": "http://127.0.0.1:10428",
-        "access": "ssh-tunnel"
+        "access": "ssh-tunnel",
+        "coolify": {
+          "project": "oyccpexpsfyq5naitclnndzp",
+          "name": "observability",
+          "environment": "production",
+          "application": "oukejx1fbca7wtmycipf9rjt",
+          "branch": "observability-deploy",
+          "github_app": "zany-zebra-rywpzntzpmqakdkvrt0"
+        }
       }
     },
     "firstvds": {
@@ -29,7 +37,15 @@
       "observability": {
         "logs": "http://127.0.0.1:9428",
         "traces": "http://127.0.0.1:10428",
-        "access": "ssh-tunnel"
+        "access": "ssh-tunnel",
+        "coolify": {
+          "project": "6rdlzjfzxzaitdcnnbydvq52",
+          "name": "observability",
+          "environment": "production",
+          "application": "le1rlnmqqf6xybu4ppezstyc",
+          "branch": "observability-deploy",
+          "github_app": "coolify-kz"
+        }
       }
     }
   },

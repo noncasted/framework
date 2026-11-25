@@ -32,23 +32,40 @@ does not use this stack.
 
 ## Install on a new VPS
 
+Done this way on `ovh` and `firstvds` (2026-11-25); the Coolify uuids are in `servers.<server>.observability.coolify` of
+`../registry.json`.
+
 1. **Network**, once, on the host (ssh alias from `../registry.json`):
    `ssh <alias> 'sudo -n docker network create observability'` (`docker` without sudo where the user is root).
    It is not a Coolify Destination: Coolify only attaches containers to it because the compose names it as external.
-2. **Coolify resource.** A new resource of the type Application from the private repository of the framework, branch of
-   the stack (published by the GitHub Action of the framework), build pack Docker Compose, compose location
-   `/docker-compose.yaml` (the branch holds this folder as its root). No domains: nothing of the stack goes through the
-   proxy. No environment variables. The webhook of the repository redeploys it on push. (The details of the Coolify
-   setup: step [8] of the task fills them in.)
-3. **Registry.** `servers.<server>.observability` of `../registry.json` holds the read addresses
-   (`http://127.0.0.1:9428`, `http://127.0.0.1:10428`, `access: ssh-tunnel`).
-4. **Check** through the tunnel (CLAUDE.md, "Reading"):
-   `./smoke.py --logs http://127.0.0.1:19428 --traces http://127.0.0.1:20428`, and on the host
-   `ss -ltn | grep -E ':(9428|10428) '` lists only `127.0.0.1`.
+2. **GitHub App.** `noncasted/framework` is private: the panel needs a GitHub App whose installation includes the
+   repository. Use the app the games of that panel already deploy from (`ovh`: `zany-zebra-...`; `firstvds`: `coolify-kz`,
+   not `happy-hedgehog-...`, which only serves the third-party bot); its webhook is what redeploys on push. Check that it
+   sees the branch: MCP `list_github_branches` (`owner=noncasted`, `repo=framework`) lists `observability-deploy`. If not,
+   the repository is added to the installation of that app in GitHub (Settings, Applications, Installed GitHub Apps,
+   the app, Repository access); a deploy key would lose the auto-deploy.
+3. **Coolify project** `observability`, environment `production` (MCP `manage_project action=create`; the environment
+   comes with it).
+4. **Coolify resource**, an Application (MCP `create_application action=github_app`):
+   `git_repository=noncasted/framework`, `git_branch=observability-deploy` (published by the GitHub Action of the
+   framework from this folder, which is its root), `build_pack=dockercompose`, `base_directory=/`,
+   `docker_compose_location=/docker-compose.yaml`, `name=observability`, the server `localhost` and its default
+   destination `coolify` (the server uuid and the destinations: `list_servers`, `list_destinations`). No domains: nothing of
+   the stack goes through the proxy. No environment variables. Auto deploy is on by default for a GitHub App source: a
+   push to the branch redeploys it. Then `deploy` once and follow `get_deployment` until `finished`.
+5. **Registry.** `servers.<server>.observability` of `../registry.json` holds the read addresses
+   (`http://127.0.0.1:9428`, `http://127.0.0.1:10428`, `access: ssh-tunnel`) and the Coolify uuids (`project`,
+   `application`).
+6. **Check.** On the host `docker ps` shows the three containers `(healthy)`, `ss -ltn | grep -E ':(9428|10428) '` lists
+   only `127.0.0.1`. Through the tunnel (CLAUDE.md, "Reading"):
+   `./smoke.py --logs http://127.0.0.1:19428 --traces http://127.0.0.1:20428`; the router too, by forwarding a third
+   local port to the address of the `otlp` container on `observability` (`docker inspect`), e.g.
+   `-L 24318:<otlp ip>:4318`, and `--ingest http://127.0.0.1:24318`. Idle memory on the VPS right after the install:
+   victorialogs 4-5 MiB, victoriatraces 7-8 MiB, otlp 3 MiB.
 
 ## How Coolify treats this file (Coolify 4.7.6)
 
-- The compose project name is the resource uuid, containers are `<service>-<uuid>`; the service names (`otlp`,
+- The compose project name is the resource uuid, containers are `<service>-<uuid>-<deploy timestamp>`; the service names (`otlp`,
   `victorialogs`, `victoriatraces`) stay as DNS names on every network of the service, which is what the games resolve.
 - External networks are kept as declared; Coolify adds its own network `<uuid>` to every service next to them.
 - Named volumes become `<uuid>_<name>` (`<uuid>_victorialogs-data`); the uuid does not change, data survives redeploys. Deleting

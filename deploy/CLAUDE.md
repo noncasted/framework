@@ -8,7 +8,8 @@ domains, the deploy branch. Sessions and scripts (logs, deploy, `claude-coolify`
 - `servers.<key>`: `ovh` (Poland) and `firstvds` (Kazakhstan); the same key names the MCP server (`coolify-<key>`), the ssh
   alias and `backend/measurements`. Fields: country, city, provider, ip, mcp, ssh, ssh_user, docker (the command: ovh needs
   `sudo -n docker`), panel (Coolify URL), `observability` (`logs` / `traces` read URLs on 127.0.0.1 of the host, `access:
-  ssh-tunnel`: read through `ssh -L`, no tokens).
+  ssh-tunnel`: read through `ssh -L`, no tokens; `coolify`: project uuid, name, environment, `application` uuid of the stack,
+  branch, GitHub App).
 - `projects.<repository name>`: `framework` (false for post-radio, storytale, nikita-botik), `server`, `mode` (`services` |
   `monolith`), `namespace` (`service.namespace` of logs, = the key), `coolify` (project uuid, name, environment),
   `repository`, `branch`, `resources` (uuid, type application / service / database, role), `domains` by role, optional `note`.
@@ -28,4 +29,4 @@ A game submodule lags behind main, so scripts read the latest main, not the work
   `~/.config/framework/deploy-secrets.json`.
 - `registry verify` (a later step, `tools/scripts/deploy`) checks the registry against both Coolify: every uuid exists and no
   Coolify project is missing here.
-- `deploy/observability/` (a later step) holds the logs/traces stack.
+- `deploy/observability/` holds the logs/traces stack, installed on both servers (its README.md).
