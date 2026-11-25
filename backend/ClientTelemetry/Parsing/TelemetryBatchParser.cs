@@ -67,7 +67,7 @@ public static class TelemetryBatchParser
     private static long Bytes(SharedClientTelemetry.Sample[] samples, SharedClientTelemetry.Error[] errors, SharedClientTelemetry.Mark[] marks)
     {
         return samples.Sum(sample => _rowBytes + (long)(sample.Values?.Length ?? 0) * _valueBytes)
-               + errors.Sum(error => _rowBytes + (long)error.Message.Length + (error.Stack?.Length ?? 0))
+               + errors.Sum(error => _rowBytes + (long)error.Message.Length + (error.Stack?.Length ?? 0) + Math.Min(error.Category?.Length ?? 0, ClientTelemetryLimits.MaxCategoryLength))
                + marks.Sum(mark => _rowBytes + (long)(mark.Name?.Length ?? 0) + Math.Min(mark.Detail?.Length ?? 0, ClientTelemetryLimits.MaxMarkDetailLength));
     }
 
@@ -104,6 +104,15 @@ public static class TelemetryBatchParser
             _ => (TelemetryErrorLevel?)null
         };
 
-        return level == null ? null : new TelemetryError(error.Time, level.Value, Scrubber.Scrub(error.Message), Scrubber.Scrub(error.Stack ?? ""), error.Repeat);
+        if (level == null)
+            return null;
+
+        return new TelemetryError(error.Time, level.Value, Scrubber.Scrub(error.Message), Scrubber.Scrub(error.Stack ?? ""), error.Repeat, ReadCategory(error.Category));
+    }
+
+    // A name of a type or nothing: a category out of the alphabet is dropped alone, the error stays.
+    private static string? ReadCategory(string? category)
+    {
+        return category != null && TelemetryNames.IsValidCategory(category) ? category : null;
     }
 }

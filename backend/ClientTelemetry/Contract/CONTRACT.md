@@ -22,12 +22,18 @@ Null lists are empty. `Time` is milliseconds since the start of the session, no 
 - `Names`: `{ Name, Unit }`, the new names of the session; each takes the next slot.
 - `Samples`: `{ Time, Values, Hidden }`; `Values[i]` belongs to slot `i`, `NaN` is no value in this sample, a shorter array leaves the
   rest empty; `Hidden`: the page was in the background, the sample stays out of the summary.
-- `Errors`: `{ Time, Level, Message, Stack, Repeat }`; `Level` is `Error`, `Exception` or `Warning` (the warnings of the log of Unity,
+- `Errors`: `{ Time, Level, Message, Stack, Repeat, Category }`; `Level` is `Error`, `Exception` or `Warning` (the warnings of the log of Unity,
   under their own client limits), `Repeat` from 1. The digest counts the warnings apart (`warningCount`): `errorRows`, `errorCount` and
-  `minErrors` hold none of them; the groups hold both, by level.
+  `minErrors` hold none of them; the groups hold both, by level. `Category` (last member of the message): the category of the logger of
+  the framework that wrote the error, the full name of a type (`Global.Network.PeerSocket`, generic arguments by their short names:
+  `Global.Network.Pool<Packet>`); `Message` is then its template with the `{Name}` placeholders, not the formatted text. An exception
+  logged through it has the message `<template>\n<ExceptionFullType>: <text>` (or `<ExceptionFullType>: <text>` without a template),
+  the level `Exception` and its own stack. Null: an error of the log of Unity, of the browser or of a task nobody awaited.
 - `Marks`: `{ Time, Name, Detail, DurationMs }`; `Detail` a text of the code next to the name (the key of a loaded asset), scrubbed,
   null for none; `DurationMs` what the mark closes, null for none. The client marks the loads of assets this way: `load.start`,
   `load.end`, `load.failed` (the type of the error in the detail), `load.slow`, `load.unfinished` (at the end of the session).
+  The logger of the framework marks its records at or above the mark level of their category (`LogOptions` of the `OptionsContainer`
+  of the game) as `log.debug`, `log.info`, `log.warning`, `log.error`, the detail `<ShortTypeName>: <template>`.
 - `Device`, the closed list: `Platform`, `BuildVersion`, `Browser` + `BrowserMajor`, `Os` + `OsMajor` (names without digits, the
   major version apart), `Gpu`, `Cores`, `MemoryClass` (GB: a power of two from 0.25 to 1024), `ScreenWidth`, `ScreenHeight`, `Dpr`. 0
   or null is unknown.
@@ -119,7 +125,7 @@ For a client that cannot open the meta socket (a page in an iframe that reaches 
   Nothing is repeated. A page in the background that stops sending loses its session after `IdleAfter`, where a socket keeps it.
 - **The JSON** is written by `JsonUtility`, which writes no null: the names are those of the messages in camelCase; guids are their
   text, `Guid.Empty` for none (also `previous.sessionId` when there is no previous); an empty text is none (`unit`, `detail`, `stack`,
-  `file`, the texts of `device`); 0 a number not known (`device`); `level` by name (`Error`, `Exception`, `Warning`; another one drops
+  the `category` of an error, `file`, the texts of `device`); 0 a number not known (`device`); `level` by name (`Error`, `Exception`, `Warning`; another one drops
   the error); `hasPrevious` false: no `previous` (its object is there, ignored); a mark with `hasDuration` false closes nothing
   (`durationMs` ignored).
 - **NaN.** JSON has no `NaN` and no infinity. A sample is `{ time, values, empty, hidden }`: `empty` lists the slots of `values` without
@@ -145,7 +151,7 @@ without a grain.
   that reported the given one as its previous. Each row and the card of a session hold `tags` (`[]` when there are none, also in a row written before the tags). `metric` with no average: sessions that have the metric in the summary;
   `averageBelow`, `averageAbove` need `metric` (400 otherwise). A live session has no summary yet, so `metric` and `minErrors` leave it out.
 - `GET .../sessions/{id}`: `ackSeq` is the `seq` of the last batch in memory, `after` of a live reading (the name stays for the skill); `digest` (the summary of the close, the counts of errors and marks, the dropped counters, `errorGroups:
-  { groups: [{ fingerprint, level, message, count, rows, firstSeenAt, lastSeenAt }], omittedGroups, omittedCount }` with up to 12
+  { groups: [{ fingerprint, level, message, count, rows, firstSeenAt, lastSeenAt, category }], omittedGroups, omittedCount }` with up to 12
   groups) is null
   while it is live and for a session closed without its data.
 - `GET .../sessions/{id}/summary?from=&to=`: the window in `t` of the session, inclusive. `{ samples, hiddenSamples, metrics: [{ name,
@@ -157,12 +163,14 @@ without a grain.
   An empty `items` at the end of the wait is the normal answer. Works with several gateways.
 - `GET .../sessions/{id}/marks?after=&limit=`, `.../errors?after=&limit=`: the same page without `wait`. A mark holds `detail` and
   `durationMs`, null when absent (also in a row written before them).
-  A row of `errors` has its `fingerprint`: 16 hex digits of a SHA-256 over the level, the message and the stack, already scrubbed
-  and without the `<n>` and `<id>` left in place of numbers and addresses. The same for another line or address, also with an
-  empty stack (then only the level and the message decide).
+  A row of `errors` has its `category` (null for none, also in a row written before it) and its `fingerprint`: 16 hex digits of a
+  SHA-256 over the level, the message and the stack, already scrubbed and without the `<n>` and `<id>` left in place of numbers and
+  addresses, and the category when there is one (one template in two categories is two kinds; without a category the hash is the one
+  of before it, so the stored groups still match). The same for another line or address, also with an empty stack (then only the
+  level, the message and the category decide).
 - `GET /api/client-telemetry/errors?limit=`: the kinds of errors over the digests in memory of the host, by `count` (with
   repeats), of equal counts by `lastSeenAt`. `{ totalGroups, countedSessions, sessionsWithoutDigest, omittedGroups, omittedCount,
-  droppedErrors, groups: [{ fingerprint, level, message, count, sessions, firstSeenAt, lastSeenAt, sessionIds }] }`. `message` is
+  droppedErrors, groups: [{ fingerprint, level, message, count, sessions, firstSeenAt, lastSeenAt, sessionIds, category }] }`. `message` is
   cut to 120 characters, `sessionIds` holds up to 20 of the freshest sessions, `sessions` counts them all. A session counts from its
   close: a live one and one lost in a crash have no digest (`sessionsWithoutDigest`).
 
@@ -194,10 +202,15 @@ The client is not trusted; `TelemetryBatchParser` is the only way into the model
   `Message` or `Stack`, a negative time, a repeat under 1, an infinite value, a null item, more than 200 names per session or values
   without a name (`TelemetrySessionLimits`). The names of the batch stay when they fit: the client counts its values by the slots.
 - **Drops one item, the batch goes on:** a name or a mark out of `[a-z0-9._]` or over 64 characters (a dropped name keeps its slot), a
-  unit by the same rule (the name stays), an error of another level, a field of `Device` of a wrong form, the `Detail` of a mark with a
+  unit by the same rule (the name stays), the `Category` of an error that is not a name of a type (words of `[A-Za-z0-9_]` from a
+  letter or `_` between `.`, `<`, `>`, `, ` between generic arguments) or over 256 characters (`MaxCategoryLength`; the error stays
+  without it), an error of another level, a field of `Device` of a wrong form, the `Detail` of a mark with a
   control symbol or blank (the mark stays; a long one is cut to 128 and goes through `Scrubber`). A negative `DurationMs` rejects the
   rows like a negative time.
 - **Scrubs** `Message` and `Stack` (`Scrubber`); the client scrubs them too, by the same corpus (`Tests/ClientTelemetry/Golden/pii_corpus.json`).
+  A braced text becomes `{<str>}`, except a placeholder of a template of the logger: `{Identifier}`, a letter or `_` and then letters,
+  digits or `_`, 32 characters at most. It exposes nothing more than a plain word, which passes anyway (and a word of 32 characters and
+  more, or of hex digits, is still `<id>` inside the braces). The category is a name of the code and is not scrubbed.
 
 The limit of a plain word: `Scrubber` cannot tell a name written without quotes or a key ("Player Ivan left") from the
 template. Such a text must not get into the messages of the code.

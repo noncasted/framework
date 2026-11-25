@@ -189,7 +189,7 @@ def group_rows(rows):
 
     for row in rows:
         group = groups.setdefault(row["fingerprint"], {"fingerprint": row["fingerprint"], "level": row["level"], "message": row["message"],
-                                                        "count": 0, "rows": 0, "firstSeenAt": row["time"], "lastSeenAt": row["time"]})
+                                                        "category": row.get("category"), "count": 0, "rows": 0, "firstSeenAt": row["time"], "lastSeenAt": row["time"]})
         group["count"] += row["repeat"]
         group["rows"] += 1
         group["lastSeenAt"] = row["time"]
@@ -202,7 +202,7 @@ def error_group_lines(groups, stacks, started):
 
     for group in groups:
         lines.append(f"{group['fingerprint']} {group['level']} count={group['count']} rows={group['rows']} "
-                     f"first={_moment(group['firstSeenAt'], started)} last={_moment(group['lastSeenAt'], started)} {group['message']}")
+                     f"first={_moment(group['firstSeenAt'], started)} last={_moment(group['lastSeenAt'], started)} {_text(group)}")
 
         for line in (stacks or {}).get(group["fingerprint"], "").splitlines()[:_STACK_LINES]:
             lines.append(f"    {line}")
@@ -216,10 +216,16 @@ def global_error_lines(answer):
 
     for group in answer["groups"]:
         lines.append(f"{group['fingerprint']} {group['level']} count={group['count']} sessions={group['sessions']} "
-                     f"last={group['lastSeenAt']} {group['message']}")
+                     f"last={group['lastSeenAt']} {_text(group)}")
         lines.append(f"    in {' '.join(group['sessionIds'])}")
 
     return lines
+
+
+# The category of the logger of the framework before its template; an error of the log of Unity has none (absent in older answers).
+def _text(group):
+    category = group.get("category")
+    return f"[{category}] {group['message']}" if category else group["message"]
 
 
 # Since the start of the session, to compare with the windows of the trend: the t of a row, or the time a digest took a row at.

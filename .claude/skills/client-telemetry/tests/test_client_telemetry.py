@@ -602,6 +602,25 @@ class ReportTests(Base):
         self.assertIn("count=5", result.stdout)
         self.assertIn("Game.A:B", result.stdout)
 
+    def test_the_category_of_the_logger_is_shown_before_the_template(self):
+        row = {"seq": 1, "time": 500, "level": "error", "message": "Join {Code} failed", "stack": "", "repeat": 1,
+               "receivedAt": "2026-11-03T10:00:00Z", "fingerprint": "00112233aabbccdd", "category": "Global.Lobbies.LobbyJoin"}
+        self.backend.find(OLD)["status"] = "live"
+        self.backend.errors[OLD] = [row, {**row, "seq": 2, "fingerprint": "ee", "category": None, "message": "Plain"}]
+        result = self.run_cli("errors", OLD)
+
+        self.assertIn("[Global.Lobbies.LobbyJoin] Join {Code} failed", result.stdout)
+        self.assertIn(" Plain", result.stdout)
+        self.assertNotIn("[None]", result.stdout)
+
+    def test_the_category_of_a_group_of_all_sessions(self):
+        self.backend.error_groups["groups"] = [{"fingerprint": "ff", "level": "error", "message": "Join {Code} failed", "count": 7, "sessions": 2,
+                                                "firstSeenAt": "2026-11-03T10:00:00Z", "lastSeenAt": "2026-11-03T10:00:00Z", "sessionIds": [OLD],
+                                                "category": "Global.Lobbies.LobbyJoin"}]
+        result = self.run_cli("errors")
+
+        self.assertIn("[Global.Lobbies.LobbyJoin] Join {Code} failed", result.stdout)
+
     def test_error_groups_of_a_digest_are_timed_from_the_start(self):
         digest = {"durationMs": 30000, "errorRows": 1, "errorCount": 2, "marks": 0, "droppedSamples": 0, "droppedErrors": 0, "droppedMarks": 0,
                   "rejectedRequests": 0, "summary": {"samples": 0, "hiddenSamples": 0, "metrics": []},

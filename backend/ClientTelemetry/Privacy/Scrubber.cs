@@ -43,6 +43,10 @@ public static class Scrubber
     private static readonly Regex _singleQuoted = new(@"(^|[^\w])'[^'\r\n]*'?", _options | RegexOptions.Multiline);
     private static readonly Regex _backticked = new(@"(^|[^\w])`[^`\r\n]*`", _options | RegexOptions.Multiline);
     private static readonly Regex _braced = new(@"\{[^{}\r\n]*\}", _options);
+
+    // A placeholder of a template of the logger: an identifier no longer than a plain word that passes anyway. No lookahead here
+    // (NonBacktracking): the braced texts are matched by _braced and this one decides which of them stay.
+    private static readonly Regex _placeholder = new(@"^\{[A-Za-z_][A-Za-z0-9_]{0,31}\}$", _options);
     private static readonly Regex _angledWithSpace = new(@"<[^<>\r\n]*\s[^<>\r\n]*>", _options);
     private static readonly Regex _typographicQuoted = new(@"[«“‘„][^»”’\r\n]*[»”’]?", _options);
 
@@ -88,7 +92,7 @@ public static class Scrubber
         text = _doubleQuoted.Replace(text, "\"<str>\"");
         text = _singleQuoted.Replace(text, "$1'<str>'");
         text = _backticked.Replace(text, "$1`<str>`");
-        text = _braced.Replace(text, "{<str>}");
+        text = _braced.Replace(text, ScrubBraced);
         text = _typographicQuoted.Replace(text, "<str>");
         text = _notPrintableAscii.Replace(text, "<text>");
         text = _angledWithSpace.Replace(text, "<str>");
@@ -104,7 +108,12 @@ public static class Scrubber
         return text;
     }
 
-    private static string ScrubSecretValue(Match match)
+    private static string ScrubBraced(Match match)
+    {
+        return _placeholder.IsMatch(match.Value) ? match.Value : "{<str>}";
+    }
+
+        private static string ScrubSecretValue(Match match)
     {
         return _frameAfterKey.IsMatch(match.Groups[2].Value) ? match.Value : match.Groups[1].Value + "=<secret>";
     }

@@ -9,4 +9,5 @@ public sealed record TelemetryStoredError(
     string Stack,
     int Repeat,
     DateTime ReceivedAt,
-    string Fingerprint);
+    string Fingerprint,
+    string? Category = null);

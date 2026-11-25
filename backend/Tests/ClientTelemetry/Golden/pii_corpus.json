@@ -76,6 +76,9 @@
     },
     { "name": "span_get_url", "text": "GET https://api.game.example/users/123456?token=abc987", "forbidden": ["game.example", "users", "123456", "token", "abc987"], "kept": ["GET", "<url>"] },
     { "name": "span_post_url", "text": "POST http://10.0.0.5:8080/auth/login?name=Ivan", "forbidden": ["10.0.0.5", "8080", "auth", "Ivan"], "kept": ["POST", "<url>"] },
-    { "name": "span_media_url", "text": "GET https://cdn.game.example/avatars/ivan.png", "forbidden": ["cdn.game.example", "avatars", "ivan"], "kept": ["GET", "<url>"] }
+    { "name": "span_media_url", "text": "GET https://cdn.game.example/avatars/ivan.png", "forbidden": ["cdn.game.example", "avatars", "ivan"], "kept": ["GET", "<url>"] },
+    { "name": "logger template", "text": "Lost the room {Code} of {Player_2} in PeerHost", "forbidden": [], "kept": ["Lost the room {Code} of {Player_2} in PeerHost"] },
+    { "name": "logger template with an exception", "text": "Join {Code} failed\nSystem.InvalidOperationException: no seat for ivan.petrov@mail.ru", "forbidden": ["ivan", "mail.ru"], "kept": ["Join {Code} failed", "System.InvalidOperationException"] },
+    { "name": "braced identifier over 32", "text": "Bad {Abcdefghijklmnopqrstuvwxyzabcdefg} here", "forbidden": ["Abcdefghijklmnopqrstuvwxyzabcdefg"], "kept": ["Bad", "here"] }
   ]
 }

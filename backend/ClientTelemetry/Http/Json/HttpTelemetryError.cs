@@ -8,4 +8,7 @@ public sealed class HttpTelemetryError
     public string? Message { get; init; }
     public string? Stack { get; init; }
     public int Repeat { get; init; }
+
+    // Empty or missing: none (JsonUtility writes a null string as an empty one).
+    public string? Category { get; init; }
 }

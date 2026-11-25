@@ -13,6 +13,9 @@ public static class ClientTelemetryLimits
     public const int MaxNameLength = 64;
     public const int MaxUnitLength = 16;
 
+    // The category of an error: the full name of a type, generic arguments by their short names.
+    public const int MaxCategoryLength = 256;
+
     // The detail of a mark is a key of the code (the group or the scene of a load), cut like a name of a startup span.
     public const int MaxMarkDetailLength = 128;
 

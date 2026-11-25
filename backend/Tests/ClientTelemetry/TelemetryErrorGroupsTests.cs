@@ -92,7 +92,7 @@ public class TelemetryErrorGroupsTests
             Names = [],
             NameSlots = 0,
             Samples = [],
-            Errors = [new TelemetryError(1, TelemetryErrorLevel.Error, "a", "", int.MaxValue), new TelemetryError(2, TelemetryErrorLevel.Error, "a", "", int.MaxValue)],
+            Errors = [new TelemetryError(1, TelemetryErrorLevel.Error, "a", "", int.MaxValue, null), new TelemetryError(2, TelemetryErrorLevel.Error, "a", "", int.MaxValue, null)],
             Marks = []
         }, _start);
 
@@ -112,7 +112,7 @@ public class TelemetryErrorGroupsTests
             Names = [],
             NameSlots = 0,
             Samples = [],
-            Errors = [new TelemetryError(1, TelemetryErrorLevel.Exception, "a", "A:B ()", 3)],
+            Errors = [new TelemetryError(1, TelemetryErrorLevel.Exception, "a", "A:B ()", 3, null)],
             Marks = []
         }, _start);
 
@@ -200,7 +200,7 @@ public class TelemetryErrorGroupsTests
 
     private static string Fingerprint(string message)
     {
-        return TelemetryErrorFingerprint.Of(TelemetryErrorLevel.Error, message, "");
+        return TelemetryErrorFingerprint.Of(TelemetryErrorLevel.Error, message, "", null);
     }
 
     private static TelemetrySessionInfo Closed(Guid id, params TelemetryStoredError[] rows)

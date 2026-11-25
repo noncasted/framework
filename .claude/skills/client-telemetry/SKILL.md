@@ -192,6 +192,9 @@ Go in this order, each from the numbers:
    stays the same, usually with `frame.gpu` or `frame.cpu` growing without a new load. No thermal metric exists: this is an
    inference, name it so. If the load grew too, it is the load, not the heat.
 5. **Errors.** Groups by `fingerprint`: count, rows, `first` and `last` (seconds since the start, on the scale of `t_s`), whether they meet a drop in the trend. The stack: `errors <id>`.
+   `[Category] template` is an error of the logger of the framework: the full name of the type that logged it and the template with its
+   `{Name}` placeholders (the arguments never leave the client); one template in two categories is two groups. Without the brackets: the
+   log of Unity, the browser or a task nobody awaited.
    `omitted_*` above 0: not all kinds are listed. Groups of level `warning` are the warnings of the log of Unity (a glyph missing in a font
    of TextMeshPro, a texture that failed to load), at most 16 kinds and 48 records a session: a cause only with a matching change in the
    trend. `WebGL error <CODE>` groups and the marks `webgl.error.<code>` (first 16) come from `gl.getError` once a sample, `web.gl.errors`
@@ -217,6 +220,8 @@ Go in this order, each from the numbers:
    then nothing is a page killed in the background; no page mark with a running game is a crash of the tab (WebContent on iOS, OOM).
    A mark with a detail or a duration reads `name[detail,duration]`: `load.start[Group: X]` or `load.slow[Group: X,5.00s]` last
    without its `load.end` is a page that died inside that load (point 8).
+   `log.info[Type: template]` (also `log.debug`, `log.warning`, `log.error`): a record of the logger of the framework of a category the
+   game marks (`LogOptions` of its `OptionsContainer`), the moments of its own code on the time line.
    `previous_samples` under the line: the last samples (up to 5, old first) the client kept of that session, one line each: the time,
    `hidden` for a background one, the main numbers present (`frame.dt.max`, `frame.cpu.main`, `frame.phase.update`, `frame.phase.postlate`,
    `web.raf.dt.max`, `render.draw_calls`, `web.gl.shader_compile_ms`) and `+N other`. They show what the page did just before it died even

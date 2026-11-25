@@ -45,6 +45,25 @@ public class TelemetryHttpMappingTests
         batch.Samples.Should().BeNull();
     }
 
+    // JsonUtility writes a null string as an empty one: an error of the log of Unity has no category.
+    [Fact]
+    public void TheCategory_EmptyOrMissing_IsNull()
+    {
+        var batch = TelemetryHttpMapping.ToBatch(new HttpTelemetryBatch
+        {
+            Errors =
+            [
+                new HttpTelemetryError { Level = "Error", Message = "x", Category = "Global.Network.PeerSocket" },
+                new HttpTelemetryError { Level = "Error", Message = "y", Category = "" },
+                new HttpTelemetryError { Level = "Error", Message = "z" }
+            ]
+        });
+
+        batch.Errors![0].Category.Should().Be("Global.Network.PeerSocket");
+        batch.Errors[1].Category.Should().BeNull();
+        batch.Errors[2].Category.Should().BeNull();
+    }
+
     [Fact]
     public void NoPrevious_ByTheFlag()
     {

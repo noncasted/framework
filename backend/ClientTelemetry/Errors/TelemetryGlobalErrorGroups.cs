@@ -51,6 +51,7 @@ public sealed record TelemetryGlobalErrorGroups(
             freshest.Length,
             freshest.Min(item => item.Group.FirstSeenAt),
             newest.LastSeenAt,
-            freshest.Take(MaxSessionIds).Select(item => item.Id).ToArray());
+            freshest.Take(MaxSessionIds).Select(item => item.Id).ToArray(),
+            newest.Category);
     }
 }

@@ -28,9 +28,9 @@ public class TelemetryWarningsTests
             Marks = [],
             Errors =
             [
-                new TelemetryError(1, TelemetryErrorLevel.Error, "a", "", 2),
-                new TelemetryError(2, TelemetryErrorLevel.Warning, "w", "", 5),
-                new TelemetryError(3, TelemetryErrorLevel.Warning, "v", "", 1)
+                new TelemetryError(1, TelemetryErrorLevel.Error, "a", "", 2, null),
+                new TelemetryError(2, TelemetryErrorLevel.Warning, "w", "", 5, null),
+                new TelemetryError(3, TelemetryErrorLevel.Warning, "v", "", 1, null)
             ]
         }, DateTime.UtcNow);
 

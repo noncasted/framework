@@ -111,6 +111,31 @@ public class ClientTelemetryErrorGroupsEndpointTests : ClientTelemetryEndpointTe
         (await Session(session)).Digest!.ErrorGroups.Groups.Single().Fingerprint.Should().Be(live);
     }
 
+    // The same template in two categories: two groups, each with its category; an error of the log of Unity has none.
+    [Fact]
+    public async Task TheCategory_IsInTheRowsAndTheGroups()
+    {
+        var host = await StartHost();
+        var word = Word();
+        var session = Guid.NewGuid();
+
+        await Close(session,
+            TelemetryWire.Error(1, SharedClientTelemetry.ErrorLevel.Error, $"{word} join failed", "", 2, "Global.Lobbies.LobbyJoin"),
+            TelemetryWire.Error(1, SharedClientTelemetry.ErrorLevel.Error, $"{word} join failed", "", 3, "Global.Network.PeerSocket"),
+            TelemetryWire.Error(1, SharedClientTelemetry.ErrorLevel.Error, $"{word} join failed", "", 1));
+
+        var groups = Own(await Get(host, "/errors?limit=5000"), word);
+
+        groups.Select(group => group.GetProperty("category").GetString()).Should().BeEquivalentTo(
+            new[] { "Global.Network.PeerSocket", "Global.Lobbies.LobbyJoin", null });
+        groups.Select(group => group.GetProperty("fingerprint").GetString()).Distinct().Should().HaveCount(3);
+
+        var rows = (await Get(host, $"/sessions/{session}/errors")).GetProperty("items").EnumerateArray().ToList();
+        rows.Select(row => row.GetProperty("category").GetString()).Should().Equal("Global.Lobbies.LobbyJoin", "Global.Network.PeerSocket", null);
+        (await Session(session)).Digest!.ErrorGroups.Groups.Select(group => group.Category).Should().BeEquivalentTo(
+            new[] { "Global.Network.PeerSocket", "Global.Lobbies.LobbyJoin", null });
+    }
+
     private Task Close(Guid session, params SharedClientTelemetry.Error[] errors)
     {
         return Store(Request(session, 1, ended: true, errors: errors));

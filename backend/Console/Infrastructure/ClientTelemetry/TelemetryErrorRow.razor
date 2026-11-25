@@ -4,6 +4,10 @@
     <summary class="text-xs cursor-pointer break-all">
         <span class="text-muted-foreground">@TelemetryValueFormat.Time(Error.Time)</span>
         <span class="bg-destructive/10 text-destructive px-2 py-0.5 rounded font-medium" style="margin: 0 0.5rem">@Error.Level</span>
+        @if (Error.Category != null)
+        {
+            <span class="text-muted-foreground" style="margin-right: 0.5rem">@Error.Category</span>
+        }
         @if (Error.Repeat > 1)
         {
             <span class="text-muted-foreground" style="margin-right: 0.5rem">x@(Error.Repeat)</span>

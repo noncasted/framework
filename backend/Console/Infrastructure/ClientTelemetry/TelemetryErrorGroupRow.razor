@@ -5,6 +5,10 @@
         <span class="bg-destructive/10 text-destructive px-2 py-0.5 rounded font-medium">@Group.Level</span>
     </td>
     <td class="px-4 py-2.5 text-xs break-all">
+        @if (Group.Category != null)
+        {
+            <span class="text-muted-foreground" style="margin-right: 0.5rem">@Group.Category</span>
+        }
         <a class="underline" href="@ConsoleConstants.Pages.ClientTelemetryErrorGroup(Group.Fingerprint)">@Group.Message</a>
     </td>
     <td class="px-4 py-2.5 text-xs text-right">@Group.Count</td>

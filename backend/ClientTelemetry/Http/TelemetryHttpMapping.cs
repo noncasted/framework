@@ -126,7 +126,8 @@ internal static class TelemetryHttpMapping
             },
             Message = error.Message,
             Stack = Text(error.Stack),
-            Repeat = error.Repeat
+            Repeat = error.Repeat,
+            Category = Text(error.Category)
         };
     }
 

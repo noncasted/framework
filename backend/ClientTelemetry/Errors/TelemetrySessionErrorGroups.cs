@@ -35,6 +35,7 @@ public sealed record TelemetrySessionErrorGroups(IReadOnlyList<TelemetryErrorGro
             rows.Sum(row => (long)row.Repeat),
             rows.Count(),
             rows.First().ReceivedAt,
-            last.ReceivedAt);
+            last.ReceivedAt,
+            last.Category);
     }
 }

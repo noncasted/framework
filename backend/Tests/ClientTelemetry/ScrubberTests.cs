@@ -54,6 +54,49 @@ public class ScrubberTests
         Scrubber.Scrub(text).Should().Be(text);
     }
 
+    // A placeholder of a template of the logger is an identifier: a plain word that long passes the scrubber anyway.
+    [Theory]
+    [InlineData("Lost the room {Code}")]
+    [InlineData("Joined {Code} as {Role} in {Ms} ms")]
+    [InlineData("Slot {_index2}")]
+    public void APlaceholderOfATemplate_StaysAsItIs(string text)
+    {
+        Scrubber.Scrub(text).Should().Be(text);
+    }
+
+    // The longest plain word that passes is 31 characters (from 32 on it is <id>), so is the longest placeholder.
+    [Fact]
+    public void APlaceholderOfTheLongestIdentifier_Stays()
+    {
+        var placeholder = "{Z" + new string('x', 30) + "}";
+
+        Scrubber.Scrub($"Lost {placeholder}").Should().Be($"Lost {placeholder}");
+    }
+
+    [Theory]
+    [InlineData("Lost player {Ivan Petrov} here")]
+    [InlineData("Lost {a b}")]
+    [InlineData("Lost {1abc}")]
+    [InlineData("Lost {}")]
+    public void AnyOtherBracedText_IsScrubbed(string text)
+    {
+        Scrubber.Scrub(text).Should().Contain("{<str>}");
+    }
+
+    [Fact]
+    public void ABracedObject_LosesItsValues()
+    {
+        var scrubbed = Scrubber.Scrub("Saved {\"user\":\"x\"}");
+
+        scrubbed.Should().NotContain("\"x\"").And.StartWith("Saved {");
+    }
+
+    [Fact]
+    public void ABracedIdentifierLongerThanAPlaceholder_IsScrubbed()
+    {
+        Scrubber.Scrub("Lost {A" + new string('b', 32) + "}").Should().Be("Lost {<str>}");
+    }
+
     [Fact]
     public void DifferentIdsOfOneTemplate_BecomeOneText()
     {

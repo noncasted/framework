@@ -22,8 +22,14 @@ public static class TelemetryWire
         };
     }
 
-    public static SharedClientTelemetry.Error Error(long time, SharedClientTelemetry.ErrorLevel level, string message, string? stack = null, int repeat = 1)
+    public static SharedClientTelemetry.Error Error(
+        long time,
+        SharedClientTelemetry.ErrorLevel level,
+        string message,
+        string? stack = null,
+        int repeat = 1,
+        string? category = null)
     {
-        return new SharedClientTelemetry.Error { Time = time, Level = level, Message = message, Stack = stack!, Repeat = repeat };
+        return new SharedClientTelemetry.Error { Time = time, Level = level, Message = message, Stack = stack!, Repeat = repeat, Category = category! };
     }
 }

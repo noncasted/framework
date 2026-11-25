@@ -44,7 +44,7 @@ public class TelemetrySessionBufferTests
             Names = [new TelemetryMetricName(0, "memory.heap", "bytes")],
             NameSlots = 1,
             Samples = [new TelemetrySample(10, [100], false), new TelemetrySample(20, [900], true), new TelemetrySample(30, [150], false)],
-            Errors = [new TelemetryError(40, TelemetryErrorLevel.Error, "a", "", 5)],
+            Errors = [new TelemetryError(40, TelemetryErrorLevel.Error, "a", "", 5, null)],
             Marks = []
         }, _now);
 
@@ -100,7 +100,7 @@ public class TelemetrySessionBufferTests
             Names = seq == 1 ? [new TelemetryMetricName(0, "a", null)] : [],
             NameSlots = seq == 1 ? 2 : 0,
             Samples = [new TelemetrySample(seq, [seq, null], false)],
-            Errors = [new TelemetryError(seq, TelemetryErrorLevel.Error, "e", "", 1)],
+            Errors = [new TelemetryError(seq, TelemetryErrorLevel.Error, "e", "", 1, null)],
             Marks = [new TelemetryMark(seq, "m")]
         };
     }

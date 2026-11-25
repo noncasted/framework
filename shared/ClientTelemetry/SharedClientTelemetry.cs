@@ -166,6 +166,8 @@ namespace Shared
             Warning = 3
         }
 
+        // Category: the category of the logger of the framework (the full name of the type) that wrote the error, its template as
+        // the message; null for an error of the log of Unity, of a browser or of a task nobody awaited. Last: added after the rest.
         [MemoryPackable]
         public partial class Error
         {
@@ -174,6 +176,7 @@ namespace Shared
             public string Message { get; set; }
             public string Stack { get; set; }
             public int Repeat { get; set; }
+            public string Category { get; set; }
         }
 
         // Detail: a free text of the code (the key of a loaded asset), scrubbed by the server, null for none. DurationMs: what the

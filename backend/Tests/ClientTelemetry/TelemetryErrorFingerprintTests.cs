@@ -79,8 +79,51 @@ public class TelemetryErrorFingerprintTests
     public void IsTheSameInEveryProcess()
     {
         TelemetryErrorFingerprint
-            .Of(TelemetryErrorLevel.Exception, "NullReferenceException: Boom <n>", "at A:B () [<id>]")
-            .Should().Be("7bcef580d8fb67fb", "the first 16 hex digits of the SHA-256 of the normalized text");
+            .Of(TelemetryErrorLevel.Exception, "NullReferenceException: Boom <n>", "at A:B () [<id>]", null)
+            .Should().Be("7bcef580d8fb67fb", "the first 16 hex digits of the SHA-256 of the normalized text, the same without a category as before it");
+    }
+
+    // The same template of the logger in two categories is two kinds of error.
+    [Fact]
+    public void TheCategory_IsAPartOfTheFingerprint()
+    {
+        var first = Row("Join <n> failed", "", category: "Global.Lobbies.LobbyJoin").Fingerprint;
+        var second = Row("Join <n> failed", "", category: "Global.Network.PeerSocket").Fingerprint;
+        var none = Row("Join <n> failed", "").Fingerprint;
+
+        first.Should().NotBe(second);
+        first.Should().NotBe(none);
+        Row("Join <n> failed", "", category: "Global.Lobbies.LobbyJoin").Fingerprint.Should().Be(first);
+    }
+
+    [Fact]
+    public void TheCategory_GoesThroughTheJsonOfTheStates()
+    {
+        var buffer = TelemetrySessionBuffer.Empty(new ClientTelemetryStorageOptions());
+        buffer.Apply(TelemetryBatchParser.Parse(Body(_message, "", "error", "Global.Network.PeerSocket")), _now);
+
+        var settings = JsonStateSettings.CreateBase();
+        var json = JsonConvert.SerializeObject(TelemetrySessionLogState.Of(buffer), settings);
+        var log = JsonConvert.DeserializeObject<TelemetrySessionLogState>(json, settings)!;
+
+        log.Errors.Single().Category.Should().Be("Global.Network.PeerSocket");
+    }
+
+    // A row stored before the category: read with none.
+    [Fact]
+    public void ARowWithoutTheCategory_ReadsAsNone()
+    {
+        var buffer = TelemetrySessionBuffer.Empty(new ClientTelemetryStorageOptions());
+        buffer.Apply(TelemetryBatchParser.Parse(Body(_message, "", "error")), _now);
+
+        var settings = JsonStateSettings.CreateBase();
+        var json = JsonConvert.SerializeObject(TelemetrySessionLogState.Of(buffer), settings);
+        var old = System.Text.RegularExpressions.Regex.Replace(json, @",?""Category"":null", "");
+        var log = JsonConvert.DeserializeObject<TelemetrySessionLogState>(old, settings)!;
+
+        old.Should().NotContain("Category");
+        log.Errors.Single().Category.Should().BeNull();
+        log.Errors.Single().Fingerprint.Should().Be(buffer.Errors.Items.Single().Fingerprint);
     }
 
     [Fact]
@@ -96,9 +139,9 @@ public class TelemetryErrorFingerprintTests
         log.Errors.Single().Fingerprint.Should().Be(buffer.Errors.Items.Single().Fingerprint);
     }
 
-    private static TelemetryStoredError Row(string message, string stack, string level = "exception")
+    private static TelemetryStoredError Row(string message, string stack, string level = "exception", string? category = null)
     {
-        return Rows(Body(message, stack, level)).Single();
+        return Rows(Body(message, stack, level, category)).Single();
     }
 
     private static IReadOnlyList<TelemetryStoredError> Rows(SharedClientTelemetry.Batch batch)
@@ -110,10 +153,10 @@ public class TelemetryErrorFingerprintTests
         return buffer.Errors.Items;
     }
 
-    private static SharedClientTelemetry.Batch Body(string message, string stack, string level)
+    private static SharedClientTelemetry.Batch Body(string message, string stack, string level, string? category = null)
     {
         var wire = level == "error" ? SharedClientTelemetry.ErrorLevel.Error : SharedClientTelemetry.ErrorLevel.Exception;
 
-        return TelemetryWire.Batch(Guid.NewGuid(), errors: [TelemetryWire.Error(1, wire, message, stack)]);
+        return TelemetryWire.Batch(Guid.NewGuid(), errors: [TelemetryWire.Error(1, wire, message, stack, category: category)]);
     }
 }
