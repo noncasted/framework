@@ -105,7 +105,7 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
   references). The waits are platform extensions: `ReactiveUniTaskExtensions` in the core (UniTask),
   `ReactiveTaskExtensions` in backend `Common` (Task). A listener of a lifetime or a handler of an event source that
   throws does not stop the others: the exceptions go to `ReactiveExceptions.Handler` after the pass (the client
-  installs `Debug.LogException` in `ReactiveLogging`; the backend has no handler and gets the rethrow). The editor
+  logs them as `Exception` of the category `Internal.ReactiveExceptions` in `ReactiveLogging`; the backend has no handler and gets the rethrow). The editor
   feeds the Lifetime Graph through `LifetimeTracker` (compiled only under `UNITY_EDITOR`). The sources must stay
   C# 9 and netstandard2.1: Unity compiles them as they are, and the dotnet build is pinned to the same.
 - **Protocol.** `INetworkContext` is a plain interface; the project declares the union
@@ -206,6 +206,15 @@ oh-my-pi (`omp`) reads the same `.claude/skills`; its subagents live in `.omp/ag
 - **ContainerGenerator.** Sources in `client/core/Source~`, the dll in `client/core/Analyzers` (`RoslynAnalyzer`
   label, every platform off). After a change: build it (it copies itself into `Analyzers`) and run
   `ContainerGenerator.Verify`.
+- **Logging.** `client/core/Runtime/Logging` (`LOGGING.md`): runtime code logs through `ILog<T>` (a parameter of a constructor or an
+  `[Inject]` method, given by every scope without a registration: the generator binds it to `Logs.Of<T>()`; a static class takes
+  `Logs.Of(typeof(X))`), not `Debug.Log*`. Templates with `{Name}` placeholders and 0-4 generic arguments (`Debug` / `Info` /
+  `Warning` / `Error`, `Error(exception, ...)`, `Exception(e)`): nothing formatted or allocated below the level, `Debug` compiled
+  only in the editor, development builds and under `FRAMEWORK_LOG_DEBUG`. The category is the full name of the type; the levels
+  come from `LogOptions` of the `OptionsContainer` of the game (development / release / mark level, rules by prefix), applied by
+  `OptionsContainer.Register`. `Logs.AddSink(lifetime, ILogSink)` takes the records; `Logs.IsWriting` marks the lines it writes
+  into the log of Unity. The telemetry takes its warnings and errors with `Category` and the template as the message, and the
+  records at the mark level as marks `log.<level>`.
 - **Updater.** The global scope calls `AddUpdater(prefab)` (core); delays without coroutines:
   `updater.RunDelay(lifetime, time)`; every updater wait (RunDelay, RunUpdateAction, Progression, Tween) ends with
   `OperationCanceledException` when its lifetime ends first. `Pause` / `Continue` are counted (Continue without Pause
@@ -372,7 +381,7 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1782, common 96, Verify 186, control 24, telemetry 84, EditMode 1333 (4 of them skipped, the
+Release build replaces it. The expected numbers: backend 1818, common 96, Verify 188, control 24, telemetry 86, EditMode 1381 (4 of them skipped, the
 benchmarks of `ContainerBenchmarkTests`), PlayMode 151 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 

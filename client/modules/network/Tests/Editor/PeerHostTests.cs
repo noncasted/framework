@@ -161,7 +161,7 @@ namespace Internal.Tests
         internal static async UniTask<SessionControl> StartControl(IReadOnlyLifetime lifetime, ILocalServers servers, string ticket)
         {
             var control = new SessionControl(new PlatformOptions(), new SilentNotice(), servers, new PeerSockets(),
-                new NetworkProtocolHash("0123456789abcdef"));
+                new NetworkProtocolHash("0123456789abcdef"), Logs.Of<SessionControl>());
 
             await control.Start(lifetime, "offline://control", ticket).Timeout(Timeout);
             return control;

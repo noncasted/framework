@@ -12,6 +12,8 @@ namespace Internal
     [AutoStaticsCleanup]
     internal static partial class NativeWebRtcLibrary
     {
+        [NoAutoStaticsCleanup] private static readonly ILog _log = global::Internal.Logs.Of(typeof(NativeWebRtcLibrary));
+
         // The log of the library comes from its threads: written on the main thread, as the log handlers of the editor
         // (the clones of Multiplayer Play Mode) read the editor state.
         private static readonly ConcurrentQueue<(NativeWebRtcApi.LogLevel Level, string Text)> Logs = new();
@@ -61,7 +63,7 @@ namespace Internal
         [MonoPInvokeCallback(typeof(NativeWebRtcApi.LogCallback))]
         private static void OnLog(NativeWebRtcApi.LogLevel level, IntPtr message)
         {
-            Logs.Enqueue((level, $"[Network] [libdatachannel] {NativeWebRtcApi.String(message)}"));
+            Logs.Enqueue((level, NativeWebRtcApi.String(message)));
         }
 
         // While the library is initialized: the lines of a frame are written at its start.
@@ -77,11 +79,11 @@ namespace Internal
                     // logs its errors for what is normal: a transport that closes while the other side has already closed
                     // (SCTP write on a DTLS after its shutdown). Only a fatal one is an error of the application.
                     if (line.Level <= NativeWebRtcApi.LogLevel.Fatal)
-                        Debug.LogError(line.Text);
+                        _log.Error("{Line}", line.Text);
                     else if (line.Level <= NativeWebRtcApi.LogLevel.Warning)
-                        Debug.LogWarning(line.Text);
+                        _log.Warning("{Line}", line.Text);
                     else
-                        Debug.Log(line.Text);
+                        _log.Debug("{Line}", line.Text);
                 }
             }
         }

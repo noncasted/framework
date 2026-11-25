@@ -1,7 +1,6 @@
 ﻿using System;
 using Cysharp.Threading.Tasks;
 using Shared;
-using UnityEngine;
 
 namespace Internal
 {
@@ -19,10 +18,12 @@ namespace Internal
             INetworkConnection connection,
             INetworkSession session,
             IPeerMatch peerMatch,
-            ILatencyClock clock)
+            ILatencyClock clock,
+            ILog<NetworkLatencyMonitor> log)
         {
             _session = session;
             _clock = clock;
+            _log = log;
             _probes = new LatencyProbes(connection, clock);
             _stats = new LatencyStats(connection, session, clock);
             _report = new LatencyReport(session, peerMatch, _probes, _stats);
@@ -34,6 +35,7 @@ namespace Internal
 
         private readonly INetworkSession _session;
         private readonly ILatencyClock _clock;
+        private readonly ILog _log;
         private readonly LatencyProbes _probes;
         private readonly LatencyStats _stats;
         private readonly LatencyReport _report;
@@ -90,7 +92,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
                 Report = $"Network: the monitor failed: {exception.Message}";
             }
         }
@@ -123,7 +125,7 @@ namespace Internal
             if (_logTimer >= LogInterval)
             {
                 _logTimer = 0f;
-                Debug.Log($"[Network] [Latency] {Report.Replace("\n", " | ")}");
+                _log.Info("{Report}", Report.Replace("\n", " | "));
             }
         }
     }

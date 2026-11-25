@@ -1,3 +1,4 @@
+using System;
 using Internal;
 using UnityEngine;
 
@@ -6,18 +7,21 @@ namespace Global.FrameRate
     // Feeds AutoFrameRateRule with the work of each frame on the updater and remembers each decision for the next start.
     public class AutoFrameRate : IAutoFrameRate, IUpdatable
     {
-        public AutoFrameRate(AutoFrameRateOptions options, IUpdater updater, FrameWorkMeter meter, AutoFrameRateMemory memory)
+        public AutoFrameRate(AutoFrameRateOptions options, IUpdater updater, FrameWorkMeter meter, AutoFrameRateMemory memory,
+            ILog<AutoFrameRate> log)
         {
             _options = options;
             _updater = updater;
             _meter = meter;
             _memory = memory;
+            _log = log;
         }
 
         private readonly AutoFrameRateOptions _options;
         private readonly IUpdater _updater;
         private readonly FrameWorkMeter _meter;
         private readonly AutoFrameRateMemory _memory;
+        private readonly ILog _log;
         private readonly ViewableProperty<int> _target = new();
         private readonly EventSource<int> _switched = new();
 
@@ -41,7 +45,7 @@ namespace Global.FrameRate
                 return;
 
             _memory.Remember(_rule.IsLow);
-            Debug.Log($"[FrameRate] Auto: {_rule.Target} frames per second, the last frame took {_meter.LastWorkMs:0.0} ms");
+            _log.Info("Auto: {Target} frames per second, the last frame took {LastWorkMs} ms", _rule.Target, Math.Round(_meter.LastWorkMs, 1));
             _target.Set(_rule.Target);
             _switched.Invoke(_rule.Target);
         }

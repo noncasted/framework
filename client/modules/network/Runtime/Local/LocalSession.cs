@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Session;
 using Shared;
-using UnityEngine;
 
 namespace Internal
 {
@@ -22,7 +21,7 @@ namespace Internal
             _reconnectWindow = reconnectWindow;
             Id = id;
 
-            Core = new SessionCore(id, type, lifetime, new UnitySessionLog(), reconnectWindow > TimeSpan.Zero);
+            Core = new SessionCore(id, type, lifetime, new UnitySessionLog(Logs.Of<SessionCore>()), reconnectWindow > TimeSpan.Zero);
             Core.SeatAway.Advise(lifetime, (seat, wait) => WaitReturn(seat, wait).NoAwait());
 
             foreach (var service in services(Core))
@@ -33,6 +32,8 @@ namespace Internal
 
         // The seat of the first user: the indices of the backend start from 1.
         public const int FirstUserIndex = 1;
+
+        private static readonly ILog _log = Logs.Of<LocalSession>();
 
         private readonly ILifetime _lifetime;
         private readonly int _maxUsers;
@@ -76,7 +77,7 @@ namespace Internal
                     _lifetime.Terminate();
             });
 
-            Debug.Log($"[Network] [Local] User {user.Index} joins session {Id}");
+            _log.Info("User {Index} joins session {Id}", user.Index, Id);
             return user;
         }
 

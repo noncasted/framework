@@ -1,5 +1,4 @@
 using Internal;
-using UnityEngine;
 
 namespace Global.Resolution
 {
@@ -9,14 +8,16 @@ namespace Global.Resolution
     // start, so the canvas starts at it before the first frame.
     public class RenderResolution : IScopeSetup
     {
-        public RenderResolution(IResolutionSetting setting, IRenderPixelRatio pixelRatio)
+        public RenderResolution(IResolutionSetting setting, IRenderPixelRatio pixelRatio, ILog<RenderResolution> log)
         {
             _setting = setting;
             _pixelRatio = pixelRatio;
+            _log = log;
         }
 
         private readonly IResolutionSetting _setting;
         private readonly IRenderPixelRatio _pixelRatio;
+        private readonly ILog _log;
 
         public void OnSetup(IReadOnlyLifetime lifetime)
         {
@@ -26,7 +27,7 @@ namespace Global.Resolution
         private void Apply(ResolutionMode mode)
         {
             _pixelRatio.Apply(mode);
-            Debug.Log($"[Resolution] {mode}");
+            _log.Info("{Mode}", mode);
         }
     }
 }

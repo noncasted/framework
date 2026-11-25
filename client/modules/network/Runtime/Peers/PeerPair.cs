@@ -1,6 +1,5 @@
 using System;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 
 namespace Internal
 {
@@ -30,6 +29,8 @@ namespace Internal
             _retry = new PeerRetry(_lifetime, meshOptions.ReconnectDelay, meshOptions.MaxReconnectDelay, OnRetryTime);
             _publication = new PeerLinkPublication(remoteIndex, onLink, onLost);
         }
+
+        private static readonly ILog _log = Logs.Of<PeerPair>();
 
         private readonly ISessionControl _control;
         private readonly int _remoteIndex;
@@ -141,7 +142,7 @@ namespace Internal
             // plays through the server as after a failed negotiation.
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
                 EndAttempt();
                 FallbackAfterDirect($"the direct connection can't be created: {exception.Message}");
                 return;
@@ -173,7 +174,7 @@ namespace Internal
                 if (_state != PeerPairState.ConnectingDirect || _attempt != attempt)
                     return;
 
-                Debug.LogWarning($"[Network] [Mesh] No direct connection with {_remoteIndex}: {exception.Message}");
+                _log.Warning("No direct connection with {RemoteIndex}: {Message}", _remoteIndex, exception.Message);
                 EndAttempt();
                 FallbackAfterDirect(exception.Message);
                 return;
@@ -198,7 +199,7 @@ namespace Internal
         {
             if (_role == WebRtcPeerRole.Offer)
             {
-                Debug.Log($"[Network] [Mesh] {_remoteIndex} goes through the tunnel: {reason}");
+                _log.Info("{RemoteIndex} goes through the tunnel: {Reason}", _remoteIndex, reason);
                 BeginTunnel();
                 return;
             }
@@ -253,7 +254,7 @@ namespace Internal
 
         private void Lose(string reason)
         {
-            Debug.LogWarning($"[Network] [Mesh] The connection to {_remoteIndex} is lost: {reason}");
+            _log.Warning("The connection to {RemoteIndex} is lost: {Reason}", _remoteIndex, reason);
             _publication.ReportLost();
             EndAttempt();
             ScheduleRetry();
@@ -273,7 +274,7 @@ namespace Internal
             if (_state != PeerPairState.WaitingRetry)
                 return;
 
-            Debug.Log($"[Network] [Mesh] A new try of the connection to {_remoteIndex}");
+            _log.Info("A new try of the connection to {RemoteIndex}", _remoteIndex);
             Begin();
         }
 

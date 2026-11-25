@@ -1,5 +1,6 @@
 using System;
 using Cysharp.Threading.Tasks;
+using Internal;
 using UnityEngine;
 
 namespace Global.Telemetry
@@ -10,12 +11,14 @@ namespace Global.Telemetry
     // repeated; the timeout is the one of ITelemetryHttp.
     public class TelemetryHttpTransport : ITelemetryTransport
     {
-        public TelemetryHttpTransport(ITelemetryHttp http)
+        public TelemetryHttpTransport(ITelemetryHttp http, ILog<TelemetryHttpTransport> log)
         {
             _http = http;
+            _log = log;
         }
 
         private readonly ITelemetryHttp _http;
+        private readonly ILog _log;
 
         private TelemetryHttpLink _link = new();
 
@@ -72,7 +75,7 @@ namespace Global.Telemetry
             }
             catch (TelemetryHttpException exception)
             {
-                Debug.LogWarning($"[Telemetry] {path} failed: {exception.Message}");
+                _log.Warning("{Path} failed: {Message}", path, exception.Message);
                 _link = new TelemetryHttpLink();
                 return null;
             }

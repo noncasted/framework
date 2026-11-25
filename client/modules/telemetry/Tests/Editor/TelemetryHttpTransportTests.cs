@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Text.RegularExpressions;
 using Cysharp.Threading.Tasks;
+using Internal;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -43,7 +44,7 @@ namespace Global.Telemetry.Tests
         public IEnumerator Start_Enabled_TheIdOfTheServer() => UniTask.ToCoroutine(async () =>
         {
             var http = new FakeTelemetryHttp(_ => $"{{\"enabled\":true,\"sessionId\":\"{_id}\"}}");
-            var transport = new TelemetryHttpTransport(http);
+            var transport = new TelemetryHttpTransport(http, Logs.Of<TelemetryHttpTransport>());
 
             var answer = await transport.Start(Start()).Timeout(_limit);
 
@@ -58,7 +59,7 @@ namespace Global.Telemetry.Tests
         [UnityTest]
         public IEnumerator Start_NotEnabled_Disabled() => UniTask.ToCoroutine(async () =>
         {
-            var transport = new TelemetryHttpTransport(new FakeTelemetryHttp(_ => "{\"enabled\":false}"));
+            var transport = new TelemetryHttpTransport(new FakeTelemetryHttp(_ => "{\"enabled\":false}"), Logs.Of<TelemetryHttpTransport>());
 
             var answer = await transport.Start(Start()).Timeout(_limit);
 
@@ -72,7 +73,7 @@ namespace Global.Telemetry.Tests
             var answers = new[] { "{\"enabled\":true}", "{\"enabled\":false}" };
             var calls = 0;
             var http = new FakeTelemetryHttp(_ => answers[calls++]);
-            var transport = new TelemetryHttpTransport(http);
+            var transport = new TelemetryHttpTransport(http, Logs.Of<TelemetryHttpTransport>());
             var link = transport.Link;
 
             Assert.AreEqual(TelemetrySendOutcome.Accepted, await transport.Send(_id, Batch()).Timeout(_limit));
@@ -89,7 +90,7 @@ namespace Global.Telemetry.Tests
         public IEnumerator End_ThePathOfTheSession() => UniTask.ToCoroutine(async () =>
         {
             var http = new FakeTelemetryHttp(_ => "{}");
-            var transport = new TelemetryHttpTransport(http);
+            var transport = new TelemetryHttpTransport(http, Logs.Of<TelemetryHttpTransport>());
 
             await transport.End(_id).Timeout(_limit);
 
@@ -101,7 +102,7 @@ namespace Global.Telemetry.Tests
         public IEnumerator Startup_Enabled_TheIdOfTheServer() => UniTask.ToCoroutine(async () =>
         {
             var http = new FakeTelemetryHttp(_ => $"{{\"enabled\":true,\"startupId\":\"{_id}\"}}");
-            var transport = new TelemetryHttpTransport(http);
+            var transport = new TelemetryHttpTransport(http, Logs.Of<TelemetryHttpTransport>());
 
             var answer = await transport.SendStartup(Trace()).Timeout(_limit);
 
@@ -116,9 +117,9 @@ namespace Global.Telemetry.Tests
         {
             var calls = 0;
             var http = new FakeTelemetryHttp(_ => calls++ == 0 ? throw new TelemetryHttpException(0, "timeout") : "{\"enabled\":true}");
-            var transport = new TelemetryHttpTransport(http);
+            var transport = new TelemetryHttpTransport(http, Logs.Of<TelemetryHttpTransport>());
             var first = transport.Link;
-            LogAssert.Expect(LogType.Warning, new Regex(@"\[Telemetry\] /batch failed: timeout"));
+            LogAssert.Expect(LogType.Warning, new Regex(@"\[TelemetryHttpTransport\] /batch failed: timeout"));
 
             Assert.AreEqual(TelemetrySendOutcome.Failed, await transport.Send(_id, Batch()).Timeout(_limit));
             Assert.AreNotSame(first, transport.Link);
@@ -133,7 +134,8 @@ namespace Global.Telemetry.Tests
         [UnityTest]
         public IEnumerator StatusOfTheServer_FailedOnEveryCall() => UniTask.ToCoroutine(async () =>
         {
-            var transport = new TelemetryHttpTransport(new FakeTelemetryHttp(_ => throw new TelemetryHttpException(401, "status 401")));
+            var transport = new TelemetryHttpTransport(new FakeTelemetryHttp(_ => throw new TelemetryHttpException(401, "status 401")),
+                Logs.Of<TelemetryHttpTransport>());
 
             Assert.AreEqual(TelemetrySendOutcome.Failed, (await transport.Start(Start()).Timeout(_limit)).Outcome);
             Assert.AreEqual(TelemetrySendOutcome.Failed, await transport.Send(_id, Batch()).Timeout(_limit));
@@ -145,7 +147,8 @@ namespace Global.Telemetry.Tests
         [UnityTest]
         public IEnumerator WrongAnswer_GoesUp() => UniTask.ToCoroutine(async () =>
         {
-            var transport = new TelemetryHttpTransport(new FakeTelemetryHttp(_ => "{\"enabled\":true,\"sessionId\":\"broken\"}"));
+            var transport = new TelemetryHttpTransport(new FakeTelemetryHttp(_ => "{\"enabled\":true,\"sessionId\":\"broken\"}"),
+                Logs.Of<TelemetryHttpTransport>());
             var caught = false;
 
             try

@@ -21,13 +21,15 @@ namespace Global.UI
             ILoadingScreen loadingScreen,
             IUINavigation navigation,
             IScreenCanvasCamera screenCanvas,
-            ClientOutdatedNoticeStyle style)
+            ClientOutdatedNoticeStyle style,
+            ILog<ClientOutdatedNotice> log)
         {
             _lifetime = lifetime;
             _loadingScreen = loadingScreen;
             _navigation = navigation;
             _screenCanvas = screenCanvas;
             _style = style;
+            _log = log;
         }
 
         private readonly IReadOnlyLifetime _lifetime;
@@ -35,6 +37,7 @@ namespace Global.UI
         private readonly IUINavigation _navigation;
         private readonly IScreenCanvasCamera _screenCanvas;
         private readonly ClientOutdatedNoticeStyle _style;
+        private readonly ILog _log;
 
         private GameObject _root;
 
@@ -45,7 +48,7 @@ namespace Global.UI
             if (_root != null)
                 return;
 
-            Debug.LogWarning("[Network] The server runs another protocol: this client is outdated");
+            _log.Warning("The server runs another protocol: this client is outdated");
 
             // On the web the loading screen is the page itself, over the canvas: it would hide the notice.
             _loadingScreen.Hide();
@@ -159,12 +162,12 @@ namespace Global.UI
             return text;
         }
 
-        private static void OnReloadClicked()
+        private void OnReloadClicked()
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
             ClientOutdatedReload();
 #else
-            Debug.LogWarning("[Network] The client is outdated: restart it with the current build");
+            _log.Warning("The client is outdated: restart it with the current build");
 #endif
         }
 

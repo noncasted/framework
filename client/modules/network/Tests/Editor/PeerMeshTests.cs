@@ -457,7 +457,7 @@ namespace Internal.Tests
                 new PeerHostTests.SilentNotice(),
                 servers,
                 new PeerSockets(),
-                new NetworkProtocolHash("0123456789abcdef"));
+                new NetworkProtocolHash("0123456789abcdef"), Logs.Of<SessionControl>());
 
             var peers = new DelayedPeers(lifetime, control.Peers);
 

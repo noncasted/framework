@@ -109,7 +109,8 @@ namespace Global.FrameRate.Tests
             PlatformOptions.SetMobileCheck(() => isMobile);
 
             Assert.Throws<System.InvalidOperationException>(() =>
-                new FrameRateLimit(options, _settings, new FakeRequest(null), _auto, new PlatformOptions()));
+                new FrameRateLimit(options, _settings, new FakeRequest(null), _auto, new PlatformOptions(),
+                    Logs.Of<FrameRateLimit>()));
         }
 
         private void Start(bool isMobile, int? request)
@@ -117,7 +118,7 @@ namespace Global.FrameRate.Tests
             PlatformOptions.SetMobileCheck(() => isMobile);
 
             var limit = new FrameRateLimit(new AutoFrameRateOptions(), _settings, new FakeRequest(request), _auto,
-                new PlatformOptions());
+                new PlatformOptions(), Logs.Of<FrameRateLimit>());
 
             limit.OnSetup(_lifetime);
         }

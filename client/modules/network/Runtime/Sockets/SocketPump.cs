@@ -1,11 +1,12 @@
 using System;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 
 namespace Internal
 {
     public static class SocketPump
     {
+        private static readonly ILog _log = Logs.Of(typeof(SocketPump));
+
         // Calls the tick once a frame while the lifetime lives.
         public static async UniTaskVoid Run(IReadOnlyLifetime lifetime, Action tick)
         {
@@ -24,7 +25,7 @@ namespace Internal
                 }
                 catch (Exception exception)
                 {
-                    Debug.LogException(exception);
+                    _log.Exception(exception);
                 }
             }
         }

@@ -6,6 +6,8 @@ namespace Internal
 {
     public static class RootScopeExtensions
     {
+        private static readonly ILog _log = Logs.Of(typeof(RootScopeExtensions));
+
         // Loads the root of the whole scope chain: the project's Construct (registers the scope loaders, options and
         // whatever the game puts at the root). The scope lives until the application quits.
         public static async UniTask<ILoadedScope> LoadRoot(this IServiceScopeLoader loader, Func<IScopeBuilder, UniTask> construct)
@@ -55,7 +57,7 @@ namespace Internal
                 // Before the lifetimes terminate: the scopes they dispose must not unload their scenes.
                 ApplicationQuit.Mark();
 
-                Debug.Log("Root scope lifetime terminated, disposing loaded scope.");
+                _log.Info("Root scope lifetime terminated, disposing loaded scope.");
                 scope.Dispose().NoAwait();
             }
         }

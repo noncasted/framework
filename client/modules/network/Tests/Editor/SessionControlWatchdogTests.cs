@@ -71,7 +71,7 @@ namespace Internal.Tests
             servers.Add(lifetime, "control", server);
 
             var control = new SessionControl(new PlatformOptions(), new SilentNotice(), servers, new PeerSockets(),
-                new NetworkProtocolHash("0123456789abcdef"));
+                new NetworkProtocolHash("0123456789abcdef"), Logs.Of<SessionControl>());
 
             await control.Start(lifetime, "offline://control", sessions.GetTicket(match.Id, Guid.NewGuid(), 0)).Timeout(Timeout);
             return (control, server);

@@ -339,7 +339,7 @@ namespace Internal.Tests
         public IEnumerator AfterTimeout_PingsAreLostProbesExpireAndSilentRowsAreMarked() => UniTask.ToCoroutine(async () =>
         {
             LogAssert.Expect(LogType.Log, new Regex(
-                @"^\[Network\] \[Latency\] Network \(you: user 1\), ms \| Ping to server: -, lost \d+ \| "));
+                @"^\[NetworkLatencyMonitor\] Network \(you: user 1\), ms \| Ping to server: -, lost \d+ \| "));
 
             var server = await Started();
             server.AddRemote(2);
@@ -630,7 +630,7 @@ namespace Internal.Tests
             public Harness()
             {
                 Connection = new FakeConnection(Writer);
-                Monitor = new NetworkLatencyMonitor(Connection, new FakeSession(Users), Match, Clock);
+                Monitor = new NetworkLatencyMonitor(Connection, new FakeSession(Users), Match, Clock, Logs.Of<NetworkLatencyMonitor>());
             }
 
             public readonly Lifetime Lifetime = new();

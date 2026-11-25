@@ -26,6 +26,7 @@ namespace Internal
             Peers[_id] = this;
         }
 
+        [NoAutoStaticsCleanup] private static readonly ILog _log = Logs.Of<JsWebRtcPeer>();
         private static readonly Dictionary<int, JsWebRtcPeer> Peers = new();
         private static bool _isInitialized;
 
@@ -90,7 +91,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
             }
         }
 

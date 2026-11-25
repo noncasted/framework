@@ -16,6 +16,8 @@ namespace Internal
     {
         private const int MaxTraces = 20;
 
+        private static readonly ILog _log = Logs.Of(typeof(ProfilerTraceStorage));
+
         public static event Action<ProfilerTraceData> Saved;
 
         public static ProfilerTraceData Last { get; private set; }
@@ -99,11 +101,11 @@ namespace Internal
             // On WebGL the file stays in MEMFS, and a long console line gets truncated -
             // the trace is offered as a download from DevTools.
             ProfilerTraceStore(name, json);
-            Debug.Log($"[Profiler] Trace saved: {name}. Call downloadProfilerTrace() in DevTools console to get it");
+            _log.Info("Trace saved: {Name}. Call downloadProfilerTrace() in DevTools console to get it", name);
 #elif !UNITY_EDITOR
             // A desktop build has no editor window - the trace is duplicated into Player.log.
-            Debug.Log($"[Profiler] Trace saved to {path}");
-            Debug.Log($"[Profiler] Trace json: {json}");
+            _log.Info("Trace saved to {Path}", path);
+            _log.Info("Trace json: {Json}", json);
 #endif
 
             Saved?.Invoke(trace);

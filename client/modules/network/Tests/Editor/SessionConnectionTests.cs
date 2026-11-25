@@ -37,7 +37,7 @@ namespace Internal.Tests
 
                 try
                 {
-                    await new SessionConnection(connection).Connect(lifetime, server.Url, "ticket").Timeout(LossTimeout);
+                    await new SessionConnection(connection, Logs.Of<SessionConnection>()).Connect(lifetime, server.Url, "ticket").Timeout(LossTimeout);
                 }
                 catch (Exception caught)
                 {

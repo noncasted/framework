@@ -2,7 +2,6 @@ using System;
 using Cysharp.Threading.Tasks;
 using Internal;
 using Shared;
-using UnityEngine;
 
 namespace Global.MatchMetrics
 {
@@ -26,6 +25,8 @@ namespace Global.MatchMetrics
             _open = open;
             _retryMs = retryMs;
         }
+
+        private static readonly ILog _log = Logs.Of<MatchMetricsSender>();
 
         private readonly IMatchMetricsTransport _transport;
         private readonly IMatchMetricsTicks _ticks;
@@ -103,7 +104,7 @@ namespace Global.MatchMetrics
             catch (Exception exception)
             {
                 Stop();
-                Debug.LogException(exception);
+                _log.Exception(exception);
             }
             finally
             {
@@ -124,7 +125,7 @@ namespace Global.MatchMetrics
             if (opened.Status != SharedMatchMetrics.MatchMetricsStatus.Ok)
             {
                 Stop();
-                Debug.LogWarning($"[MatchMetrics] The stream of the match {_open.MatchId} is not opened: {opened.Status}");
+                _log.Warning("The stream of the match {MatchId} is not opened: {Status}", _open.MatchId, opened.Status);
                 return false;
             }
 
@@ -146,12 +147,12 @@ namespace Global.MatchMetrics
 
                 case SharedMatchMetrics.MatchMetricsStatus.Closed:
                     Stop();
-                    Debug.Log($"[MatchMetrics] The match {_open.MatchId} is closed: the stream stops at the batch {seq}");
+                    _log.Info("The match {MatchId} is closed: the stream stops at the batch {Seq}", _open.MatchId, seq);
                     break;
 
                 default:
                     Stop();
-                    Debug.LogError($"[MatchMetrics] The batch {seq} of the match {_open.MatchId} is {status}: the stream stops");
+                    _log.Error("The batch {Seq} of the match {MatchId} is {Status}: the stream stops", seq, _open.MatchId, status);
                     break;
             }
         }

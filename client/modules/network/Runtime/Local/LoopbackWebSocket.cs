@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 
 namespace Internal
 {
@@ -18,6 +17,8 @@ namespace Internal
             _toServer = new SocketInbox<byte[]>(_lifetime, bytes => _connection.OnReceived(bytes));
             _toClient = new SocketInbox<byte[]>(_lifetime, bytes => _received.Invoke(bytes));
         }
+
+        private static readonly ILog _log = Logs.Of<LoopbackWebSocket>();
 
         private readonly string _url;
         private readonly ILocalServer _server;
@@ -39,7 +40,7 @@ namespace Internal
             // Opened on the next frame, as a network socket never opens synchronously.
             await UniTask.Yield(PlayerLoopTiming.Update, _lifetime.Token);
 
-            Debug.Log($"[Network] [Loopback] Connected: {_url}");
+            _log.Info("Connected: {Url}", _url);
 
             _connection = _server.Accept(_lifetime, this);
             SocketPump.Run(_lifetime, Pump).NoAwait();
@@ -87,7 +88,7 @@ namespace Internal
 
             _isClosedNotified = true;
 
-            Debug.Log($"[Network] [Loopback] Closed: {_url} {info}");
+            _log.Info("Closed: {Url} {Info}", _url, info);
 
             _closed.Invoke(info);
             _lifetime.Terminate();

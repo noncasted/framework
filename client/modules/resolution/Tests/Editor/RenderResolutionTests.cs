@@ -27,7 +27,7 @@ namespace Global.Resolution.Tests
             var setting = new FakeSetting();
             var pixelRatio = new FakePixelRatio();
 
-            new RenderResolution(setting, pixelRatio).OnSetup(_lifetime);
+            new RenderResolution(setting, pixelRatio, Logs.Of<RenderResolution>()).OnSetup(_lifetime);
             Assert.That(pixelRatio.Applied, Is.EqualTo(new[] { ResolutionMode.Auto }));
 
             setting.Set(ResolutionMode.High);

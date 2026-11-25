@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using UnityEngine;
+using Internal;
 
 namespace Global.MatchMetrics
 {
@@ -11,6 +11,8 @@ namespace Global.MatchMetrics
         {
             _capacity = capacity;
         }
+
+        private static readonly ILog _log = Logs.Of<MatchMetricsBuffer>();
 
         private readonly int _capacity;
         private readonly List<MatchMetricsBatchRecord> _batches = new();
@@ -32,7 +34,7 @@ namespace Global.MatchMetrics
             _batches.RemoveAt(index);
             _batches[index].TakeSeries(dropped);
 
-            Debug.LogError($"[MatchMetrics] The buffer is full ({_capacity} batches): the oldest unsent batch is lost");
+            _log.Error("The buffer is full ({Capacity} batches): the oldest unsent batch is lost", _capacity);
         }
 
         // The head with its number: the next one at its first send, the same at every repeat.

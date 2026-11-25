@@ -113,7 +113,8 @@ namespace Global.UI.Tests
             var camera = _camera;
             var screenCanvas = new ScreenCanvasCamera(() => camera, CanvasLayer, PlaneDistance);
 
-            return new ClientOutdatedNotice(lifetime, new NoLoadingScreen(), navigation, screenCanvas, style);
+            return new ClientOutdatedNotice(lifetime, new NoLoadingScreen(), navigation, screenCanvas, style,
+                Logs.Of<ClientOutdatedNotice>());
         }
 
         private static string SelectedRoot()

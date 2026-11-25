@@ -21,6 +21,8 @@ namespace Internal
             _pendingRequests = pendingRequests;
         }
 
+        private static readonly ILog _log = Logs.Of<ConnectionWriterRun>();
+
         private readonly IReadOnlyLifetime _lifetime;
         private readonly IWebSocket _socket;
         private readonly NetworkTraffic _traffic;
@@ -58,7 +60,7 @@ namespace Internal
                     return;
                 }
 
-                UnityEngine.Debug.LogException(exception);
+                _log.Exception(exception);
                 return;
             }
 
@@ -185,7 +187,7 @@ namespace Internal
                 return;
 
             // A crashed send loop silently hangs all subsequent requests, so we keep going.
-            UnityEngine.Debug.LogError($"Failed to send message to server: {exception}");
+            _log.Error(exception, "Failed to send message to server");
         }
 
         private void CompleteFlushes()

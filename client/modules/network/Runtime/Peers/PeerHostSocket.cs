@@ -25,6 +25,8 @@ namespace Internal
             _lifetime = lifetime.Child();
         }
 
+        private static readonly ILog _log = Logs.Of<PeerHostSocket>();
+
         private readonly ISessionControl _control;
         private readonly int _hostIndex;
         private readonly IPeerMatch _match;
@@ -55,7 +57,7 @@ namespace Internal
                 await _socket.Connect();
             }
 
-            Debug.Log($"[Network] [Peers] Connected to the host {_hostIndex}: {Route}");
+            _log.Info("Connected to the host {HostIndex}: {Route}", _hostIndex, Route);
             _match.SetRoute(_control.LocalIndex, Route);
         }
 
@@ -81,7 +83,7 @@ namespace Internal
             }
             catch (WebRtcConnectFailedException exception)
             {
-                Debug.LogWarning($"[Network] [Peers] No direct connection to the host {_hostIndex}: {exception.Message}");
+                _log.Warning("No direct connection to the host {HostIndex}: {Message}", _hostIndex, exception.Message);
                 attempt.Terminate();
                 return null;
             }

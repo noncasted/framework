@@ -1,7 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 
 namespace Internal
 {
@@ -11,6 +10,8 @@ namespace Internal
     /// </summary>
     public class JsWebSocket : IWebSocket
     {
+        private static readonly ILog _log = Logs.Of<JsWebSocket>();
+
         private readonly ViewableDelegate<byte[]> _received = new();
         private readonly ViewableDelegate<SocketCloseInfo> _closed = new();
         private readonly IReadOnlyLifetime _lifetime;
@@ -57,7 +58,7 @@ namespace Internal
 
             SocketPump.Run(_lifetime, Deliver).NoAwait();
 
-            Debug.Log($"[Network] [JsWebSocket] Created: id={_handlerId}, url={url}");
+            _log.Debug("Created: id={Id}, url={Url}", _handlerId, url);
         }
 
         public async UniTask Connect()
@@ -67,11 +68,11 @@ namespace Internal
 
             if (_isConnected)
             {
-                Debug.LogWarning($"[Network] [JsWebSocket] Already connected: id={_handlerId}");
+                _log.Warning("Already connected: id={Id}", _handlerId);
                 return;
             }
 
-            Debug.Log($"[Network] [JsWebSocket] Connecting: id={_handlerId}");
+            _log.Debug("Connecting: id={Id}", _handlerId);
 
             var result = JsWebSocketInterop.JsWebSocketConnect(_handlerId);
 
@@ -82,7 +83,7 @@ namespace Internal
 
             await WaitOpened();
 
-            Debug.Log($"[Network] [JsWebSocket] Connected: id={_handlerId}");
+            _log.Info("Connected: id={Id}", _handlerId);
         }
 
         private async UniTask WaitOpened()
@@ -149,7 +150,7 @@ namespace Internal
             _isClosed = true;
             _closeCode = SocketCloseInfo.AbnormalClosure;
 
-            Debug.LogWarning($"[Network] [JsWebSocket] Dropped: id={_handlerId}, {reason}");
+            _log.Warning("Dropped: id={Id}, {Reason}", _handlerId, reason);
             _closed.Invoke(new SocketCloseInfo(SocketCloseInfo.AbnormalClosure, $"dropped: {reason}"));
 
             JsWebSocketInterop.JsWebSocketClose(_handlerId, 4000, "Dropped");
@@ -162,7 +163,7 @@ namespace Internal
 
             _isDisposed = true;
 
-            Debug.Log($"[Network] [JsWebSocket] Disposing: id={_handlerId}");
+            _log.Debug("Disposing: id={Id}", _handlerId);
 
             // Close connection if still open
             if (_isConnected)
@@ -180,7 +181,7 @@ namespace Internal
             _received.Dispose();
             _closed.Dispose();
 
-            Debug.Log($"[Network] [JsWebSocket] Disposed: id={_handlerId}");
+            _log.Debug("Disposed: id={Id}", _handlerId);
         }
 
         private void Deliver()

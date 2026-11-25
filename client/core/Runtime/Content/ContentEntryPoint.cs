@@ -14,6 +14,8 @@ namespace Internal
             _register = register;
         }
 
+        private static readonly ILog _log = Logs.Of<ContentEntryPoint>();
+
         private readonly Func<IReadOnlyLifetime, string, UniTask<IContentSource>> _register;
 
         internal ContentLoadsCollection Loads { get; } = new();
@@ -91,7 +93,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
                 registration.TrySetException(exception);
             }
         }

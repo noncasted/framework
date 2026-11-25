@@ -5,7 +5,6 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using AOT;
 using Unity.Scripting.LifecycleManagement;
-using UnityEngine;
 
 namespace Internal
 {
@@ -13,6 +12,8 @@ namespace Internal
     [AutoStaticsCleanup]
     internal static partial class NativeWebRtcCallbacks
     {
+        [NoAutoStaticsCleanup] private static readonly ILog _log = Logs.Of(typeof(NativeWebRtcCallbacks));
+
         // The live peers by the user pointer the library hands back to the callbacks.
         private static readonly ConcurrentDictionary<int, NativeWebRtcPeer> Peers = new();
 
@@ -64,7 +65,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
             }
         }
 

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
-using Debug = UnityEngine.Debug;
 
 namespace Internal
 {
@@ -17,6 +16,8 @@ namespace Internal
             _watch = Stopwatch.StartNew();
             StartTimestamp = Stopwatch.GetTimestamp();
         }
+
+        private static readonly ILog _log = Logs.Of<Profiler>();
 
         private readonly DateTime _startedAt;
         private readonly int _startFrame;
@@ -66,8 +67,8 @@ namespace Internal
             Final = trace;
             ProfilerTraceStorage.Save(trace);
 
-            Debug.Log(
-                $"[Profiler] {Name} finished in {trace.DurationMs:F1} ms / {trace.Frames} frames, {trace.Spans.Count} spans");
+            _log.Info("{Name} finished in {DurationMs} ms / {Frames} frames, {Spans} spans",
+                Name, Math.Round(trace.DurationMs, 1), trace.Frames, trace.Spans.Count);
         }
 
         public ProfilerTraceData Build()

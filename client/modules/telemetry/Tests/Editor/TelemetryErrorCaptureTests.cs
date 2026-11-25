@@ -119,6 +119,7 @@ namespace Global.Telemetry.Tests
         public void HandlerThatThrows_ComesThroughReactiveLogging()
         {
             LogAssert.ignoreFailingMessages = true;
+            _fixture.Logger.Start(_fixture.Running);
             var source = new EventSource();
             source.Advise(_fixture.Running, () => throw new InvalidOperationException("of a handler"));
 
@@ -127,6 +128,7 @@ namespace Global.Telemetry.Tests
             _fixture.PumpAt(0);
             _fixture.PumpAt(1000);
             StringAssert.Contains("of a handler", _fixture.Records.Entries.Single().Message);
+            Assert.AreEqual("Internal.ReactiveExceptions", _fixture.Records.Entries.Single().Category);
         }
 
         [Test]

@@ -88,7 +88,7 @@ namespace Internal.Tests
                 Collector = new NetworkPropertiesCollector(new FakeConnection(Writer), Updater, options);
                 Collector.OnSetup(Lifetime);
 
-                Objects = new NetworkObjectsCollection(Collector);
+                Objects = new NetworkObjectsCollection(Collector, Logs.Of<NetworkObjectsCollection>());
                 Objects.Add(Object);
             }
 

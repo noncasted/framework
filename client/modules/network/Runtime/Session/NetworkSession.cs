@@ -1,6 +1,5 @@
 ﻿using System;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 
 namespace Internal
 {
@@ -20,17 +19,20 @@ namespace Internal
             INetworkSessionCallbacks callbacks,
             INetworkUsersCollection users,
             ISessionConnection connection,
-            INetworkConnection networkConnection)
+            INetworkConnection networkConnection,
+            ILog<NetworkSession> log)
         {
             _callbacks = callbacks;
             _connection = connection;
             _networkConnection = networkConnection;
+            _log = log;
             Users = users;
         }
 
         private readonly INetworkSessionCallbacks _callbacks;
         private readonly ISessionConnection _connection;
         private readonly INetworkConnection _networkConnection;
+        private readonly ILog _log;
 
         // As the timeout of a request: the local user follows the response to the authorization.
         private static readonly TimeSpan LocalUserTimeout = TimeSpan.FromSeconds(20);
@@ -44,14 +46,14 @@ namespace Internal
         {
             _lifetime = lifetime.Child();
 
-            Debug.Log("[Network] [Session] Starting session connection...");
+            _log.Info("Starting session connection...");
             await _connection.Connect(_lifetime, serverUrl, ticket);
-            Debug.Log("[Network] [Session] Session connection established.");
-            Debug.Log("[Network] [Session] Waiting for local user data...");
+            _log.Info("Session connection established.");
+            _log.Info("Waiting for local user data...");
             await WaitLocalUser();
 
-            Debug.Log("[Network] [Session] Local user data received.");
-            Debug.Log("[Network] [Session] Starting session services");
+            _log.Info("Local user data received.");
+            _log.Info("Starting session services");
             await _callbacks.InvokeSessionSetupCompleted(_lifetime);
         }
 

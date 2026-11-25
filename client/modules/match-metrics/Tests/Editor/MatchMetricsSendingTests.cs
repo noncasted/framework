@@ -24,7 +24,7 @@ namespace Global.MatchMetrics.Tests
         {
             _clock = new ManualMatchClock();
             _transport = new FakeMatchTransport();
-            _metrics = new MatchMetrics(new MatchMetricsOptions(sendIntervalSeconds: 30f), _transport, _clock);
+            _metrics = new MatchMetrics(new MatchMetricsOptions(sendIntervalSeconds: 30f), _transport, _clock, Logs.Of<MatchMetrics>());
             _lifetime = new Lifetime();
             _counter = _metrics.Open(_lifetime, _matchId, _clock).Counter("kills");
         }

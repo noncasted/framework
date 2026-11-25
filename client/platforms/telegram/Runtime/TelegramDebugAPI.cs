@@ -1,4 +1,5 @@
 using System;
+using Internal;
 using UnityEngine;
 #if UNITY_EDITOR
 using System.IO;
@@ -15,12 +16,14 @@ namespace Global.Publisher.Telegram
     // PressBackButton presses it (Play checks through execute_code).
     public class TelegramDebugAPI : ITelegramAPI
     {
-        public TelegramDebugAPI(TelegramEditorOptions options)
+        public TelegramDebugAPI(TelegramEditorOptions options, ILog<TelegramDebugAPI> log)
         {
             _options = options;
+            _log = log;
         }
 
         private readonly TelegramEditorOptions _options;
+        private readonly ILog _log;
 
         public const long UserId = 1001;
         public const string FirstName = "Editor";
@@ -61,7 +64,7 @@ namespace Global.Publisher.Telegram
                 return;
 
             IsBackButtonVisible = isVisible;
-            Debug.Log("[Telegram] [Debug] BackButton visible: " + isVisible);
+            _log.Debug("BackButton visible: {IsVisible}", isVisible);
         }
 
         public int GetBackButtonPresses()

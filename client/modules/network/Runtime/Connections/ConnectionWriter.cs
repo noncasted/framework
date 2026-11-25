@@ -12,6 +12,8 @@ namespace Internal
             _traffic = traffic;
         }
 
+        private static readonly ILog _log = Logs.Of<ConnectionWriter>();
+
         private readonly NetworkTraffic _traffic;
         private readonly PendingRequests _pendingRequests = new();
 
@@ -186,7 +188,7 @@ namespace Internal
             if (_pendingRequests.TryComplete(requestId, commandContext) == false)
             {
                 // Expected case: the response arrived after a timeout or connection loss, the request is already removed.
-                UnityEngine.Debug.LogWarning($"Response for unknown request {requestId} ignored");
+                _log.Warning("Response for unknown request {RequestId} ignored", requestId);
             }
         }
 

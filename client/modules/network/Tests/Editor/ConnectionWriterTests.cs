@@ -291,7 +291,7 @@ namespace Internal.Tests
         {
             var (writer, _, lifetime) = Create();
 
-            LogAssert.Expect(LogType.Warning, "Response for unknown request 42 ignored");
+            LogAssert.Expect(LogType.Warning, "[ConnectionWriter] Response for unknown request 42 ignored");
             writer.OnRequestHandled(new SharedSessionLatency.Pong(), 42);
 
             lifetime.Terminate();
@@ -327,7 +327,8 @@ namespace Internal.Tests
             var lifetime = new Lifetime();
             writer.Run(lifetime, new ThrowingSocket(lifetime));
 
-            LogAssert.Expect(LogType.Error, new Regex("Failed to send message to server.*the encoder broke"));
+            LogAssert.Expect(LogType.Error, "[ConnectionWriterRun] Failed to send message to server");
+            LogAssert.Expect(LogType.Exception, new Regex("the encoder broke"));
             writer.WriteOneWay(new SharedSessionAuth.Response { Status = SessionAuthStatus.Ok });
             await Until(() => lifetime.IsTerminated);
         });

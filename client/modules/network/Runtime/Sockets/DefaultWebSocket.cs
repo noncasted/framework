@@ -4,12 +4,13 @@ using System.IO;
 using System.Net.WebSockets;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 
 namespace Internal
 {
     public class DefaultWebSocket : IWebSocket
     {
+        private static readonly ILog _log = Logs.Of<DefaultWebSocket>();
+
         private readonly ClientWebSocket _socket;
 
         private readonly Uri _uri;
@@ -198,7 +199,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
                 closeInfo = new SocketCloseInfo(SocketCloseInfo.AbnormalClosure,
                     $"receive failed: {exception.GetType().Name} {exception.Message}");
             }
@@ -222,7 +223,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogWarning($"[Network] [DefaultWebSocket] Close acknowledge failed: {exception.Message}");
+                _log.Warning("Close acknowledge failed: {Message}", exception.Message);
             }
         }
 
@@ -241,7 +242,7 @@ namespace Internal
 
             _isClosedNotified = true;
 
-            Debug.LogWarning($"[Network] [DefaultWebSocket] Connection lost: {info}");
+            _log.Warning("Connection lost: {Info}", info);
             _closed.Invoke(info);
         }
 
@@ -261,7 +262,7 @@ namespace Internal
             }
             catch (Exception exception)
             {
-                Debug.LogWarning($"[Network] [DefaultWebSocket] Close failed: {exception.Message}");
+                _log.Warning("Close failed: {Message}", exception.Message);
             }
             finally
             {

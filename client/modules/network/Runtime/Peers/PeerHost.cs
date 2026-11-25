@@ -16,6 +16,8 @@ namespace Internal
             _options = options;
         }
 
+        private static readonly ILog _log = Logs.Of<PeerHost>();
+
         private readonly ISessionControl _control;
         private readonly LocalSessionServer _server;
         private readonly IPeerMatch _match;
@@ -49,7 +51,7 @@ namespace Internal
             // The guest goes through the tunnel then.
             catch (WebRtcConnectFailedException exception)
             {
-                Debug.LogWarning($"[Network] [Peers] No direct connection with the guest {index}: {exception.Message}");
+                _log.Warning("No direct connection with the guest {Index}: {Message}", index, exception.Message);
                 attempt.Terminate();
                 return;
             }
@@ -60,13 +62,13 @@ namespace Internal
                 throw;
             }
 
-            Debug.Log($"[Network] [Peers] Guest {index} connected directly");
+            _log.Info("Guest {Index} connected directly", index);
             _match.SetRoute(index, PeerRoute.Direct);
         }
 
         private void AcceptTunnel(IReadOnlyLifetime lifetime, int index)
         {
-            Debug.Log($"[Network] [Peers] Guest {index} connects through the tunnel");
+            _log.Info("Guest {Index} connects through the tunnel", index);
             _match.SetRoute(index, PeerRoute.Tunnel);
             _server.AcceptSocket(lifetime, _control.Tunnels.Open(lifetime, index));
         }

@@ -12,6 +12,8 @@ namespace Global.Publisher.Steam
     // editor.
     public static class SteamApi
     {
+        private static readonly ILog _log = Logs.Of(typeof(SteamApi));
+
         public static void Start(IReadOnlyLifetime lifetime, SteamOptions options, PlatformOptions platform)
         {
 #if UNITY_STANDALONE
@@ -27,7 +29,7 @@ namespace Global.Publisher.Steam
             if (result != ESteamAPIInitResult.k_ESteamAPIInitResult_OK)
                 throw new InvalidOperationException($"[Steam] Steam API is not started: {result} {error}");
 
-            Debug.Log($"[Steam] Started, user {SteamUser.GetSteamID()}");
+            _log.Info("Started, user {User}", SteamUser.GetSteamID());
 
             lifetime.Listen(SteamAPI.Shutdown);
 #else

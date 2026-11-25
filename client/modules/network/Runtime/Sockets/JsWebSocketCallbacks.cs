@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using AOT;
 using Unity.Scripting.LifecycleManagement;
-using UnityEngine;
 
 namespace Internal
 {
@@ -12,6 +11,8 @@ namespace Internal
     [AutoStaticsCleanup]
     internal static partial class JsWebSocketCallbacks
     {
+        [NoAutoStaticsCleanup] private static readonly ILog _log = Logs.Of(typeof(JsWebSocketCallbacks));
+
         // Static dictionary to map handler IDs to C# instances for callbacks
         private static readonly Dictionary<int, JsWebSocket> Instances = new();
         private static bool _isInitialized;
@@ -26,7 +27,7 @@ namespace Internal
             JsWebSocketInterop.JsWebSocketSetOnError(OnError);
             JsWebSocketInterop.JsWebSocketSetOnClose(OnClose);
 
-            Debug.Log("[Network] [JsWebSocket] Global callbacks initialized");
+            _log.Info("Global callbacks initialized");
 
             _isInitialized = true;
         }
@@ -46,12 +47,12 @@ namespace Internal
         {
             if (Instances.TryGetValue(handlerId, out var instance))
             {
-                Debug.Log($"[Network] [JsWebSocket] OnOpen: id={handlerId}");
+                _log.Debug("OnOpen: id={Id}", handlerId);
                 instance.OnBrowserOpen();
             }
             else
             {
-                Debug.LogError($"[Network] [JsWebSocket] OnOpen: instance not found for id={handlerId}");
+                _log.Error("OnOpen: instance not found for id={Id}", handlerId);
             }
         }
 
@@ -68,7 +69,7 @@ namespace Internal
             }
             else
             {
-                Debug.LogError($"[Network] [JsWebSocket] OnMessage: instance not found for id={handlerId}");
+                _log.Error("OnMessage: instance not found for id={Id}", handlerId);
             }
         }
 
@@ -78,14 +79,14 @@ namespace Internal
             if (Instances.TryGetValue(handlerId, out var instance))
             {
                 var errorMessage = Marshal.PtrToStringAnsi(errorPtr);
-                Debug.LogError($"[Network] [JsWebSocket] OnError: id={handlerId}, error={errorMessage}");
+                _log.Error("OnError: id={Id}, error={Error}", handlerId, errorMessage);
 
                 // The connection state is left to OnClose, which the browser always sends after onerror: clearing
                 // _isConnected here made OnClose take an open socket for a never opened one and swallow the loss.
             }
             else
             {
-                Debug.LogError($"[Network] [JsWebSocket] OnError: instance not found for id={handlerId}");
+                _log.Error("OnError: instance not found for id={Id}", handlerId);
             }
         }
 
@@ -94,12 +95,12 @@ namespace Internal
         {
             if (Instances.TryGetValue(handlerId, out var instance))
             {
-                Debug.Log($"[Network] [JsWebSocket] OnClose: id={handlerId}, code={code}");
+                _log.Debug("OnClose: id={Id}, code={Code}", handlerId, code);
                 instance.OnBrowserClose(code);
             }
             else
             {
-                Debug.LogError($"[Network] [JsWebSocket] OnClose: instance not found for id={handlerId}");
+                _log.Error("OnClose: instance not found for id={Id}", handlerId);
             }
         }
     }

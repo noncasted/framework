@@ -1,7 +1,6 @@
 using System;
 using MemoryPack;
 using Shared;
-using UnityEngine;
 
 namespace Internal
 {
@@ -15,6 +14,8 @@ namespace Internal
             Lifetime = lifetime;
             _client = client;
         }
+
+        private static readonly ILog _log = Logs.Of<LocalServerConnection>();
 
         private readonly ILocalClient _client;
 
@@ -70,12 +71,12 @@ namespace Internal
             }
             catch (LocalServerRequestException exception)
             {
-                Debug.LogWarning($"[Network] [Local] Request {name} is refused: {exception.Message}");
+                _log.Warning("Request {Name} is refused: {Message}", name, exception.Message);
                 Respond(request.RequestId, new ErrorResponse { Code = exception.Code, Message = $"{name}: {exception.Message}" });
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
 
                 Respond(request.RequestId, new ErrorResponse
                 {

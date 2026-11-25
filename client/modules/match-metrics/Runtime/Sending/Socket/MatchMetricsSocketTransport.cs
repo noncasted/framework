@@ -2,19 +2,20 @@ using System;
 using Cysharp.Threading.Tasks;
 using Internal;
 using Shared;
-using UnityEngine;
 
 namespace Global.MatchMetrics
 {
     // The requests on the meta socket. The boundary of the failures of the network: a request without an answer is null here.
     public class MatchMetricsSocketTransport : IMatchMetricsTransport
     {
-        public MatchMetricsSocketTransport(IMatchMetricsSocket socket)
+        public MatchMetricsSocketTransport(IMatchMetricsSocket socket, ILog<MatchMetricsSocketTransport> log)
         {
             _socket = socket;
+            _log = log;
         }
 
         private readonly IMatchMetricsSocket _socket;
+        private readonly ILog _log;
 
         private object _warnedRun;
 
@@ -78,7 +79,7 @@ namespace Global.MatchMetrics
                 return;
 
             _warnedRun = run;
-            Debug.LogWarning($"[MatchMetrics] {request.GetType().Name} got no answer, the batch waits: {exception.Message}");
+            _log.Warning("{Request} got no answer, the batch waits: {Message}", request.GetType().Name, exception.Message);
         }
     }
 }

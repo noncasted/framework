@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using Shared;
-using UnityEngine;
 
 namespace Internal
 {
@@ -45,12 +44,14 @@ namespace Internal
 
     public class NetworkObjectsCollection : INetworkObjectsCollection
     {
-        public NetworkObjectsCollection(INetworkDirtyProperties dirtyProperties)
+        public NetworkObjectsCollection(INetworkDirtyProperties dirtyProperties, ILog<NetworkObjectsCollection> log)
         {
             _dirtyProperties = dirtyProperties;
+            _log = log;
         }
 
         private readonly INetworkDirtyProperties _dirtyProperties;
+        private readonly ILog _log;
 
         private readonly Dictionary<int, INetworkObject> _entries = new();
         private readonly Dictionary<int, CreationBuffer> _creating = new();
@@ -218,7 +219,7 @@ namespace Internal
 
             _droppedMessages++;
 
-            Debug.Log($"[Network] {ErrorResponse.Describe(context)} for destroyed object {id} dropped ({_droppedMessages} in the session)");
+            _log.Debug("{Message} for destroyed object {Id} dropped ({Dropped} in the session)", ErrorResponse.Describe(context), id, _droppedMessages);
         }
 
         private class CreationBuffer

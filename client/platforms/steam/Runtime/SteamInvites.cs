@@ -2,7 +2,6 @@ using System;
 using Internal;
 #if UNITY_STANDALONE
 using Steamworks;
-using UnityEngine;
 #endif
 
 namespace Global.Publisher.Steam
@@ -13,14 +12,17 @@ namespace Global.Publisher.Steam
     // the game with the connect string on its command line.
     public class SteamInvites : IPlatformInvites, IScopeSetup
     {
-        public SteamInvites(SteamOptions options)
+        public SteamInvites(SteamOptions options, ILog<SteamInvites> log)
         {
             _connectKey = options.InviteConnectKey;
+            _log = log;
         }
 
         // The connect string is "<key> <code>" (SteamOptions.InviteConnectKey): two words of the command line when
         // Steam starts the game.
         private readonly string _connectKey;
+
+        private readonly ILog _log;
 
         private readonly ViewableProperty<string> _joinRequest = new(null);
 
@@ -92,7 +94,7 @@ namespace Global.Publisher.Steam
             if (code == null)
                 throw new InvalidOperationException($"[Steam] A join request without a lobby: '{request.m_rgchConnect}'");
 
-            Debug.Log($"[Steam] A join request into the lobby {code}");
+            _log.Info("A join request into the lobby {Code}", code);
             _joinRequest.Set(code);
         }
 #endif

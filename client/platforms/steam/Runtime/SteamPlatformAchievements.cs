@@ -4,7 +4,6 @@ using System.Runtime.ExceptionServices;
 using Internal;
 #if UNITY_STANDALONE
 using Steamworks;
-using UnityEngine;
 #endif
 
 namespace Global.Publisher.Steam
@@ -14,6 +13,12 @@ namespace Global.Publisher.Steam
     // Every set achievement is stored at once (StoreStats shows the notification of the overlay).
     public class SteamPlatformAchievements : IPlatformAchievements, IScopeSetup
     {
+        public SteamPlatformAchievements(ILog<SteamPlatformAchievements> log)
+        {
+            _log = log;
+        }
+
+        private readonly ILog _log;
         private readonly List<string> _pending = new();
 
         public bool IsSupported => true;
@@ -56,7 +61,7 @@ namespace Global.Publisher.Steam
         }
 
         // True when the achievement is set now, false when it was unlocked before.
-        private static bool Set(string name)
+        private bool Set(string name)
         {
             if (SteamUserStats.GetAchievement(name, out var isAchieved) == false)
                 throw new ArgumentException($"[Steam] No achievement {name} in the app", nameof(name));
@@ -67,7 +72,7 @@ namespace Global.Publisher.Steam
             if (SteamUserStats.SetAchievement(name) == false)
                 throw new InvalidOperationException($"[Steam] Achievement {name} is not set");
 
-            Debug.Log($"[Steam] Achievement {name} is unlocked");
+            _log.Info("Achievement {Name} is unlocked", name);
             return true;
         }
 

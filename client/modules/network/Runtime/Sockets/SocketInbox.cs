@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Concurrent;
-using UnityEngine;
 
 namespace Internal
 {
@@ -13,6 +12,8 @@ namespace Internal
             _lifetime = lifetime;
             _handler = handler;
         }
+
+        private static readonly ILog _log = Logs.Of<SocketInbox<T>>();
 
         private readonly IReadOnlyLifetime _lifetime;
         private readonly Action<T> _handler;
@@ -34,7 +35,7 @@ namespace Internal
                 }
                 catch (Exception exception)
                 {
-                    Debug.LogException(exception);
+                    _log.Exception(exception);
                 }
             }
         }

@@ -3,29 +3,37 @@ using Game.Session;
 
 namespace Internal
 {
-    // The log of a session core inside the client.
+    // The log of a session core inside the client: the messages come formatted, so each is the argument of a template.
     public class UnitySessionLog : ISessionLog
     {
+        public UnitySessionLog(ILog log)
+        {
+            _log = log;
+        }
+
+        private readonly ILog _log;
+
         public void Debug(string message)
         {
+            _log.Debug("{Message}", message);
         }
 
         public void Info(string message)
         {
-            UnityEngine.Debug.Log($"[Network] [Local] {message}");
+            _log.Info("{Message}", message);
         }
 
         public void Warning(string message)
         {
-            UnityEngine.Debug.LogWarning($"[Network] [Local] {message}");
+            _log.Warning("{Message}", message);
         }
 
         public void Error(string message, Exception exception = null)
         {
-            UnityEngine.Debug.LogError($"[Network] [Local] {message}");
-
             if (exception != null)
-                UnityEngine.Debug.LogException(exception);
+                _log.Error(exception, "{Message}", message);
+            else
+                _log.Error("{Message}", message);
         }
     }
 }

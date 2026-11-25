@@ -46,7 +46,7 @@ namespace Internal.Tests
             var collector = new NetworkPropertiesCollector(new RunConnection(run), updater, options);
             collector.OnSetup(lifetime);
 
-            var objects = new NetworkObjectsCollection(collector);
+            var objects = new NetworkObjectsCollection(collector, Logs.Of<NetworkObjectsCollection>());
             var target = new TestObject(1048577);
             objects.Add(target);
 

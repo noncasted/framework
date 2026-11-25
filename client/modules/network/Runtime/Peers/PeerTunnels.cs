@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Shared;
-using UnityEngine;
 
 namespace Internal
 {
@@ -26,6 +25,8 @@ namespace Internal
         {
             _control = control;
         }
+
+        private static readonly ILog _log = Logs.Of<PeerTunnels>();
 
         private readonly INetworkConnection _control;
         private readonly Dictionary<int, TunnelPeerSocket> _sockets = new();
@@ -54,7 +55,7 @@ namespace Internal
             // lost by the end of its session.
             if (_sockets.TryGetValue(context.SenderIndex, out var socket) == false)
             {
-                Debug.LogWarning($"[Network] [Tunnel] A frame of {context.SenderIndex} without a tunnel: dropped");
+                _log.Warning("A frame of {SenderIndex} without a tunnel: dropped", context.SenderIndex);
                 return;
             }
 
@@ -101,7 +102,7 @@ namespace Internal
             public async UniTask Connect()
             {
                 await UniTask.Yield(PlayerLoopTiming.Update, _lifetime.Token);
-                Debug.Log($"[Network] [Tunnel] Connected to {_remoteIndex}");
+                _log.Info("Connected to {RemoteIndex}", _remoteIndex);
             }
 
             public UniTask Send(ArraySegment<byte> bytes)
@@ -135,7 +136,7 @@ namespace Internal
                     return;
 
                 var info = new SocketCloseInfo(SocketCloseInfo.AbnormalClosure, $"tunnel lost: {reason}");
-                Debug.LogWarning($"[Network] [Tunnel] Connection to {_remoteIndex} lost: {info}");
+                _log.Warning("Connection to {RemoteIndex} lost: {Info}", _remoteIndex, info);
 
                 _closed.Invoke(info);
                 _lifetime.Terminate();

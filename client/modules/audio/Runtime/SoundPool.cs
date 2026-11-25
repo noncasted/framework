@@ -27,6 +27,8 @@ namespace Global.Audio
             }
         }
 
+        private static readonly ILog _log = Logs.Of<SoundPool>();
+
         private readonly AudioSource[] _sources;
         private readonly AudioLineVolumes _volumes;
         private readonly float[] _scales;
@@ -158,7 +160,7 @@ namespace Global.Audio
                     first = i;
             }
 
-            Debug.LogWarning($"[Audio] All {_sources.Length} sound sources play, the oldest sound is cut");
+            _log.Warning("All {Count} sound sources play, the oldest sound is cut", _sources.Length);
             return first;
         }
     }

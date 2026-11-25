@@ -1,5 +1,4 @@
 using System;
-using UnityEngine;
 
 namespace Internal
 {
@@ -15,6 +14,8 @@ namespace Internal
             _onLink = onLink;
             _onLost = onLost;
         }
+
+        private static readonly ILog _log = Logs.Of<PeerLinkPublication>();
 
         private readonly int _remoteIndex;
         private readonly Action<IPeerLink> _onLink;
@@ -41,7 +42,7 @@ namespace Internal
             _factory = null;
             _inbox = null;
             _link = factory(remoteId);
-            Debug.Log($"[Network] [Mesh] Connected to {_remoteIndex} ({remoteId}): {_link.Route}");
+            _log.Info("Connected to {RemoteIndex} ({RemoteId}): {Route}", _remoteIndex, remoteId, _link.Route);
             _onLink(_link);
             inbox.Release();
         }

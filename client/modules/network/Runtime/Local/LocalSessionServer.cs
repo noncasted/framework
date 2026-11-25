@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Game.Session;
 using Shared;
-using UnityEngine;
 
 namespace Internal
 {
@@ -19,6 +18,8 @@ namespace Internal
         }
 
         private const string TicketPrefix = "offline.";
+
+        private static readonly ILog _log = Logs.Of<LocalSessionServer>();
 
         private readonly IReadOnlyLifetime _lifetime;
         private readonly Dictionary<Guid, LocalSession> _sessions = new();
@@ -133,7 +134,7 @@ namespace Internal
             // the next try of the guest into a connection nobody reads.
             public void Close(SocketCloseInfo info)
             {
-                Debug.Log($"[Network] [Local] The server closes a socket: {info}");
+                _log.Info("The server closes a socket: {Info}", info);
                 _lifetime.Terminate();
                 _socket.Drop($"closed by the server: {info}");
             }

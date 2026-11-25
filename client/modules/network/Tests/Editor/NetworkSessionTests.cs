@@ -16,7 +16,8 @@ namespace Internal.Tests
         {
             var writer = new ClosableWriter();
             var connection = new FakeConnection(writer);
-            var session = new NetworkSession(new NetworkSessionCallbacks(), new NetworkUsersCollection(), new OpenSession(), connection);
+            var session = new NetworkSession(new NetworkSessionCallbacks(), new NetworkUsersCollection(), new OpenSession(), connection,
+                Logs.Of<NetworkSession>());
             var lifetime = new Lifetime();
 
             var start = session.Start(lifetime, "ws://test", "ticket");

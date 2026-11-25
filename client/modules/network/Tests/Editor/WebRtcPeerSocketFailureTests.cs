@@ -213,7 +213,7 @@ namespace Internal.Tests
 
             void OnLog(string text, string stack, LogType type)
             {
-                if (text.Contains("[libdatachannel]") == true)
+                if (text.StartsWith("[NativeWebRtcLibrary]") == true)
                     written = type;
             }
 

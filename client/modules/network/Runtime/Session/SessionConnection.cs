@@ -1,7 +1,6 @@
 using System;
 using Cysharp.Threading.Tasks;
 using Shared;
-using UnityEngine;
 
 namespace Internal
 {
@@ -12,12 +11,14 @@ namespace Internal
 
     public class SessionConnection : ISessionConnection
     {
-        public SessionConnection(INetworkConnection connection)
+        public SessionConnection(INetworkConnection connection, ILog<SessionConnection> log)
         {
             _connection = connection;
+            _log = log;
         }
 
         private readonly INetworkConnection _connection;
+        private readonly ILog _log;
 
         // the first frame of the socket is the ticket of the meta; a refusal throws (the caller races the start
         // with the loss of the connection: the server closes the socket after the refusal).
@@ -31,13 +32,13 @@ namespace Internal
                 Ticket = ticket
             };
 
-            Debug.Log($"[Network] [Session] Connecting to the session at {serverUrl}");
+            _log.Info("Connecting to the session at {ServerUrl}", serverUrl);
             await _connection.Run(lifetime, serverUrl);
-            Debug.Log("[Network] [Session] Connection started, authenticating...");
+            _log.Info("Connection started, authenticating...");
 
             var response = await _connection.Request<SharedSessionAuth.Response>(auth);
 
-            Debug.Log($"[Network] [Session] Authentication response: {response.Status}");
+            _log.Info("Authentication response: {Status}", response.Status);
 
             if (response.Status != SessionAuthStatus.Ok)
                 throw new SessionEntryRefusedException(response.Status);

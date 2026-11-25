@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Cysharp.Threading.Tasks;
-using UnityEngine;
 
 namespace Internal
 {
@@ -37,6 +36,8 @@ namespace Internal
             _signaling.Received.Advise(_lifetime, OnSignal);
             SocketPump.Run(_lifetime, _inbox.Drain).NoAwait();
         }
+
+        private static readonly ILog _log = Logs.Of<WebRtcPeerLink>();
 
         private readonly WebRtcPeerRole _role;
         private readonly IWebRtcSignaling _signaling;
@@ -91,7 +92,7 @@ namespace Internal
             if (isTimedOut == true)
                 throw new WebRtcConnectFailedException($"the channels did not open in {_options.ConnectTimeout.TotalSeconds} s");
 
-            Debug.Log($"[Network] [WebRtc] Connected: {_role}, {DescribeChannels()}");
+            _log.Info("Connected: {Role}, {Channels}", _role, DescribeChannels());
         }
 
         public void Drop(string reason)
@@ -253,7 +254,7 @@ namespace Internal
 
         private void Lose(string reason)
         {
-            Debug.LogWarning($"[Network] [WebRtc] {reason}");
+            _log.Warning("{Reason}", reason);
             _lostReason ??= reason;
             _inbox.Enqueue(WebRtcLinkEvent.OfLost(_lostReason));
         }
@@ -266,7 +267,7 @@ namespace Internal
             _isClosedNotified = true;
 
             var info = new SocketCloseInfo(SocketCloseInfo.AbnormalClosure, $"peer lost: {_lostReason}");
-            Debug.LogWarning($"[Network] [WebRtc] Connection lost: {info}");
+            _log.Warning("Connection lost: {Info}", info);
 
             _closed.Invoke(info);
             _lifetime.Terminate();

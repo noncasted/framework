@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Shared;
-using UnityEngine;
 
 namespace Internal
 {
@@ -50,8 +49,11 @@ namespace Internal
             IClientOutdatedNotice outdatedNotice,
             ILocalServers localServers,
             IPeerSockets peerSockets,
-            NetworkProtocolHash protocolHash)
+            NetworkProtocolHash protocolHash,
+            ILog<SessionControl> log)
         {
+            _log = log;
+
             var commands = new NetworkCommandsCollection();
             _connection = new NetworkConnection(commands,
                 outdatedNotice,
@@ -80,6 +82,7 @@ namespace Internal
         // As NetworkLatencyMonitor: the answers keep the silence of the server below ConnectionSilence.Limit.
         private const float PingInterval = 0.5f;
 
+        private readonly ILog _log;
         private readonly NetworkConnection _connection;
         private readonly PeerSignaling _signaling;
         private readonly PeerTunnels _tunnels;
@@ -98,9 +101,9 @@ namespace Internal
 
         public async UniTask Start(IReadOnlyLifetime lifetime, string serverUrl, string ticket)
         {
-            Debug.Log($"[Network] [Control] Entering the server session at {serverUrl}");
+            _log.Info("Entering the server session at {ServerUrl}", serverUrl);
 
-            await new SessionConnection(_connection).Connect(lifetime, serverUrl, ticket);
+            await new SessionConnection(_connection, Logs.Of<SessionConnection>()).Connect(lifetime, serverUrl, ticket);
 
             await UniTask
                   .WaitUntil(() => _localIndex != 0 || _connection.Writer.IsClosed == true, cancellationToken: lifetime.Token)
@@ -109,7 +112,7 @@ namespace Internal
             if (_localIndex == 0)
                 throw new OperationCanceledException("[Network] [Control] The connection is lost before the local seat");
 
-            Debug.Log($"[Network] [Control] Local seat {_localIndex}");
+            _log.Info("Local seat {LocalIndex}", _localIndex);
 
             // A network lost without a close ends the match for this player as a closed connection does.
             Ping(lifetime).NoAwait();

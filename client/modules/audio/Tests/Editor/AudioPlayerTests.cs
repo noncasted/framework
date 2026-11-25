@@ -228,7 +228,7 @@ namespace Global.Audio.Tests
             rig.Player.PlaySound(rig.Sound("first", 1f));
             rig.Player.PlaySound(rig.Sound("second", 1f));
 
-            LogAssert.Expect(LogType.Warning, "[Audio] All 2 sound sources play, the oldest sound is cut");
+            LogAssert.Expect(LogType.Warning, "[SoundPool] All 2 sound sources play, the oldest sound is cut");
             rig.Player.PlaySound(rig.Sound("third", 1f));
 
             Assert.AreEqual("third", rig.Sounds[0].clip.name);
@@ -276,7 +276,7 @@ namespace Global.Audio.Tests
             var soundLifetime = new Lifetime();
             rig.Player.PlaySound(rig.Sound("clip", 1f), SoundPlay.Default, soundLifetime);
 
-            LogAssert.Expect(LogType.Warning, "[Audio] All 1 sound sources play, the oldest sound is cut");
+            LogAssert.Expect(LogType.Warning, "[SoundPool] All 1 sound sources play, the oldest sound is cut");
             rig.Player.PlaySound(rig.Sound("other", 1f));
 
             soundLifetime.Terminate();

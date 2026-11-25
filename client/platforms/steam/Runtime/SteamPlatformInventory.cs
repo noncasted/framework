@@ -4,7 +4,6 @@ using Cysharp.Threading.Tasks;
 using Internal;
 #if UNITY_STANDALONE
 using Steamworks;
-using UnityEngine;
 #endif
 
 namespace Global.Publisher.Steam
@@ -13,6 +12,13 @@ namespace Global.Publisher.Steam
     // with SteamInventoryResultReady_t; the handle is destroyed once it is read.
     public class SteamPlatformInventory : IPlatformInventory, IScopeSetup
     {
+        public SteamPlatformInventory(ILog<SteamPlatformInventory> log)
+        {
+            _log = log;
+        }
+
+        private readonly ILog _log;
+
 #if UNITY_STANDALONE
         private readonly Dictionary<SteamInventoryResult_t, Action<EResult>> _pending = new();
 #endif
@@ -73,7 +79,7 @@ namespace Global.Publisher.Steam
                 // on a start), so the answer is only logged.
                 _pending.Add(handle, result => {
                     if (result != EResult.k_EResultOK)
-                        Debug.Log($"[Steam] The drop of the generator {generator}: {result}");
+                        _log.Debug("The drop of the generator {Generator}: {Result}", generator, result);
 
                     SteamInventory.DestroyResult(handle);
                 });

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Internal;
 using Shared;
-using UnityEngine;
 
 namespace Global.MatchMetrics
 {
@@ -11,16 +10,19 @@ namespace Global.MatchMetrics
     // the senders try again. A stream ended goes on sending until its sender is idle or the scope is unloaded.
     public class MatchMetrics : IMatchMetrics, IScopeSetup
     {
-        public MatchMetrics(MatchMetricsOptions options, IMatchMetricsTransport transport, IMatchMetricsTicks ticks)
+        public MatchMetrics(MatchMetricsOptions options, IMatchMetricsTransport transport, IMatchMetricsTicks ticks,
+            ILog<MatchMetrics> log)
         {
             _options = options;
             _transport = transport;
             _ticks = ticks;
+            _log = log;
         }
 
         private readonly MatchMetricsOptions _options;
         private readonly IMatchMetricsTransport _transport;
         private readonly IMatchMetricsTicks _ticks;
+        private readonly ILog _log;
         private readonly List<MatchMetricsEntry> _entries = new();
 
         public int Count => _entries.Count;
@@ -79,7 +81,7 @@ namespace Global.MatchMetrics
             }
             catch (Exception exception)
             {
-                Debug.LogException(exception);
+                _log.Exception(exception);
             }
         }
     }

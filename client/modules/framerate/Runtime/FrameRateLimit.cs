@@ -12,7 +12,7 @@ namespace Global.FrameRate
     public class FrameRateLimit : IScopeSetup
     {
         public FrameRateLimit(AutoFrameRateOptions options, IFrameRateSetting setting, IFrameRateRequest request,
-            IAutoFrameRate auto, PlatformOptions platform)
+            IAutoFrameRate auto, PlatformOptions platform, ILog<FrameRateLimit> log)
         {
             options.Validate();
 
@@ -21,6 +21,7 @@ namespace Global.FrameRate
             _request = request;
             _auto = auto;
             _platform = platform;
+            _log = log;
         }
 
         private readonly AutoFrameRateOptions _options;
@@ -28,6 +29,7 @@ namespace Global.FrameRate
         private readonly IFrameRateRequest _request;
         private readonly IAutoFrameRate _auto;
         private readonly PlatformOptions _platform;
+        private readonly ILog _log;
 
         // Application.targetFrameRate without a limit: the rate of the screen.
         public const int Native = -1;
@@ -67,10 +69,10 @@ namespace Global.FrameRate
             _auto.Target.View(lifetime, target => Apply("auto", target));
         }
 
-        private static void Apply(string source, int limit)
+        private void Apply(string source, int limit)
         {
             Application.targetFrameRate = limit;
-            Debug.Log($"[FrameRate] {limit} frames per second ({source})");
+            _log.Info("{Limit} frames per second ({Source})", limit, source);
         }
     }
 }

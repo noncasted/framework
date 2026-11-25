@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using Internal;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -24,7 +25,7 @@ namespace Global.Publisher.Telegram.Tests
 
             try
             {
-                var api = new TelegramDebugAPI(new TelegramEditorOptions(Path.Combine("Temp", fileName)));
+                var api = new TelegramDebugAPI(new TelegramEditorOptions(Path.Combine("Temp", fileName)), Logs.Of<TelegramDebugAPI>());
                 var initData = api.GetInitData();
 
                 Assert.AreEqual(Hash(initData), Read(initData, "hash"));

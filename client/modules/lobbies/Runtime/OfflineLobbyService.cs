@@ -3,7 +3,6 @@ using Cysharp.Threading.Tasks;
 using Game.Session;
 using Internal;
 using Shared;
-using UnityEngine;
 
 namespace Global.Lobbies
 {
@@ -53,6 +52,7 @@ namespace Global.Lobbies
         }
 
         private static readonly TimeSpan CountdownStep = TimeSpan.FromSeconds(1);
+        private static readonly ILog _log = Logs.Of<OfflineLobbyService>();
 
         private readonly IOfflineLobbyMatches _matches;
         private readonly ISessionOwner _owner;
@@ -69,7 +69,7 @@ namespace Global.Lobbies
 
         protected override void OnStarted(IReadOnlyLifetime lifetime)
         {
-            Debug.Log($"[Lobbies] [Offline] Lobby code {_lobby.Value.Code}");
+            _log.Info("Lobby code {Code}", _lobby.Value.Code);
 
             _start.Written.Advise(lifetime, OnStartWritten);
             _owner.Owner.View(lifetime, OnOwnerChanged);
@@ -157,7 +157,7 @@ namespace Global.Lobbies
 
             var match = _matches.CreateMatch();
 
-            Debug.Log($"[Lobbies] [Offline] Lobby {_lobby.Value.Code} starts the match {match.SessionId}");
+            _log.Info("Lobby {Code} starts the match {SessionId}", _lobby.Value.Code, match.SessionId);
 
             _game.Set(new LobbyGameState
             {

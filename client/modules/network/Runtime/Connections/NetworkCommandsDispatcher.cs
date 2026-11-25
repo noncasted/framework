@@ -1,6 +1,5 @@
 ﻿using System;
 using Shared;
-using UnityEngine;
 
 namespace Internal
 {
@@ -13,6 +12,8 @@ namespace Internal
             _commands = commands;
             _connection = connection;
         }
+
+        private static readonly ILog _log = Logs.Of<NetworkCommandsDispatcher>();
 
         private readonly INetworkCommandsCollection _commands;
         private readonly INetworkConnection _connection;
@@ -32,7 +33,7 @@ namespace Internal
                 }
                 catch (Exception e)
                 {
-                    Debug.LogException(e);
+                    _log.Exception(e);
                 }
             });
 
@@ -43,7 +44,7 @@ namespace Internal
 
                 if (_commands.TryGet(context, out var command) == false)
                 {
-                    Debug.LogError($"[Network] No command for the server request {context.GetType().FullName}");
+                    _log.Error("No command for the server request {Request}", context.GetType().FullName);
                     writer.WriteResponse(ErrorResponse.UnknownCommand(context), request.RequestId);
                     return;
                 }
@@ -56,7 +57,7 @@ namespace Internal
                 }
                 catch (Exception e)
                 {
-                    Debug.LogException(e);
+                    _log.Exception(e);
                     response = ErrorResponse.Create(ErrorCode.Internal, context, e);
                 }
 

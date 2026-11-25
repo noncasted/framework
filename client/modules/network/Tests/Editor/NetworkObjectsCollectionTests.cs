@@ -17,7 +17,7 @@ namespace Internal.Tests
         [Test]
         public void Update_LiveObject_AppliesNewerVersionOnly()
         {
-            var collection = new NetworkObjectsCollection(new DirtySink());
+            var collection = new NetworkObjectsCollection(new DirtySink(), Logs.Of<NetworkObjectsCollection>());
             var target = new TestObject(ObjectId);
             collection.Add(target);
 
@@ -32,7 +32,7 @@ namespace Internal.Tests
         [Test]
         public void Update_Creating_IsAppliedOnAdd_NewestPerProperty()
         {
-            var collection = new NetworkObjectsCollection(new DirtySink());
+            var collection = new NetworkObjectsCollection(new DirtySink(), Logs.Of<NetworkObjectsCollection>());
             collection.BeginCreation(ObjectId);
 
             collection.ApplyUpdate(Update(3, version: 3));
@@ -53,7 +53,7 @@ namespace Internal.Tests
         [Test]
         public void Update_Creating_OlderThanOverview_IsNotApplied()
         {
-            var collection = new NetworkObjectsCollection(new DirtySink());
+            var collection = new NetworkObjectsCollection(new DirtySink(), Logs.Of<NetworkObjectsCollection>());
             collection.BeginCreation(ObjectId);
             collection.ApplyUpdate(Update(1, version: 4));
 
@@ -69,7 +69,7 @@ namespace Internal.Tests
         [Test]
         public void Events_Creating_AreInvokedInOrderAfterUpdates()
         {
-            var collection = new NetworkObjectsCollection(new DirtySink());
+            var collection = new NetworkObjectsCollection(new DirtySink(), Logs.Of<NetworkObjectsCollection>());
             collection.BeginCreation(ObjectId);
 
             collection.ApplyEvent(Event(1));
@@ -88,7 +88,7 @@ namespace Internal.Tests
         [Test]
         public void CancelCreation_DropsBuffer_AndLaterMessagesAreDropped()
         {
-            var collection = new NetworkObjectsCollection(new DirtySink());
+            var collection = new NetworkObjectsCollection(new DirtySink(), Logs.Of<NetworkObjectsCollection>());
             collection.BeginCreation(ObjectId);
             collection.ApplyUpdate(Update(5, version: 1));
 
@@ -103,7 +103,7 @@ namespace Internal.Tests
         [Test]
         public void DestroyedObject_MessagesAreDropped()
         {
-            var collection = new NetworkObjectsCollection(new DirtySink());
+            var collection = new NetworkObjectsCollection(new DirtySink(), Logs.Of<NetworkObjectsCollection>());
             var target = new TestObject(ObjectId);
             collection.Add(target);
 
@@ -119,7 +119,7 @@ namespace Internal.Tests
         [Test]
         public void UnknownObject_Throws()
         {
-            var collection = new NetworkObjectsCollection(new DirtySink());
+            var collection = new NetworkObjectsCollection(new DirtySink(), Logs.Of<NetworkObjectsCollection>());
 
             var update = Assert.Throws<InvalidOperationException>(() => collection.ApplyUpdate(Update(1, version: 1)));
             var networkEvent = Assert.Throws<InvalidOperationException>(() => collection.ApplyEvent(Event(1)));
@@ -132,7 +132,7 @@ namespace Internal.Tests
         [Test]
         public void UnknownProperty_OfLiveObject_Throws()
         {
-            var collection = new NetworkObjectsCollection(new DirtySink());
+            var collection = new NetworkObjectsCollection(new DirtySink(), Logs.Of<NetworkObjectsCollection>());
             collection.Add(new TestObject(ObjectId));
 
             var unknown = new SharedSessionObject.PropertyUpdate
@@ -149,7 +149,7 @@ namespace Internal.Tests
         [Test]
         public void BeginCreation_OfKnownId_Throws()
         {
-            var collection = new NetworkObjectsCollection(new DirtySink());
+            var collection = new NetworkObjectsCollection(new DirtySink(), Logs.Of<NetworkObjectsCollection>());
             var target = new TestObject(ObjectId);
             collection.Add(target);
 
@@ -164,7 +164,7 @@ namespace Internal.Tests
         [Test]
         public void Add_TerminatedObject_OnlyMarksDestroyed()
         {
-            var collection = new NetworkObjectsCollection(new DirtySink());
+            var collection = new NetworkObjectsCollection(new DirtySink(), Logs.Of<NetworkObjectsCollection>());
             var target = new TestObject(ObjectId);
             target.LifetimeSource.Terminate();
 
@@ -177,7 +177,7 @@ namespace Internal.Tests
         public void Add_AttachesProperties_WriteBeforeIsReported()
         {
             var sink = new DirtySink();
-            var collection = new NetworkObjectsCollection(sink);
+            var collection = new NetworkObjectsCollection(sink, Logs.Of<NetworkObjectsCollection>());
             var target = new TestObject(ObjectId);
             target.Property.Set(1);
 
@@ -509,7 +509,7 @@ namespace Internal.Tests
         {
             public FactoryWorld()
             {
-                Objects = new NetworkObjectsCollection(new DirtySink());
+                Objects = new NetworkObjectsCollection(new DirtySink(), Logs.Of<NetworkObjectsCollection>());
 
                 var session = new NetworkUser(NetworkUsersCollection.SessionIndex, Guid.Empty, false, Lifetime.Child());
                 _users.Add(new NetworkUser(LocalIndex, Guid.NewGuid(), true, Lifetime.Child()));

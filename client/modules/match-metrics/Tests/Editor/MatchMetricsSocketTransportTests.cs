@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Text.RegularExpressions;
 using Cysharp.Threading.Tasks;
+using Internal;
 using NUnit.Framework;
 using Shared;
 using UnityEngine;
@@ -20,7 +21,7 @@ namespace Global.MatchMetrics.Tests
         public void SetUp()
         {
             _writer = new FailingMatchWriter();
-            _transport = new MatchMetricsSocketTransport(new FakeMatchSocket(_writer));
+            _transport = new MatchMetricsSocketTransport(new FakeMatchSocket(_writer), Logs.Of<MatchMetricsSocketTransport>());
         }
 
         private UniTask<SharedMatchMetrics.Opened> Open()

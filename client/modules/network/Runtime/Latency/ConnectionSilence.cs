@@ -15,6 +15,8 @@ namespace Internal
 
         private const float MaxFrameDelta = 0.25f;
 
+        private static readonly ILog _log = Logs.Of(typeof(ConnectionSilence));
+
         public static float FrameDelta => Mathf.Min(Time.unscaledDeltaTime, MaxFrameDelta);
 
         // Starts once the server answers the pings (it knows this user); ends with the lifetime or the drop.
@@ -41,7 +43,7 @@ namespace Internal
                 if (silence < Limit)
                     continue;
 
-                Debug.LogWarning($"[Network] [Watchdog] No message from the server for {Limit} s: the connection is lost");
+                _log.Warning("No message from the server for {Limit} s: the connection is lost", Limit);
                 connection.Drop($"no message from the server for {Limit} s");
                 return;
             }
