@@ -1,5 +1,3 @@
-using System;
-
 namespace Internal
 {
     // Why a socket was lost: the close code (from the Close frame of the server, or 1006 for a broken connection
@@ -25,16 +23,5 @@ namespace Internal
         {
             return $"code={Code} {Reason}";
         }
-    }
-
-    // The socket was closed while it was being opened: Connect fails with it.
-    public class WebSocketClosedException : Exception
-    {
-        public WebSocketClosedException(int code) : base($"WebSocket closed while connecting: code={code}")
-        {
-            Code = code;
-        }
-
-        public int Code { get; }
     }
 }

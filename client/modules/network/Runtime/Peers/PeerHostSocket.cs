@@ -104,11 +104,4 @@ namespace Internal
             return socket;
         }
     }
-
-    public enum PeerRoute
-    {
-        None,
-        Direct,
-        Tunnel
-    }
 }

@@ -3,13 +3,6 @@ using UnityEngine;
 
 namespace Global.Inputs
 {
-    public enum InputSchemeType
-    {
-        KeyboardMouse,
-        Gamepad,
-        Touch
-    }
-
     // The one active input scheme: the device used last. The aim (system cursor or a crosshair in the world), the
     // touch controls and the prompts follow it, and IPlayerInput reads its source of this scheme only.
     public interface IInputScheme

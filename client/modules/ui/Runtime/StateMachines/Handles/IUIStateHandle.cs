@@ -1,6 +1,5 @@
 ﻿using Cysharp.Threading.Tasks;
 using Internal;
-using UnityEngine;
 
 namespace Global.UI
 {
@@ -18,13 +17,5 @@ namespace Global.UI
         UniTaskCompletionSource Completion { get; }
 
         void Exit();
-    }
-
-    public static class UIStateHandleExtensions
-    {
-        public static void AttachGameObject(this IUIStateHandle handle, GameObject target)
-        {
-            handle.IsVisible.View(handle.InnerLifetime, target.SetActive);
-        }
     }
 }

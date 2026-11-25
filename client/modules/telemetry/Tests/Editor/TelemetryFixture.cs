@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Internal;
 
 namespace Global.Telemetry.Tests
 {
@@ -167,120 +166,6 @@ namespace Global.Telemetry.Tests
         public static IReadOnlyList<string> NamesOf(TelemetryBatch batch)
         {
             return batch.Names.Select(name => name.Name).ToArray();
-        }
-    }
-
-    public class ScriptedCollector : ITelemetryCollector
-    {
-        private Action<ITelemetrySample> _collect = _ => { };
-
-        public int Calls { get; private set; }
-
-        public void Script(Action<ITelemetrySample> collect)
-        {
-            _collect = collect;
-        }
-
-        public void Collect(ITelemetrySample sample)
-        {
-            Calls++;
-            _collect(sample);
-        }
-    }
-
-    public class ManualClock : ITelemetryClock
-    {
-        public long ElapsedMilliseconds { get; private set; }
-        public int Restarts { get; private set; }
-
-        public void Set(long milliseconds)
-        {
-            ElapsedMilliseconds = milliseconds;
-        }
-
-        public void Restart()
-        {
-            Restarts++;
-            ElapsedMilliseconds = 0;
-        }
-    }
-
-    public class ManualWallClock : ITelemetryWallClock
-    {
-        public long NowMilliseconds { get; private set; }
-
-        public void Set(long milliseconds)
-        {
-            NowMilliseconds = milliseconds;
-        }
-    }
-
-    // The storage of the page: shared by two fixtures, it is a page that died and the next one.
-    public class MemoryTraceStore : ITelemetryTraceStore
-    {
-        public string Text { get; private set; }
-
-        public string Read()
-        {
-            return Text;
-        }
-
-        public void Write(string text)
-        {
-            Text = text;
-        }
-
-        public void Clear()
-        {
-            Text = null;
-        }
-    }
-
-    public class FixedDeviceSource : ITelemetryDeviceSource
-    {
-        public FixedDeviceSource(TelemetryDevice device)
-        {
-            _device = device;
-        }
-
-        private readonly TelemetryDevice _device;
-
-        public TelemetryDevice Read()
-        {
-            return _device;
-        }
-    }
-
-    public class FakeTelemetryPage : ITelemetryPage
-    {
-        private readonly EventSource _becameHidden = new EventSource();
-        private readonly EventSource<TelemetryPageEvent> _lifecycle = new EventSource<TelemetryPageEvent>();
-        private readonly EventSource<TelemetryCanvasSize> _resized = new EventSource<TelemetryCanvasSize>();
-
-        public bool IsHidden { get; private set; }
-        public IEventSource BecameHidden => _becameHidden;
-        public IEventSource<TelemetryPageEvent> Lifecycle => _lifecycle;
-        public IEventSource<TelemetryCanvasSize> Resized => _resized;
-
-        public void Fire(TelemetryPageEvent kind)
-        {
-            _lifecycle.Invoke(kind);
-        }
-
-        public void Resize(TelemetryCanvasSize size)
-        {
-            _resized.Invoke(size);
-        }
-
-        public void Hide()
-        {
-            IsHidden = true;
-            _becameHidden.Invoke();
-        }
-
-        public void Show()
-        {
-            IsHidden = false;
         }
     }
 }

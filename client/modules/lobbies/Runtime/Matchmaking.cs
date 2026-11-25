@@ -5,13 +5,6 @@ using Shared;
 
 namespace Global.Lobbies
 {
-    // The socket of the meta the requests go through: the game registers its meta backend as this (the connection
-    // is the current one, a reconnected socket is a new connection).
-    public interface IMetaSocket
-    {
-        INetworkConnection Connection { get; }
-    }
-
     public interface IMatchmaking
     {
         // Every request is a meta command answered by its result: a failed command throws NetworkRequestException,

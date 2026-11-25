@@ -3,15 +3,6 @@ using Shared;
 
 namespace Internal
 {
-    public interface INetworkEntityIds
-    {
-        int GetEntityId();
-
-        // the local user has returned to its seat, its range is used up to the counter (LocalUpdate): the next
-        // ids go on after it. Only before the first id of this session.
-        void Continue(int counter);
-    }
-
     // Ids of the entities this client creates (its own and the session ones): the range of the local user
     // (SharedEntityIds), checked by the backend. A counter past the range is an exception, never an id of
     // another user.

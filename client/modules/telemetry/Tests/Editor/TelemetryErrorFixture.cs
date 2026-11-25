@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Internal;
 
 namespace Global.Telemetry.Tests
@@ -44,33 +43,5 @@ namespace Global.Telemetry.Tests
             Clock.Set(time);
             Pump.Pump();
         }
-    }
-
-    public class RecordingErrors : ITelemetryErrors
-    {
-        public List<ErrorEntry> Entries { get; } = new List<ErrorEntry>();
-
-        public void Add(TelemetryErrorLevel level, string category, string message, string stack, int repeat)
-        {
-            Entries.Add(new ErrorEntry(level, category, message, stack, repeat));
-        }
-    }
-
-    public class ErrorEntry
-    {
-        public ErrorEntry(TelemetryErrorLevel level, string category, string message, string stack, int repeat)
-        {
-            Level = level;
-            Category = category;
-            Message = message;
-            Stack = stack;
-            Repeat = repeat;
-        }
-
-        public TelemetryErrorLevel Level { get; }
-        public string Category { get; }
-        public string Message { get; }
-        public string Stack { get; }
-        public int Repeat { get; }
     }
 }

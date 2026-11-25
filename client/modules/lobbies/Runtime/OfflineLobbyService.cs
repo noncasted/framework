@@ -6,25 +6,6 @@ using Shared;
 
 namespace Global.Lobbies
 {
-    // The match sessions of the offline local game server: created by the lobby of the offline mode when its countdown
-    // reaches zero. Implemented by the game (its offline backend).
-    public interface IOfflineLobbyMatches
-    {
-        OfflineLobbyMatch CreateMatch();
-    }
-
-    public readonly struct OfflineLobbyMatch
-    {
-        public OfflineLobbyMatch(string serverUrl, Guid sessionId)
-        {
-            ServerUrl = serverUrl;
-            SessionId = sessionId;
-        }
-
-        public readonly string ServerUrl;
-        public readonly Guid SessionId;
-    }
-
     // Network service "Lobby" of an offline lobby: the backend Game.Lobbies.LobbyService for one user (see its
     // comments for the contract). The leader is the only user; the start counts down and creates a match on the
     // local game server. Nothing is listed: nobody else can see the lobby, nobody joins a running match late (no lobby

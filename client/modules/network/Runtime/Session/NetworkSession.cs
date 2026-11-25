@@ -70,12 +70,4 @@ namespace Internal
                 throw new OperationCanceledException("[Network] [Session] The connection is lost before the local user data");
         }
     }
-
-    public static class SessionContextExtensions
-    {
-        public static int LocalIndex(this INetworkSession context)
-        {
-            return context.Users.Local.Index;
-        }
-    }
 }

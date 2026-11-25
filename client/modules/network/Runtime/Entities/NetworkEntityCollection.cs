@@ -2,13 +2,6 @@
 
 namespace Internal
 {
-    public interface INetworkEntitiesCollection
-    {
-        IReadOnlyDictionary<int, INetworkEntity> Entries { get; }
-
-        void Add(INetworkEntity entity);
-    }
-
     public class NetworkEntityCollection : INetworkEntitiesCollection
     {
         private readonly Dictionary<int, INetworkEntity> _entries = new();

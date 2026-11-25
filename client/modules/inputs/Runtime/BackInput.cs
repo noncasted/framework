@@ -5,15 +5,6 @@ using UnityEngine;
 
 namespace Global.Inputs
 {
-    public enum BackInputKind
-    {
-        // Close the window on top, go back a step: Esc, gamepad B, gamepad Menu (Start).
-        Back,
-
-        // Open the pause (and, as Back, close what is open): Esc, gamepad Menu (Start). Gamepad B is not a pause.
-        Pause
-    }
-
     // The one "back / pause" signal of the game, for every scheme and outside a match too (menus, panels, windows).
     // A frame signal, polled like Input.GetKeyDown: true during the whole frame of the press for every reader.
     // A pause is a back too: IsBackPressed is true whenever IsPausePressed is.

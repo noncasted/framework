@@ -3,20 +3,11 @@ using Cysharp.Threading.Tasks;
 
 namespace Internal
 {
-    public interface INetworkSessionCallbackEntry
-    {
-    }
-
     public interface INetworkSessionCallbacks
     {
         void Register(INetworkSessionCallbackEntry callback);
 
         UniTask InvokeSessionSetupCompleted(IReadOnlyLifetime lifetime);
-    }
-
-    public interface INetworkSessionSetupCompleted : INetworkSessionCallbackEntry
-    {
-        UniTask OnSessionSetupCompleted(IReadOnlyLifetime lifetime);
     }
 
     public class NetworkSessionCallbacks : INetworkSessionCallbacks

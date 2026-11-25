@@ -94,14 +94,4 @@ namespace Internal
             _client.Send(MemoryPackSerializer.Serialize(message));
         }
     }
-
-    public class LocalServerRequestException : Exception
-    {
-        public LocalServerRequestException(ErrorCode code, string message) : base(message)
-        {
-            Code = code;
-        }
-
-        public ErrorCode Code { get; }
-    }
 }
