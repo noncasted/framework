@@ -1,7 +1,7 @@
 #!/bin/bash
 # Make the subagents of audit-swarm visible to Claude Code in the OpenCode Go profile (the `clo` alias) in every project:
-# link them into the user agent folder of that profile. The agents are pinned to a model of OpenCode Go, so they live
-# only in that profile (another profile: CLAUDE_CONFIG_DIR=<dir> install.sh). The sources stay next to the skill, no
+# link them into the user agent folder of that profile. The agents run on the model of the session and are meant for the
+# cheap models of OpenCode Go, so they live only in that profile (another profile: CLAUDE_CONFIG_DIR=<dir> install.sh). The sources stay next to the skill, no
 # project keeps an agents folder for them.
 set -euo pipefail
 

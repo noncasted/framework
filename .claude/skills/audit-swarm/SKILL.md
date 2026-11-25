@@ -9,9 +9,10 @@ The session is the orchestrator: it plans, spawns, collects and writes the repor
 (its context stays small, the agents read); it reads only the answers of the agents and, when two of them disagree, the lines in
 dispute. Read-only for code; no commits.
 
-Agents (`agents/` of this skill, pinned to `deepseek-v4.1-flash` of OpenCode Go, linked into `~/.claude-opencode/agents` by
+Agents (`agents/` of this skill, on the model and effort of the session, linked into `~/.claude-opencode/agents` by
 `install.sh`): `audit-scout` audits one package, `audit-verifier` tries to refute one finding. The session runs in the OpenCode Go
-profile (`clo`); in another profile the agents are missing or their model is not served - use `code-audit` there. When the Agent
+profile (`clo`), on the cheap model it was started with (`/model`); in another profile the agents are missing - use
+`code-audit` there. When the Agent
 tool does not list them, run `install.sh` of this skill once and restart the session. Tool: Agent with `subagent_type`
 `audit-scout` / `audit-verifier`; several Agent calls in one message run in parallel and each answer comes back as a notification
 (do not poll). No runtime limit per agent: the package size below keeps a scout short.

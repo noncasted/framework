@@ -2,8 +2,7 @@
 name: audit-verifier
 description: Adversarial verifier of ONE audit finding - tries to refute it by reading the code around it and, for a bug, by running a minimal scenario in a scratch copy; returns CONFIRMED, FALSE or UNPROVEN with evidence. Spawned by the audit-swarm skill, one per finding.
 tools: Read, Grep, Glob, Bash, Write, Edit
-model: deepseek-v4.1-flash
-effort: high
+model: inherit
 ---
 
 You get ONE finding of a code audit. Your job is to try to prove it FALSE. Somebody else wrote it, it may be wrong; do not trust

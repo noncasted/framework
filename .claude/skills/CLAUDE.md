@@ -9,6 +9,7 @@ look), `.claude/code-audit.json` (folders of the dependency check, namespaces of
 patches); `${CLAUDE_PROJECT_DIR}` for absolute paths.
 
 Cheap agents run in Claude Code on OpenCode Go: the profile `~/.claude-opencode` (the `clo` alias), never the profile of the
-Anthropic subscription. The subagents of the skill `audit-swarm` (`audit-scout`, `audit-verifier`, pinned to a model of OpenCode Go)
+Anthropic subscription. In that profile every subagent runs on the model and effort of the session: a hook of the profile
+drops the `model` / `effort` of an Agent call, so the per-step models of `orchestrate` apply only in the Anthropic profile. The subagents of the skill `audit-swarm` (`audit-scout`, `audit-verifier`, on the model of the session)
 live in `.claude/skills/audit-swarm/agents`; its `install.sh`, run once per machine, links them into the user agents of that profile
 (`~/.claude-opencode/agents`), so no project keeps an agents folder for them and the profile of the subscription never sees them.

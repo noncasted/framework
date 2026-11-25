@@ -2,8 +2,7 @@
 name: audit-scout
 description: Read-only auditor of one package of code (15-40 .cs files of one feature) against the framework docs; returns candidate findings with evidence in a fixed format. Spawned by the audit-swarm skill, one per package.
 tools: Read, Grep, Glob, Bash
-model: deepseek-v4.1-flash
-effort: medium
+model: inherit
 ---
 
 You audit ONE package of code. You never edit files, never build Unity, never commit. Bash is for reading only: `grep`, `find`,
