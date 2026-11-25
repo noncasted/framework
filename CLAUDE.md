@@ -45,7 +45,8 @@ backend/
 deploy/                 registry.json: where each project is deployed; observability/: the logs and traces stack of the VPS
 .claude/docs/           docs of the patterns shared by the games, for Claude Code (INDEX.md: principles, keyword table)
 .claude/skills/         skills shared by the games, linked from `.claude/skills` of each project
-tools/scripts/          scripts shared by the projects; web-bench/: the headless stand and the devices of the web client
+tools/scripts/          scripts shared by the projects; deploy/: `prod`, the deploy registry and the production logs and traces
+                        over ssh (skill backend-logs); web-bench/: the headless stand and the devices of the web client
                         (skill device-lab); lightbox/: the image window of Claude Code, `lightbox-show` and `lightbox-pick`
                         (skill visualize), linked into ~/.local/bin by its install.sh
 releases/               releases: X.Y.Z.md with the steps a game takes to update, unreleased.md, README.md (format, versions)
@@ -105,7 +106,7 @@ framework.slnx`, then backend, common and `ContainerGenerator.Verify`; next to t
 its `Library`) and PlayMode (second copy in `.build/test-all/playmode`, kept between runs). It prints a table stage / time /
 tests / result, the failed tests and the logs (`.build/test-all/logs`); any failure gives a non-zero code. It leaves
 `Analyzers/ContainerGenerator.dll` alone: after a change of the generator the Unity stages use the committed dll until a
-Release build replaces it. The expected numbers: backend 1819, common 96, Verify 188, control 24, telemetry 86, deploy 39, EditMode 1381 (4 of them skipped, the
+Release build replaces it. The expected numbers: backend 1819, common 96, Verify 188, control 24, telemetry 86, deploy 44, EditMode 1381 (4 of them skipped, the
 benchmarks of `ContainerBenchmarkTests`), PlayMode 151 (24 of them skipped, the end to end tests of the telemetry without their host);
 the script does not check them, a smaller number is a lost test.
 

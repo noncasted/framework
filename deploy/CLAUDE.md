@@ -29,5 +29,6 @@ A game submodule lags behind main, so scripts read the latest main, not the work
 - Secrets stay out: Coolify tokens are in `~/.claude/mcp/coolify.json`; the logs and traces are read over ssh, with no token.
 - `tools/scripts/deploy/prod registry verify` (skill `backend-logs`) checks the registry against both Coolify: every uuid
   exists with its type and project name, and no Coolify project or resource is missing here. Run it after a change of the
-  registry or of a Coolify project.
+  registry or of a Coolify project; it reads origin/main, so a change not pushed yet is checked with
+  `--registry deploy/registry.json`.
 - `deploy/observability/` holds the logs/traces stack, installed on both servers (its README.md).

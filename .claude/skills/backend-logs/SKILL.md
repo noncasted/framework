@@ -12,7 +12,8 @@ and in `common.py`; the stack, its fields and LogsQL examples are in `deploy/obs
 
 - The project is the repository of the current directory (by its origin, so a worktree of a game works), or `--project <key>`
   of `deploy/registry.json`. Every query is limited to its `service.namespace` by the store, not by the query text.
-- The registry is read from `origin/main` of the framework (fetched at most every 5 minutes), not from the submodule.
+- The registry is read from `origin/main` of the framework (fetched at most every 5 minutes, `--refresh` fetches now; a
+  registry just pushed needs it), not from the submodule; `--registry deploy/registry.json` reads a change not pushed yet.
 - The stores are read through `ssh -N -L` to the alias of the server, opened for one command and closed after it. No tokens.
   An ssh, network or query error is printed with a non-zero exit: report it, do not retry blindly.
 - Times are UTC. A log is searchable seconds after it is written, a span 20-30 s after the end of its trace.

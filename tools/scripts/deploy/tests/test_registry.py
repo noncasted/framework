@@ -88,8 +88,8 @@ class Load(Base):
         subprocess.run([*git, "commit", "-q", "-m", "registry"], check=True)
         subprocess.run([*git, "push", "-q", "origin", "HEAD:main"], check=True, capture_output=True)
 
-    def another_clone(self):
-        clone = self.temp / "another"
+    def another_clone(self, name="another"):
+        clone = self.temp / name
         subprocess.run(["git", "clone", "-q", str(self.origin), str(clone)], check=True, capture_output=True)
 
         return clone
@@ -111,10 +111,31 @@ class Load(Base):
             cached = registry.load()
 
             with mock.patch.object(registry, "FETCH_SECONDS", 0):
-                fresh = registry.load()
+                stale = registry.load()
+
+            self.push_registry(self.another_clone("third"), {"servers": {}, "projects": {"third": {}}})
+            forced = registry.load(refresh=True)
 
         self.assertEqual(["first"], list(cached["projects"]))
-        self.assertEqual(["second"], list(fresh["projects"]))
+        self.assertEqual(["second"], list(stale["projects"]))
+        self.assertEqual(["third"], list(forced["projects"]))
+
+    def test_a_fetch_of_someone_else_does_not_count(self):
+        # FETCH_HEAD is fresh after any fetch, of another branch too; only the stamp of this script says main was fetched.
+        work = self.framework({"servers": {}, "projects": {"first": {}}})
+        subprocess.run(["git", "-C", str(work), "fetch", "-q", "origin"], check=True)
+        self.push_registry(self.another_clone(), {"servers": {}, "projects": {"second": {}}})
+
+        with mock.patch.object(registry, "FRAMEWORK", work):
+            loaded = registry.load()
+
+        self.assertEqual(["second"], list(loaded["projects"]))
+
+    def test_a_missing_registry_file(self):
+        result = self.run_cli("registry", "show", "--registry", str(self.temp / "absent.json"))
+
+        self.assert_code(result, "usage")
+        self.assertIn(f"cannot read the registry {self.temp / 'absent.json'}: No such file or directory", result.stderr)
 
     def test_a_failed_fetch_is_an_error(self):
         work = self.framework({"servers": {}, "projects": {}})

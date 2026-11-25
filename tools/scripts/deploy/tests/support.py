@@ -33,10 +33,12 @@ class Base(unittest.TestCase):
     def write_registry(self):
         self.registry.write_text(json.dumps(self.registry_data))
 
+    def run_env(self):
+        return {"PATH": os.environ["PATH"], "HOME": str(self.temp), "GIT_CEILING_DIRECTORIES": str(self.temp)}
+
     def run_cli(self, *arguments, cwd=None, env=None, secret=None):
-        base = {"PATH": os.environ["PATH"], "HOME": str(self.temp), "GIT_CEILING_DIRECTORIES": str(self.temp)}
         result = subprocess.run([sys.executable, str(SCRIPT), *arguments], capture_output=True, text=True, timeout=60,
-                                cwd=cwd or self.cwd, env={**base, **(env or {})})
+                                cwd=cwd or self.cwd, env={**self.run_env(), **(env or {})})
         self.assertNotIn("Traceback", result.stderr)
 
         if secret:

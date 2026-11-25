@@ -21,7 +21,7 @@ _FOLLOW_SECONDS = 2.0
 
 
 def registry_show(args):
-    data = registry.load(args.registry)
+    data = registry.load(args.registry, args.refresh)
     name = args.name or registry.current(data, Path.cwd())
 
     if name:
@@ -33,7 +33,7 @@ def registry_show(args):
 
 
 def registry_verify(args):
-    data = registry.load(args.registry)
+    data = registry.load(args.registry, args.refresh)
     panels = coolify.panels(args.coolify_config)
     answers = {}
 
@@ -56,7 +56,8 @@ def errors(args):
     with stores as urls:
         found = api.logs(urls.logs, target.namespace, args.service).query(queries.errors(args.limit), args.since)
 
-    _print([_where(target), *text.error_groups(found, args.since, target.namespace)])
+    _print([_where(target), *text.error_groups(found, args.since, target.namespace),
+            *_cut(found, args.limit, f"(only the {args.limit} most frequent templates: raise --limit for the rest)")])
 
     return 0
 
@@ -142,7 +143,7 @@ def _spans(urls, target, args):
 
 
 def _open(args):
-    data = registry.load(args.registry)
+    data = registry.load(args.registry, args.refresh)
     target = registry.target(data, args.project, Path.cwd(), args.namespace)
 
     if args.logs_url:
@@ -160,8 +161,10 @@ def _absent(trace_id, target, since, what):
             f" a span is searchable 20-30 s after the end of its trace, an older one needs --since (spans live 14d, logs 30d)")
 
 
-def _cut(found, limit):
-    return [f"(only the newest {limit} rows: narrow the query or the time)"] if limit and len(found) >= limit else []
+def _cut(found, limit, note=None):
+    note = note or f"(only the newest {limit} rows: narrow the query or the time)"
+
+    return [note] if limit and len(found) >= limit else []
 
 
 def _print(lines):

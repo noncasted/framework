@@ -1,11 +1,14 @@
 # The store commands (errors, logs, trace, around, tail) against fake stores answering recorded rows, directly and through
 # the ssh tunnel (fake_ssh):
 #   python3 -m unittest discover -s tools/scripts/deploy/tests
+import signal
 import socket
+import subprocess
 import sys
+import time
 from unittest import mock
 
-from support import TESTS, Base  # first: it puts the scripts on the path
+from support import SCRIPT, TESTS, Base  # first: it puts the scripts on the path
 
 import commands  # noqa: E402
 import trace_text  # noqa: E402
@@ -38,7 +41,7 @@ class Errors(Stores):
         self.assert_code(result, "ok")
         self.assertEqual([
             "[pixel-swarm on ovh, namespace pixel-swarm]",
-            "4 warnings and errors of pixel-swarm in the last 1h, 3 templates (count, last, service, level):",
+            "4 warnings and errors of pixel-swarm in the last 1h in the top 3 templates (count, last, service, level):",
             "    2  11-25 05:25:17.564  silo  Warning  Lobby <N> is full: <N> of <N> players",
             "       e.g. Lobby 17 is full: 8 of 8 players",
             "    1  11-25 05:25:17.565  silo  Warning  Slow grain call LobbyGrain.Join took <N> ms",
@@ -55,6 +58,20 @@ class Errors(Stores):
         self.assertIn("collapse_nums at template", form["query"])
         self.assertIn("limit 30", form["query"])
         self.assertEqual([], self.traces.requests)
+
+    def test_a_full_top_says_there_may_be_more(self):
+        self.logs.answer = lambda form: rows("errors.jsonl")
+
+        result = self.run_store("errors", "--limit", "3")
+
+        self.assertEqual("(only the 3 most frequent templates: raise --limit for the rest)", result.stdout.splitlines()[-1])
+
+    def test_the_namespace_of_another_project_is_refused(self):
+        result = self.run_store("errors", "--namespace", "mines-leader")
+
+        self.assert_code(result, "usage")
+        self.assertIn("the namespace mines-leader belongs to mines-leader: pass --project mines-leader", result.stderr)
+        self.assertEqual([], self.logs.requests)
 
     def test_one_service_over_a_day(self):
         result = self.run_store("errors", "--service", "meta", "--since", "1d", "--limit", "5")
@@ -275,6 +292,24 @@ class Tunnel(Stores):
         for forward in forwards:
             with socket.socket() as probe:
                 self.assertNotEqual(0, probe.connect_ex(("127.0.0.1", int(forward.split(":")[0]))))
+
+    def test_a_terminated_command_closes_its_ssh(self):
+        self.logs.answer = lambda form: rows("tail.jsonl")
+        process = subprocess.Popen([sys.executable, str(SCRIPT), "tail", "--follow", "--registry", str(self.registry), "--project",
+                                    "pixel-swarm"], cwd=self.cwd, env={**self.run_env(), **self.ssh_env},
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.addCleanup(process.kill)
+        deadline = time.monotonic() + 20
+
+        while not self.logs.requests and time.monotonic() < deadline:
+            time.sleep(0.05)
+
+        process.send_signal(signal.SIGTERM)
+        _, errors = process.communicate(timeout=20)
+
+        self.assertEqual(128 + signal.SIGTERM, process.returncode, errors)
+        self.assertNotIn("Traceback", errors)
+        self.assertEqual("closed", self.ssh_log.read_text().splitlines()[-1])
 
     def test_an_ssh_that_fails(self):
         result = self.run_tunnel("errors", FAKE_SSH_FAIL="ssh: Could not resolve hostname ovh: Name or service not known")

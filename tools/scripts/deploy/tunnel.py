@@ -48,7 +48,13 @@ class Tunnel:
                    "-o", "ConnectTimeout=10", *forwards, self._alias]
         self._process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
                                          text=True)
-        self._wait(ports)
+
+        try:
+            self._wait(ports)
+        except BaseException:
+            # A failure or a signal before the `with` is entered: __exit__ will not run, the ssh is closed here.
+            self._close()
+            raise
 
         return Stores(*(f"http://127.0.0.1:{port}" for port in ports))
 
@@ -70,7 +76,6 @@ class Tunnel:
 
             time.sleep(_POLL_SECONDS)
 
-        self._close()
         raise Failure(SERVICE, f"ssh {self._alias}: the forwarded ports did not open in {_READY_SECONDS} s")
 
     def _close(self):

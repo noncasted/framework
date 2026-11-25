@@ -13,6 +13,9 @@ FRAMEWORK = Path(__file__).resolve().parents[3]
 _PATH = "deploy/registry.json"
 # A fetch costs a round trip to GitHub (10 s where git waits for IPv6 first); origin/main of the last few minutes is fresh enough.
 FETCH_SECONDS = 300
+# Written in the git folder of the framework after a fetch of main by this script: another fetch (of a branch, of the IDE)
+# may not move origin/main, so FETCH_HEAD says nothing about its age.
+_STAMP = "deploy-registry.fetched"
 _NAMESPACE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _REMOTE = re.compile(r"[:/]([^/:]+/[^/]+?)(?:\.git)?/?$")
 
@@ -27,12 +30,20 @@ class Target:
         self.namespace = namespace
 
 
-def load(path=None):
+def load(path=None, refresh=False):
     if path:
-        return _parse(Path(path).read_text(), str(path))
+        try:
+            text = Path(path).read_text()
+        except OSError as error:
+            raise Failure(USAGE, f"cannot read the registry {path}: {error.strerror}") from None
 
-    if _fetch_age() > FETCH_SECONDS:
+        return _parse(text, str(path))
+
+    stamp = Path(_git("rev-parse", "--path-format=absolute", "--git-path", _STAMP).strip())
+
+    if refresh or not stamp.exists() or time.time() - stamp.stat().st_mtime > FETCH_SECONDS:
         _git("fetch", "-q", "origin", "main")
+        stamp.touch()
 
     return _parse(_git("show", f"origin/main:{_PATH}"), f"origin/main:{_PATH} of {FRAMEWORK}")
 
@@ -77,7 +88,7 @@ def target(registry, name, directory, namespace=None):
     if project.get("deployed", True) is False:
         raise Failure(USAGE, f"{name} is not deployed ({project.get('note', 'deployed: false')})")
 
-    namespace = namespace or project["namespace"]
+    namespace = _namespace(registry, name, namespace)
 
     if not _NAMESPACE.match(namespace):
         raise Failure(USAGE, f"a namespace is lowercase letters, digits and dashes, not {namespace!r}")
@@ -85,6 +96,21 @@ def target(registry, name, directory, namespace=None):
     server_key = project["server"]
 
     return Target(name, project, server_key, registry["servers"][server_key], namespace)
+
+
+def _namespace(registry, name, override):
+    # An override reads a namespace nobody owns (smoke-test), never the logs of another project under the name of this one.
+    own = registry["projects"][name]["namespace"]
+
+    if not override or override == own:
+        return own
+
+    owners = [other for other, project in registry["projects"].items() if project.get("namespace") == override]
+
+    if owners:
+        raise Failure(USAGE, f"the namespace {override} belongs to {owners[0]}: pass --project {owners[0]}")
+
+    return override
 
 
 def _parse(text, origin):
@@ -98,13 +124,6 @@ def _parse(text, origin):
             raise Failure(SERVICE, f"{origin} has no {key}")
 
     return registry
-
-
-def _fetch_age():
-    # Any fetch of origin (refs/heads/* by default) refreshes origin/main and touches FETCH_HEAD.
-    fetch_head = Path(_git("rev-parse", "--path-format=absolute", "--git-path", "FETCH_HEAD").strip())
-
-    return time.time() - fetch_head.stat().st_mtime if fetch_head.exists() else float("inf")
 
 
 def _git(*arguments):

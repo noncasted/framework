@@ -10,9 +10,11 @@
 # The store commands take [--project P] (default: the repository of the current directory) and the test aids
 # [--namespace N] (another service.namespace on the server of the project, e.g. smoke-test) and
 # [--logs-url U --traces-url U] (stores reachable without the ssh tunnel, a local stack). Every command takes
-# [--registry FILE] (instead of origin/main:deploy/registry.json of the framework).
+# [--registry FILE] (instead of origin/main:deploy/registry.json of the framework: an unpushed registry) and [--refresh]
+# (fetch main now; otherwise at most every 5 minutes).
 import argparse
 import re
+import signal
 import sys
 
 import commands
@@ -56,6 +58,7 @@ def _positive(value):
 def _parser():
     common = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
     common.add_argument("--registry", help="a registry file instead of origin/main:deploy/registry.json")
+    common.add_argument("--refresh", action="store_true", help="fetch origin/main now, not at most every 5 minutes")
 
     stores = argparse.ArgumentParser(add_help=False, allow_abbrev=False, parents=[common])
     stores.add_argument("--project", type=_name)
@@ -98,7 +101,15 @@ def _parser():
     return parser
 
 
+def _exit_on(signal_number, frame):
+    # A kill or a closed terminal unwinds the stack like an exception, so the `with` of the tunnel closes its ssh.
+    raise SystemExit(128 + signal_number)
+
+
 def main():
+    for signal_number in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(signal_number, _exit_on)
+
     parser = _parser()
     args = parser.parse_args()
 

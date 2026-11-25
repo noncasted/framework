@@ -71,7 +71,8 @@ def error_groups(rows, since, namespace):
         return [f"no warnings or errors of {namespace} in the last {since}"]
 
     total = sum(int(row["hits"]) for row in rows)
-    lines = [f"{total} warnings and errors of {namespace} in the last {since}, {len(rows)} templates (count, last, service, level):"]
+    lines = [f"{total} warnings and errors of {namespace} in the last {since} in the top {len(rows)} templates"
+             " (count, last, service, level):"]
 
     for row in rows:
         example = json.loads(row["example"]) if row.get("example") else {}
