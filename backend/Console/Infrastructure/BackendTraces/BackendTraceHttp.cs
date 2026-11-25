@@ -4,14 +4,16 @@ using Microsoft.Extensions.Logging;
 namespace Console.Infrastructure.BackendTraces;
 
 // The HTTP boundary of the sources: one GET of a trace. A network failure, a timeout or an answer other than 200 / 404 is a
-// message of the page, not an exception; the text of a 200 goes to the parser of the store, which throws on another shape.
+// message of the page, not an exception; the text of a 200 goes to the parser of the store, which throws on another shape. The
+// spans of a 200 are the tree of the trace, none of them is a trace the store does not have.
 public static class BackendTraceHttp
 {
     public static async Task<BackendTraceResult> Read(
         HttpClient client,
         string path,
+        string traceId,
         BackendTraceStore store,
-        Func<string, BackendTraceResult> parse,
+        Func<string, IReadOnlyList<BackendTraceWireSpan>> parse,
         ILogger logger,
         CancellationToken cancellation)
     {
@@ -38,7 +40,12 @@ public static class BackendTraceHttp
             return Failed(logger, path, $"{store.Name} has not answered in {client.Timeout.TotalSeconds:0} s");
         }
 
-        return parse(json);
+        var spans = parse(json);
+
+        if (spans.Count == 0)
+            return new BackendTraceResult.NotFound(store.NotFound);
+
+        return new BackendTraceResult.Found(BackendTraceAssembler.Assemble(traceId, spans));
     }
 
     private static BackendTraceResult Failed(ILogger logger, string path, string message)

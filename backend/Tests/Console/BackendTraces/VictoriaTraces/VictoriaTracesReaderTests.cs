@@ -46,9 +46,11 @@ public class VictoriaTracesReaderTests
     [Fact]
     public async Task NotFound_IsATraceNotIndexedYet_OrPastTheRetention()
     {
-        var result = await Source(FakeTraceStoreHandler.Status(HttpStatusCode.NotFound, NotFoundAnswer)).Read(TraceId, CancellationToken.None);
+        var notFound = await Source(FakeTraceStoreHandler.Status(HttpStatusCode.NotFound, NotFoundAnswer)).Read(TraceId, CancellationToken.None);
+        var noSpans = await Source(FakeTraceStoreHandler.Status(HttpStatusCode.OK, Answer([]))).Read(TraceId, CancellationToken.None);
 
-        Assert.Contains("20-30 s after its last span", Assert.IsType<BackendTraceResult.NotFound>(result).Message);
+        Assert.Contains("20-30 s after its last span", Assert.IsType<BackendTraceResult.NotFound>(notFound).Message);
+        Assert.Contains("20-30 s after its last span", Assert.IsType<BackendTraceResult.NotFound>(noSpans).Message);
     }
 
     [Fact]

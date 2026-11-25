@@ -5,7 +5,7 @@ namespace Console.Infrastructure.BackendTraces.VictoriaTraces;
 // The answer of GET /select/jaeger/api/traces/{id} of VictoriaTraces v0.13: {"data": [{"processes": {...}, "spans": [...]}]} in
 // the Jaeger JSON. Times are microseconds; the parent is the CHILD_OF reference in the same trace (an OTLP link comes as
 // FOLLOWS_FROM to another trace); the scope, the kind and the status come as tags, which are no attributes of the span here.
-// A pure function of the text: a trace without spans is not found, a text of another shape throws.
+// A pure function of the text: the spans in the order of the answer, none for a trace without spans; a text of another shape throws.
 public static class VictoriaTracesParser
 {
     private const ulong _nanosPerMicro = 1_000;
@@ -13,18 +13,14 @@ public static class VictoriaTracesParser
     private const string _errorTag = "error";
     private const string _statusMessageTag = "otel.status_description";
 
-    // The tags VictoriaTraces derives from the fields of an OTLP span.
-    private static readonly HashSet<string> _spanFieldTags = [_scopeTag, _errorTag, _statusMessageTag, "span.kind"];
+    // The tags VictoriaTraces derives from the fields of an OTLP span and its scope (spanAttributeMap of its model.go).
+    private static readonly HashSet<string> _spanFieldTags = [_scopeTag, "otel.scope.version", _errorTag, _statusMessageTag, "span.kind", "w3c.tracestate"];
 
-    public static BackendTraceResult Parse(string traceId, string json)
+    public static IReadOnlyList<BackendTraceWireSpan> Parse(string json)
     {
         using var document = JsonDocument.Parse(json);
-        var spans = document.RootElement.GetProperty("data").EnumerateArray().SelectMany(Spans).ToArray();
 
-        if (spans.Length == 0)
-            return new BackendTraceResult.NotFound(VictoriaTracesReader.Store.NotFound);
-
-        return new BackendTraceResult.Found(BackendTraceAssembler.Assemble(traceId, spans));
+        return document.RootElement.GetProperty("data").EnumerateArray().SelectMany(Spans).ToArray();
     }
 
     private static IEnumerable<BackendTraceWireSpan> Spans(JsonElement trace)

@@ -25,7 +25,7 @@ public class BackendTraceViewTests
         failing["status"] = new { code = 2, message = "boom" };
         failing["attributes"] = new[] { Attribute("meta.auth.status", new { stringValue = "Ok" }) };
 
-        return Assert.IsType<BackendTraceResult.Found>(AspireDashboardTraceParser.Parse(TraceId, Answer(Resource("meta", Span("a", null, 0, 200), failing))));
+        return new BackendTraceResult.Found(BackendTraceAssembler.Assemble(TraceId, AspireDashboardTraceParser.Parse(Answer(Resource("meta", Span("a", null, 0, 200), failing)))));
     }
 
     [Fact]

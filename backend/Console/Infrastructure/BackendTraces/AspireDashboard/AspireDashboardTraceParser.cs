@@ -3,18 +3,14 @@ using System.Text.Json;
 namespace Console.Infrastructure.BackendTraces.AspireDashboard;
 
 // The answer of GET /api/telemetry/traces/{id} of the Aspire dashboard: {"data": {"resourceSpans": [...]}} in OTLP JSON. A pure
-// function of the text: a trace without spans is not found, a text of another shape throws.
+// function of the text: the spans in the order of the answer, none for a trace without spans; a text of another shape throws.
 public static class AspireDashboardTraceParser
 {
-    public static BackendTraceResult Parse(string traceId, string json)
+    public static IReadOnlyList<BackendTraceWireSpan> Parse(string json)
     {
         using var document = JsonDocument.Parse(json);
-        var spans = Spans(document.RootElement.GetProperty("data")).ToArray();
 
-        if (spans.Length == 0)
-            return new BackendTraceResult.NotFound(AspireDashboardTraceReader.Store.NotFound);
-
-        return new BackendTraceResult.Found(BackendTraceAssembler.Assemble(traceId, spans));
+        return Spans(document.RootElement.GetProperty("data")).ToArray();
     }
 
     private static IEnumerable<BackendTraceWireSpan> Spans(JsonElement data)

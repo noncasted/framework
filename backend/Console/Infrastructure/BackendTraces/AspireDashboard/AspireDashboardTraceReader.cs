@@ -24,8 +24,9 @@ public sealed class AspireDashboardTraceReader : IBackendTraceSource
         return BackendTraceHttp.Read(
             _clients.CreateClient(HttpClientName),
             $"api/telemetry/traces/{Uri.EscapeDataString(traceId)}",
+            traceId,
             Store,
-            json => AspireDashboardTraceParser.Parse(traceId, json),
+            AspireDashboardTraceParser.Parse,
             _logger,
             cancellation);
     }

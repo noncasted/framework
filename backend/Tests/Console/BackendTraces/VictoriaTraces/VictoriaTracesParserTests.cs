@@ -12,7 +12,7 @@ public class VictoriaTracesParserTests
 
     private static BackendTrace Found(string json)
     {
-        return Assert.IsType<BackendTraceResult.Found>(VictoriaTracesParser.Parse(TraceId, json)).Trace;
+        return BackendTraceAssembler.Assemble(TraceId, VictoriaTracesParser.Parse(json));
     }
 
     // victoria_trace.json is the answer of victoria-traces v0.13.0 to the OTLP trace of victoria_trace_fixture.py.
@@ -70,7 +70,8 @@ public class VictoriaTracesParserTests
     [Fact]
     public void TheTagsOfTheSpanFields_AreNoAttributes_AndAnErrorWithoutAMessage_IsAnError()
     {
-        var span = Span("a", null, 0, 1, "p1", ("span.kind", "server"), ("otel.scope.name", "Scope"), ("error", "true"), ("count", 3), ("flag", false));
+        var span = Span("a", null, 0, 1, "p1", ("span.kind", "server"), ("otel.scope.name", "Scope"), ("otel.scope.version", "1.2.0"),
+            ("w3c.tracestate", "vendor=value"), ("error", "true"), ("count", 3), ("flag", false));
 
         var read = Found(Answer(_meta, span)).Spans.Single();
 
@@ -89,15 +90,15 @@ public class VictoriaTracesParserTests
     }
 
     [Fact]
-    public void NoSpans_IsNotFound()
+    public void NoSpans_AreNoSpans()
     {
-        Assert.IsType<BackendTraceResult.NotFound>(VictoriaTracesParser.Parse(TraceId, Answer(_meta)));
+        Assert.Empty(VictoriaTracesParser.Parse(Answer(_meta)));
     }
 
     [Fact]
     public void AnAnswerOfAnotherShape_Throws()
     {
-        Assert.Throws<KeyNotFoundException>(() => VictoriaTracesParser.Parse(TraceId, "{}"));
-        Assert.Throws<KeyNotFoundException>(() => VictoriaTracesParser.Parse(TraceId, "{\"data\":[{\"spans\":[]}]}"));
+        Assert.Throws<KeyNotFoundException>(() => VictoriaTracesParser.Parse("{}"));
+        Assert.Throws<KeyNotFoundException>(() => VictoriaTracesParser.Parse("{\"data\":[{\"spans\":[]}]}"));
     }
 }

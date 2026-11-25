@@ -25,8 +25,9 @@ public sealed class VictoriaTracesReader : IBackendTraceSource
         return BackendTraceHttp.Read(
             _clients.CreateClient(HttpClientName),
             $"select/jaeger/api/traces/{Uri.EscapeDataString(traceId)}",
+            traceId,
             Store,
-            json => VictoriaTracesParser.Parse(traceId, json),
+            VictoriaTracesParser.Parse,
             _logger,
             cancellation);
     }

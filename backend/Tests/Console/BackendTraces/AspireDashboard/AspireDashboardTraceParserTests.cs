@@ -12,7 +12,7 @@ public class AspireDashboardTraceParserTests
 
     private static BackendTrace Found(string json)
     {
-        return Assert.IsType<BackendTraceResult.Found>(AspireDashboardTraceParser.Parse(TraceId, json)).Trace;
+        return BackendTraceAssembler.Assemble(TraceId, AspireDashboardTraceParser.Parse(json));
     }
 
     [Fact]
@@ -117,10 +117,10 @@ public class AspireDashboardTraceParserTests
     }
 
     [Fact]
-    public void NoSpans_IsNotFound()
+    public void NoSpans_AreNoSpans()
     {
-        Assert.IsType<BackendTraceResult.NotFound>(AspireDashboardTraceParser.Parse(TraceId, Answer()));
-        Assert.IsType<BackendTraceResult.NotFound>(AspireDashboardTraceParser.Parse(TraceId, Answer(Resource("meta"))));
+        Assert.Empty(AspireDashboardTraceParser.Parse(Answer()));
+        Assert.Empty(AspireDashboardTraceParser.Parse(Answer(Resource("meta"))));
     }
 
     [Fact]
@@ -138,12 +138,12 @@ public class AspireDashboardTraceParserTests
     [Fact]
     public void AnAnswerOfAnotherShape_Throws()
     {
-        Assert.Throws<KeyNotFoundException>(() => AspireDashboardTraceParser.Parse(TraceId, "{}"));
+        Assert.Throws<KeyNotFoundException>(() => AspireDashboardTraceParser.Parse("{}"));
     }
 
     [Fact]
     public void ACycleOfParents_Throws()
     {
-        Assert.Throws<InvalidOperationException>(() => AspireDashboardTraceParser.Parse(TraceId, Answer(Resource("meta", Span("a", "b", 0, 1), Span("b", "a", 1, 2)))));
+        Assert.Throws<InvalidOperationException>(() => Found(Answer(Resource("meta", Span("a", "b", 0, 1), Span("b", "a", 1, 2)))));
     }
 }

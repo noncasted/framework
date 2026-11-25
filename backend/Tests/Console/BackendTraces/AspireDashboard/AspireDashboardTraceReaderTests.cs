@@ -47,9 +47,11 @@ public class AspireDashboardTraceReaderTests
     [Fact]
     public async Task NotFound_IsATraceGoneFromTheDashboard()
     {
-        var result = await Source(FakeTraceStoreHandler.Status(HttpStatusCode.NotFound)).Read(TraceId, CancellationToken.None);
+        var notFound = await Source(FakeTraceStoreHandler.Status(HttpStatusCode.NotFound)).Read(TraceId, CancellationToken.None);
+        var noSpans = await Source(FakeTraceStoreHandler.Status(HttpStatusCode.OK, Answer(Resource("meta")))).Read(TraceId, CancellationToken.None);
 
-        Assert.Contains("in memory only", Assert.IsType<BackendTraceResult.NotFound>(result).Message);
+        Assert.Contains("in memory only", Assert.IsType<BackendTraceResult.NotFound>(notFound).Message);
+        Assert.Contains("in memory only", Assert.IsType<BackendTraceResult.NotFound>(noSpans).Message);
     }
 
     [Fact]
