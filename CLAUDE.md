@@ -42,6 +42,7 @@ backend/
   ClientTelemetry.TestHost/  the same without a game: Kestrel, a silo, its own PostgreSQL container
   MatchMetrics/         what a game writes about a match: storage, read API (MATCH_METRICS.md; rules in Contract/CONTRACT.md)
   measurements/         the memory of the deployed backends on the Coolify hosts: README.md, RESULTS.md, read-only snapshot tools
+deploy/                 registry.json: where each project is deployed; observability/: the logs and traces stack of the VPS
 .claude/docs/           docs of the patterns shared by the games, for Claude Code (INDEX.md: principles, keyword table)
 .claude/skills/         skills shared by the games, linked from `.claude/skills` of each project
 tools/scripts/          scripts shared by the projects; web-bench/: the headless stand and the devices of the web client
