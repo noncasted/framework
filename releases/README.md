@@ -26,6 +26,7 @@
 | [0.13.0](0.13.0.md) | 2026-11-24 | Очередь игры в быстром поиске; MemoryPack клиента без редких коллекций; Web Stripping Tool 1.4.1 и новые субмодули; `GAMEPLAY_ARCHITECTURE.md`, `/orchestrate --architecture`; Лайтбокс | Да: `ISessionSearch.GetOrCreate(userId, queue, ...)`, `ISessionRequester.Request(userId, queue)`, золотые файлы и хеш протокола |
 | [0.13.1](0.13.1.md) | 2026-11-25 | Каталог спрайтов: клипы полосы PNG (Multiple Animations), `EditorCatalogues.Bind` для каталогов вне Play mode | Нет |
 | [0.14.0](0.14.0.md) | 2026-11-25 | Одна фаза скоупа `IScopeSetup`, порядок - явными вызовами; сохранения грузятся явно (`ISaves.Load`, `AddSaves`); конец сущности доходит до слушателей раньше контейнера и ассетов; `CINGR018`; код лобби возвращается из матча в новое лобби; события сети без источника не теряются | Да: стадии скоупа -> конструктор / `OnSetup` / явные вызовы, `scope.Initialize()` -> `Start`, `await AddItchSaves()`, `ISaves.Load` в фейках, `PassToMatch(…, leaderId, userIds)` |
+| [0.15.0](0.15.0.md) | 2026-11-25 | Логгер клиента: `ILog<T>` от генератора, шаблоны без аллокаций ниже уровня, `Debug` вне release, уровни в `OptionsContainer`; runtime фреймворка на нём; ошибки телеметрии с категорией и шаблоном, марки `log.*` | Да: уровни логов, золотые файлы и `ProtocolHash`, `Logs.Of<X>()` в `new` типов сети и модулей, `EnableLogs` |
 
 ## Версии
 
