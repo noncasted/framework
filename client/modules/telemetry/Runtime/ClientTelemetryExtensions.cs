@@ -95,6 +95,10 @@ namespace Global.Telemetry
                    .As<ITelemetryCollector>()
                    .As<ITelemetryLiveCollector>();
 
+            builder.Register<LogMarkTelemetryCollector>()
+                   .As<ITelemetryCollector>()
+                   .As<ITelemetryLiveCollector>();
+
             builder.Register<TelemetryAddedCollectors>()
                    .As<ITelemetryCollector>()
                    .As<ITelemetryLiveCollector>()

@@ -42,10 +42,10 @@ namespace Global.Telemetry
             _trace.Marked(time, name, cut, durationMs);
         }
 
-        public void AddError(long time, TelemetryErrorLevel level, string message, string stack, int repeat)
+        public void AddError(long time, TelemetryErrorLevel level, string category, string message, string stack, int repeat)
         {
             if (_isOpen)
-                Errors.Add().Set(time, level, message, stack, repeat);
+                Errors.Add().Set(time, level, category, message, stack, repeat);
         }
 
         public void Close()

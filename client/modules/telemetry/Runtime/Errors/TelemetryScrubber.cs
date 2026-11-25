@@ -47,7 +47,8 @@ namespace Global.Telemetry
         private static readonly Regex _doubleQuoted = Rule(@"""[^""\r\n]*""?");
         private static readonly Regex _singleQuoted = Rule(@"(^|[^\w])'[^'\r\n]*'?", _options | RegexOptions.Multiline);
         private static readonly Regex _backticked = Rule(@"(^|[^\w])`[^`\r\n]*`", _options | RegexOptions.Multiline);
-        private static readonly Regex _braced = Rule(@"\{[^{}\r\n]*\}");
+        // A placeholder of a template of the logger ({Code}: an identifier up to 31, what a plain word passes anyway) stays.
+        private static readonly Regex _braced = Rule(@"\{(?![A-Za-z_][A-Za-z0-9_]{0,30}\})[^{}\r\n]*\}");
         private static readonly Regex _angledWithSpace = Rule(@"<[^<>\r\n]*\s[^<>\r\n]*>");
         private static readonly Regex _typographicQuoted = Rule(@"[«“‘„][^»”’\r\n]*[»”’]?");
 

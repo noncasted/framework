@@ -50,7 +50,7 @@ namespace Global.Telemetry.Tests
             for (var time = 0; time < TelemetryLimits.MaxErrorsPerBatch + 5; time++)
             {
                 fixture.Clock.Set(time);
-                fixture.Errors.Add(TelemetryErrorLevel.Error, "failed", null, 1);
+                fixture.Errors.Add(TelemetryErrorLevel.Error, null, "failed", null, 1);
             }
 
             var errors = fixture.Writer.WriteNext().Errors;
@@ -71,7 +71,7 @@ namespace Global.Telemetry.Tests
             fixture.Buffer.Close();
             fixture.Sample(3000, sample => sample.Gauge("a", 3));
             fixture.Telemetry.Mark("a");
-            fixture.Errors.Add(TelemetryErrorLevel.Error, "failed", null, 1);
+            fixture.Errors.Add(TelemetryErrorLevel.Error, null, "failed", null, 1);
 
             Assert.IsNull(fixture.Writer.WriteNext());
         }
@@ -83,7 +83,7 @@ namespace Global.Telemetry.Tests
 
             fixture.Sample(1000, sample => sample.Gauge("a", 1));
             fixture.Telemetry.Mark("a");
-            fixture.Errors.Add(TelemetryErrorLevel.Error, "failed", null, 1);
+            fixture.Errors.Add(TelemetryErrorLevel.Error, null, "failed", null, 1);
 
             Assert.AreEqual(0, fixture.Buffer.Samples.Count);
             Assert.AreEqual(0, fixture.Buffer.Marks.Count);

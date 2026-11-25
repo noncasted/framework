@@ -22,16 +22,16 @@ namespace Global.Telemetry
         // The errors decide: spent warnings only stop the warnings.
         public bool IsSpent => _records >= TelemetryErrorLimits.MaxRecordsPerSession;
 
-        public void Count(TelemetryErrorLevel level, string message, string stack, int repeat)
+        public void Count(TelemetryErrorLevel level, string category, string message, string stack, int repeat)
         {
-            var group = Find(level, message, stack);
+            var group = Find(level, category, message, stack);
 
             if (group == null)
             {
                 if (IsFull(level))
                     return;
 
-                group = new TelemetryErrorGroup(level, message, stack, _clock.ElapsedMilliseconds);
+                group = new TelemetryErrorGroup(level, category, message, stack, _clock.ElapsedMilliseconds);
                 _groups.Add(group);
 
                 if (level == TelemetryErrorLevel.Warning)
@@ -105,11 +105,11 @@ namespace Global.Telemetry
             return group.Level != TelemetryErrorLevel.Warning || _warningRecords < TelemetryErrorLimits.MaxWarningRecordsPerSession;
         }
 
-        private TelemetryErrorGroup Find(TelemetryErrorLevel level, string message, string stack)
+        private TelemetryErrorGroup Find(TelemetryErrorLevel level, string category, string message, string stack)
         {
             for (var i = 0; i < _groups.Count; i++)
             {
-                if (_groups[i].IsSame(level, message, stack))
+                if (_groups[i].IsSame(level, category, message, stack))
                     return _groups[i];
             }
 
@@ -123,7 +123,7 @@ namespace Global.Telemetry
             else
                 _records++;
 
-            _errors.Add(group.Level, group.Message, group.Stack, group.TakePending(now));
+            _errors.Add(group.Level, group.Category, group.Message, group.Stack, group.TakePending(now));
         }
     }
 }

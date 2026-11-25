@@ -5,9 +5,10 @@ namespace Global.Telemetry
     // One error of the session: its texts, the repeats not yet sent and when they may go.
     public class TelemetryErrorGroup
     {
-        public TelemetryErrorGroup(TelemetryErrorLevel level, string message, string stack, long now)
+        public TelemetryErrorGroup(TelemetryErrorLevel level, string category, string message, string stack, long now)
         {
             Level = level;
+            Category = category;
             Message = message;
             Stack = stack;
             _window = TelemetryErrorLimits.FirstWindowMs;
@@ -18,6 +19,7 @@ namespace Global.Telemetry
         private long _nextRecord;
 
         public TelemetryErrorLevel Level { get; }
+        public string Category { get; }
         public string Message { get; }
         public string Stack { get; }
         public int Pending { get; private set; }
@@ -27,9 +29,10 @@ namespace Global.Telemetry
             return Pending > 0 && now >= _nextRecord;
         }
 
-        public bool IsSame(TelemetryErrorLevel level, string message, string stack)
+        public bool IsSame(TelemetryErrorLevel level, string category, string message, string stack)
         {
             return Level == level
+                   && Category == category
                    && Stack == stack
                    && string.CompareOrdinal(Message, 0, message, 0, TelemetryErrorLimits.KeyMessageLength) == 0;
         }

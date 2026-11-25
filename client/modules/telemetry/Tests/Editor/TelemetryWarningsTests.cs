@@ -33,10 +33,10 @@ namespace Global.Telemetry.Tests
             var fixture = new TelemetryErrorFixture();
 
             for (var i = 0; i < TelemetryErrorLimits.MaxWarningGroups + 10; i++)
-                fixture.Groups.Count(TelemetryErrorLevel.Warning, $"w{i}", string.Empty, 1);
+                fixture.Groups.Count(TelemetryErrorLevel.Warning, null, $"w{i}", string.Empty, 1);
 
             for (var i = 0; i < TelemetryErrorLimits.MaxGroups; i++)
-                fixture.Groups.Count(TelemetryErrorLevel.Error, $"e{i}", string.Empty, 1);
+                fixture.Groups.Count(TelemetryErrorLevel.Error, null, $"e{i}", string.Empty, 1);
 
             fixture.Groups.FlushAll();
 
@@ -54,14 +54,14 @@ namespace Global.Telemetry.Tests
             for (var second = 1; second < 4000; second++)
             {
                 fixture.Clock.Set(second * TelemetryErrorLimits.MaxWindowMs);
-                fixture.Groups.Count(TelemetryErrorLevel.Warning, "w", string.Empty, 1);
+                fixture.Groups.Count(TelemetryErrorLevel.Warning, null, "w", string.Empty, 1);
                 fixture.Groups.FlushDue();
             }
 
             Assert.AreEqual(TelemetryErrorLimits.MaxWarningRecordsPerSession, fixture.Records.Entries.Count);
             Assert.IsFalse(fixture.Groups.IsSpent);
 
-            fixture.Groups.Count(TelemetryErrorLevel.Error, "e", string.Empty, 1);
+            fixture.Groups.Count(TelemetryErrorLevel.Error, null, "e", string.Empty, 1);
             fixture.Groups.FlushAll();
 
             Assert.AreEqual(TelemetryErrorLevel.Error, fixture.Records.Entries.Last().Level);
@@ -74,9 +74,9 @@ namespace Global.Telemetry.Tests
             var fixture = new TelemetryErrorFixture();
 
             for (var i = 0; i < TelemetryErrorLimits.MaxRecordsPerWindow; i++)
-                fixture.Groups.Count(TelemetryErrorLevel.Warning, $"w{i}", string.Empty, 1);
+                fixture.Groups.Count(TelemetryErrorLevel.Warning, null, $"w{i}", string.Empty, 1);
 
-            fixture.Groups.Count(TelemetryErrorLevel.Error, "e", string.Empty, 1);
+            fixture.Groups.Count(TelemetryErrorLevel.Error, null, "e", string.Empty, 1);
             fixture.Clock.Set(TelemetryErrorLimits.FirstWindowMs);
             fixture.Groups.FlushDue();
 

@@ -180,7 +180,7 @@ namespace Global.Telemetry.Tests
 
             for (var i = 0; i < TelemetryErrorLimits.MaxGroups + 10; i++)
             {
-                fixture.Groups.Count(TelemetryErrorLevel.Error, "Kind " + i, null, 1);
+                fixture.Groups.Count(TelemetryErrorLevel.Error, null, "Kind " + i, null, 1);
             }
 
             fixture.Pump.FlushAll();
@@ -197,7 +197,7 @@ namespace Global.Telemetry.Tests
             for (var round = 0; round < 40 && _fixture.Queue.IsClosed == false; round++)
             {
                 for (var i = 0; i < TelemetryErrorLimits.MaxGroups; i++)
-                    _fixture.Groups.Count(TelemetryErrorLevel.Error, "Kind " + i, null, 1);
+                    _fixture.Groups.Count(TelemetryErrorLevel.Error, null, "Kind " + i, null, 1);
 
                 _fixture.Pump.FlushAll();
             }
@@ -361,7 +361,7 @@ namespace Global.Telemetry.Tests
 
         private class LoggingErrors : ITelemetryErrors
         {
-            public void Add(TelemetryErrorLevel level, string message, string stack, int repeat)
+            public void Add(TelemetryErrorLevel level, string category, string message, string stack, int repeat)
             {
                 Debug.LogError("inside");
             }
@@ -369,7 +369,7 @@ namespace Global.Telemetry.Tests
 
         private class ThrowingErrors : ITelemetryErrors
         {
-            public void Add(TelemetryErrorLevel level, string message, string stack, int repeat)
+            public void Add(TelemetryErrorLevel level, string category, string message, string stack, int repeat)
             {
                 throw new InvalidOperationException("inside");
             }
@@ -377,7 +377,7 @@ namespace Global.Telemetry.Tests
 
         private class LoggingFromAThreadErrors : ITelemetryErrors
         {
-            public void Add(TelemetryErrorLevel level, string message, string stack, int repeat)
+            public void Add(TelemetryErrorLevel level, string category, string message, string stack, int repeat)
             {
                 Task.Run(() => Debug.LogError("of the game, from a thread")).Wait();
             }

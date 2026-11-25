@@ -14,6 +14,9 @@ namespace Global.Telemetry
             builder.Register<TelemetryLogErrors>()
                    .As<ITelemetryLiveCollector>();
 
+            builder.Register<TelemetryLoggerErrors>()
+                   .As<ITelemetryLiveCollector>();
+
 #if UNITY_WEBGL && !UNITY_EDITOR
             builder.Register<TelemetryBrowserErrors>()
                    .As<ITelemetryLiveCollector>();

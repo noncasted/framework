@@ -2,7 +2,7 @@ using System;
 
 namespace Global.Telemetry
 {
-    // level by name: Error, Exception, Warning.
+    // level by name: Error, Exception, Warning. category: "" for none (JsonUtility writes a null string so).
     [Serializable]
     public class TelemetryHttpError
     {
@@ -11,5 +11,6 @@ namespace Global.Telemetry
         public string message;
         public string stack;
         public int repeat;
+        public string category;
     }
 }

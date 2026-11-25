@@ -99,7 +99,7 @@ namespace Global.Telemetry
             if (_cleaner.TryCleanStack(error.Stack, out var stack) == false)
                 return;
 
-            _groups.Count(error.Level, message, stack, error.Repeat);
+            _groups.Count(error.Level, error.Category, message, stack, error.Repeat);
         }
 
         private void CloseWhenSpent()

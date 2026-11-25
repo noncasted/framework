@@ -99,7 +99,7 @@ namespace Global.Telemetry
             while (written.Count < errors.Count && TryTake(SizeOf(errors.At(written.Count))))
             {
                 var error = errors.At(written.Count);
-                written.Add(new TelemetryBatchError(error.Time, error.Level, error.Message, error.Stack, error.Repeat));
+                written.Add(new TelemetryBatchError(error.Time, error.Level, error.Category, error.Message, error.Stack, error.Repeat));
             }
 
             errors.RemoveOldest(written.Count);
@@ -121,7 +121,7 @@ namespace Global.Telemetry
 
         private static int SizeOf(TelemetryErrorRecord error)
         {
-            return _recordBytes + _errorCharBytes * (error.Message.Length + (error.Stack?.Length ?? 0));
+            return _recordBytes + _errorCharBytes * (error.Message.Length + (error.Stack?.Length ?? 0) + (error.Category?.Length ?? 0));
         }
 
         // A non-finite value counts as no value in this sample, the contract has only NaN for that.

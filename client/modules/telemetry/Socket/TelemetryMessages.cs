@@ -136,7 +136,8 @@ namespace Global.Telemetry
                 Level = ToLevel(error.Level),
                 Message = error.Message,
                 Stack = error.Stack,
-                Repeat = error.Repeat
+                Repeat = error.Repeat,
+                Category = error.Category
             };
         }
 

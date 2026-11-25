@@ -46,7 +46,7 @@ namespace Global.Telemetry.Tests.Transport
             await client.Connect();
 
             var id = await Closed(client, Tag("scrubserver"), async () => {
-                client.Errors.Add(TelemetryErrorLevel.Exception, _personal, _personalStack, 3);
+                client.Errors.Add(TelemetryErrorLevel.Exception, null, _personal, _personalStack, 3);
                 await UniTask.WaitUntil(() => client.Transport.Sent.Any(sent => sent.Batch.Errors.Count > 0)).Timeout(TimeSpan.FromSeconds(15));
             });
 
@@ -117,7 +117,7 @@ namespace Global.Telemetry.Tests.Transport
             await client.Connect();
 
             var id = await Closed(client, Tag("lone"), async () => {
-                client.Errors.Add(TelemetryErrorLevel.Error, "E2E half \uD83D", "at half \uD83D", 1);
+                client.Errors.Add(TelemetryErrorLevel.Error, null, "E2E half \uD83D", "at half \uD83D", 1);
                 await UniTask.WaitUntil(() => client.Transport.Sent.Any(sent => sent.Batch.Errors.Count > 0)).Timeout(TimeSpan.FromSeconds(15));
             });
 

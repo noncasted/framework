@@ -11,12 +11,13 @@ namespace Global.Telemetry
         private readonly TelemetryBuffer _buffer;
         private readonly ITelemetryClock _clock;
 
-        public void Add(TelemetryErrorLevel level, string message, string stack, int repeat)
+        public void Add(TelemetryErrorLevel level, string category, string message, string stack, int repeat)
         {
             // The server rejects a whole batch for a longer text.
             _buffer.AddError(
                 _clock.ElapsedMilliseconds,
                 level,
+                category == null ? null : TelemetryLimits.Cut(category, TelemetryLimits.MaxCategoryLength),
                 TelemetryLimits.Cut(message, TelemetryLimits.MaxMessageLength),
                 stack == null ? null : TelemetryLimits.Cut(stack, TelemetryLimits.MaxStackLength),
                 repeat);

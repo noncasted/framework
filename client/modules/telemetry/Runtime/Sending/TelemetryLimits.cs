@@ -12,6 +12,7 @@ namespace Global.Telemetry
         public const int MaxMarksPerBatch = 128;
         public const int MaxMessageLength = 2 * 1024;
         public const int MaxStackLength = 8 * 1024;
+        public const int MaxCategoryLength = 256;
         public const int MaxNameLength = 64;
         public const int MaxUnitLength = 16;
 

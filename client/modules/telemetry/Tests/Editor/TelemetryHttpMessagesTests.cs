@@ -40,7 +40,7 @@ namespace Global.Telemetry.Tests
                 new[] { new TelemetryBatchName("frame.dt", "ms"), new TelemetryBatchName("count", null) },
                 Array.Empty<TelemetryBatchSample>(),
                 new[] { new TelemetryBatchMark(10, "load.end", "menu", 250), new TelemetryBatchMark(20, "page.hidden") },
-                new[] { new TelemetryBatchError(30, TelemetryErrorLevel.Warning, "w", "at A", 2) });
+                new[] { new TelemetryBatchError(30, TelemetryErrorLevel.Warning, null, "w", "at A", 2) });
 
             var json = JsonUtility.ToJson(TelemetryHttpMessages.ToBatch(_link, _session, batch));
             var read = JsonUtility.FromJson<TelemetryHttpBatch>(json);

@@ -23,8 +23,8 @@ namespace Global.Telemetry.Tests
                 new[] { new TelemetryBatchMark(1200, "stage.boss_start"), new TelemetryBatchMark(1300, "load.end", "Group: MusicRunAudio", 250) },
                 new[]
                 {
-                    new TelemetryBatchError(1500, TelemetryErrorLevel.Exception, "Broken", "Game.Swarm:Update ()", 3),
-                    new TelemetryBatchError(1600, TelemetryErrorLevel.Error, "Lost", null, 1)
+                    new TelemetryBatchError(1500, TelemetryErrorLevel.Exception, null, "Broken", "Game.Swarm:Update ()", 3),
+                    new TelemetryBatchError(1600, TelemetryErrorLevel.Error, null, "Lost", null, 1)
                 });
         }
 

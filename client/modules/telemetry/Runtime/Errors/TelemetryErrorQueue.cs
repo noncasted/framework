@@ -33,12 +33,18 @@ namespace Global.Telemetry
         // Any thread.
         public void Add(TelemetryErrorLevel level, string message, string stack)
         {
+            Add(level, null, message, stack);
+        }
+
+        // Any thread. Category: of the logger of the framework, the message is its template.
+        public void Add(TelemetryErrorLevel level, string category, string message, string stack)
+        {
             lock (_lock)
             {
                 if (_isClosed)
                     return;
 
-                if (_count > 0 && _items[_count - 1].IsSame(level, message, stack))
+                if (_count > 0 && _items[_count - 1].IsSame(level, category, message, stack))
                 {
                     _items[_count - 1].CountOnce();
                     return;
@@ -55,7 +61,7 @@ namespace Global.Telemetry
                     _warnings++;
                 }
 
-                _items[_count++] = new TelemetryQueuedError(level, message, stack);
+                _items[_count++] = new TelemetryQueuedError(level, category, message, stack);
             }
         }
 

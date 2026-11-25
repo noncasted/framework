@@ -215,7 +215,7 @@ namespace Global.Telemetry.Tests
             fixture.Telemetry.StartSession(lifetime, "run");
 
             for (var i = 0; i < TelemetryLimits.MaxErrorsPerBatch; i++)
-                fixture.Errors.Add(TelemetryErrorLevel.Error, new string('m', TelemetryLimits.MaxMessageLength), new string('s', TelemetryLimits.MaxStackLength), 1);
+                fixture.Errors.Add(TelemetryErrorLevel.Error, null, new string('m', TelemetryLimits.MaxMessageLength), new string('s', TelemetryLimits.MaxStackLength), 1);
 
             lifetime.Terminate();
             await Wait(() => fixture.Transport.Ends.Count == 1);

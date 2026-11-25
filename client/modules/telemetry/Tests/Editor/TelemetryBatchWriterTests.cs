@@ -31,7 +31,7 @@ namespace Global.Telemetry.Tests
             fixture.Clock.Set(1200);
             fixture.Telemetry.Mark("stage.boss_start");
             fixture.Clock.Set(1500);
-            fixture.Errors.Add(TelemetryErrorLevel.Exception, "Broken", "Game.Swarm:Update ()", 3);
+            fixture.Errors.Add(TelemetryErrorLevel.Exception, null, "Broken", "Game.Swarm:Update ()", 3);
 
             var batch = fixture.Writer.WriteNext();
 
@@ -159,7 +159,7 @@ namespace Global.Telemetry.Tests
             for (var i = 0; i < TelemetryLimits.MaxErrorsPerBatch; i++)
             {
                 fixture.Errors.Add(
-                    TelemetryErrorLevel.Error,
+                    TelemetryErrorLevel.Error, null,
                     new string('ю', TelemetryLimits.MaxMessageLength),
                     new string('ю', TelemetryLimits.MaxStackLength),
                     1);
@@ -182,7 +182,7 @@ namespace Global.Telemetry.Tests
             fixture.Telemetry.Mark("a");
 
             for (var i = 0; i < TelemetryLimits.MaxErrorsPerBatch; i++)
-                fixture.Errors.Add(TelemetryErrorLevel.Error, new string('m', TelemetryLimits.MaxMessageLength), null, 1);
+                fixture.Errors.Add(TelemetryErrorLevel.Error, null, new string('m', TelemetryLimits.MaxMessageLength), null, 1);
 
             var batches = fixture.Writer.WriteAll();
 
@@ -197,7 +197,7 @@ namespace Global.Telemetry.Tests
             var fixture = Open();
 
             fixture.Errors.Add(
-                TelemetryErrorLevel.Error,
+                TelemetryErrorLevel.Error, null,
                 new string('m', TelemetryLimits.MaxMessageLength + 10),
                 new string('s', TelemetryLimits.MaxStackLength + 10),
                 1);
@@ -213,7 +213,7 @@ namespace Global.Telemetry.Tests
         {
             var fixture = Open();
 
-            fixture.Errors.Add(TelemetryErrorLevel.Error, "failed", null, 1);
+            fixture.Errors.Add(TelemetryErrorLevel.Error, null, "failed", null, 1);
 
             Assert.IsNull(fixture.Writer.WriteNext().Errors.Single().Stack);
         }
