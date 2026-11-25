@@ -57,3 +57,21 @@ Do (the contract: `backend/Cluster/CLAUDE.md` § Monolith; the example: pixel-sw
 - The console sets `AddDataProtection().SetApplicationName("<game>-console")` and mounts the keys volume of the services compose,
   so the cookies survive a switch between the modes (the first deploy with the name logs the users out once).
 - `deploy/registry.json`: `mode: monolith`, `compose.services` / `compose.monolith`, the deploy branch.
+- A role split into a library + an exe (`Orchestration/<Role>` + `Orchestration/Services/<Role>`): the `config.*.json` of the
+  coordinator move with the exe into `Services/Coordinator`, its content root under Aspire (`ConfigsInitializer` reads the content
+  root, step 6 of [0.17.0](0.17.0.md)); a `Content` item with `CopyToPublishDirectory` there for the container (`/app`), the
+  monolith links them into `hosts/Coordinator`, the `CoordinatorConfigFolder` of the console in Development points at it.
+
+### The `/ready` path from the framework, no health spans
+
+Who: backend, every game that maps `/ready` (pixel-swarm `Orchestration/Extensions/ServiceDefaultsExtensions.cs`). Why: the
+default instrumentation now drops the server spans of `/ready` next to `/health` and `/alive`; the healthchecks of the composes
+poll it every 2-3 s per port, 150-220 thousand spans a day per game in the trace store of the host.
+
+Search: `git grep -nE '"/(ready|health|alive)"' -- 'backend/*.cs'`
+
+Do: map `TelemetryInstrumentation.ReadyEndpointPath` (`HealthEndpointPath`, `AlivenessEndpointPath`) instead of a local constant
+or literal; a check of the health paths (an auth middleware skipping them) calls `TelemetryInstrumentation.IsHealthCheck(path)`.
+
+Check: a few minutes after the deploy VictoriaTraces of the host has no new span `GET /ready` of the project (LogsQL
+`name:"GET /ready"` over `/select/logsql/query`, through the ssh tunnel of `backend-logs`).

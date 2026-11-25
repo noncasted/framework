@@ -7,7 +7,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry;
-using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 
@@ -62,10 +61,7 @@ public sealed class MonolithTelemetry : IAsyncDisposable
         services.AddLogging(logging => {
             logging.AddConfiguration(configuration.GetSection("Logging"));
             logging.AddConsole();
-            logging.AddOpenTelemetry(options => {
-                options.IncludeFormattedMessage = true;
-                options.IncludeScopes = true;
-            });
+            logging.AddTelemetryLogs();
         });
 
         var sources = hosts.SelectMany(host => host.GetServices<TraceSourceRegistration>())
@@ -74,12 +70,8 @@ public sealed class MonolithTelemetry : IAsyncDisposable
                            .ToArray();
 
         var telemetry = services.AddOpenTelemetry()
-                                .WithLogging(logs => logs.ConfigureResource(settings.ApplyTo)
-                                                         .AddOtlpExport(configuration))
-                                .WithTracing(tracing => tracing.ConfigureResource(settings.ApplyTo)
-                                                               .AddSource(sources)
-                                                               .AddDefaultInstrumentation()
-                                                               .AddOtlpExport(configuration));
+                                .WithTelemetryLogs(settings, configuration)
+                                .WithTelemetryTracing(settings, configuration, tracing => tracing.AddSource(sources));
 
         if (settings.ExportsMetrics)
         {
@@ -88,10 +80,7 @@ public sealed class MonolithTelemetry : IAsyncDisposable
                               .Distinct()
                               .ToArray();
 
-            telemetry.WithMetrics(metrics => metrics.ConfigureResource(settings.ApplyTo)
-                                                    .AddMeter(meters)
-                                                    .AddDefaultInstrumentation()
-                                                    .AddOtlpExport(configuration));
+            telemetry.WithTelemetryMetrics(settings, configuration, metrics => metrics.AddMeter(meters));
         }
 
         var provider = services.BuildServiceProvider();

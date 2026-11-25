@@ -3,10 +3,6 @@ using Infrastructure.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using OpenTelemetry;
-using OpenTelemetry.Logs;
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Trace;
 
 namespace Infrastructure.Telemetry;
 
@@ -27,15 +23,11 @@ public static class TelemetryDefaultsExtensions
             builder.Logging.SetMinimumLevel(LogLevel.Trace);
             builder.AddFileLogging(settings.LogName);
 
-            builder.Logging.AddOpenTelemetry(logging => {
-                logging.IncludeFormattedMessage = true;
-                logging.IncludeScopes = true;
-            });
+            builder.Logging.AddTelemetryLogs();
 
             // The resource is set per signal, as the providers of a monolith host and of its process differ.
             var telemetry = builder.Services.AddOpenTelemetry()
-                                   .WithLogging(logs => logs.ConfigureResource(settings.ApplyTo)
-                                                            .AddOtlpExport(configuration));
+                                   .WithTelemetryLogs(settings, configuration);
 
             // The source of the host itself, registered like the sources of the features.
             builder.AddTraceSource(builder.Environment.ApplicationName);
@@ -43,16 +35,10 @@ public static class TelemetryDefaultsExtensions
             if (settings.UsesProcessProviders)
                 return builder;
 
-            telemetry.WithTracing(tracing => tracing.ConfigureResource(settings.ApplyTo)
-                                                    .AddDefaultInstrumentation()
-                                                    .AddOtlpExport(configuration));
+            telemetry.WithTelemetryTracing(settings, configuration, _ => { });
 
             if (settings.ExportsMetrics)
-            {
-                telemetry.WithMetrics(metrics => metrics.ConfigureResource(settings.ApplyTo)
-                                                        .AddDefaultInstrumentation()
-                                                        .AddOtlpExport(configuration));
-            }
+                telemetry.WithTelemetryMetrics(settings, configuration, _ => { });
 
             return builder;
         }

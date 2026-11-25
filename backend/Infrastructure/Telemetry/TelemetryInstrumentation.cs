@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 
@@ -11,12 +12,21 @@ public static class TelemetryInstrumentation
     public const string HealthEndpointPath = "/health";
     public const string AlivenessEndpointPath = "/alive";
 
+    // The healthcheck of the deploys, mapped by the game: polled every few seconds per port.
+    public const string ReadyEndpointPath = "/ready";
+
     public static TracerProviderBuilder AddDefaultInstrumentation(this TracerProviderBuilder tracing)
     {
         return tracing.AddAspNetCoreInstrumentation(options => options.Filter = context =>
-                          context.Request.Path.StartsWithSegments(HealthEndpointPath) == false &&
-                          context.Request.Path.StartsWithSegments(AlivenessEndpointPath) == false)
+                          IsHealthCheck(context.Request.Path) == false)
                       .AddHttpClientInstrumentation();
+    }
+
+    public static bool IsHealthCheck(PathString path)
+    {
+        return path.StartsWithSegments(HealthEndpointPath) ||
+               path.StartsWithSegments(AlivenessEndpointPath) ||
+               path.StartsWithSegments(ReadyEndpointPath);
     }
 
     public static MeterProviderBuilder AddDefaultInstrumentation(this MeterProviderBuilder metrics)

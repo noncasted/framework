@@ -4,7 +4,8 @@
 
 `builder.AddTelemetryDefaults()` in the `AddServiceDefaults` of the game, once per host: log level, the dev file log
 (`AddFileLogging`, `Logging/`), OpenTelemetry logs, traces and metrics over OTLP, the default instrumentation
-(ASP.NET Core without `/health` and `/alive`, HttpClient, runtime, the `Microsoft.Orleans` meter) and the trace source
+(ASP.NET Core without the health paths `/health`, `/alive` and `/ready` of `TelemetryInstrumentation`, which a game maps
+from there and checks with `IsHealthCheck`, HttpClient, runtime, the `Microsoft.Orleans` meter) and the trace source
 named after `ApplicationName`. The sources and meters of the features come from `AddTraceSource` / `AddBackendMeter`.
 
 Read from the configuration of the host, never from `Environment` (`TelemetrySettings`):
