@@ -46,13 +46,19 @@ internal sealed class ClientTelemetryHttpLinks
         }
     }
 
-    // A request that came while the timer fired has moved the time on and armed the timer again.
+    // The timer runs on the coarse ticks of the runtime and may fire a few milliseconds before the clock says the silence is over:
+    // it is armed again for the rest. A request that came while the timer fired has moved the time on and armed it too.
     private void Expire(ClientTelemetryHttpLink link)
     {
         lock (_links)
         {
-            if (_time.GetUtcNow() - link.LastRequest < _idleAfter)
+            var rest = _idleAfter - (_time.GetUtcNow() - link.LastRequest);
+
+            if (rest > TimeSpan.Zero)
+            {
+                link.Arm(rest);
                 return;
+            }
 
             _links.Remove(link.Id);
         }

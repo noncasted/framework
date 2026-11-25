@@ -22,7 +22,12 @@ internal sealed class ClientTelemetryHttpLink
     public void Touch(DateTimeOffset now, TimeSpan idleAfter)
     {
         LastRequest = now;
-        _timer.Change(idleAfter, Timeout.InfiniteTimeSpan);
+        Arm(idleAfter);
+    }
+
+    public void Arm(TimeSpan dueTime)
+    {
+        _timer.Change(dueTime, Timeout.InfiniteTimeSpan);
     }
 
     public void End()
