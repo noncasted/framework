@@ -127,3 +127,20 @@ game 128).
 The roles themselves cost ~4-5 times less in one process: one runtime, one JIT and GC heap instead of five, and the
 workstation GC. The local measurement (fresh Postgres, 90 s settle): server GC 159 MiB, workstation 136 MiB, workstation +
 `DOTNET_GCConserveMemory=5` 137 MiB (stats).
+
+## 2026-11-25, pixel-swarm as a monolith on the observability stack (ovh)
+
+Snapshot `results/2026-11-25-prod-after-monolith-stack`, 07:38 UTC, no load, 10 minutes after the deploy (as the monolith
+snapshot above). pixel-swarm runs the monolith without `aspire-dashboard`: logs and traces go to the observability stack of
+the host (`deploy/observability`), metrics export is off (`Telemetry__ExportMetrics=false`).
+
+| pixel-swarm, MiB | Before: 5 services + dashboard | Monolith + dashboard | Monolith, no dashboard |
+|---|---|---|---|
+| .NET, stats | 816 | 172 | 160 |
+| .NET, cost (anon + swap) | 542 | 99 | 87 |
+| aspire-dashboard, cost | 75 | 95 | - |
+| Postgres + pgbouncer + web, cost | 48 | 58 | 53 |
+| Total, cost | 666 | 252 | 140 |
+
+The stack itself (otlp, victorialogs, victoriatraces) costs 32 MiB on ovh, shared by every game of the host that exports
+into it. The .NET process is 87 against 99 MiB: no meter provider now, but one snapshot each is within the noise.
