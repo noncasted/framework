@@ -107,6 +107,59 @@ public class MonolithRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task OneHostBackgroundServiceFails_StopsTheOtherAndThrowsItsFailure()
+    {
+        var ports = (First: FreePort(), Second: FreePort());
+        var firstStopped = new TaskCompletionSource();
+        var runner = Runner(Configuration(ports.First, ports.Second), host => {
+            if (host.Environment.ApplicationName == "Second")
+                host.Services.AddHostedService(_ => new FailingBackground());
+        }, app => {
+            if (app.Environment.ApplicationName == "First")
+                app.Lifetime.ApplicationStopped.Register(() => firstStopped.TrySetResult());
+        });
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        var run = () => runner.Run(cancellation.Token);
+
+        // The host stops itself (BackgroundServiceExceptionBehavior.StopHost) and RunAsync returns normally: the
+        // failure of the background service is the reason, not "stopped by itself".
+        await run.Should().ThrowAsync<InvalidOperationException>().WithMessage("second background failed");
+        firstStopped.Task.IsCompleted.Should().BeTrue("the failure of one host stops the other");
+        cancellation.IsCancellationRequested.Should().BeFalse("the runner stopped by itself, not by the timeout");
+    }
+
+    [Fact]
+    public async Task HostFailsAndAnotherFailsWhileItStops_ThrowsTheFailureThatCameFirst()
+    {
+        var ports = (First: FreePort(), Second: FreePort());
+        var secondStopping = new TaskCompletionSource();
+        var runner = Runner(Configuration(ports.First, ports.Second), host => {
+            if (host.Environment.ApplicationName == "Second")
+            {
+                host.Services.AddHostedService(_ => new SlowStop());
+                host.Services.AddHostedService(_ => new FailingBackground());
+            }
+            else
+            {
+                host.Services.AddHostedService(_ => new FailingAfter(secondStopping.Task));
+            }
+        }, app => {
+            if (app.Environment.ApplicationName == "Second")
+                app.Lifetime.ApplicationStopping.Register(() => secondStopping.TrySetResult());
+        });
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        var run = () => runner.Run(cancellation.Token);
+
+        // The second host fails, the first fails on its absence and ends before the second has stopped: the cause is
+        // the host that began to stop first, not the one that ended first (a silo that fails, a coordinator that loses
+        // its grains).
+        await run.Should().ThrowAsync<InvalidOperationException>().WithMessage("second background failed");
+        cancellation.IsCancellationRequested.Should().BeFalse("the runner stopped by itself, not by the timeout");
+    }
+
+    [Fact]
     public async Task PortMissing_Throws()
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -218,6 +271,32 @@ public class MonolithRunnerTests : IDisposable
         }
 
         public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private class FailingBackground : BackgroundService
+    {
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            // The other host is starting meanwhile.
+            await Task.Delay(TimeSpan.FromMilliseconds(500), CancellationToken.None);
+            throw new InvalidOperationException("second background failed");
+        }
+    }
+
+    private class FailingAfter(Task signal) : BackgroundService
+    {
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            await signal;
+            throw new InvalidOperationException("first failed after the second");
+        }
+    }
+
+    private class SlowStop : IHostedService
+    {
+        public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task StopAsync(CancellationToken cancellationToken) => Task.Delay(TimeSpan.FromSeconds(1), CancellationToken.None);
     }
 
     private class FailingStart : IHostedService

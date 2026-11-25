@@ -6,6 +6,7 @@ using Infrastructure.Telemetry;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -130,7 +131,7 @@ public class MonolithRunner
 
         await Task.WhenAll(apps.Select(app => RunHost(app.Tag, app.App)));
 
-        // The failure of the host that failed first, not the stop it caused in the others.
+        // The failure of the host that failed or began to stop by itself first, not the stop it caused in the others.
         if (failure != null)
             ExceptionDispatchInfo.Throw(failure);
 
@@ -140,13 +141,25 @@ public class MonolithRunner
         {
             try
             {
+                // Resolved before the run: RunAsync disposes the services of the host when it returns.
+                var backgroundServices = app.Services.GetServices<IHostedService>().OfType<BackgroundService>().ToList();
+                var selfStop = (Exception?)null;
+
+                // Taken when the host begins to stop, not when it has stopped: another host may fail on its absence
+                // (a coordinator without the grains of the silo) and end first, the cause is the host that began first.
+                using var stopping = app.Lifetime.ApplicationStopping.Register(() => {
+                    if (stop.IsCancellationRequested)
+                        return;
+
+                    selfStop = SelfStopReason(tag, backgroundServices);
+                    Interlocked.CompareExchange(ref failure, selfStop, null);
+                });
+
                 await app.RunAsync(stop.Token);
 
-                if (stop.IsCancellationRequested == false)
+                if (selfStop != null)
                 {
-                    logger.LogCritical("[Monolith] Host {Host} stopped by itself, stopping the process", tag);
-                    Interlocked.CompareExchange(ref failure, new InvalidOperationException($"host {tag} stopped by itself"),
-                        null);
+                    logger.LogCritical(selfStop, "[Monolith] Host {Host} stopped by itself, stopping the process", tag);
                     return;
                 }
 
@@ -167,5 +180,22 @@ public class MonolithRunner
                 stop.Cancel();
             }
         }
+    }
+
+    // Why a host stopped without being asked to. A failed BackgroundService stops its host
+    // (BackgroundServiceExceptionBehavior.StopHost) and RunAsync returns normally: its failure is the reason, the host
+    // only logged it. Otherwise the host called StopApplication itself (e.g. a coordinator that gave up its deploy).
+    private static Exception SelfStopReason(ServiceTag tag, IReadOnlyList<BackgroundService> services)
+    {
+        var ended = services.FirstOrDefault(service => service.ExecuteTask is { IsFaulted: true } or { IsCanceled: true });
+
+        if (ended?.ExecuteTask?.Exception is { } exception)
+            return exception.InnerExceptions.Count == 1 ? exception.InnerExceptions[0] : exception;
+
+        if (ended != null)
+            return new InvalidOperationException(
+                $"host {tag} stopped by itself: its background service {ended.GetType().Name} was cancelled");
+
+        return new InvalidOperationException($"host {tag} stopped by itself");
     }
 }

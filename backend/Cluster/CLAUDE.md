@@ -43,9 +43,12 @@ await MonolithRunner.Create(args, [
   handle no signal: the runner names its assembly in `--hostingStartupAssemblies`, and `MonolithHostingStartup` replaces
   the `ConsoleLifetime` of each host with `MonolithHostLifetime`.
 - The first host that fails or stops without being asked to (`StopApplication` of its own, e.g. a coordinator that
-  gave up its deploy) stops the others; `Run` throws the failure of the host that failed first, or
-  `InvalidOperationException("host <tag> stopped by itself")` (logged critical): a non-zero exit, the deploy restarts the
-  container. No shared `/ready`: the healthcheck of the deploy checks `/ready` of every port.
+  gave up its deploy) stops the others; `Run` throws the failure of the host that failed or began to stop first (logged
+  critical): a non-zero exit, the deploy restarts the container. A host stopped by a failed `BackgroundService`
+  (`BackgroundServiceExceptionBehavior.StopHost`, e.g. `ClusterParticipantStartup`) throws the exception of that service,
+  one that called `StopApplication` itself `InvalidOperationException("host <tag> stopped by itself")`. "First" is when
+  the host began to stop, not when it ended: a host failing on the absence of another (a coordinator without the grains
+  of the silo) may end before it. No shared `/ready`: the healthcheck of the deploy checks `/ready` of every port.
 - `NoAwaitExceptions.Handler` is set by the runner before the hosts start (to the logger of the process).
 - Per process (`MonolithTelemetry`): one tracer provider, one meter provider (none with `Telemetry:ExportMetrics=false`)
   and the logger of the runner; `service.name` = `SERVICE_NAME` of the process (the deploy name). The sources and meters
