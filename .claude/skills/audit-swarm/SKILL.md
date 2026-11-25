@@ -9,9 +9,10 @@ The session is the orchestrator: it plans, spawns, collects and writes the repor
 (its context stays small, the agents read); it reads only the answers of the agents and, when two of them disagree, the lines in
 dispute. Read-only for code; no commits.
 
-Agents (`.omp/agents` of the project): `audit-scout` audits one package, `audit-verifier` tries to refute one finding.
-Tool: `task` (several tasks in one call run in parallel; `wait` for the results). Limits: `.omp/config.yml` (`task.maxRuntimeMs`,
-`task.maxConcurrency`).
+Agents (`agents/` of this skill, linked into `~/.omp/agent/agents` by `install.sh`): `audit-scout` audits one package,
+`audit-verifier` tries to refute one finding. When the `task` tool does not list them, run `install.sh` of this skill once and restart
+omp. Tool: `task` (several tasks in one call run in parallel; `wait` for the results). Limits: the global config of omp, set by
+`install.sh` (`task.maxRuntimeMs`, `task.maxConcurrency`).
 
 ## Arguments
 
