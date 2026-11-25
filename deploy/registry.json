@@ -99,7 +99,7 @@
         "environment": "production"
       },
       "repository": "noncasted/pixel-swarm",
-      "branch": "deploy-monolith",
+      "branch": "deploy",
       "compose": {
         "services": "backend/Tools/deploy/docker-compose.yaml",
         "monolith": "backend/Tools/deploy/docker-compose.monolith.yaml"
