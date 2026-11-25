@@ -104,6 +104,9 @@ public class MonolithRunner
         {
             ApplicationName = host.ApplicationName,
             ContentRootPath = options.ContentRoot,
+            // The static web assets of every host are published into the wwwroot of the executable (its manifest
+            // names them), not into the content root of the role: a web root under hosts/<role> serves them empty.
+            WebRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot"),
             Args =
             [
                 $"--urls=http://+:{options.Port}",

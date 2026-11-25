@@ -21,8 +21,8 @@ coordinator do not change; Orleans clients reach the silo over loopback. The rol
 ```csharp
 // Monolith/Program.cs of the game: the same factories the Program.cs of the separate services call.
 await MonolithRunner.Create(args, [
-    new MonolithHost { Tag = ServiceTag.Coordinator, ApplicationName = "Coordinator", Build = CoordinatorHost.Build },
-    new MonolithHost { Tag = GameRoles.Meta, ApplicationName = "MetaGateway", Build = MetaHost.Build },
+    new MonolithHost { Tag = ServiceTag.Coordinator, ApplicationName = typeof(CoordinatorHost).Assembly.GetName().Name!, Build = CoordinatorHost.Build },
+    new MonolithHost { Tag = GameRoles.Meta, ApplicationName = typeof(MetaHost).Assembly.GetName().Name!, Build = MetaHost.Build },
     ...
 ]).Run(CancellationToken.None);
 ```
@@ -32,7 +32,12 @@ await MonolithRunner.Create(args, [
   binaries, must exist: the `appsettings*.json` and `config.*.json` of the role). No shared `ASPNETCORE_URLS`.
 - The runner builds every host first, then runs all; it gives each host `--urls=http://+:<port>`,
   `--SERVICE_NAME=<tag in lower case>` and `--Telemetry:ProcessProviders=true` on the command line (they win over
-  the variables of the process), `ApplicationName` and `ContentRootPath` in `WebApplicationOptions`.
+  the variables of the process), `ApplicationName`, `ContentRootPath` and `WebRootPath` (`wwwroot` next to the binaries:
+  the publish of the executable puts the static web assets of all hosts there) in `WebApplicationOptions`.
+- `ApplicationName` must name an assembly of the process: ASP.NET Core loads it as a hosting startup assembly and logs a
+  critical `Hosting startup assembly exception` when it is missing (the exe name of the separate service is not one). The
+  library of the role, or the executable for a host whose static web assets `MapStaticAssets` reads: it finds
+  `<ApplicationName>.staticwebassets.endpoints.json`, which only the executable has.
 - The runner owns the stop of the process: SIGTERM / SIGINT / SIGQUIT (`PosixSignalRegistration`, the runtime does not
   end the process) and the token of `Run`; then every host stops gracefully and `Run` returns (exit 0). The hosts
   handle no signal: the runner names its assembly in `--hostingStartupAssemblies`, and `MonolithHostingStartup` replaces

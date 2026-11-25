@@ -54,8 +54,10 @@ public class MonolithRunnerTests : IDisposable
         await run;
 
         // MonolithHostLifetime: the runner owns the signals, no host stops itself on SIGTERM.
-        first.Should().Be($"first|{Path.Combine(_root, "First")}|True|MonolithHostLifetime");
-        second.Should().Be($"second|{Path.Combine(_root, "Second")}|True|MonolithHostLifetime");
+        // The web root is the one of the executable for every host: the static web assets are published there.
+        var webRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+        first.Should().Be($"first|{Path.Combine(_root, "First")}|{webRoot}|True|MonolithHostLifetime");
+        second.Should().Be($"second|{Path.Combine(_root, "Second")}|{webRoot}|True|MonolithHostLifetime");
         handlers.Should().HaveCount(2).And.OnlyContain(handler => handler != null && handler != previous);
         NoAwaitExceptions.Handler.Should().Be(previous, "the runner puts the previous handler back when it ends");
     }
@@ -162,7 +164,7 @@ public class MonolithRunnerTests : IDisposable
 
                 app.MapGet("/probe", (IConfiguration configuration, IWebHostEnvironment environment,
                         IHostLifetime lifetime) =>
-                    $"{configuration["SERVICE_NAME"]}|{environment.ContentRootPath.TrimEnd('/')}|" +
+                    $"{configuration["SERVICE_NAME"]}|{environment.ContentRootPath.TrimEnd('/')}|{environment.WebRootPath}|" +
                     $"{configuration.GetValue<bool>("Telemetry:ProcessProviders")}|{lifetime.GetType().Name}");
 
                 return app;
