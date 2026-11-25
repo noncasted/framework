@@ -40,6 +40,9 @@ namespace Framework.Analyzers
             if (setter == null || setter.IsInitOnly || property.IsImplicitlyDeclared)
                 return;
 
+            if (ThirdParty.Is(property, context.Options))
+                return;
+
             if (setter.DeclaredAccessibility != Accessibility.Public || IsVisible(property) == false)
                 return;
 
@@ -59,6 +62,9 @@ namespace Framework.Analyzers
             var field = (IFieldSymbol)context.Symbol;
 
             if (field.IsConst || field.IsReadOnly || field.IsImplicitlyDeclared)
+                return;
+
+            if (ThirdParty.Is(field, context.Options))
                 return;
 
             if (field.DeclaredAccessibility != Accessibility.Public || IsVisible(field) == false)

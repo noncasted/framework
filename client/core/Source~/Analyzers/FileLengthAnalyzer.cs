@@ -32,7 +32,7 @@ namespace Framework.Analyzers
         {
             var tree = context.Tree;
 
-            if (CodeKind.IsTestOrBenchmark(tree, assemblyName, context.Options))
+            if (ThirdParty.Is(tree, context.Options) || CodeKind.IsTestOrBenchmark(tree, assemblyName, context.Options))
                 return;
 
             var maxLines = MaxLines(context);

@@ -21,6 +21,9 @@ namespace Framework.Analyzers
 
         private static void Analyze(SyntaxTreeAnalysisContext context)
         {
+            if (ThirdParty.Is(context.Tree, context.Options))
+                return;
+
             var root = context.Tree.GetRoot(context.CancellationToken);
 
             foreach (var trivia in root.DescendantTrivia())

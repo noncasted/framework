@@ -36,6 +36,9 @@ namespace Framework.Analyzers
 
         private static void Analyze(OperationAnalysisContext context, INamedTypeSymbol lifetimeInterface, INamedTypeSymbol? lifetimeClass)
         {
+            if (ThirdParty.Is(context.Operation.Syntax.SyntaxTree, context.Options))
+                return;
+
             var lockOperation = (ILockOperation)context.Operation;
             var value = lockOperation.LockedValue;
             var type = value.Type;

@@ -48,6 +48,10 @@
 - **ContainerGenerator.** Sources in `client/core/Source~`, the dll in `client/core/Analyzers` (`RoslynAnalyzer`
   label, every platform off). After a change: build it (it copies itself into `Analyzers`) and run
   `ContainerGenerator.Verify`.
+- **Framework.Analyzers.** The Roslyn rules of the code style (FWR001-FWR006, warnings): sources in `client/core/Source~/Analyzers`,
+  the dll next to `ContainerGenerator.dll`, given by Unity to every assembly of a game; third-party code (packages, `Assets/Plugins`)
+  and generated code are skipped. Unity reads no `.editorconfig`: the settings of a game work in `dotnet build` only. Rules, settings,
+  build: `Source~/Analyzers/README.md`.
 - **Logging.** Runtime code logs through `ILog<T>` (a parameter of a constructor or an `[Inject]` method, given by every
   scope without a registration; a static class takes `Logs.Of(typeof(X))`), not `Debug.Log*`. Templates, levels (`LogOptions`
   of the `OptionsContainer` of the game), sinks and what the telemetry takes: `LOGGING.md`.

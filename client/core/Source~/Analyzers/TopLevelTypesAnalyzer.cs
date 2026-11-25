@@ -24,6 +24,9 @@ namespace Framework.Analyzers
 
         private static void Analyze(SyntaxTreeAnalysisContext context)
         {
+            if (ThirdParty.Is(context.Tree, context.Options))
+                return;
+
             var declarations = TopLevelTypes.Of(context.Tree.GetRoot(context.CancellationToken));
 
             if (declarations.Count == 0)

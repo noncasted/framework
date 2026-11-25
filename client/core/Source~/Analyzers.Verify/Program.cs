@@ -13,6 +13,7 @@ namespace Framework.Analyzers.Verify
             TopLevelTypesCases.Run(harness);
             CommentLanguageCases.Run(harness);
             LifetimeLockCases.Run(harness);
+            ThirdPartyCases.Run(harness);
             return harness.Finish();
         }
     }
