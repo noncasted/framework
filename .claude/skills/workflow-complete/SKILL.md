@@ -1,11 +1,7 @@
 ---
 name: workflow-complete
-description: Finalize a /workflow task, produce a condensed summary in docs/tasks/complete/, and clean up the working folder from docs/tasks/current/. Use when the user runs /workflow-complete or says finalize, complete, or close task.
+description: Finalize a /workflow task, produce a condensed summary in docs/tasks/complete/, and clean up the working folder from docs/tasks/current/. Use when the user runs /workflow-complete or says finalize, complete, or close task, complete workflow, task complete ("заверши воркфлоу", "закрой задачу").
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /workflow-complete, workflow-complete, заверши воркфлоу, complete workflow, finalize task, task complete, закрой задачу, workflow complete
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute the steps in this skill immediately.
 
 # Workflow Complete Skill
 
@@ -20,7 +16,7 @@ If `task_name` is omitted, look for the most recently modified task folder in `d
 1. Find the task folder: `docs/tasks/current/<task_name>/`
 2. Read all three files: `<task_name>_info.md`, `<task_name>_progress.md`, `<task_name>_result.md`
 3. Files written before the English templates may carry the Russian names: `### Статус:` (`В работе` / `Завершено`), `### Что сделано`, `### Измененные файлы`, `### Отличия от плана`, `### Нерешенные вопросы`, `## Заметки`; finalize those sections under their names, do not add English duplicates
-4. If `<task_name>_result.md` front-matter has `status: pending` or `phase` is `brief` or `implementation` — ask the user if the task is actually done before proceeding
+4. If the front-matter of `<task_name>_info.md` has `status: pending` or `phase` is `brief` or `implementation` — ask the user if the task is actually done before proceeding
 
 ---
 
@@ -56,7 +52,7 @@ Record these as entries under `### Deviations from the plan` or `### Open questi
 
 Result.md is a living document that was populated gradually during implementation. Finalize it:
 
-1. **Update front-matter:**
+1. **Update the front-matter of `<task_name>_info.md`** (`_result.md` has none):
    ```yaml
    status: completed
    phase: completed
@@ -127,7 +123,7 @@ Never commit (delete before the commit, or keep outside the repo in the scratchp
 - copies of project sources (`staging/`, `draft/`, `merged/`, `orig/` trees with `client/...` paths), patches, one-off `execute_code` snippets;
 - logs, dumps, `.txt` probe outputs, frame sequences (`frames/`, `raw/`), audio re-encodes, large GIF/PNG captures, any binary > 1 MB.
 
-Check before committing: `git status --short docs/tasks` and `git diff --cached --stat -- docs/tasks` - only `.md` and a few referenced screenshots. History reference: F0.8 (stage 123) removed ~6650 such files from HEAD; the pre-cleanup state is kept under the archive tag `archive/docs-tasks-harnesses-2026-10-18`.
+Check before committing: `git status --short docs/tasks` and `git diff --cached --stat -- docs/tasks` - only `.md` and a few referenced screenshots.
 
 ---
 
@@ -137,29 +133,13 @@ Based on the completed work, check and update relevant documentation in `.claude
 
 ### 6.1 — Check each documentation file for relevance
 
-| What changed in the task | Documentation to check/update |
-|--------------------------|-------------------------------|
-| MonoBehaviour, `[Inject]`, `ISceneService`, `IScopeSetup` | `tools/framework/.claude/docs/COMMON_CONTAINER.md` |
-| `Advise`, `View`, `Lifetime`, subscriptions, cleanup | `tools/framework/.claude/docs/COMMON_LIFETIMES.md` |
-| `EventSource`, `ViewableProperty`, `ViewableList` | `tools/framework/.claude/docs/COMMON_REACTIVE_BASICS.md` |
-| `UniTask`, async methods, file I/O, `IReadOnlyList` | `tools/framework/.claude/docs/API_DESIGN_FULL.md` |
-| member order, naming, braces, `NoAwait` | `tools/framework/.claude/docs/CODE_STYLE_FULL.md` |
-| Grain, State, `[Transaction]`, Orleans backend | `tools/framework/.claude/docs/COMMON_ORLEANS.md` |
-| Blazor, razor, `@inject`, console UI | `tools/framework/.claude/docs/BLAZOR.md` |
-| IOrleans, AddressableDictionary, messaging | `tools/framework/.claude/docs/COMMON_ORLEANS.md` |
-| "which pattern", architectural choice | `tools/framework/.claude/docs/DECISION_TREES.md` |
-| common pitfalls, known mistakes | `.claude/docs/CLAUDE_MISTAKES.md` |
-| terminology, vocabulary | `.claude/docs/VOCABULARY.md` |
-| keyword lookup, documentation finder | `.claude/docs/TRIGGERS.md` |
-| testing, xUnit, test logs | `.claude/docs/TESTING.md` |
-| telemetry, metrics, logs | `.claude/docs/TELEMETRY.md` |
-| error lookup, debugging | `.claude/docs/ERRORS.md` |
-| deploy, Coolify, docker-compose, Aspire | `.claude/docs/DEPLOY.md` |
-| deploy failure, troubleshooting | `.claude/docs/DEPLOY_TROUBLESHOOTING.md` |
-| reactive values, ViewableProperty patterns | `tools/framework/.claude/docs/COMMON_REACTIVE_VALUES.md` |
-| reactive collections, ViewableList | `tools/framework/.claude/docs/COMMON_REACTIVE_COLLECTIONS.md` |
-| reactive patterns, event wiring | `tools/framework/.claude/docs/COMMON_REACTIVE_PATTERNS.md` |
-| lifetime patterns, scoped cleanup | `tools/framework/.claude/docs/COMMON_LIFETIMES_PATTERNS.md` |
+Pick the docs by what the task changed:
+
+- the docs of the framework by the keyword table of its `INDEX.md` (`tools/framework/.claude/docs` in a game, `.claude/docs` in the
+  framework; the index is always loaded), `ARCHITECTURE_PATTERNS.md` and `GAMEPLAY_ARCHITECTURE.md` among them;
+- the docs of the game in its `.claude/docs` (`CLAUDE_MISTAKES.md`, `VOCABULARY.md`, `TRIGGERS.md`, `TESTING.md`, `TELEMETRY.md`,
+  `ERRORS.md`, `DEPLOY.md`, `DEPLOY_TROUBLESHOOTING.md` and its own, when present), picked by the keyword table of its
+  `CLAUDE.md`.
 
 ### 6.2 — What to update
 
@@ -169,9 +149,9 @@ For each relevant doc:
 3. **Update** in the existing format (match style of surrounding content)
 4. **Cross-reference** — add links between related docs if needed
 
-### 6.3 — CLAUDE_MISTAKES.md (CRITICAL)
+### 6.3 — CLAUDE_MISTAKES.md
 
-If ANY mistakes were made during the task (visible in `<task_name>_progress.md`, git history, or known from context):
+If the task revealed a mistake (visible in `<task_name>_progress.md`, git history, or known from context):
 - Add a new numbered Lesson entry to `.claude/docs/CLAUDE_MISTAKES.md`
 - Format: wrong code, correct code, one-line rule, link to relevant docs page
 
@@ -189,7 +169,7 @@ Check if any of the following should be saved:
 
 1. **New critical patterns** — save to `.claude/docs/CLAUDE_MISTAKES.md` or relevant `.claude/docs/*.md`
 2. **Architecture changes** — update relevant `.claude/docs/*.md`
-3. **User feedback** — save to `.omc/notepad.md` or `.omc/project-memory.json` if applicable
+3. **User feedback** — save to the auto-memory of the session (one file per fact, indexed in `MEMORY.md`), if applicable
 
 Do NOT save:
 - File lists (derivable from git)
@@ -230,13 +210,12 @@ Output a summary to the user, in Russian, in this structure:
 
 - Code identifiers and file paths — English
 - Prose of the task files, the summary and the docs — English; the report to the user in chat — Russian
-- NEVER guess file paths — verify with Glob/Grep
-- NEVER add documentation for things that didn't actually change
+- Do not guess file paths: verify them with Glob/Grep
+- Add documentation only for what actually changed
 - Match existing format in every doc you update
-- If a doc file doesn't exist, do NOT create it — only update existing files
+- Update only existing doc files: a missing one is not created
 - Git diff is the source of truth for changed files, not the plan
 - Be conservative with CLAUDE_MISTAKES.md — only add genuinely new lessons, not variations of existing ones
-- When updating memory, check `.omc/notepad.md` and `.omc/project-memory.json` for duplicates
 - The condensed summary in `complete/` is a quick reference — keep it short and useful
 - The full detailed `<task_name>_result.md` is preserved in git history, no need to duplicate everything in the summary
-- **Always update front-matter when finalizing result.md: `status: completed`, `phase: completed`, `updated`**
+- When finalizing, set `status: completed`, `phase: completed` and `updated` in the front-matter of `_info.md`

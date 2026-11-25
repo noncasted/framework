@@ -1,11 +1,7 @@
 ---
 name: visualize
-description: For visual tasks - before changing the project, produce N distinct variants of the visual (sprites, icons, UI, palettes, effects, scene looks), compose them into one labelled contact sheet PNG (and a GIF when animated) and let the user pick. Use when the user runs /visualize [N] [conditions / style], or asks for visual options, variants, mockups or a choice of look before implementation.
+description: For visual tasks - before changing the project, produce N distinct variants of the visual (sprites, icons, UI, palettes, effects, scene looks), compose them into one labelled contact sheet PNG (and a GIF when animated) and let the user pick. Use when the user runs /visualize [N] [conditions / style], or asks for visual options, variants, mockups or a choice of look before implementation ("варианты визуала", "покажи варианты", "сделай N вариантов", "мокапы", "на выбор").
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /visualize, visualize, варианты визуала, покажи варианты, сделай N вариантов, мокапы, на выбор
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute the steps in this skill immediately.
 
 # Visualize Skill
 

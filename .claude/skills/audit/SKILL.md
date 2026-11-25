@@ -1,11 +1,7 @@
 ---
 name: audit
-description: "Audit and improve parts of the .claude configuration folder — agents, skills, rules, docs, CLAUDE.md. Researches best practices online for the specific domain being audited, then finds inconsistencies, errors, and improvement opportunities. Use this skill when the user says /audit, asks to review or improve their .claude setup, mentions 'audit agents', 'improve my rules', 'check my skill', or wants to optimize any part of the .claude folder."
+description: "Audit and improve parts of the .claude configuration folder — agents, skills, rules, docs, CLAUDE.md. Researches best practices online for the specific domain being audited, then finds inconsistencies, errors, and improvement opportunities. Use this skill when the user says /audit, asks to review or improve their .claude setup, mentions 'audit agents', 'improve my rules', 'check my skill', or wants to optimize any part of the .claude folder. Russian requests too, when they are about the .claude configuration: 'аудит', 'проверь конфиг', 'аудит агентов', 'аудит скиллов', 'аудит доков', 'аудит CLAUDE.md', 'аудит всего' (an audit of code is code-audit)."
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /audit, audit, аудит, проверь конфиг, аудит агентов, аудит скиллов, аудит доков, аудит CLAUDE.md, аудит всего
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute the steps in this skill immediately.
 
 # Audit Skill
 
@@ -76,7 +72,7 @@ Search strategy by domain type:
 - Find common anti-patterns in LLM instructions
 
 **For code workflow automation (commits, PRs, checks):**
-- Search for the specific workflow's best practices (e.g., "conventional commits best practices 2025")
+- Search for the specific workflow's best practices (e.g., "conventional commits best practices")
 - Look for what similar tools do (e.g., how other linters organize rules)
 - Find metrics on what actually catches bugs vs what's noise
 
@@ -166,5 +162,5 @@ Errors: N | Gaps: N | Improvements: N | Style: N
 3. **Cite sources** — when a recommendation comes from research, mention where (e.g., "per Orleans documentation..." or "common pattern in prompt engineering...")
 4. **Cross-reference with project** — if a rule says "always do X", grep the codebase to see if X is actually done. Rules that don't match reality are either wrong rules or unenforced rules — both are findings
 5. **Russian prose** for the report, English for code and technical terms
-6. **Don't suggest changes to CLAUDE.md structure that would break the keyword lookup table** — it's load-bearing
+6. **Don't suggest changes that would break the keyword -> doc table of `INDEX.md` of the framework docs (`.claude/docs` in the framework, `tools/framework/.claude/docs` in a game) or its `@` import in CLAUDE.md** — they are load-bearing
 7. **Prioritize actionable findings** — "this could be better" is less useful than "change line 42 from X to Y because Z"

@@ -1,11 +1,7 @@
 ---
 name: update-override-packages
-description: Check the versions of the Unity packages we customize (embedded copies in client/Packages with local patches) against upstream and update them, re-applying our patches. Use when the user runs /update-override-packages, asks to update or check overridden / embedded / patched packages, after a Unity editor upgrade, or when a new package gets embedded and patched.
+description: Check the versions of the Unity packages we customize (embedded copies in client/Packages with local patches) against upstream and update them, re-applying our patches. Use when the user runs /update-override-packages, asks to update or check overridden / embedded / patched packages, after a Unity editor upgrade, or when a new package gets embedded and patched ("обнови кастомные пакеты", "проверь версии пакетов", "обнови встроенные пакеты").
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /update-override-packages, update override packages, обнови кастомные пакеты, проверь версии пакетов, обнови встроенные пакеты
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute the steps in this skill immediately.
 
 # Update Override Packages Skill
 

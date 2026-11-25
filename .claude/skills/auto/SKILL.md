@@ -1,11 +1,7 @@
 ---
 name: auto
-description: Autonomous mode - the user is away from the computer, the session keeps working on the task without asking anything, restarts crashed or hung processes (Unity editor, cluster, tests) itself and writes every decision it takes into a decisions file for the user to review later. Use when the user runs /auto [task or path], or says they are leaving / away and the work must go on without them.
+description: Autonomous mode - the user is away from the computer, the session keeps working on the task without asking anything, restarts crashed or hung processes (Unity editor, cluster, tests) itself and writes every decision it takes into a decisions file for the user to review later. Use when the user runs /auto [task or path], or says they are leaving / away and the work must go on without them ("автономно", "я отошёл", "я ушёл", "работай без меня", "не жди меня", "продолжай сам").
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /auto, auto, автономно, я отошёл, я ушёл, работай без меня, не жди меня, продолжай сам
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute the steps in this skill immediately.
 
 # Auto Skill
 
@@ -85,8 +81,9 @@ Long operations run with `run_in_background` / `Monitor`, never with a blocking 
 ### Unity editor
 
 Signs of trouble (check them before restarting, `.claude/docs/UNITY_EDITOR_WORKFLOW.md`):
-- **crashed**: no `unityhub-unity-editor` process with `-projectpath ${CLAUDE_PROJECT_DIR}/client`, or
-  `client/Logs/Editor.log` ends with `Fatal error` / a native stack / `SIGABRT`; MCP "No Unity Editor instances found".
+- **crashed**: `.claude/skills/control/control editor status` says `down` or `crashed` (it looks for the editor of
+  `editor.project` of `.claude/control.json`, `client` without it), or the `log` it names ends with `Fatal error` / a native
+  stack / `SIGABRT`; MCP "No Unity Editor instances found".
 - **hung**: the process is there, MCP calls time out 3 times in a row over at least 5 minutes, `Editor.log` has not
   grown for 5 minutes (`stat -c %Y`), and no compile / domain reload / test run / asset import is in progress in the
   log tail. A busy main thread at 100% CPU with a growing log is not a hang - wait.
@@ -123,8 +120,13 @@ The MPPM clone (two clients) is restarted through its scenario `Stop()` / `Start
   on it; come back to the blocked one when the cause may have gone (after a restart, after another step).
 - Verify each step as usual (tests, compile, renders) - nobody will check it for you before you continue.
 - Context: check with `python3 .claude/skills/orchestrate/context_meter.py --session <own session id>`; over 250 000
-  tokens - save the state as `workflow-split` does (task files) and continue as described in Phase 5 of the
-  `orchestrate` skill (next generation as an agent) instead of stopping with a copy-paste prompt.
+  tokens - save the state as `workflow-split` does (task files; an orchestrator also writes its handoff, Phase 5 of the
+  `orchestrate` skill) and, as nobody is there to compact the session, launch the next generation as an agent
+  (`general-purpose`) instead of stopping with a copy-paste prompt: "You are generation <n+1> of the task
+  docs/tasks/current/<task>/, the user is away. Read .claude/skills/auto/SKILL.md and continue from the task files (an
+  orchestrator: .claude/skills/orchestrate/SKILL.md from Phase 4, the handoff <path> and <task>_orchestration.md). ORCH
+  marker: ORCH-<task>-orchestrator-g<n+1>. Measure your own context with --marker." Running agents keep running; their
+  notifications reach this session - forward each one to the new generation with `SendMessage` and do nothing else.
 - Keep `_progress.md` / `_result.md` of the task up to date: the user reads them on return together with the
   decisions file.
 

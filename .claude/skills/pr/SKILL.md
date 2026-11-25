@@ -1,11 +1,7 @@
 ---
 name: pr
-description: Create a GitHub pull request for the current branch with a formatted English title and body. Use when the user runs /pr.
+description: Create a GitHub pull request for the current branch with a formatted English title and body. Use when the user runs /pr or asks to create or open a pull request ("пулл реквест", "создай PR", "открой PR", "запрос на слияние", "pull request", "github pr").
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /pr, pr, пулл реквест, создай PR, pull request, открой PR, запрос на слияние, github pr
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute the steps in this skill immediately.
 
 # PR Skill
 
@@ -14,9 +10,8 @@ When the user runs `/pr`, create a GitHub pull request for the current branch.
 ## Rules
 
 ### 1. PR Title Format
-- Extract ticket ID from branch name (e.g., `ATS-123`) → `[ATS-123] Brief description`
-- If no ticket ID → `[Scope] Brief description`
-  - Scope examples: [Visual], [Timeline], [Objects], [Editor], [Core], [UI], [Animation], [Anchors]
+- The title format of the `commit` skill (`.claude/skills/commit/SKILL.md` § Title Format): the ticket ID of the branch name,
+  otherwise the scopes of the work
 - Title must be SHORT (under 70 characters) and descriptive
 - ALL text in ENGLISH
 
@@ -34,6 +29,9 @@ When the user runs `/pr`, create a GitHub pull request for the current branch.
 
 ### Another Area (refactor)
 - Brief bullet
+
+## Test plan
+- <concrete step>
 ```
 
 ## Execution Steps
@@ -45,7 +43,7 @@ When the user runs `/pr`, create a GitHub pull request for the current branch.
 
 2. Analyze the scope of work:
    - Extract ticket ID from branch name (pattern: `[A-Z]+-[0-9]+`)
-   - Group changed files by area (Schemes, GamePlay, Internal, etc.)
+   - Group changed files by area (the scopes of the title)
    - Read 2-4 KEY source files (not prefabs/meta/scenes) to understand what was implemented
    - Focus on: new .cs files, modified core files — skip .meta, .prefab, .unity, .asset
 
@@ -79,28 +77,30 @@ When the user runs `/pr`, create a GitHub pull request for the current branch.
 
 ## Example
 
-**Branch:** `feature/anchor-points`
+Illustrative, from the framework; the scopes and the content of another project differ.
 
-**Title:** `[Anchors] Add anchor point editing for sprite frames`
+**Branch:** `client-logger`
+
+**Title:** `[Core] Client logger ILog<T> with levels in OptionsContainer`
 
 **Body:**
 ```
 ## Overview
 
-Implements per-frame anchor point editing in the sprite animation editor.
-Anchor points allow attaching effects or objects to named positions on animated sprites.
+Runtime code of the client logs through ILog<T> instead of Debug.Log: a template is formatted only at an enabled level,
+and the levels come from the options of the game.
 
 ## Changes
 
-### Anchor Point System (new feature)
-- add: ObjectAnchorPointScheme / ObjectAnchorsScheme for per-frame anchor serialization
-- add: ObjectAnchorsSelector panel with up to 8 toggle buttons per frame
-- add: ObjectAnchorEdit draggable element for repositioning anchors on canvas
+### Logger (add)
+- add: ILog<T>, bound by the container generator to Logs.Of<T>(), templates with 0-4 generic arguments
+- add: LogOptions in OptionsContainer with development and release levels and rules by prefix
 
-### Common Drag Infrastructure (refactoring)
-- add: ObjectEditDraggableElement and ObjectEditElementPointerHandler base classes
-- refactor: ObjectCollisionEdit to use new common drag base
+### Runtime of the framework (refactor)
+- refactor: modules and platforms log through ILog<T>
+- remove: DebugOptions.EnableLogs
 
-### Prefab Organization (refactoring)
-- refactor: move collision/animation/timeline prefabs into dedicated subfolders
+## Test plan
+- tools/scripts/test-all.sh: EditMode and PlayMode pass
+- Play in the editor at the level Warning: no Info lines in the console
 ```

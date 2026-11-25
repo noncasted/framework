@@ -1,11 +1,7 @@
 ---
 name: benchmark-analyse
-description: Run benchmarks via API and analyse results — trends, regressions, anomalies. Use when user asks to run benchmarks, check performance, compare benchmark results, or analyse benchmark history. Also trigger on "run benchmarks", "check performance", "benchmark results", "performance regression".
+description: Run benchmarks via API and analyse results — trends, regressions, anomalies. Use when user asks to run benchmarks, check performance, compare benchmark results, or analyse benchmark history. Also trigger on /benchmark-analyse, "run benchmarks", "check performance", "benchmark results", "performance regression", "анализ бенчмарков", "запусти бенчмарки", "проверь производительность", "сравни бенчмарки".
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /benchmark-analyse, benchmark-analyse, анализ бенчмарков, запусти бенчмарки, проверь производительность, benchmark results, performance regression, сравни бенчмарки, run benchmarks, check performance
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute the steps in this skill immediately.
 
 # Benchmark Analyse
 
@@ -13,7 +9,7 @@ Run benchmarks through the ConsoleGateway API and interpret results.
 
 ## Prerequisites
 
-The Aspire cluster must be running. Use `/start-cluster` skill to start it if needed, or follow the procedure from `.claude/skills/start-cluster/SKILL.md`.
+The Aspire cluster must be running: start it with the `control` skill when it is not (`.claude/skills/control/control cluster start`).
 
 Benchmarks are opt-in (`Benchmarks__Enabled=true`): the Aspire AppHost sets it for the dev cluster. A cluster started
 without it (or any non-Development host) has no `/api/benchmarks` (404) and the console page says the benchmarks are off.
@@ -65,10 +61,8 @@ Use Bash to check if the API is reachable:
 curl -s -o /dev/null -w "%{http_code}" http://localhost:7103/api/benchmarks
 ```
 
-If not 200 or 503, start the cluster yourself:
-1. Launch in background: `dotnet run --project backend/Orchestration/Aspire/Aspire.csproj --launch-profile http` (run_in_background=true)
-2. Poll for readiness: loop `curl` every 5s until 200 (up to 2 min)
-3. If still not ready after 2 min, check the background task output for errors and report to user
+If not 200 or 503, start the cluster with the `control` skill: `.claude/skills/control/control cluster start` returns when the
+cluster answers; on a failure it prints `error` with the `tail` of the log: report it to the user.
 
 If 503 (cluster initializing), just poll until 200.
 

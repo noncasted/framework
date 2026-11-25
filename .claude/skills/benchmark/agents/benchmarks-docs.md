@@ -23,8 +23,8 @@ For each new file, extract:
 Open the matching doc in `backend/Tools/Benchmarks/docs/`:
 - State → `STATE.md`
 - Messaging → `MESSAGING.md`
-- Game → `GAME.md` (does not exist yet — create it in the same format)
-- Meta → `META.md` (does not exist yet — create it in the same format)
+- Game → `GAME.md` (create it in the same format when the game has none)
+- Meta → `META.md` (create it in the same format when the game has none)
 - Infrastructure → `INFRASTRUCTURE.md`
 
 Add entries following this exact format (match existing entries):

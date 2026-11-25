@@ -1,11 +1,7 @@
 ---
 name: media-cleanup
-description: Clean up after the session in docs/media and docs/media/research - delete the extra files it left and move its finished research to docs/media/research/complete. Use when the session has finished its task and created files in docs/media, when the user runs /media-cleanup, or says to clean up the media.
+description: Clean up after the session in docs/media and docs/media/research - delete the extra files it left and move its finished research to docs/media/research/complete. Use when the session has finished its task and created files in docs/media, when the user runs /media-cleanup, or says to clean up the media ("почисти media", "убери за собой в media").
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /media-cleanup, media-cleanup, почисти media, убери за собой в media
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute the steps in this skill immediately.
 
 # Media Cleanup
 

@@ -1,6 +1,6 @@
 ---
 name: audit-scout
-description: Read-only auditor of one package of code (a folder of 50-150 .cs files) against the framework docs; returns candidate findings with evidence in a fixed format. Spawned by the audit-swarm skill, one per package.
+description: Read-only auditor of one package of code (15-40 .cs files of one feature) against the framework docs; returns candidate findings with evidence in a fixed format. Spawned by the audit-swarm skill, one per package.
 tools:
   - read
   - find

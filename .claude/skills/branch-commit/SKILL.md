@@ -1,11 +1,7 @@
 ---
 name: branch-commit
-description: Create a new branch from the current branch, carry over uncommitted changes, and commit them following project conventions. Use when the user runs /branch-commit.
+description: Create a new branch from the current branch, carry over uncommitted changes, and commit them following project conventions. Use when the user runs /branch-commit or asks for a new branch with a commit of the current changes ("ветка и коммит", "создай ветку и коммит", "новая ветка с коммитом", "перенеси изменения в ветку", "branch commit").
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /branch-commit, branch-commit, ветка и коммит, создай ветку и коммит, branch commit, новая ветка с коммитом, перенеси изменения в ветку
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute the steps in this skill immediately.
 
 # Branch Commit Skill
 
@@ -56,17 +52,8 @@ git checkout -b <branch-name>
 
 ### 4. Stage and commit
 
-**Commit title:**
-- `[Scope] Brief description` or `[Scope1] [Scope2] Brief description`
-  - Use multiple tags when a commit spans several areas (e.g., `[Backend] [Client]`, `[Shared] [Console]`)
-  - Scope: [Client], [Backend], [Shared], [Console], [Infra], [Tests], [Level], [Deploy], [Claude], [Docs], [Misc]
-
-**Commit description** — bullet points, each starting with a tag:
-- `add:` — new features, grains, commands
-- `fix:` — bug fixes
-- `refactor:` — code restructuring
-- `update:` — enhancements to existing functionality
-- `remove:` — deletions
+Message format: the `commit` skill (`.claude/skills/commit/SKILL.md` § Rules) - the title with the scopes, the tagged
+bullets, no `Co-Authored-By` line for Claude.
 
 Stage files selectively (avoid secrets like `.env`), then commit:
 
@@ -77,8 +64,6 @@ git commit -m "$(cat <<'EOF'
 
 - add: new feature X
 - fix: issue Y
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 EOF
 )"
 ```

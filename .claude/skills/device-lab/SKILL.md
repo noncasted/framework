@@ -1,11 +1,7 @@
 ---
 name: device-lab
-description: Measure and debug the WebGL client of a game outside the player's hands - the headless Chromium stand over CDP (a phone emulated, CPU throttled, the production host mapped to a local build, the meta cut), A/B series on a quiet machine, CPU profiles of the wasm with function names, GL call counts and the GL probe, and real devices over USB - iPhone / iPad Safari (ios_webkit_debug_proxy, Safari restart, screenshots, GL probes of uniforms, textures and buffers), Android Chrome over adb, local builds served to phones on the LAN with a remote log. Use when the user asks to run the stand, a headless run, a wasm profile, an A/B of two builds, to open or restart Safari on the iPhone or iPad, to test on a phone, Android, adb, a LAN build, a GL probe, or why a build is slow or broken on a device.
+description: Measure and debug the WebGL client of a game outside the player's hands - the headless Chromium stand over CDP (a phone emulated, CPU throttled, the production host mapped to a local build, the meta cut), A/B series on a quiet machine, CPU profiles of the wasm with function names, GL call counts and the GL probe, and real devices over USB - iPhone / iPad Safari (ios_webkit_debug_proxy, Safari restart, screenshots, GL probes of uniforms, textures and buffers), Android Chrome over adb, local builds served to phones on the LAN with a remote log. Use when the user asks to run the stand, a headless run, a wasm profile, an A/B of two builds, to open or restart Safari on the iPhone or iPad, to test on a phone, Android, adb, a LAN build, a GL probe, or why a build is slow or broken on a device. Also /device-lab and the Russian requests ("стенд", "прогон на стенде", "профиль wasm", "профиль с именами", "A/B сборок", "сравни сборки", "перезапусти Safari", "залип WebGL", "сборка в LAN", "на телефоне по сети", "GL-пробник", "пробник uniform", "скриншот с телефона").
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /device-lab, device-lab, стенд, headless, прогон на стенде, профиль wasm, профиль с именами, A/B сборок, сравни сборки, iPhone, iPad, Safari, перезапусти Safari, залип WebGL, Android, adb, сборка в LAN, на телефоне по сети, GL-пробник, пробник uniform, скриншот с телефона, headless stand, wasm profile, GL probe, LAN build
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Pick the section, read its file and run it.
 
 # Device Lab
 
@@ -18,7 +14,8 @@ WB=tools/framework/tools/scripts/web-bench    # in the framework itself: WB=tool
 `ls $WB` empty or missing: the submodule of the game is older than web-bench - update it (`update-framework`) or point `WB` at a
 checkout of the framework that has it (`WB=/projects/framework/tools/scripts/web-bench`).
 
-Every script has a header and `--help`: read it before the first run of a script, the files below only choose and connect.
+Pick the section of the table by the need, read its file and run it. Every script has a header and `--help`: read it before the
+first run of a script, the files below only choose and connect.
 
 | Need | Section |
 |------|---------|
@@ -76,14 +73,14 @@ another build.
 
 - A fresh build without the editor and without an upload: the script of `deploy-client` from the root of the game,
   `KEEP_COPY=1 tools/framework/tools/scripts/deploy-client.sh <target> --no-deploy [--notest]` (in the background, minutes). It takes
-  the batchmode slots `/tmp/claude-1000/unity-build.slot<i>.lock` of the machine (never the old `unity-batchmode.lock`, never a
-  Unity of your own beside them), prints `Copies kept: <work>`; the build is `<work>/<target>/<output of the target>` and its
-  Unity project `<work>/<target>/client` (the debug wasm of `profile/debug-wasm.sh`). Copy the build out (`cp -a --reflink=auto`),
+  the batchmode slots `/tmp/claude-1000/unity-build.slot<i>.lock` of the machine (never a Unity of your own beside them),
+  prints `Copies kept: <work>`; the build is `<work>/<target>/<output of the target>` and its Unity project
+  `<work>/<target>/client` (the debug wasm of `profile/debug-wasm.sh`). Copy the build out (`cp -a --reflink=auto`),
   then delete `<work>`: each copy is a full tree. `--notest` is fine here, nothing is uploaded.
 - An existing build of the game: `builds` of `.claude/device-lab.json` (the notes of `project-skills.md` say how fresh it is).
 - Never build in the open editor of the user or in the working tree of another session.
 
-## Rules learned the hard way
+## Rules
 
 - **No stand session reaches the production telemetry.** The stand maps the meta host to `127.0.0.1:1`, every host but the page
   and the meta to `~NOTFOUND`, and stops with exit 3 the moment a request to the meta or another host gets an answer; `--prod` / `PROD=1` lifts that only when the user asked for production explicitly. Once
@@ -114,5 +111,4 @@ frame, fps), the A/B as before / after / delta with the spread of the runs and t
 paths: summary, profiles, screenshots), and anything that makes a number doubtful (load, heat, a failed step). Open screenshots
 with `lightbox-show --from '<device, build, step>'`.
 
-The WebGL problems already met and how they were found: `.claude/docs/WEBGL_TROUBLESHOOTING.md` of the framework (`WEBGL_IOS.md`
-in a tree that does not have it yet).
+The WebGL problems already met and how they were found: `.claude/docs/WEBGL_TROUBLESHOOTING.md` of the framework.

@@ -1,11 +1,7 @@
 ---
 name: client-telemetry
-description: Watch and analyse the performance telemetry of game clients - wait for a new session and observe it, only of a menu or only of a run by its tag, or analyse a given session by id, live or archived, or a startup trace of a client - and report CPU or GPU limits, freezes, memory growth, overheating, slow loads and errors. Use when the user runs /client-telemetry, asks to look at the client telemetry, the performance on a phone or a device, a live session, why the game lags on a player's device, or says they are starting the game now and asks to watch it.
+description: Watch and analyse the performance telemetry of game clients - wait for a new session and observe it, only of a menu or only of a run by its tag, or analyse a given session by id, live or archived, or a startup trace of a client - and report CPU or GPU limits, freezes, memory growth, overheating, slow loads and errors. Use when the user runs /client-telemetry, asks to look at the client telemetry, the performance on a phone or a device, a live session, why the game lags on a player's device, or says they are starting the game now and asks to watch it ("телеметрия клиента", "посмотри телеметрию", "перформанс на телефоне", "тормозит на телефоне", "почему лагает", "живая сессия", "посмотри сессию", "сессия забега", "сессия меню", "сейчас запущу игру").
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /client-telemetry, client-telemetry, телеметрия клиента, посмотри телеметрию, перформанс на телефоне, тормозит на телефоне, почему лагает, живая сессия, посмотри сессию, сессия забега, сессия меню, сейчас запущу игру, client telemetry, phone performance, live session
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Run the mode that fits the request and give the report.
 
 # Client Telemetry
 
@@ -24,6 +20,8 @@ T=.claude/skills/client-telemetry/telemetry    # from the root of the project
 Options go after the subcommand: `$T sessions --url <u>`, not `$T --url <u> sessions`; `--url` and `--env-file` too.
 
 ## Modes
+
+Run the mode that fits the request and give the report.
 
 **1. New session** ("I start the game now", "watch the next session"):
 

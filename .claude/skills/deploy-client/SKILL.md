@@ -1,11 +1,7 @@
 ---
 name: deploy-client
-description: Test, build and upload the Unity WebGL client of the game in one background run of tools/framework/tools/scripts/deploy-client.sh - the local tests (tools/scripts/run-tests.sh) and one batchmode Unity build per target (.claude/deploy-client.json) run in parallel, each in its own reflink copy of the working tree, with submodule stripping and checks; the uploads to the Coolify host (tools/scripts/deploy-webgl.sh) follow only when everything passed. The open Unity editor is not used. Use when the user runs /deploy-client or asks to build and deploy the web client or the Telegram build, ship the WebGL build, or update the client on Coolify.
+description: Test, build and upload the Unity WebGL client of the game in one background run of tools/framework/tools/scripts/deploy-client.sh - the local tests (tools/scripts/run-tests.sh) and one batchmode Unity build per target (.claude/deploy-client.json) run in parallel, each in its own reflink copy of the working tree, with submodule stripping and checks; the uploads to the Coolify host (tools/scripts/deploy-webgl.sh) follow only when everything passed. The open Unity editor is not used. Use when the user runs /deploy-client or asks to build and deploy the web client or the Telegram build, ship the WebGL build, or update the client on Coolify ("задеплой клиент", "залей клиент", "залей веб билд", "залей телеграм билд", "залей фронт", "деплой клиента", "деплой телеграма").
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /deploy-client, deploy-client, задеплой клиент, залей клиент, залей веб билд, залей телеграм билд, залей фронт, деплой клиента, деплой телеграма, deploy client, deploy webgl, deploy telegram, ship the web build
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute the steps in this skill immediately.
 
 # Deploy Client
 
@@ -17,8 +13,8 @@ The open editor of the user is not touched - no MCP, no profile switch, no hando
 run, the json, the environment and the exit codes are in the comment at the top of the script.
 
 Why copies: Unity's incremental build (Bee) deletes the output of the previous build when the next one writes to another
-folder (2026-10-17: building telegram after web removed `client/Build/Build/*`, the web upload shipped an `index.html`
-without its wasm). Each target now builds in its own copy and uploads from it, so no build sees the output of another.
+folder, so the build of one target strips the payload of another (an `index.html` shipped without its wasm). Each target
+builds in its own copy and uploads from it, so no build sees the output of another.
 A passed build leaves its `client/Library` (without `Bee` and the stripping backups) in
 `/var/tmp/<game>-deploy-client.<key of the tree>.<target>`; the next build of that target from the same tree starts from it
 when it is newer than the Library of the tree, so a tree without its own editor (a worktree) does not import again in every
@@ -111,7 +107,7 @@ or `DEPLOY-CLIENT FAILED`. Logs (default `/tmp/<game>-deploy-client/<time>/`): `
   json, do not edit the script.
 
 Do not fix the tests, do not rerun with `--notest`, do not retry a build on your own - the user decides. The `wasm-ld`
-heap-corruption abort in LTO is random (memory `webgl-wasm-ld-flaky`): say so in the report and let the user decide on a
+heap-corruption abort in LTO is random (`WEBGL_TROUBLESHOOTING.md` B4 of the framework docs): say so in the report and let the user decide on a
 rerun. `low memory`: the tests refuse with less than 8 GB available, a build fails after `UNITY_BUILD_MEM_WAIT` seconds
 below `UNITY_BUILD_MIN_FREE_GB` - report it, the user may close something and rerun. `Waiting for a free build slot` /
 `Waiting for memory` in `build-<t>.out` is normal: other builds on the machine hold the slots; the run goes on by itself.

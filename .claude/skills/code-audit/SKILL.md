@@ -19,8 +19,8 @@ No argument: ask which area to audit.
 
 Read before auditing, whole:
 
-- `tools/framework/.claude/docs/ARCHITECTURE_PRINCIPLES.md` (P1-P14)
-- `tools/framework/.claude/docs/CODE_STYLE_FULL.md`
+- `ARCHITECTURE_PRINCIPLES.md` (P1-P14) of the framework docs (`.claude/docs` in the framework, `tools/framework/.claude/docs` in a game)
+- `CODE_STYLE_FULL.md` of the same folder
 
 The docs are the only source of rules: no finding from a personal taste. A local exception written in a doc of the game
 (`.claude/docs`) is not a finding. For the touched layers also read the sections of `ARCHITECTURE_PATTERNS.md` of the framework

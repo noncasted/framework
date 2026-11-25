@@ -1,17 +1,11 @@
 ---
 name: workflow
-description: Create a structured task workspace (info/progress/result files) from a description and begin implementation. Use when the user runs /workflow or says create workflow, task workspace, or start task.
+description: Create a structured task workspace (info/progress/result files) from a description and begin implementation. Use when the user runs /workflow or says create workflow, task workspace, workflow task, or start task ("воркфлоу", "запусти воркфлоу", "начни задачу").
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /workflow, workflow, воркфлоу, запусти воркфлоу, create workflow, task workspace, начни задачу, workflow task
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute the steps in this skill immediately.
 
 # Workflow Skill
 
 When the user runs `/workflow [description]`, create a structured task workspace with three files and begin implementation.
-
-This is an enhanced version of `/task` that maintains a living workspace throughout the task lifecycle.
 
 ---
 
@@ -35,14 +29,9 @@ docs/tasks/
 
 ## Phase 1 — Create Brief (`<task_name>_info.md`)
 
-Follow the same research process as `/task`:
+### Step 1 — Extract the requirements
 
-### Step 1 — Extract ALL requirements
-
-Parse the user's message after `/workflow`. **Preserve everything — nothing is noise.**
-
-- Make a full list of ALL goals, subtasks, constraints and context from the user's message
-- If the user mentioned 7 items, the list must have 7 items. Drop nothing
+- List every goal, subtask, constraint and piece of context of the user's message after `/workflow`, one entry per item the user named; nothing is dropped as noise
 - Extract all mentioned class names, system names, file names, features
 - Fix typos, normalize informal names to proper C# identifiers
 - Keep the user's descriptions of the behaviour next to the technical mapping
@@ -57,31 +46,14 @@ For every class/system/feature mentioned:
 
 ### Step 3 — Map task to documentation
 
-Include docs that are **relevant** to this task:
+Include the docs that are **relevant** to this task:
 
-| Task touches... | Include |
-|-----------------|---------|
-| MonoBehaviour, `[Inject]`, `ISceneService`, `IScopeSetup` | `tools/framework/.claude/docs/COMMON_CONTAINER.md` |
-| `Advise`, `View`, `Lifetime`, subscriptions, cleanup | `tools/framework/.claude/docs/COMMON_LIFETIMES.md` |
-| `EventSource`, `ViewableProperty`, `ViewableList` | `tools/framework/.claude/docs/COMMON_REACTIVE_BASICS.md` |
-| `UniTask`, async methods, file I/O, `IReadOnlyList` | `tools/framework/.claude/docs/API_DESIGN_FULL.md` |
-| member order, naming, braces, `NoAwait` | `tools/framework/.claude/docs/CODE_STYLE_FULL.md` |
-| Grain, State, `[Transaction]`, Orleans backend | `tools/framework/.claude/docs/COMMON_ORLEANS.md` |
-| Blazor, razor, `@inject`, console UI | `tools/framework/.claude/docs/BLAZOR.md` |
-| IOrleans, AddressableDictionary, messaging | `tools/framework/.claude/docs/COMMON_ORLEANS.md` |
-| "which pattern", architectural choice | `tools/framework/.claude/docs/DECISION_TREES.md` |
-| common pitfalls, known mistakes | `.claude/docs/CLAUDE_MISTAKES.md` |
-| terminology, vocabulary | `.claude/docs/VOCABULARY.md` |
-| keyword lookup, documentation finder | `.claude/docs/TRIGGERS.md` |
-| testing, xUnit, test logs | `.claude/docs/TESTING.md` |
-| telemetry, metrics, logs | `.claude/docs/TELEMETRY.md` |
-| error lookup, debugging | `.claude/docs/ERRORS.md` |
-| deploy, Coolify, docker-compose, Aspire | `.claude/docs/DEPLOY.md` |
-| deploy failure, troubleshooting | `.claude/docs/DEPLOY_TROUBLESHOOTING.md` |
-| reactive values, ViewableProperty patterns | `tools/framework/.claude/docs/COMMON_REACTIVE_VALUES.md` |
-| reactive collections, ViewableList | `tools/framework/.claude/docs/COMMON_REACTIVE_COLLECTIONS.md` |
-| reactive patterns, event wiring | `tools/framework/.claude/docs/COMMON_REACTIVE_PATTERNS.md` |
-| lifetime patterns, scoped cleanup | `tools/framework/.claude/docs/COMMON_LIFETIMES_PATTERNS.md` |
+- the docs of the framework by the keyword table of its `INDEX.md` (`tools/framework/.claude/docs` in a game, `.claude/docs` in the
+  framework; the index is always loaded). A feature or a refactoring always adds `ARCHITECTURE_PATTERNS.md`, gameplay also
+  `GAMEPLAY_ARCHITECTURE.md`;
+- the docs of the game in its `.claude/docs` (`CLAUDE_MISTAKES.md`, `VOCABULARY.md`, `TRIGGERS.md`, `TESTING.md`, `TELEMETRY.md`,
+  `ERRORS.md`, `DEPLOY.md`, `DEPLOY_TROUBLESHOOTING.md` and its own, when present), picked by the keyword table of its
+  `CLAUDE.md`; `.claude/project-skills.md` § workflow names more when the game has that section.
 
 ### Step 4 — Decompose into steps
 
@@ -96,11 +68,11 @@ Rules:
 - Steps must be sequenced so dependencies come first
 - Each step must have an acceptance criterion — a concrete test, command, or observable behavior that proves the step is done
 
-### Step 5 — Verify completeness (CRITICAL)
+### Step 5 — Check coverage
 
 **Re-read the user's original message.** For every requirement:
 - Verify it is covered by a concrete step
-- If something is NOT covered — add it now
+- If something is not covered — add it now
 
 ### Step 5.5 — Gate: Ask or Proceed?
 

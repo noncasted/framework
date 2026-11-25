@@ -23,8 +23,8 @@ Read the matching group directory to see actual patterns:
 - `backend/Tools/Benchmarks/Messaging/*.cs`
 - `backend/Tools/Benchmarks/Infrastructure/*.cs`
 
-`TestGroups.Game` and `TestGroups.Meta` exist but have no benchmarks, directories or docs yet — a case in those
-groups creates `backend/Tools/Benchmarks/Game/` or `Meta/` and a new `GAME.md` / `META.md`.
+`TestGroups.Game` and `TestGroups.Meta` exist; a game may have no benchmarks, directories or docs for them — a case in
+those groups then creates `backend/Tools/Benchmarks/Game/` or `Meta/` and a new `GAME.md` / `META.md`.
 
 Read `backend/Tools/Benchmarks/TestGroups.cs` for valid group and subgroup names.
 

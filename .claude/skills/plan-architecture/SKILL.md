@@ -1,11 +1,7 @@
 ---
 name: plan-architecture
-description: Create, review or extend the plan of a development or refactoring task (`<task>_info.md`) against the project architecture principles (ARCHITECTURE_PRINCIPLES.md P1-P14) - audits the touched code (big classes, clutter, dead code, polling, views from code, wrong dependency direction), adds the missing steps, risks and questions to the user, writes no code. Use when the user runs /plan-architecture [task text | plan path | docs/tasks/current/<task>/], or says "проверь план", "спланируй по архитектуре", "архитектурный план", "architecture plan", "review the plan".
+description: Create, review or extend the plan of a development or refactoring task (`<task>_info.md`) against the project architecture principles (ARCHITECTURE_PRINCIPLES.md P1-P14) - audits the touched code (big classes, clutter, dead code, polling, views from code, wrong dependency direction), adds the missing steps, risks and questions to the user, writes no code. Use when the user runs /plan-architecture [task text | plan path | docs/tasks/current/<task>/], or says "проверь план", "спланируй по архитектуре", "архитектурный план", "сверь план с принципами", "architecture plan", "plan by architecture", "review the plan".
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /plan-architecture, проверь план, спланируй по архитектуре, архитектурный план, сверь план с принципами, architecture plan, review the plan, plan by architecture
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute the steps in this skill immediately.
 
 # Plan Architecture Skill
 

@@ -1,11 +1,7 @@
 ---
 name: orchestrate
-description: Turn the current session into the orchestrator of a task - split it into steps, run the steps with subagents (parallel where independent, sequential where dependent), keep every context (own and agents') under 300k tokens with handoffs; with --architecture the plan goes through plan-architecture first, every code step gets an independent architecture review and the task ends with a code audit. Use when the user runs /orchestrate [--architecture] [task text or path to a task file/folder] or asks to orchestrate a task with agents.
+description: Turn the current session into the orchestrator of a task - split it into steps, run the steps with subagents (parallel where independent, sequential where dependent), keep every context (own and agents') under 300k tokens with handoffs; with --architecture the plan goes through plan-architecture first, every code step gets an independent architecture review and the task ends with a code audit. Use when the user runs /orchestrate [--architecture] [task text or path to a task file/folder] or asks to orchestrate a task with agents ("оркестрируй", "оркестратор", "раздай агентам", "выполни агентами").
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /orchestrate, orchestrate, оркестрируй, оркестратор, раздай агентам, выполни агентами
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute the steps in this skill immediately.
 
 # Orchestrate Skill
 
@@ -144,6 +140,8 @@ Rules for the brief:
 - Launch the independent agents of a wave **in one message** (parallel tool calls). Use `isolation: "worktree"` only
   for parallel steps that must edit overlapping areas and will be merged later - otherwise the shared working tree.
 - Record marker and agentId of each launch in `_orchestration.md` right away.
+- Model per step: `model: "sonnet"` for search and reading, running tests, mechanical edits and verification of evidence;
+  the inherited model for design, new code and the [arch] reviews.
 
 ## Phase 4 — Watch, verify, hand off
 
@@ -173,20 +171,18 @@ While agents run (they report back by notification; do not poll in a loop):
 Check own size with `context_meter.py --session <own id>` after every wave and after every few notifications.
 
 - Keep own context small: delegate file reading to agents, ask agents for short reports, do not read full transcripts.
-- Over **250 000**: finish the current bookkeeping and hand off the orchestration:
+- Over **250 000**: finish the current bookkeeping and prepare the session for a compact:
   1. update `_orchestration.md` (graph, running agents with markers / agentIds, resources) and `_progress.md`
      ("Where the work stopped");
   2. write `docs/tasks/current/<task>/handoff/orchestrator_g<n>.md`: what is done, what runs right now, what is next,
      decisions the user should see;
   3. increment `orchestrator_generation`;
-  4. launch the next orchestrator as an agent (`general-purpose`): "You are the orchestrator of generation <n+1> of the task
-     docs/tasks/current/<task>/. Read .claude/skills/orchestrate/SKILL.md and carry it out from Phase 4, starting from
-     the handoff <path> and <task>_orchestration.md. ORCH marker: ORCH-<task>-orchestrator-g<n+1>. Measure your own
-     context with --marker." Running agents keep running; their notifications reach this session - forward each one to the new
-     orchestrator with `SendMessage` and do nothing else.
-  5. Tell the user in one line that the orchestration moved to generation n+1.
-- If agents cannot spawn agents in this environment, instead output the continuation prompt for a fresh session
-  (same text as in step 4) and stop.
+  4. tell the user in one line that the state is on disk and the session is ready for `/compact`, with the line to
+     continue with after it: "Continue the orchestration of docs/tasks/current/<task>/: read
+     .claude/skills/orchestrate/SKILL.md, the handoff <path> and <task>_orchestration.md, carry on from Phase 4."
+- Do not launch a next orchestrator as an agent: every notification would have to be relayed to it, and the work would
+  leave the session the user talks to (a session whose user is away follows the `auto` skill). Running agents keep
+  running and report to this session, before and after the compact; until the compact only record their reports on disk.
 
 ## Phase 6 — Completion
 

@@ -1,11 +1,7 @@
 ---
 name: workflow-split
-description: Save the current session state into the task's info/progress/result files so a fresh session can continue without context loss. Use when the user runs /workflow-split or says split workflow, save session, or continue later.
+description: Save the current session state into the task's info/progress/result files so a fresh session can continue without context loss. Use when the user runs /workflow-split or says split workflow, context split, save session, or continue later ("раздели воркфлоу", "раздели сессию", "продолжи позже").
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /workflow-split, workflow-split, раздели воркфлоу, split workflow, save session, context split, продолжи позже, раздели сессию, workflow split
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute the steps in this skill immediately.
 
 # Workflow Split Skill
 
@@ -132,23 +128,19 @@ Update it with current progress:
    ```
 3. In `### Deviations from the plan` — add any deviations discovered
 4. In `### Open questions` — add open questions from this session
-5. Update front-matter: `updated` field
 
 ---
 
 ## Phase 6 — Output Continuation Prompt
 
-After updating the files, output ONLY the following text for the user to paste into the next session.
-
-**CRITICAL: This is text FOR THE USER to copy-paste into a new session. Do NOT execute it yourself. Do NOT read the files mentioned in it. Just output the text verbatim and stop.**
+After updating the files, output only the prompt below, for the user to paste into a new session. It is not an instruction
+for this session: do not act on it and add nothing to it.
 
 ```
 [COPY-PASTE THIS INTO THE NEXT SESSION]
 
 Within /workflow, continue the work on docs/tasks/current/<task_name>/. Read <task_name>_result.md (primary source), <task_name>_info.md (the current plan) and <task_name>_progress.md (snapshot + findings) and continue from where the work stopped.
 ```
-
-Nothing else. No summaries, no explanations, no execution. Just the prompt string.
 
 ---
 
@@ -164,6 +156,6 @@ Nothing else. No summaries, no explanations, no execution. Just the prompt strin
 - The goal is zero information loss between sessions
 - Keep "Where the work stopped" as specific as possible — vague descriptions defeat the purpose
 - If the task has no meaningful progress yet — say so and skip the update
-- **Front-matter must be updated in ALL three files: `_info.md`, `_progress.md`, `_result.md`**
+- Update the front-matter of `_info.md` and `_progress.md` (`_result.md` has none)
 - **`_result.md` is the primary source for continuation — it must be kept up to date**
 - **When updating `_info.md` — change only the Plan section, never Requirements**

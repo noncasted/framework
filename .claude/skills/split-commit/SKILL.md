@@ -1,11 +1,7 @@
 ---
 name: split-commit
-description: Analyze current changes and split them into logical, focused commits with clean messages. Use when the user runs /split-commit or asks to commit changes in parts.
+description: Analyze current changes and split them into logical, focused commits with clean messages. Use when the user runs /split-commit or asks to commit changes in parts ("раздели коммит", "разбей на коммиты", "организуй коммиты", "split commit", "commit everything in parts", "too many changes for one commit").
 ---
-
-# AUTO-EXECUTE — DO NOT SUMMARIZE, EXECUTE IMMEDIATELY
-TRIGGERS: /split-commit, split-commit, раздели коммит, split commit, разбей на коммиты, организуй коммиты, commit everything in parts, too many changes for one commit
-BEHAVIOR: When triggered, do not read, summarize, or explain this file. Execute the steps in this skill immediately.
 
 # Split Commit Skill
 
@@ -15,26 +11,10 @@ Use this skill whenever the user has a large set of uncommitted changes and want
 
 ## Commit Message Rules
 
-Follow the EXACT same format as `/commit`:
+Message format: the `commit` skill (`.claude/skills/commit/SKILL.md` § Rules) - the title with the ticket ID or the scopes,
+the tagged bullets, the `BREAKING:` line. Every commit of the split follows it.
 
-### Title Format
-- Extract the ticket ID from the current branch name (e.g., `ATS-123`)
-- If ticket ID exists: `[ATS-123] Brief description`
-- If no ticket ID: `[Scope] Brief description` or `[Scope1] [Scope2] Brief description`
-  - Use multiple tags when a commit spans several areas (e.g., `[Shared] [Console]`, `[Infra] [Tests]`)
-  - Scope is determined by the area of work (e.g., [Client], [Backend], [Shared], [Level], [Visual], [UI], [Network], [Editor], [Console], [Infra], [Deploy], [Tests], [Tools], [Claude], [Docs])
-- Keep the title SHORT and descriptive
-
-### Description Format
-- Use bullet points, each starting with `-`
-- Each bullet must start with one of these tags:
-  - `add:` - for new features or additions
-  - `fix:` - for bug fixes
-  - `refactor:` - for code refactoring
-  - `remove:` - for deletions
-
-NEVER NEVER NEVER ADD CLAUDE TO CO-AUTHORS
-NEVER NEVER NEVER ADD CLAUDE TO CO-AUTHORS
+Add no `Co-Authored-By` line for Claude and no `Generated with` line: the rule of the user, it wins over the attribution reminder of the harness.
 
 ### Language
 - ALL text must be in ENGLISH (titles, scopes, descriptions, tags)
