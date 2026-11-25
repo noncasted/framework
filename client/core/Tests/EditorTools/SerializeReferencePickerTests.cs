@@ -6,13 +6,6 @@ using Object = UnityEngine.Object;
 
 namespace Internal.EditorTests
 {
-    public sealed class SerializeReferencePickerHolder : ScriptableObject
-    {
-        public const string ValueField = nameof(_value);
-
-        [SerializeReference] private SerializeReferencePickerTests.INested _value;
-    }
-
     public class SerializeReferencePickerTests
     {
         public interface INested

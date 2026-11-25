@@ -23,6 +23,7 @@ namespace ContainerGenerator.Verify {
             "Runtime/Tools/Container/Generated/ContainerGraphRootAttribute.cs",
             "Runtime/Tools/Container/Generated/ContainerInstallerAttribute.cs",
             "Runtime/Tools/Container/Generated/ContainerPrimitiveAttribute.cs",
+            "Runtime/Tools/Container/Generated/ContainerPrimitive.cs",
             "Runtime/Tools/Container/Generated/ContainerScopeParentAttribute.cs",
             "Runtime/Tools/Container/Generated/InjectAttribute.cs",
             "Runtime/Tools/Container/Runtime/ContainerBuilder.cs",

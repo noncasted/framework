@@ -7,16 +7,6 @@ using UnityEngine.UIElements;
 
 namespace Internal
 {
-    public interface IProjectToolsHost
-    {
-        OptionsContainer Options { get; }
-
-        void SetStatus(string message, bool isError);
-
-        // Redraws the window: IMGUI parts of a tab, progress of a long run.
-        void Repaint();
-    }
-
     // The tabs are the ProjectToolsTab classes marked with [ProjectToolsTab] in every editor assembly: the framework
     // ones and the tabs of the project. A tab is built when it is shown first, so the window opens at once and a heavy
     // tab pays only when selected. The selected tab is restored on the next opening.

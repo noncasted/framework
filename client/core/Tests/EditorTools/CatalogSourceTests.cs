@@ -6,10 +6,6 @@ using Object = UnityEngine.Object;
 
 namespace Internal.EditorTests
 {
-    public sealed class CatalogTestAsset : EnvAsset
-    {
-    }
-
     // What the catalogues are built from: a source the generator cannot represent stops the generation loudly
     // instead of being dropped or turned into something else.
     public class CatalogSourceTests

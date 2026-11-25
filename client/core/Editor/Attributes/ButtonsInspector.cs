@@ -101,16 +101,4 @@ namespace Internal
             }
         }
     }
-
-    [CanEditMultipleObjects]
-    [CustomEditor(typeof(MonoBehaviour), true)]
-    public sealed class MonoBehaviourButtonsInspector : ButtonsInspector
-    {
-    }
-
-    [CanEditMultipleObjects]
-    [CustomEditor(typeof(ScriptableObject), true)]
-    public sealed class ScriptableObjectButtonsInspector : ButtonsInspector
-    {
-    }
 }

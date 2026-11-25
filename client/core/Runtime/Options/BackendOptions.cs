@@ -3,12 +3,6 @@ using UnityEngine;
 
 namespace Internal
 {
-    public enum BackendEnvironment
-    {
-        Local,
-        Production
-    }
-
     [Serializable]
     public class BackendOptions
     {

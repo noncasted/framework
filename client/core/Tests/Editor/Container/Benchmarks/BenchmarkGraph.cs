@@ -1,41 +1,8 @@
 using System;
-using Internal;
 using Unity.Scripting.LifecycleManagement;
 
 namespace Internal.Tests
 {
-    internal enum BenchmarkScopeLevel
-    {
-        Root = 0,
-        Match = 1,
-        Card = 2
-    }
-
-    internal readonly struct BenchmarkRegistration
-    {
-        public readonly Type Implementation;
-        public readonly ServiceLifetime Lifetime;
-        public readonly BenchmarkScopeLevel Scope;
-        public readonly Type[] Markers;
-
-        public BenchmarkRegistration(
-            Type implementation,
-            ServiceLifetime lifetime,
-            BenchmarkScopeLevel scope,
-            params Type[] markers)
-        {
-            Implementation = implementation;
-            Lifetime = lifetime;
-            Scope = scope;
-            Markers = markers ?? Array.Empty<Type>();
-        }
-    }
-
-    internal interface IBenchmarkRegistry
-    {
-        void Add(Type implementation, ServiceLifetime lifetime, Type[] markers);
-    }
-
     [NoAutoStaticsCleanup]
     internal static class BenchmarkGraph
     {

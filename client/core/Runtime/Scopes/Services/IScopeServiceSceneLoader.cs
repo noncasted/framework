@@ -14,38 +14,4 @@ namespace Internal
 
         UniTask<IServiceScopeBinder> Load(ServiceScopeSceneLoader loader);
     }
-
-    /// <summary>
-    /// The services scene is needed only as a container for the scope objects, so it is created
-    /// on the fly: an empty scene in a bundle costs a file open and a couple of frames of async loading,
-    /// while its payload is zero.
-    /// </summary>
-    public class RuntimeScene : IScopeServiceSceneLoader
-    {
-        public RuntimeScene(string name)
-        {
-            Name = name;
-        }
-
-        public string Name { get; }
-
-        public UniTask<IServiceScopeBinder> Load(ServiceScopeSceneLoader loader)
-        {
-            var scene = loader.Create(Name);
-            return UniTask.FromResult<IServiceScopeBinder>(new ServiceScopeBinder(scene.Scene));
-        }
-    }
-
-    /// <summary>
-    /// The scope has no scene of its own: there is nowhere to move objects, the binder throws when used.
-    /// </summary>
-    public class NoScene : IScopeServiceSceneLoader
-    {
-        public string Name => "Registry";
-
-        public UniTask<IServiceScopeBinder> Load(ServiceScopeSceneLoader loader)
-        {
-            return UniTask.FromResult<IServiceScopeBinder>(new ExceptionServiceScopeBinder(Name));
-        }
-    }
 }

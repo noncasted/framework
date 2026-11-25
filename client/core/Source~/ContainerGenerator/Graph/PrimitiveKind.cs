@@ -1,5 +1,5 @@
 namespace ContainerGenerator {
-    // Mirror of Internal.ContainerPrimitive (client/core/Runtime/Tools/Container/Generated/ContainerPrimitiveAttribute.cs):
+    // Mirror of Internal.ContainerPrimitive (client/core/Runtime/Tools/Container/Generated/ContainerPrimitive.cs):
     // the builder API marks its registration primitives with [ContainerPrimitive(kind)], the walker reads the kind.
     internal enum PrimitiveKind {
         None = 0,
