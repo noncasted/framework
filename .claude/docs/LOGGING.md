@@ -1,7 +1,9 @@
 # Logging
 
-The logger of the client: `client/core/Runtime/Logging` (assembly `Internal`, namespace `Internal`). Runtime code logs through
-it, not through `Debug.Log*`; editor tools may keep `Debug.Log` (nothing is gained there).
+The logger of the client: `client/core/Runtime/Logging` (assembly `Internal`, namespace `Internal`). The code of a game logs
+through it, runtime and Editor, not through `Debug.Log*` (release 0.15.0, step 4). What stays on `Debug.Log*`: a call with a context
+object (`Debug.Log(text, gameObject)`, the console of the editor highlights it) and the code of an `ILogSink`. The editor tools of
+the framework itself are still on `Debug.Log`.
 
 ## Getting a log
 
@@ -36,6 +38,9 @@ of the type (`Global.Network.PeerHost`, nested types after a dot, generic argume
 `[PeerHost] message`, so no `[Network]` prefixes in the texts.
 
 ## Writing
+
+A field of a class named `Logs` hides the static class: `global::Internal.Logs.Of<X>()`. A `static readonly ILog` field that the
+automatic cleanup of statics of Unity rejects (`UAC0036`) takes `[NoAutoStaticsCleanup]`.
 
 ```csharp
 _log.Debug("Frame {Frame} sent {Bytes} bytes", frame, bytes);   // cut out of a release build
