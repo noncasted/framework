@@ -59,3 +59,20 @@ of `backend/Tools/Tests/Telemetry/TelemetryPathsTests.cs`, they are the framewor
 Who: backend, a game that wants a monolith deploy.
 
 Do: `backend/Cluster/CLAUDE.md` § Monolith.
+
+### 5. BREAKING: the backend traces of the console have two sources (`AddConsoleAspireDashboardTraces`, `AddConsoleVictoriaTraces`)
+
+Who: backend, a game whose console calls `AddConsoleBackendTraces` (mines-leader) or uses the moved types.
+
+Search: `git grep -nE 'AddConsoleBackendTraces|ConsoleBackendTraceOptions|BackendTraceReader|BackendTraceParser|OtlpSpan|OtlpJsonValues|BackendTraceResult\.NotFound\(' -- 'backend/*.cs' 'backend/*.razor'`
+
+Do:
+- The Aspire dashboard: `builder.AddConsoleBackendTraces(section | options)` -> `builder.AddConsoleAspireDashboardTraces(section |
+  options)`; `ConsoleBackendTraceOptions` -> `AspireDashboardTraceOptions` (`using Console.Infrastructure.BackendTraces.AspireDashboard;`),
+  the same `Url` / `ApiKey` section. `BackendTraceReader` / `BackendTraceParser` -> `AspireDashboardTraceReader` /
+  `AspireDashboardTraceParser`, `OtlpJsonValues` moved to the same namespace, `OtlpSpan` -> `BackendTraceWireSpan`,
+  `BackendTraceParser.UnknownService` -> `BackendTraceWireSpan.UnknownService`; `BackendTraceResult.NotFound` carries a message.
+- A deployed console without the dashboard (the observability stack, `deploy/observability/CLAUDE.md`): call
+  `builder.AddConsoleVictoriaTraces(builder.Configuration.GetSection("BackendTraces"))` with `BackendTraces__Url=http://victoriatraces:10428`
+  in its compose; the console service joins the network `observability`. One source per console: a second call throws, so the
+  local and the deploy composition call one each (`backend/Console/CLAUDE.md` § Backend traces).

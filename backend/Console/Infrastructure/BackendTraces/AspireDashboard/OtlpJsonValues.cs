@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 
-namespace Console.Infrastructure.BackendTraces;
+namespace Console.Infrastructure.BackendTraces.AspireDashboard;
 
 // The values of the OTLP JSON encoding: 64-bit numbers may come as strings, an attribute value is an object with one typed field,
 // an enum may come as its number or its name.

@@ -1,23 +1,24 @@
 using Console;
 using Console.Infrastructure.BackendTraces;
+using Console.Infrastructure.BackendTraces.AspireDashboard;
 using Xunit;
-using static Framework.Tests.Console.BackendTraces.OtlpTraceJson;
+using static Framework.Tests.Console.BackendTraces.AspireDashboard.OtlpTraceJson;
 
-namespace Framework.Tests.Console.BackendTraces;
+namespace Framework.Tests.Console.BackendTraces.AspireDashboard;
 
-public class BackendTraceParserTests
+public class AspireDashboardTraceParserTests
 {
     private const string TraceId = "1f3d84b522c4413c10965c00928b3fee";
 
     private static BackendTrace Found(string json)
     {
-        return Assert.IsType<BackendTraceResult.Found>(BackendTraceParser.Parse(TraceId, json)).Trace;
+        return Assert.IsType<BackendTraceResult.Found>(AspireDashboardTraceParser.Parse(TraceId, json)).Trace;
     }
 
     [Fact]
     public void TheRecordedAnswer_OfTheDashboard_IsATreeOnItsOwnAxis()
     {
-        var trace = Found(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Console", "BackendTraces", "aspire_trace.json")));
+        var trace = Found(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Console", "BackendTraces", "AspireDashboard", "aspire_trace.json")));
 
         Assert.Equal(7, trace.Spans.Count);
         Assert.Equal(555.8993, trace.DurationMs, 4);
@@ -118,8 +119,8 @@ public class BackendTraceParserTests
     [Fact]
     public void NoSpans_IsNotFound()
     {
-        Assert.IsType<BackendTraceResult.NotFound>(BackendTraceParser.Parse(TraceId, Answer()));
-        Assert.IsType<BackendTraceResult.NotFound>(BackendTraceParser.Parse(TraceId, Answer(Resource("meta"))));
+        Assert.IsType<BackendTraceResult.NotFound>(AspireDashboardTraceParser.Parse(TraceId, Answer()));
+        Assert.IsType<BackendTraceResult.NotFound>(AspireDashboardTraceParser.Parse(TraceId, Answer(Resource("meta"))));
     }
 
     [Fact]
@@ -130,19 +131,19 @@ public class BackendTraceParserTests
             Resource("silo", Span("b", "a", 1, 5)),
             Resource(null, Span("c", "b", 2, 3))));
 
-        Assert.Equal(["meta", "silo", BackendTraceParser.UnknownService], trace.Spans.Select(span => span.Service));
+        Assert.Equal(["meta", "silo", BackendTraceWireSpan.UnknownService], trace.Spans.Select(span => span.Service));
         Assert.Equal([0, 1, 2], trace.Spans.Select(span => span.Depth));
     }
 
     [Fact]
     public void AnAnswerOfAnotherShape_Throws()
     {
-        Assert.Throws<KeyNotFoundException>(() => BackendTraceParser.Parse(TraceId, "{}"));
+        Assert.Throws<KeyNotFoundException>(() => AspireDashboardTraceParser.Parse(TraceId, "{}"));
     }
 
     [Fact]
     public void ACycleOfParents_Throws()
     {
-        Assert.Throws<InvalidOperationException>(() => BackendTraceParser.Parse(TraceId, Answer(Resource("meta", Span("a", "b", 0, 1), Span("b", "a", 1, 2)))));
+        Assert.Throws<InvalidOperationException>(() => AspireDashboardTraceParser.Parse(TraceId, Answer(Resource("meta", Span("a", "b", 0, 1), Span("b", "a", 1, 2)))));
     }
 }

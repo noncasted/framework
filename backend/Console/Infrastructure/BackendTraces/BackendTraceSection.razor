@@ -3,7 +3,7 @@
 @using Internal
 @inherits UiComponent
 
-<span class="text-sm font-medium" title="The trace of the authorization of this socket, read from the Aspire dashboard">Backend trace @TraceId</span>
+<span class="text-sm font-medium" title="The trace of the authorization of this socket, read from the trace store of the backend">Backend trace @TraceId</span>
 
 @if (_result == null)
 {
@@ -11,9 +11,9 @@
     return;
 }
 
-@if (_result is BackendTraceResult.NotFound)
+@if (_result is BackendTraceResult.NotFound notFound)
 {
-    <span class="text-xs text-muted-foreground">The trace is no longer in the dashboard (it keeps telemetry in memory only)</span>
+    <span class="text-xs text-muted-foreground">@notFound.Message</span>
     return;
 }
 
@@ -36,7 +36,7 @@
 
     private BackendTraceResult? _result;
 
-    // Read once: a trace in the dashboard does not change after its spans have ended. A new id takes a new component (@key).
+    // Read once: a stored trace does not change after its spans have ended. A new id takes a new component (@key).
     protected override Task OnSetup(IReadOnlyLifetime lifetime)
     {
         Load(lifetime).NoAwait();

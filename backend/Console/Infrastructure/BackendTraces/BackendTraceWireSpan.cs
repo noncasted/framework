@@ -1,8 +1,12 @@
 namespace Console.Infrastructure.BackendTraces;
 
-// A span as the OTLP JSON tells it, before the tree: ids and times of the wire, the service of its resource.
-public sealed record OtlpSpan
+// A span as a trace store tells it, before the tree: ids of the wire, times in unix nanoseconds, the service of its resource.
+// Every source parses its answer into these; BackendTraceAssembler builds the tree once for all of them.
+public sealed record BackendTraceWireSpan
 {
+    // The service of a span whose resource has no service.name.
+    public const string UnknownService = "unknown";
+
     public required string SpanId { get; init; }
     public required string? ParentSpanId { get; init; }
     public required string Name { get; init; }

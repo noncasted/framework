@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Framework.Tests.Console.BackendTraces;
+namespace Framework.Tests.Console.BackendTraces.AspireDashboard;
 
 // The OTLP JSON of the dashboard for the tests: resources of spans, a span with its optional fields.
 public static class OtlpTraceJson

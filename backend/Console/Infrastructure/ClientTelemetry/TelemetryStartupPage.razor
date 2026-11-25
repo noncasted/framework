@@ -54,7 +54,7 @@
         <TelemetryStat
             Label="Backend trace"
             Value="@(_startup.BackendTraceId ?? "-")"
-            Hint="The trace id of the authorization of this socket in the OTLP backend (Aspire dashboard: Traces, search by the id)"/>
+            Hint="The trace id of the authorization of this socket in the OTLP backend (Aspire dashboard: Traces, search by the id; VictoriaTraces: /select/vmui)"/>
     </div>
 
     <div class="rounded-lg border">
@@ -148,7 +148,7 @@
     private IReadOnlyList<TelemetrySessionInfo> _sessions = [];
     private bool _isLoaded;
 
-    // Registered by AddConsoleBackendTraces only: a console without the dashboard shows the id alone.
+    // Registered by AddConsoleAspireDashboardTraces or AddConsoleVictoriaTraces only: a console without them shows the id alone.
     private IBackendTraceSource? _backendTraces;
 
     protected override void OnInitialized()

@@ -37,7 +37,7 @@
 
     <!-- An answer of the Aspire dashboard 13.5 to GET /api/telemetry/traces/{id}, recorded from a local cluster. -->
     <ItemGroup>
-        <None Update="Console\BackendTraces\*.json" CopyToOutputDirectory="PreserveNewest"/>
+        <None Update="Console\BackendTraces\**\*.json" CopyToOutputDirectory="PreserveNewest"/>
     </ItemGroup>
 
     <ItemGroup>
