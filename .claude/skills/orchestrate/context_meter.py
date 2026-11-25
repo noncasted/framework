@@ -2,7 +2,9 @@
 """Report the context size of a Claude Code session or subagent from its transcript.
 
 The context of a turn is input_tokens + cache_creation_input_tokens + cache_read_input_tokens
-of the last assistant message in the transcript (.jsonl under ~/.claude/projects/<project>/).
+of the last assistant message in the transcript (.jsonl under <profile>/projects/<project>/). The profile is the one of
+the calling session (CLAUDE_CONFIG_DIR, else ~/.claude), then every other ~/.claude* profile (~/.claude-opencode: the
+OpenCode Go profile of the `clo` alias).
 
 Usage:
   context_meter.py --session <session-id>      main session (the id is in the scratchpad path)
@@ -16,7 +18,11 @@ import os
 import sys
 from pathlib import Path
 
-PROJECTS = Path.home() / ".claude" / "projects"
+
+def project_roots():
+    first = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude").expanduser() / "projects"
+    roots = [first] + sorted(path for path in Path.home().glob(".claude*/projects") if path.is_dir())
+    return list(dict.fromkeys(path.resolve() for path in roots if path.is_dir()))
 
 
 def last_context(path):
@@ -40,7 +46,9 @@ def last_context(path):
 
 
 def transcripts(pattern):
-    return sorted(PROJECTS.glob(pattern), key=os.path.getmtime, reverse=True)
+    """Newest first inside a profile; the profile of the calling session before the others."""
+    return [path for root in project_roots()
+            for path in sorted(root.glob(pattern), key=os.path.getmtime, reverse=True)]
 
 
 def find_session(session_id):
