@@ -56,6 +56,7 @@ namespace ContainerGenerator.Verify {
             Run("unmarked Register is an installer call, not a primitive", TestUnmarkedRegisterIsNotPrimitive);
             Run("builder.Inject calls [Inject] on every instance", TestInjectEveryInstance);
             RunRegressionCases();
+            RunLogCases();
             RunAuditCases();
             RunContentCases();
             RunLambdaRootCases();
@@ -1279,6 +1280,8 @@ using System.Collections.Generic;
 
 namespace Internal {
     public interface IReadOnlyLifetime {}
+    public interface ILog<T> {}
+    public static class Logs { public static ILog<T> Of<T>() { return null; } }
     public interface ILifetime : IReadOnlyLifetime { void Terminate(); }
     public interface IServiceRegistration {
         IBuilder Builder { get; }

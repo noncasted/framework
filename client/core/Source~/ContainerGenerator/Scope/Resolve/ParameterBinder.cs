@@ -42,6 +42,9 @@ namespace ContainerGenerator {
                 else if (context.ImplicitTypes.Contains(parameter.TypeFullName)) {
                     edge.Bind("Implicit");
                 }
+                else if (LogTypes.TryArgument(parameter.TypeFullName, out _)) {
+                    edge.Bind("Log");
+                }
                 else if (CollectionTypes.TryElement(parameter.TypeFullName, out _) &&
                          context.ParentExports.ContainsKey(parameter.TypeFullName) == false) {
                     // A collection is always ResolveAll of its own scope (like ContainerLocal<IReadOnlyList<T>>): an empty list.

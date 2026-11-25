@@ -66,6 +66,9 @@ namespace ContainerGenerator {
                 return plan.LifetimeField;
             }
 
+            if (edge.Kind == "Log" && LogTypes.TryArgument(edge.ParameterType, out var logged))
+                return LogTypes.Expression(logged);
+
             if (edge.Kind == "ArmParameter")
                 return ArmParameter(graph, edge);
 
