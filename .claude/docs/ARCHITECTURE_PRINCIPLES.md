@@ -10,7 +10,7 @@ details live in the linked docs.
    `ListenFirstPick`, `EventSource`) and lives on that lifetime; no per-frame `Has(...)` / value checks to find out
    whether it is on. Every subscription has a named lifetime. (`COMMON_LIFETIMES.md`, `COMMON_REACTIVE_BASICS.md`)
 3. **Views and UI are prefabs.** Runtime objects and UI screens come from prefabs with HierarchyBindings or from a
-   `PrefabPool<T>`; no `new GameObject` / `AddComponent` / layout in code. Look (sprites, colours, sizes, sorting) lives
+   `PrefabPool<T>` (core, `Runtime/Services/Pools`); no `new GameObject` / `AddComponent` / layout in code. Look (sprites, colours, sizes, sorting) lives
    in the prefab, behaviour numbers live in options. (`HIERARCHY_BINDINGS.md`)
    Exception: what the framework shows without an asset of a game is built from code (the latency overlay of
    `network`, the outdated client notice of `ui`).
@@ -46,7 +46,7 @@ details live in the linked docs.
 14. **Top-down: root, features, shared utilities.** Design and read code from the top: a root / composer (scope
     extension, facade, entity root) wires the feature classes; each feature class owns one behaviour and depends only
     downwards; at the bottom are small shared utilities used by several features (helpers like a hit area,
-    a timed bonus, a prefab pool). Dependencies point down only: a utility knows no feature, a feature knows no sibling
+    a timed bonus, `PrefabPool<T>` of the core). Dependencies point down only: a utility knows no feature, a feature knows no sibling
     feature or its composer (they talk through interfaces or events the composer provides). A plan is written in the
     same order: the root and its wiring first, then the features, then the utilities extracted from what they repeat.
 13. **No dead or duplicated code.** Unused classes, methods, fields, options, writers and docs are deleted, not kept

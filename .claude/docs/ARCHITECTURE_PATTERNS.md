@@ -152,7 +152,8 @@ the rule rests on the other sources of the line.
 ### 1.7 Views and prefabs (C-VW)
 
 - **C-VW-1** If a runtime view is needed -> a prefab: a composite one as children of the entity prefab through bindings; many
-  short-lived copies as a pool over a template prefab; no `new GameObject` + `AddComponent`
+  short-lived copies as a `PrefabPool<T>` of the core over a template prefab (taken for a lifetime, back to the pool when it
+  ends, the user resets the state on every take); no `new GameObject` + `AddComponent`
   outside editor builders and procedural meshes; the plan has a grep check. `HIERARCHY_BINDINGS.md` § Runtime Views
   Come From Prefabs; `CLAUDE_MISTAKES.md` § G36.
 - **C-VW-2** If code looks for objects in the hierarchy -> the generated `*Bindings` instead of `transform.Find` / `GetComponentInChildren`;

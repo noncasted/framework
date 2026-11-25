@@ -55,6 +55,9 @@
   `updater.RunDelay(lifetime, time)`; every updater wait (RunDelay, RunUpdateAction, Progression, Tween) ends with
   `OperationCanceledException` when its lifetime ends first. `Pause` / `Continue` are counted (Continue without Pause
   throws); an updatable that throws does not stop the others (reported through `ReactiveExceptions`).
+- **Prefab pool.** `PrefabPool<T>` (`Runtime/Services/Pools`): instances of a template under one parent; `Get(lifetime)` takes one
+  for that lifetime and gives it back when the lifetime ends (inactive while free), `created` runs once per instance (injection
+  with `IViewInjector`, layers), the user resets the state on every take; the lifetime of the pool destroys every instance.
 - **Hierarchy bindings.** Generated `*Bindings.g.cs` (`ObjectBindings`) go to `Assets/Generated` of a module root
   (`FrameworkSettings.ModuleRoots`), to `Generated` next to any other asmdef, to
   `Runtime/Tools/PrefabHierarchy/Generated` of the content folder for an owner from the content assembly; an asset
