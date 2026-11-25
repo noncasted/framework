@@ -12,13 +12,13 @@ the rule rests on the other sources of the line.
 ## 0. General rules (G)
 
 - **G-1** If the plan adds error handling, a fallback, `try/catch` or null checks -> the plan says explicitly that the
-  user asked for the degradation; otherwise throw / `Debug.LogError` (fail fast). `CLAUDE.md` § MOST IMPORTANT RULE.
+  user asked for the degradation; otherwise throw / log an error through `ILog<T>` (fail fast). `CLAUDE.md` § MOST IMPORTANT RULE.
 - **G-2** If the task touches `tools/framework` -> the plan has: read `tools/framework/CLAUDE.md` and the `CLAUDE.md` of the touched folder, commit and push
   inside the submodule, then commit the submodule pointer; an estimate of the effect on the other games. `CLAUDE.md` § Framework.
 - **G-3** If a new asmdef appears that references `Internal` (a temporary one, a benchmark, a build script included) ->
   the plan references `Internal.Content` too. `CLAUDE.md` § Framework; `CLAUDE_MISTAKES.md` § G37.
 - **G-4** If a type is registered from another assembly and has an `[Inject]` method -> the method is `public`.
-  `CLAUDE.md` § Framework; `COMMON_CONTAINER.md` § MonoBehaviour Services.
+  `client/core/CLAUDE.md` of the framework (`[Inject]` methods); `COMMON_CONTAINER.md` § MonoBehaviour Services.
 - **G-5** If the plan mixes layers -> the client patterns (container, MonoBehaviour) only in the client, the grain pattern
   only in the backend. `CLAUDE.md` § Critical Rules (8).
 - **G-6** If the task moves a type into the framework -> the same step deletes the duplicate of the game (otherwise the

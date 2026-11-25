@@ -24,13 +24,13 @@
   layer, planeDistance)` (Screen Space - Camera: the whole canvas on the layer, the camera asked on every show) or, explicitly,
   `AddScreenCanvasOverlay()`. Without one the scope that builds them does not resolve. The Overlay mode lost its projection on
   iPadOS 18.2 Safari; the camera and its drawing stay in the game.
-- **Content.** AssetBundles of the engine instead of Addressables (until 0.8; the content directory of the 0.7 release
-  candidates never shipped). The whole contract is `CONTENT.md`: bundles and their layout, the build and its steps, shared
-  bundles, distributions, references, loading in scopes and during the game. In short: a bundle is a `ContentBundle` asset,
-  built with every player build; the root scope calls `await builder.AddContent(new ContentOptions(name))` once (the name of
-  the main bundle is a constant of the root scope: the options of the game load after it); during the game `IContentLoader`
-  loads on the lifetime of the owner, which holds the whole bundle of the target with its dependencies and unloads it after
-  the last hold; Play Mode loads the assets of the project.
+- **Content.** AssetBundles of the engine, no Addressables (removed in 0.8). The whole contract is `CONTENT.md`: bundles and
+  their layout, the build and its steps, shared bundles, distributions, references, loading in scopes and during the game.
+  In short: a bundle is a `ContentBundle` asset, built with every player build; the root scope calls
+  `await builder.AddContent(new ContentOptions(name))` once (the name of the main bundle is a constant of the root scope:
+  the options of the game load after it); during the game `IContentLoader` loads on the lifetime of the owner, which holds
+  the whole bundle of the target with its dependencies and unloads it after the last hold; Play Mode loads the assets of
+  the project.
 - **Player build steps.** A project step around the build entry points of the platforms implements `IPlayerBuildStep`
   (`core/Editor/Tools/Build`: `BeforeBuild` / `AfterBuild(target, succeeded)`, a parameterless class, found by
   `TypeCache`, ordered by full type name); `PlayerBuildSteps.Run(target, build)` calls `AfterBuild` of every started
