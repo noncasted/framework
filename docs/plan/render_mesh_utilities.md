@@ -1,25 +1,25 @@
 # Render utilities of pixel-swarm that may move into the framework
 
-Задача на будущее, записана 2026-11-04 (пользователь). Работа не начата: сначала решить, где во фреймворке им место и нужны ли они другим играм.
+A task for later, written on 2026-11-04 (the user). Not started: first decide where they belong in the framework and whether other games need them.
 
-## Запекание тайлмапов в статические меши
-- Что: pixel-swarm шаг 39 (`03b14144`): `GamePlay/Arena/StaticTilemaps/{StaticTilemaps,TilemapMeshes,TilemapTextureMesh,TilemapMeshMaterials}.cs`,
-  `StaticTilemapsSetup` в `LocationAssembler`, keyword `_SPRITE_MESH`, тесты `StaticTilemapsTests` (тайлы и сортировка как у Chunk).
-  При загрузке локации `TilemapRenderer` заменяются статическими мешами по материалу и сортировке.
-- Зачем: на Android (Mali, ANGLE) тайлмапы стоили ~25-30% CPU рендера (TilemapRendererGeometryJob 17%, cull чанков), -3..-4 мс.
-  Tilemap SRPBatch пробовали: cull x3 хуже.
-- Вопрос: куда. Варианты: модуль `rendering` / `tilemaps` (нового нет), инструмент редактора (запекание в ассет при сборке вместо рантайма),
-  часть `LocationAssembler`-подобного инструмента фреймворка, если такой будет. Проверить, у каких игр есть `Tilemap`
+## Baking tilemaps into static meshes
+- What: pixel-swarm step 39 (`03b14144`): `GamePlay/Arena/StaticTilemaps/{StaticTilemaps,TilemapMeshes,TilemapTextureMesh,TilemapMeshMaterials}.cs`,
+  `StaticTilemapsSetup` in `LocationAssembler`, the keyword `_SPRITE_MESH`, the tests `StaticTilemapsTests` (tiles and sorting as in Chunk).
+  When a location loads, the `TilemapRenderer`s are replaced by static meshes per material and sorting.
+- Why: on Android (Mali, ANGLE) the tilemaps took ~25-30% of the render CPU (TilemapRendererGeometryJob 17%, culling of chunks), -3..-4 ms.
+  Tilemap SRPBatch was tried: culling x3 worse.
+- Question: where. Options: a module `rendering` / `tilemaps` (no new one exists), an editor tool (baking into an asset at build time instead of at runtime),
+  part of a `LocationAssembler`-like tool of the framework, if there is one. Check which games have a `Tilemap`
   (`git -C <game> grep -l TilemapRenderer HEAD -- client/Assets`).
 
-## Много квадов одним мешем (QuadMesh)
-- Что: `GamePlay/Services/QuadMesh/QuadMesh.cs` (шаг 40, `7c7ea5c8`), на нём тени роя (`SwarmShadows`, 10080 -> 1680 вершин) и
-  пиксельные частицы (`PixelQuads`); искры одним мешем (шаг 18). Предложение шага 43: тела роя одним мешем вместо ~300 SpriteRenderer (-3..-4 мс телефон).
-- Ловушки: `Mesh.SetVertexBufferParams/SetVertexBufferData` роняет WebGL-плеер (memory access out of bounds) - только SetVertices/SetColors/
-  SetUVs/SetIndices; `unity_SpriteColor` = 0 у MeshRenderer -> keyword `_SPRITE_MESH` в шейдере.
-- Вопрос: модуль (`animations`? новый `rendering`?) и нужно ли другим играм.
+## Many quads in one mesh (QuadMesh)
+- What: `GamePlay/Services/QuadMesh/QuadMesh.cs` (step 40, `7c7ea5c8`); the swarm shadows run on it (`SwarmShadows`, 10080 -> 1680 vertices) and
+  the pixel particles (`PixelQuads`); sparks in one mesh (step 18). The proposal of step 43: the swarm bodies in one mesh instead of ~300 SpriteRenderers (-3..-4 ms on a phone).
+- Traps: `Mesh.SetVertexBufferParams/SetVertexBufferData` crashes the WebGL player (memory access out of bounds) - only SetVertices/SetColors/
+  SetUVs/SetIndices; `unity_SpriteColor` is 0 for a MeshRenderer -> the keyword `_SPRITE_MESH` in the shader.
+- Question: the module (`animations`? a new `rendering`?) and whether other games need it.
 
 ## IL2CPP OptimizeSpeed
-- pixel-swarm шаг 20 (`b9a7ebda`): wasm.br 3.51 -> 3.90 МБ (+11%), сборка 201 -> 281 с; выигрыш CPU на устройствах не измерен.
-- Пользователь (2026-11-04): скорее откажемся - размер сборки важнее. Решение: замерить CPU до/после на стенде; если выигрыша нет - вернуть
-  OptimizeSize в pixel-swarm. Во фреймворк не переносить.
+- pixel-swarm step 20 (`b9a7ebda`): wasm.br 3.51 -> 3.90 MB (+11%), build 201 -> 281 s; the CPU gain on devices is not measured.
+- The user (2026-11-04): most likely dropped - the build size matters more. Decision: measure the CPU before / after on the stand; if there is no gain, return
+  OptimizeSize in pixel-swarm. Do not move it into the framework.

@@ -1,51 +1,51 @@
-# Свой параллельный раннер тестов для Unity
+# An own parallel test runner for Unity
 
-Задача на будущее, поставлена пользователем 2026-11-02. Работа не начата.
+A task for later, set by the user on 2026-11-02. Not started.
 
-## Что нужно
+## What is needed
 
-Раннер EditMode тестов для всех игр на фреймворке, который выполняет тесты параллельно в уже открытом редакторе.
+A runner of EditMode tests for every game on the framework that runs the tests in parallel inside an already open editor.
 
-## Почему свой
+## Why an own one
 
-Готового раннера с параллельным запуском поиск не нашёл (2026-11-02). Это не доказывает, что их нет. Unity Test Framework 1.9.0 основан на собственной копии NUnit 3.5, а в его исходниках `ParallelScope` есть только как свойство `UnityTestExecutionContext`.
+The search found no ready runner with parallel execution (2026-11-02). That does not prove there is none. Unity Test Framework 1.9.0 is built on its own copy of NUnit 3.5, and its sources have `ParallelScope` only as a property of `UnityTestExecutionContext`.
 
-## Что известно из замеров
+## What the measurements say
 
-Замеры pixel-swarm, 2026-11-02, задача `test_speed` игры (`docs/tasks/complete/test_speed.md`). Сняты один раз на общей машине. Время указано без старта Unity: задача обычно уже работает в своём редакторе.
+Measurements of pixel-swarm, 2026-11-02, the task `test_speed` of the game (`docs/tasks/complete/test_speed.md`). Taken once on a shared machine. The times are without the start of Unity: a task usually already runs in its own editor.
 
-| Набор | Тестов | Один поток, с | 4 потока, с | 8 потоков, с |
+| Set | Tests | One thread, s | 4 threads, s | 8 threads, s |
 |---|---:|---:|---:|---:|
-| Логика без генерации (`fast`) | 757 | 27,9 | 7,0 | 3,5 |
-| Генерация локаций (`generation`) | 464 | 752 | ~460 | ~410 |
+| Logic without generation (`fast`) | 757 | 27.9 | 7.0 | 3.5 |
+| Generation of locations (`generation`) | 464 | 752 | ~460 | ~410 |
 
-- Строка `fast` считает все тесты параллельными. Это верхняя граница: часть тестов работает с API Unity.
-- Строка `generation` считает параллельными примерно 52% времени, до удешевления тестов. Это оценка по таблице профиля, не замер. Предел без ограничения потоков около 360 с: остальное требует главного потока (`AssetDatabase`, префабы, сцены).
-- Для сравнения, замер на отдельных процессах Unity (весь прогон, 485 тестов): 1 процесс 475 с, 2 процесса 277 с, 3, 4 и 6 процессов 282-287 с. Больше двух на общей машине не дают выигрыша: тесты в каждом замедляются. Причина (CPU, память, GPU) не разделена, раннер в одном процессе упрётся в неё же.
+- The `fast` row counts every test as parallel. It is an upper bound: part of the tests work with the Unity API.
+- The `generation` row counts about 52% of the time as parallel, before the tests were made cheaper. It is an estimate from the profile table, not a measurement. The limit without a thread limit is about 360 s: the rest needs the main thread (`AssetDatabase`, prefabs, scenes).
+- For comparison, a measurement over separate Unity processes (the whole run, 485 tests): 1 process 475 s, 2 processes 277 s, 3, 4 and 6 processes 282-287 s. More than two give nothing on a shared machine: the tests in each one slow down. The cause (CPU, memory, GPU) was not separated; a runner in one process will hit it too.
 
-## Что проверить первым
+## What to check first
 
-От этого зависит, есть ли выигрыш вообще:
+Whether there is any gain depends on this:
 
-1. Работает ли код тестов вне главного потока. Для генерации pixel-swarm это не проверено: если `Generate` обращается к API Unity, выигрыш на ней близок к нулю. Начать с замера: запустить типичный тяжёлый метод из фонового потока.
-2. Запуск в открытом редакторе проверен на копии без окна: 10 прогонов логики подряд без падений, но без одного теста (`PrefabScreenshotTests.Ui_IsCapturedInACanvas_AndPrintsTheFields` дважды уронил редактор SIGSEGV) и всегда на свежем домене: повтор в одном домене даёт падения. Сами тесты идут там 34-41 с против 27 с в отдельном запуске, причину не выясняли. Подробности: `TESTING.md` и `UNITY_EDITOR_WORKFLOW.md` игры. С окном и в общем редакторе не проверено.
+1. Whether the code of the tests works off the main thread. For the generation of pixel-swarm this is not checked: if `Generate` calls the Unity API, the gain on it is close to zero. Start with a measurement: run a typical heavy method from a background thread.
+2. A run inside an open editor was checked on a copy without a window: 10 runs of the logic in a row without failures, but without one test (`PrefabScreenshotTests.Ui_IsCapturedInACanvas_AndPrintsTheFields` crashed the editor with SIGSEGV twice) and always on a fresh domain: a repeat in the same domain gives failures. The tests themselves take 34-41 s there against 27 s in a separate run, the cause was not found. Details: `TESTING.md` and `UNITY_EDITOR_WORKFLOW.md` of the game. With a window and in the shared editor it is not checked.
 
-## Что решить
+## What to decide
 
-- **Какие тесты идут в потоках.** Рекомендация: только явно размеченные, всё остальное последовательно в главном потоке. Угадывать по коду опасно: ошибка даёт плавающие падения.
-- **Как изолировать состояние.** Статические кэши тестов и тесты, меняющие общий ассет, в потоках не работают без правки.
-- **Как выбирать тесты.** Те же `[Category]`, `[Explicit]` и фильтры, что у Unity. Ловушка раннера Unity: положительная категория и `-assemblyNames` без фильтра запускают `[Explicit]`, свой раннер так делать не должен.
-- **Формат результата.** NUnit XML: на него опираются скрипты прогонов игр.
-- **Жизненный цикл.** `[SetUp]`, `[TearDown]`, `[OneTimeSetUp]` и `[Timeout]` работают как в NUnit. `[UnityTest]` идут только в главном потоке.
+- **Which tests run on threads.** Recommendation: only the explicitly marked ones, everything else sequentially on the main thread. Guessing from the code is dangerous: a mistake gives flaky failures.
+- **How to isolate state.** Static caches of tests and tests that change a shared asset do not work on threads without changes.
+- **How to select tests.** The same `[Category]`, `[Explicit]` and filters as Unity. A trap of the Unity runner: a positive category and `-assemblyNames` without a filter run `[Explicit]` tests; an own runner must not do that.
+- **The format of the result.** NUnit XML: the run scripts of the games rely on it.
+- **The life cycle.** `[SetUp]`, `[TearDown]`, `[OneTimeSetUp]` and `[Timeout]` work as in NUnit. `[UnityTest]` runs only on the main thread.
 
-## Критерий готовности
+## Done when
 
-- На наборе логики игры раннер быстрее последовательного прогона, состав и результат тестов совпадают с Unity Test Framework по именам.
-- 10 прогонов подряд без плавающих падений и без падения редактора.
-- Падение или зависание одного теста не теряет результаты остальных.
-- Нет кода, значений и путей игры (правило 1 `CLAUDE.md`).
+- On the logic set of a game the runner is faster than a sequential run; the set and the results of the tests match Unity Test Framework by name.
+- 10 runs in a row without flaky failures and without an editor crash.
+- A failure or a hang of one test does not lose the results of the others.
+- No code, values or paths of a game (rule 1 of `CLAUDE.md`).
 
-## Риски
+## Risks
 
-- Выигрыш в абсолютных числах может быть мал: на `fast` это не больше 24 с. В `test_speed` `generation` ускорен удешевлением тестов и двумя процессами, поэтому браться за раннер стоит только по новым цифрам.
-- Цена раннера: своя поддержка поверх альфа-версии редактора, где Test Framework уже показывал падения.
+- The gain in absolute numbers may be small: at most 24 s on `fast`. In `test_speed` the `generation` set was sped up by cheaper tests and two processes, so the runner is worth taking only on new numbers.
+- The cost of the runner: its own maintenance on top of an alpha version of the editor, where Test Framework has already shown crashes.

@@ -1,165 +1,165 @@
-# Исправления по ревью фреймворка, 2026-10-26
+# Fixes of the framework review, 2026-10-26
 
-Каждое исправление сделано через тест, который сначала падал по ожидаемой причине. Итог: backend 783/783,
-common 92/92, ContainerGenerator.Verify 62/62, Unity EditMode 277/281 (4 пропущенных бенчмарка), PlayMode 9/9.
-Пометка **BREAKING** означает изменение API или поведения, на которое может опираться игра.
+Every fix was made through a test that first failed for the expected reason. Result: backend 783/783,
+common 92/92, ContainerGenerator.Verify 62/62, Unity EditMode 277/281 (4 skipped benchmarks), PlayMode 9/9.
+**BREAKING** marks a change of an API or a behaviour a game may rely on.
 
-## common (реактивные примитивы)
+## common (reactive primitives)
 
-- Слушатель lifetime, снятый `RemoveListener` во время `Terminate`, больше не вызывается в этом проходе.
-- `LifetimedValue`: `Set` внутри обработчика больше не доставляет оставшимся обработчикам устаревшее значение после
-  нового.
-- `ViewTrue`: `Notify` при значении true завершает предыдущий true-lifetime.
-- **BREAKING** `ViewableList` и `ViewableDictionary` больше не наследуют `List` / `Dictionary`: базовые мутаторы
-  обходили lifetimes. Оставлены Count, индексатор, Add, Insert, Remove, RemoveAt, AddRange, RemoveRange, Clear,
+- A listener of a lifetime removed by `RemoveListener` during `Terminate` is no longer called in that pass.
+- `LifetimedValue`: a `Set` inside a handler no longer delivers the stale value to the remaining handlers after the
+  new one.
+- `ViewTrue`: `Notify` with the value true ends the previous true lifetime.
+- **BREAKING** `ViewableList` and `ViewableDictionary` no longer derive from `List` / `Dictionary`: the base mutators
+  bypassed the lifetimes. Kept: Count, the indexer, Add, Insert, Remove, RemoveAt, AddRange, RemoveRange, Clear,
   Contains, IndexOf, ContainsKey, TryGetValue, TryGetSourceValue, Keys, Values, GetEnumerable, foreach.
-- `ViewableList.Add` / `Insert` дубликата бросает до изменения списка (раньше элемент попадал без lifetime).
-- Индексатор `ViewableDictionary` с новым ключом вызывает `OnModified` один раз.
-- Завершение родителя не ищет детей в своём списке слушателей (иначе квадратичная стоимость).
-- **BREAKING** удалены мёртвые `TerminatedLifetime.CreateChild` и `RemoveTerminationListener`.
-- `ReactiveExceptions.Report` стал публичным (им пользуется updater клиента).
+- `ViewableList.Add` / `Insert` of a duplicate throws before changing the list (before, the item got in without a lifetime).
+- The indexer of `ViewableDictionary` with a new key calls `OnModified` once.
+- The termination of a parent does not look for its children in its list of listeners (that was quadratic).
+- **BREAKING** the dead `TerminatedLifetime.CreateChild` and `RemoveTerminationListener` are removed.
+- `ReactiveExceptions.Report` is public (the updater of the client uses it).
 
 ## shared, backend/Session, backend/Hosting
 
-- Соединение, закрытое до `Start()`, уходит из сессии; сессия закрывается, `SessionGate.Join` не висит. Ошибка
-  `Connection.Run` логируется, отключение ставится в очередь всегда.
-- Ожидание `ExpectedUsers` считает места, а не соединения: реконнект до старта не запускает матч раньше времени.
-- Матч лобби получает игроков без ботов и без дублей `BackendId`; `PlayersCount` листингов тоже.
-- `CloseIfNotJoined` сначала закрывает admission, потом завершает сессию (`IsClosed` верен).
-- Код лобби освобождается, если фабрика лобби бросила.
-- **BREAKING** владелец сессии никогда не бот.
-- Отказанная `TryReserve` больше не рвёт живое соединение.
-- Таймеры сессии и лобби (`Task.Delay`) отменяются с lifetime.
-- Lifetime соединения пересекается с lifetime пользователя: слушатели не копятся на lifetime сессии при реконнектах;
-  `SessionEntities` забывает завершённые места.
-- Регистрация сервиса `ServiceFactory` атомарна при коллизии id.
-- Возвращающееся соединение не получает `RemoteUpdate` о самом себе.
-- `SessionsCollection` отправляет снимки live-data по порядку.
-- **BREAKING** `ISession.AllUsersConnected` теперь `Task` (запоминает, что все пришли; отменяется с сессией).
-- **BREAKING** `ServiceFactory.OnSessionCreated` выполняет setup в очереди сессии и завершается после него.
+- A connection closed before `Start()` leaves the session; the session closes, `SessionGate.Join` does not hang. An error
+  of `Connection.Run` is logged, the disconnect is always queued.
+- The wait for `ExpectedUsers` counts seats, not connections: a reconnect before the start does not start the match early.
+- The match of a lobby gets its players without bots and without duplicate `BackendId`s; so does `PlayersCount` of the listings.
+- `CloseIfNotJoined` closes the admission first, then ends the session (`IsClosed` is right).
+- The lobby code is released when the lobby factory throws.
+- **BREAKING** the owner of a session is never a bot.
+- A refused `TryReserve` no longer breaks a live connection.
+- The timers of a session and a lobby (`Task.Delay`) are cancelled with the lifetime.
+- The lifetime of a connection is intersected with the lifetime of the user: listeners do not pile up on the lifetime of the
+  session over reconnects; `SessionEntities` forgets ended seats.
+- The registration of a service in `ServiceFactory` is atomic on an id collision.
+- A returning connection does not get a `RemoteUpdate` about itself.
+- `SessionsCollection` sends the snapshots of the live data in order.
+- **BREAKING** `ISession.AllUsersConnected` is a `Task` now (remembers that everyone came; cancelled with the session).
+- **BREAKING** `ServiceFactory.OnSessionCreated` runs the setup in the queue of the session and completes after it.
 - **BREAKING** `IUserFactory.Create(lifetime, id, connection)`, `ISessionAdmission.Close()` / `IsHeldOnlyBy()`.
-- Комментарий диапазонов тегов протокола: `SessionCreateSolo = 184` и неиспользуемый 52 (теги не перенумерованы).
+- The comment of the ranges of the protocol tags: `SessionCreateSolo = 184` and the unused 52 (the tags are not renumbered).
 
 ## backend/Infrastructure, Common, Cluster
 
-- Транзакционное состояние регистрируется до чтения: упавшее чтение больше не блокирует грейн навсегда;
-  `EventState.Append` тоже регистрируется.
-- Перехват блокировки «зависшей» транзакции не даёт ей потом закоммитить старый снимок (`Seal` перед коммитом,
+- A transactional state is registered before the read: a failed read no longer blocks the grain forever;
+  `EventState.Append` is registered too.
+- Taking over the lock of a "stuck" transaction does not let it commit its old snapshot later (`Seal` before the commit,
   `idle_in_transaction_session_timeout`).
-- Неизвестный исход коммита проверяется через `pg_xact_status`; если неясно, бросается
-  `TransactionOutcomeUnknownException` вместо «провала» с повтором.
-- **BREAKING** `AddressableState.OnOrleansStarted` и `ConfigsInitializer.Init` больше не глотают ошибки: сбой загрузки
-  останавливает старт вместо перезаписи конфигов seed-значениями.
-- `DurableQueue` доставляет всем подписчикам; повтор с тем же id идёт только тем, кто не получил.
-- Pipe повторяет только «no observer bound», таймаут не выполняет обработчик повторно и не сбрасывает observer.
-- Каналы: номер эпохи активации, после реактивации грейна сообщения не теряются молча; переподписка одного слушателя
-  сериализована.
-- `DeploymentState` / `AddressableState`: подписка до чтения, перезагрузка при разрыве, порядок записей по Lamport-метке
-  вместо часов хоста; значение в памяти меняется только после записи в БД.
-- `OpenLobbiesWatcher`: разрыв канала перечитывает реестр.
-- Нетранзакционные записи `State` сериализованы; упавшая запись сбрасывает кэш.
-- `EventState.Load` вне транзакции не теряет ожидающие события.
-- **BREAKING** `NoAwait`: ошибка сразу уходит в `NoAwaitExceptions.Handler` (кластер ставит `LogCritical`), иначе в stderr.
-- `TaskBalancer`: drain ждёт все задачи, штраф за ошибку сохраняется.
-- Side effects: долгий эффект не перезапускается параллельно (`TouchProcessing`), dead letter хранит исходную ошибку,
-  операции консоли не глотают ошибки; at-least-once описан в `ISideEffect`.
-- Ожидания `ReactiveTaskExtensions` отписываются после завершения и продолжаются асинхронно.
-- Discovery: остановленный сервис не регистрируется заново, время ставит грейн, балансировщик пропускает сервер,
-  отстающий больше 10 с; предупреждение готовности кластера не спамит.
-- **BREAKING** `DeployCleanup` отказывается работать, если его deploy id не совпадает с ответом `DeployIdPipe`
-  (конструктор получил `IMessaging`).
-- `SideEffectsWorker` завершается при остановке; `Connection.Run` чистит в finally, `ForceDisconnect` шлёт close frame.
-- Fail fast: без `?? new TransactionOptions()`, `EventStorage` не пропускает нечитаемые записи, типы событий через
-  `MovedTypesBinder`, `StateIdentity` с равенством по значению, кэш запросов по таблице.
+- An unknown outcome of a commit is checked with `pg_xact_status`; when it stays unclear,
+  `TransactionOutcomeUnknownException` is thrown instead of a "failure" with a retry.
+- **BREAKING** `AddressableState.OnOrleansStarted` and `ConfigsInitializer.Init` no longer swallow errors: a failed load
+  stops the start instead of overwriting the configs with the seed values.
+- `DurableQueue` delivers to every subscriber; a retry with the same id goes only to those that did not get it.
+- A pipe retries only "no observer bound"; a timeout does not run the handler again and does not reset the observer.
+- Channels: an activation epoch number, so messages are not silently lost after a reactivation of the grain; a resubscription
+  of one listener is serialized.
+- `DeploymentState` / `AddressableState`: subscribe before the read, reload on a break, records ordered by a Lamport stamp
+  instead of the clock of the host; the value in memory changes only after the write to the database.
+- `OpenLobbiesWatcher`: a break of the channel rereads the registry.
+- Non-transactional writes of `State` are serialized; a failed write resets the cache.
+- `EventState.Load` outside a transaction does not lose pending events.
+- **BREAKING** `NoAwait`: an error goes straight to `NoAwaitExceptions.Handler` (the cluster sets `LogCritical`), otherwise to stderr.
+- `TaskBalancer`: the drain waits for all tasks, the penalty for an error is kept.
+- Side effects: a long effect is not restarted in parallel (`TouchProcessing`), a dead letter keeps the original error,
+  the operations of the console do not swallow errors; at-least-once is described in `ISideEffect`.
+- The waits of `ReactiveTaskExtensions` unsubscribe after completion and continue asynchronously.
+- Discovery: a stopped service is not registered again, the time is set by the grain, the balancer skips a server
+  lagging more than 10 s; the cluster readiness warning does not spam.
+- **BREAKING** `DeployCleanup` refuses to work when its deploy id differs from the answer of `DeployIdPipe`
+  (the constructor takes `IMessaging`).
+- `SideEffectsWorker` ends on stop; `Connection.Run` cleans up in finally, `ForceDisconnect` sends a close frame.
+- Fail fast: no `?? new TransactionOptions()`, `EventStorage` does not skip unreadable records, event types through
+  `MovedTypesBinder`, `StateIdentity` with value equality, the query cache per table.
 
-## client/core: DI, scopes, генератор
+## client/core: DI, scopes, generator
 
-- **BREAKING** значения `WithParameter` / `RegisterInstance` / `RegisterComponent` берутся по регистрации, а не по типу
-  (раньше побеждала последняя регистрация типа).
-- **BREAKING** `[Inject]` базового класса вызывается.
-- Новые диагностики: CINGR010 (несколько, generic или private `[Inject]`), CINGR011 (abstract, struct, private nested,
-  два конструктора одной длины), CINGR012 (transient слушает несколько фаз), CINGR009 warning (параметр берёт одну из
-  нескольких регистраций). Исключение эмиттера становится CINGR001, а не теряет все контейнеры сборки.
-- `if (x) builder.Register<T>()` без else больше не валит сборку scope, если T никому не нужен.
-- **BREAKING** runtime-проверка: регистрация, которую генератор не видит (через интерфейс, в цикле, повторный вызов
-  installer), бросает при сборке scope; `ScopeContainer.CreateEntity` без варианта для view type бросает.
-- Упавшая загрузка scope откатывается (lifetime, контейнер, сцены, after-dispose).
-- `LoadedScope.Dispose` идемпотентен, выполняет все шаги и диспоузит дочерние scope первыми.
-- Generated `Dispose`: сначала lifetime, потом сервисы в обратном порядке, ошибки собираются; `Resolve` после
-  `Dispose` бросает `ObjectDisposedException`.
-- Entity-scope выполняют фазы loaded, dispose и after-dispose.
-- `GameLoopScopeLoader` выполняет загрузки по очереди, не ждёт одну UniTask дважды.
-- Комментарии генератора на английском, фикстуры Verify без игровых имён, стабы Verify совпадают с runtime API.
+- **BREAKING** the values of `WithParameter` / `RegisterInstance` / `RegisterComponent` are taken by the registration, not by
+  the type (before, the last registration of the type won).
+- **BREAKING** `[Inject]` of a base class is called.
+- New diagnostics: CINGR010 (several, generic or private `[Inject]`), CINGR011 (abstract, struct, private nested,
+  two constructors of the same length), CINGR012 (a transient listens to several phases), CINGR009 warning (a parameter takes
+  one of several registrations). An exception of the emitter becomes CINGR001 instead of losing every container of the assembly.
+- `if (x) builder.Register<T>()` without else no longer fails the build of the scope when nobody needs T.
+- **BREAKING** a runtime check: a registration the generator does not see (through an interface, in a loop, a repeated call of an
+  installer) throws at the build of the scope; `ScopeContainer.CreateEntity` without a variant for the view type throws.
+- A failed load of a scope is rolled back (lifetime, container, scenes, after-dispose).
+- `LoadedScope.Dispose` is idempotent, runs every step and disposes the child scopes first.
+- Generated `Dispose`: the lifetime first, then the services in reverse order, errors collected; `Resolve` after
+  `Dispose` throws `ObjectDisposedException`.
+- Entity scopes run the loaded, dispose and after-dispose phases.
+- `GameLoopScopeLoader` runs the loads one after another and does not await one UniTask twice.
+- The comments of the generator are in English, the fixtures of Verify have no game names, the stubs of Verify match the runtime API.
 
 ## client/core: runtime
 
-- `UpdaterProxy` применяет скорость родителя один раз и свою собственную; пропускает завершённые updatable.
-- **BREAKING** `Pause` / `Continue` считаются (Continue без Pause бросает), `SetSpeed` во время паузы применяется
-  после последнего `Continue`.
-- Updatable, бросивший исключение, не останавливает остальных и следующие фазы.
-- **BREAKING** `RunDelay`, `RunUpdateAction`, `RunFixedAction` завершаются `OperationCanceledException`, когда кончается
-  lifetime (как Progression и Tween); `RunUpdateAction(lifetime, time, …)` считает время updater, а не `Time.time`.
-- Ожидания `WaitInvoke` / `WaitTrue` / `WaitFalse` отписываются после завершения.
-- `BehaviourSequence` сбрасывает выполняющийся первый узел.
-- **BREAKING** `GameObjectLifetime`: скрытый до `Start` объект получает живой lifetime (раньше завершённый, и
-  `ListenClick` молча не работал); lifetime завершается в `OnDestroy`.
-- `AssetGroup`: release во время загрузки и упавшая загрузка не текут; **BREAKING** `Release` без `Retain` бросает.
-- `StateMachine`: новое состояние ставится до завершения старого (реентерабельность), `Initialize` завершает текущее.
-- **BREAKING** `Direction8` из 8 направлений, `ToDirection4` по доминирующей оси, нулевой вектор бросает;
-  `RotateClamped` по кратчайшему пути, `ToAngle` в [0, 360).
-- **BREAKING** `FindOrLoadScene` в моке больше не берёт объект из другой сцены; `LoadTyped` бросает
+- `UpdaterProxy` applies the speed of its parent once and its own; skips ended updatables.
+- **BREAKING** `Pause` / `Continue` are counted (Continue without Pause throws), a `SetSpeed` during a pause is applied
+  after the last `Continue`.
+- An updatable that throws does not stop the others and the next phases.
+- **BREAKING** `RunDelay`, `RunUpdateAction`, `RunFixedAction` end with `OperationCanceledException` when the lifetime ends
+  (like Progression and Tween); `RunUpdateAction(lifetime, time, …)` counts the time of the updater, not `Time.time`.
+- The waits `WaitInvoke` / `WaitTrue` / `WaitFalse` unsubscribe after completion.
+- `BehaviourSequence` resets the running first node.
+- **BREAKING** `GameObjectLifetime`: an object hidden before `Start` gets a live lifetime (before, an ended one, and
+  `ListenClick` silently did nothing); the lifetime ends in `OnDestroy`.
+- `AssetGroup`: a release during a load and a failed load do not leak; **BREAKING** `Release` without `Retain` throws.
+- `StateMachine`: the new state is set before the old one ends (reentrancy), `Initialize` ends the current one.
+- **BREAKING** `Direction8` has 8 directions, `ToDirection4` goes by the dominant axis, a zero vector throws;
+  `RotateClamped` takes the shortest way, `ToAngle` is in [0, 360).
+- **BREAKING** `FindOrLoadScene` in a mock no longer takes an object from another scene; `LoadTyped` throws
   `InvalidOperationException`.
-- Нулевое время Progression / Curve завершается сразу; отрицательное бросает.
-- **BREAKING** fail fast: `CollectionsExtensions.Random` на пустом списке, `ProfilerTraceStorage.Save` / `Load`.
-- `BackendOptions.SocketUrl` меняет только схему; `LocalStorageKeys.Get` отвергает имена с суффиксом окружения.
+- A zero time of Progression / Curve completes at once; a negative one throws.
+- **BREAKING** fail fast: `CollectionsExtensions.Random` on an empty list, `ProfilerTraceStorage.Save` / `Load`.
+- `BackendOptions.SocketUrl` changes only the scheme; `LocalStorageKeys.Get` rejects names with an environment suffix.
 
-## client/core: editor-инструменты
+## client/core: editor tools
 
-- Hierarchy bindings: вложенный класс с именем родителя, дочерние `Register` / `Create` / члены `ObjectBindings`,
-  поля `HPBar` / `HpBar` больше не дают ошибок компиляции.
-- Два типа bindings в одном файле или чужой namespace отвергаются; объекты ищутся по индексам соседей, а не по именам.
-- Batch после исключения сбрасывается, «Cancel Prefab Batch» доступен, пока что-то осталось; запись файла бросает при
-  сбое; batch отказывается при открытом prefab stage; проверка «чужой слой» не путается после Ctrl+D.
-- Общий сервис идентификаторов `CodeIdentifiers` для всех генераторов каталогов: ключевые слова, члены класса, имя
-  класса, дубли.
-- Каталог сцен: дубли имён, ведущая цифра, порядковая сортировка, postprocessor сцен, пустой каталог.
-- **BREAKING** каталоги бросают на дубли имён, отсутствующий root-компонент, нечитаемый json реестра или userData,
-  типы из Assembly-CSharp.
-- Postprocessor prefab и audio реагируют на исключение из каталога.
-- **BREAKING** `ProjectSettings/Framework.json` обязателен, нет игровых путей по умолчанию; перечитывается при изменении.
-- Поиск asmdef учитывает `.asmref`; `SerializeReferencePicker` понимает вложенные типы; `PlayerBuildSteps` пропускает
-  открытые generic-типы; сканер графа контейнера не глотает ошибки.
+- Hierarchy bindings: a nested class named after its parent, child `Register` / `Create` / members of `ObjectBindings`,
+  the fields `HPBar` / `HpBar` no longer give compile errors.
+- Two bindings types in one file or a foreign namespace are rejected; objects are found by the indices of their siblings, not by names.
+- A batch is reset after an exception, "Cancel Prefab Batch" is available while something is left; a failed write of a file
+  throws; a batch refuses while a prefab stage is open; the "foreign layer" check is not confused after Ctrl+D.
+- One identifier service `CodeIdentifiers` for every catalogue generator: keywords, class members, the class name,
+  duplicates.
+- The scene catalogue: duplicate names, a leading digit, ordinal sorting, the scene postprocessor, an empty catalogue.
+- **BREAKING** the catalogues throw on duplicate names, a missing root component, an unreadable json of the registry or userData,
+  types from Assembly-CSharp.
+- The prefab and audio postprocessors react to an exception of a catalogue.
+- **BREAKING** `ProjectSettings/Framework.json` is required, no game paths by default; reread on change.
+- The asmdef lookup takes `.asmref` into account; `SerializeReferencePicker` understands nested types; `PlayerBuildSteps` skips
+  open generic types; the scanner of the container graph does not swallow errors.
 
-## client/modules и platforms
+## client/modules and platforms
 
-- Network: `ConnectionWriter` после повторного `Run` не смешивает старый и новый сокет; `ForceSendAll` не шлёт
-  параллельно с циклом; несериализуемый запрос падает сразу.
-- Network: `DefaultWebSocket` читает на thread pool и отвечает на ping при занятом main thread; сокет упавшего connect
-  закрывается; `JsWebSocket` доставляет в player loop.
-- Network: синхронизация свойств и фейды музыки идут по реальному времени (пауза игры их не останавливает);
-  `NetworkEntityFactory` бросает на чужой id; `NetworkSession.Start` не висит при обрыве.
-- **BREAKING** `INetworkProperty.OnWriteSent()`: локальная версия растёт на записи (сходимость при одновременных записях).
-- Тестовый union протокола в сетевых тестах (9 тестов фреймворка падали без игры).
-- Matchmaking: убран таймаут 10 с меньше таймаута writer (20 с), дублей лобби при повторе нет.
-- UI: вершина стека при закрытии не по порядку, видимость под диалогом, `Exit` в finally (ввод не остаётся выключенным).
-- Animations: цепочка `PlayAsync`, остаток времени цикла, первый кадр сразу, анимация без кадров бросает.
-- **BREAKING** cameras: `SetCamera(lifetime, camera)`, камера сбрасывается с lifetime; `ScreenToWorld` без камеры бросает;
-  разрешение экрана ставится только в `SetOutputResolution`.
-- **BREAKING** backend HTTP: таймаут из `BackendOptions.TimeoutSeconds`, `IBackendPost.Post` возвращает тело ответа,
-  `GetImage` шлёт заголовки.
-- Itch: битое сохранение переносится в `save_v2_corrupt`; `Settings.Apply` хранит копию.
-- **BREAKING** localization: язык по умолчанию и маппинг системного языка в `LocalizationOptions`.
-- **BREAKING** telegram: путь к токену debug API в `TelegramEditorOptions`; web: таймаут `WebLoadingScreen.Show`,
-  понятные ошибки jslib без `window.webShell`.
+- Network: `ConnectionWriter` does not mix the old and the new socket after a repeated `Run`; `ForceSendAll` does not send
+  in parallel with the loop; a request that cannot be serialized fails at once.
+- Network: `DefaultWebSocket` reads on the thread pool and answers a ping while the main thread is busy; the socket of a failed
+  connect is closed; `JsWebSocket` delivers in the player loop.
+- Network: the property sync and the music fades run on real time (a pause of the game does not stop them);
+  `NetworkEntityFactory` throws on a foreign id; `NetworkSession.Start` does not hang on a break.
+- **BREAKING** `INetworkProperty.OnWriteSent()`: the local version grows on a write (convergence on simultaneous writes).
+- A test union of the protocol in the network tests (9 tests of the framework failed without a game).
+- Matchmaking: removed a 10 s timeout shorter than the timeout of the writer (20 s), no duplicate lobbies on a retry.
+- UI: the top of the stack on an out-of-order close, the visibility under a dialog, `Exit` in finally (the input does not stay off).
+- Animations: the chain of `PlayAsync`, the remainder of the loop time, the first frame at once, an animation without frames throws.
+- **BREAKING** cameras: `SetCamera(lifetime, camera)`, the camera is reset with the lifetime; `ScreenToWorld` without a camera
+  throws; the screen resolution is set only in `SetOutputResolution`.
+- **BREAKING** backend HTTP: the timeout from `BackendOptions.TimeoutSeconds`, `IBackendPost.Post` returns the response body,
+  `GetImage` sends the headers.
+- Itch: a broken save is moved to `save_v2_corrupt`; `Settings.Apply` keeps a copy.
+- **BREAKING** localization: the default language and the mapping of the system language in `LocalizationOptions`.
+- **BREAKING** telegram: the path to the token of the debug API in `TelegramEditorOptions`; web: a timeout of
+  `WebLoadingScreen.Show`, clear jslib errors without `window.webShell`.
 
-## Не исправлено
+## Not fixed
 
-- Owner-проверки команд сессии: решение не нужны сейчас.
-- Аутентификация консоли (код хоста игры), лицензия FluentAssertions.
-- Не подтвердилось: отсутствующий игрок не убивает матч лобби (`ExpectedUsers = 0`), отмена `WaitInvoke` уже Canceled,
-  ошибка `SetFlag` недостижима.
-- Ограничение: версии свойств сходятся для пары одновременных записей; точное решение требует, чтобы сервер
-  присылал писателю его новую версию.
-- Оставлено: `ActionBlock` сессии не завершается; flush сохранений itch на каждом сохранении; владелец общей
-  RenderTexture камеры; параметры веток `switch` в генераторе по типу; особые случаи `GraphWalker` для
-  `AddSnapshotHandler` / `AddCardActionSyncResolver` (игровые имена).
+- Owner checks of the session commands: decided not needed for now.
+- Authentication of the console (code of the game host), the license of FluentAssertions.
+- Not confirmed: a missing player does not kill the match of a lobby (`ExpectedUsers = 0`), the cancellation of `WaitInvoke`
+  is already Canceled, the error of `SetFlag` is unreachable.
+- Limitation: the property versions converge for a pair of simultaneous writes; an exact solution needs the server to
+  send the writer its new version.
+- Left as is: the `ActionBlock` of a session does not complete; a flush of the itch saves on every save; the owner of the shared
+  RenderTexture of the camera; the parameters of the `switch` branches in the generator by type; the special cases of `GraphWalker`
+  for `AddSnapshotHandler` / `AddCardActionSyncResolver` (game names).
