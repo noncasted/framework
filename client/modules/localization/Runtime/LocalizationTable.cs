@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Global.Localization
 {
     // The texts of the table file by key, a column per language. The file is a list of entries
-    //     { "key": "Menu.Play", "ru": "ИГРАТЬ", "en": "PLAY" }
+    //     { "key": "Menu.Play", "ru": "<the Russian text>", "en": "PLAY" }
     // (JsonUtility: no dictionaries). A key twice, an entry without a key or without the text of a language fails
     // the load: a text missing in one language is a bug, not an empty label.
     public class LocalizationTable
