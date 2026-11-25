@@ -18,7 +18,7 @@ from pathlib import Path
 
 MIB = 1024 * 1024
 
-DOTNET_ROLES = {"silo", "coordinator", "meta", "game", "console", "frontend", "resource-service"}
+DOTNET_ROLES = {"silo", "coordinator", "meta", "game", "console", "frontend", "resource-service", "backend"}
 
 
 def read_sections(path):

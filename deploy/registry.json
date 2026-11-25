@@ -91,7 +91,7 @@
     "pixel-swarm": {
       "framework": true,
       "server": "ovh",
-      "mode": "services",
+      "mode": "monolith",
       "namespace": "pixel-swarm",
       "coolify": {
         "project": "zqfwglgmpyhdwoii2oszwoa5",
@@ -99,7 +99,7 @@
         "environment": "production"
       },
       "repository": "noncasted/pixel-swarm",
-      "branch": "deploy",
+      "branch": "deploy-monolith",
       "resources": [
         {
           "uuid": "c4b3aasq8hoikkbzgloa5ccd",
