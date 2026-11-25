@@ -1,6 +1,6 @@
 ---
 name: audit-swarm
-description: Code audit by a swarm of cheap subagents in oh-my-pi (omp) - the session splits the area into packages, audits each with a parallel audit-scout, verifies every finding with its own adversarial audit-verifier, and writes only verified findings to docs/audits. Use in omp when the user runs /audit-swarm or asks for a code audit with subagents, a parallel audit, or an audit to hand over to a stronger model. In Claude Code use code-audit.
+description: Code audit by a swarm of cheap subagents in Claude Code on OpenCode Go (the `clo` profile) - the session splits the area into packages, audits each with a parallel audit-scout, verifies every finding with its own adversarial audit-verifier, and writes only verified findings to docs/audits. Use when the user runs /audit-swarm or asks for a code audit with subagents, a parallel audit, or an audit to hand over to a stronger model. In the profile of the Anthropic subscription use code-audit.
 ---
 
 # Audit swarm
@@ -9,10 +9,12 @@ The session is the orchestrator: it plans, spawns, collects and writes the repor
 (its context stays small, the agents read); it reads only the answers of the agents and, when two of them disagree, the lines in
 dispute. Read-only for code; no commits.
 
-Agents (`agents/` of this skill, linked into `~/.omp/agent/agents` by `install.sh`): `audit-scout` audits one package,
-`audit-verifier` tries to refute one finding. When the `task` tool does not list them, run `install.sh` of this skill once and restart
-omp. Tool: `task` (several tasks in one call run in parallel; `wait` for the results). Limits: the global config of omp, set by
-`install.sh` (`task.maxRuntimeMs`, `task.maxConcurrency`).
+Agents (`agents/` of this skill, pinned to `deepseek-v4.1-flash` of OpenCode Go, linked into `~/.claude-opencode/agents` by
+`install.sh`): `audit-scout` audits one package, `audit-verifier` tries to refute one finding. The session runs in the OpenCode Go
+profile (`clo`); in another profile the agents are missing or their model is not served - use `code-audit` there. When the Agent
+tool does not list them, run `install.sh` of this skill once and restart the session. Tool: Agent with `subagent_type`
+`audit-scout` / `audit-verifier`; several Agent calls in one message run in parallel and each answer comes back as a notification
+(do not poll). No runtime limit per agent: the package size below keeps a scout short.
 
 ## Arguments
 
@@ -31,8 +33,8 @@ missing (scouts of the packages without `scout-<PREFIX>.md`, then verifiers of t
 1. Count the `.cs` files per folder (`find <area> -name '*.cs' -not -path '*/Generated/*' -not -name '*.g.cs'`, grouped by the
    folder two or three levels down).
 2. Cut the area into packages of 15-40 files along features (a module, an assembly, `core/Runtime/Scopes`, the container
-   generator). Tests go with the package they test. A folder above 40 files is cut by its subfolders. A cheap model reads about one file a minute: 40 files fit
-   the runtime limit of an agent (`task.maxRuntimeMs`, 40 min), a bigger package times out.
+   generator). Tests go with the package they test. A folder above 40 files is cut by its subfolders. A cheap model reads about one file a minute: 40 files keep a
+   scout within ~40 minutes, a bigger package drifts and loses the format.
 3. Give each package an ID prefix (`CORE`, `GEN`, `NET`, `TEL`, `UI`, ...) and a focus: the 2-4 things it is most likely to break and
    the docs for them, from the keyword table of `INDEX.md` (lifetimes -> `COMMON_LIFETIMES.md`, container -> `COMMON_CONTAINER.md`,
    WebGL -> `WEBGL_TROUBLESHOOTING.md`, ...).
@@ -42,7 +44,8 @@ missing (scouts of the packages without `scout-<PREFIX>.md`, then verifiers of t
 
 ## Step 2 - Scouts
 
-Spawn one `audit-scout` per package, all in one `task` call (the concurrency limit queues the rest). Brief of each:
+Spawn one `audit-scout` per package, all Agent calls in one message (at most ~12 at a time; the rest in the next message as
+answers come back). Brief of each:
 
 ```
 Package: <folders>  ID prefix: <PREFIX>
@@ -52,13 +55,13 @@ Candidates of audit.sh:
 <its output for the package>
 ```
 
-Save each answer as `docs/audits/<date>_<area>.work/scout-<PREFIX>.md`. A scout that timed out or returned nothing in the format:
+Save each answer as `docs/audits/<date>_<area>.work/scout-<PREFIX>.md`. A scout that failed or returned nothing in the format:
 spawn it once more with its package cut in two; a second failure goes to "Not checked".
 
 ## Step 3 - Verifiers
 
 1. Collect the findings of all scouts. Merge duplicates (same place, same claim) under the first ID. Drop nothing else yourself.
-2. Spawn one `audit-verifier` per finding, in one `task` call. Brief: the finding block as the scout wrote it, but WITHOUT its
+2. Spawn one `audit-verifier` per finding, the Agent calls in one message (the same ~12 at a time). Brief: the finding block as the scout wrote it, but WITHOUT its
    `Could be wrong if` line (the verifier finds its own doubts), plus `Run: <id>` for the scratch folder
    `.build/audit-swarm/<date>_<area>/<ID>/`. Mass style findings and pure structure findings (a file in the wrong folder, several
    types in a file) are checked by the verifier too, but cheaply: it only confirms the count and the examples.
