@@ -135,7 +135,7 @@
     "gamejam-autobattler": {
       "framework": true,
       "server": "ovh",
-      "mode": "services",
+      "mode": "monolith",
       "namespace": "gamejam-autobattler",
       "coolify": {
         "project": "dnlb8sxzeai8bflo1x5mk480",
@@ -143,7 +143,11 @@
         "environment": "production"
       },
       "repository": "noncasted/gamejam-autobattler",
-      "branch": "deploy",
+      "branch": "deploy-monolith",
+      "compose": {
+        "services": "backend/Tools/deploy/docker-compose.yaml",
+        "monolith": "backend/Tools/deploy/docker-compose.monolith.yaml"
+      },
       "resources": [
         {
           "uuid": "cnbvs6gaztztw7hrt9omywvh",
@@ -159,8 +163,7 @@
       ],
       "domains": {
         "meta": "https://reddit-meta.pixel-swarm.xyz",
-        "console": "https://reddit-console.pixel-swarm.xyz",
-        "aspire": "https://reddit-aspire.pixel-swarm.xyz"
+        "console": "https://reddit-console.pixel-swarm.xyz"
       },
       "note": "Reddit Devvit jam backend; no game domain, no web client."
     },
