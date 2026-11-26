@@ -104,6 +104,45 @@ namespace Internal.EditorTests
         }
 
         [Test]
+        public void Prepare_SerializeReferenceOfABundle_ItsTypeInTheLinkXmlAsSerialized()
+        {
+            var part = new ContentTestPart();
+            part.Init(7);
+            var managed = ScriptableObject.CreateInstance<ContentTestManaged>();
+            managed.Init(part);
+            AssetDatabase.CreateAsset(managed, $"{Folder}/Managed.asset");
+            AssetDatabase.CreateAsset(ContentTestBundles.Create("ContentBuildTests", managed), BundlePath);
+            AssetDatabase.SaveAssets();
+
+            var linkXml = File.ReadAllText(ContentBuild.Prepare(ContentTestBundles.Target).LinkXml);
+
+            var assembly = $"<assembly fullname=\"{typeof(ContentTestPart).Assembly.GetName().Name}\">";
+            var type = $"<type fullname=\"{typeof(ContentTestPart).FullName}\" preserve=\"nothing\" serialized=\"true\" />";
+            StringAssert.Contains(type, linkXml, "The managed reference type of the bundled data");
+            Assert.AreEqual(1, linkXml.Split(new[] { assembly }, System.StringSplitOptions.None).Length - 1, "One element of its assembly");
+            StringAssert.Contains($"<type fullname=\"{typeof(ContentTestManaged).FullName}\" preserve=\"nothing\" />", linkXml, "The asset type in the same assembly");
+        }
+
+        [TestCase("GamePlay:GamePlay.Enemies.ChaseEnemyBehaviour", "GamePlay", "GamePlay.Enemies.ChaseEnemyBehaviour")]
+        [TestCase("Unity.RenderPipelines.Core.Runtime:UnityEngine.Rendering.AlphaUpscaler/RuntimeResources", "Unity.RenderPipelines.Core.Runtime", "UnityEngine.Rendering.AlphaUpscaler/RuntimeResources")]
+        [TestCase("Game:Global", "Game", "Global")]
+        public void SerializedType_Parse_AssemblyAndTheNameAsItIs(string fqn, string assembly, string fullName)
+        {
+            var type = ContentSerializedType.Parse(fqn);
+
+            Assert.AreEqual(assembly, type.Assembly);
+            Assert.AreEqual(fullName, type.FullName);
+        }
+
+        [TestCase("GamePlay.Enemies.ChaseEnemyBehaviour")]
+        [TestCase(":GamePlay.Enemies.ChaseEnemyBehaviour")]
+        [TestCase("GamePlay:")]
+        public void SerializedType_Parse_NotAssemblyAndType_Throws(string fqn)
+        {
+            Assert.Throws<System.FormatException>(() => ContentSerializedType.Parse(fqn));
+        }
+
+        [Test]
         public void Prepare_BundleLeftOutByAStep_NotBuiltNorInTheCatalog_TheOthersAre()
         {
             var kept = ScriptableObject.CreateInstance<ContentTestTarget>();

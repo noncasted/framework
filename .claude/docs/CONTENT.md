@@ -130,7 +130,10 @@ var icon = _content.LoadNow(lifetime, reference);                         // the
    (`Library/PlayerDataCache/WebGLPreloadedStreamingAssets/framework-content.manifest`; both `ContentPlayerStamp`);
 8. writes `Library/ContentBundles.link.xml`, the types of every object of the bundles (`ContentLinkXml`, `preserve="nothing"`), and gives
    it to the linker (`ContentLinkerProcessor`, an `IUnityLinkerProcessor`): a type only a bundle uses (a collider of a level, a
-   component of a prefab) is not stripped, the engine keeps its native class. The bundle build writes no build report for
+   component of a prefab) is not stripped, the engine keeps its native class. The serialized classes of their data
+   (`ContentSerializedType`, from `WriteResult.includedSerializeReferenceFQN` of the build) go in with `serialized="true"`, as in
+   Unity's `SerializedTypes.xml`, which covers only the data of the player: a class only a `[SerializeReference]` of a bundle names
+   (an enemy behaviour, a projectile movement) is not stripped either; an FQN that is not `<assembly>:<type>` fails the build. The bundle build writes no build report for
    `AddPreviousBuildReportDirectory`, and `BuildPlayerContext.BuildPlayerOptions` (`assetBundleManifestPath`) is read only;
 9. gives the shipped folder to the player as `StreamingAssets/Content` (`AddAdditionalPathToStreamingAssets`, nothing in `Assets`);
    a preloaded bundle of WebGL is in the `.data` file instead.
@@ -237,8 +240,8 @@ bottom; a row is what the folder holds and who calls it.
 | `Shared/` | `IContentSharedBundles`, `ContentSharedBundle`, `ContentSharedSync`: the shared bundles of the game | `ContentBuild`, Regenerate All, the menu Codegen |
 | `Layout/` | `ContentBundleLayout` (`Lay`, `Inspect`: the layout and its checks), `ContentOwnership` (who holds what), `ContentAssetOwner`, `ContentBundlePlan` (what goes into one bundle), `ContentDuplicate` | `ContentBuild`, `ContentSharedSync` |
 | `Layout/Graph/` | `ContentAssetGraph` (the direct references of the project), `ContentLazyReferenceScanner` (the lazy references of an asset or a scene), `ContentLazyReference`, `ContentLazyTargets` | `Layout/`, `ContentSharedSync` |
-| `Pipeline/` | `ContentBundleBuilder` (the Scriptable Build Pipeline), `ContentBuiltBundle`, `ContentBuiltFile`, `ContentBuildTargetSelection`, `ContentUnsavedScenes` | `ContentBuild` |
-| `Output/` | `ContentShipment` (`Library/ContentShipped`), `ContentCatalogWriter`, `ContentLinkXml`, `ContentBuildLog`, `ContentBuildOutput` (what `Prepare` gives the player build) | `ContentBuild` |
+| `Pipeline/` | `ContentBundleBuilder` (the Scriptable Build Pipeline), `ContentBuiltContent` (the bundles and the serialized classes of their data), `ContentBuiltBundle`, `ContentBuiltFile`, `ContentBuildTargetSelection`, `ContentUnsavedScenes` | `ContentBuild` |
+| `Output/` | `ContentShipment` (`Library/ContentShipped`), `ContentCatalogWriter`, `ContentLinkXml`, `ContentSerializedType`, `ContentBuildLog`, `ContentBuildOutput` (what `Prepare` gives the player build) | `ContentBuild` |
 | `Player/` | `ContentBuildPlayerProcessor` (`StreamingAssets/Content`; prepares a build outside `PlayerBuildSteps`), `ContentLinkerProcessor`, `ContentPlayerStamp` (the catalog in `Assets/FrameworkContentStamp`, the preload manifest of WebGL) | the callbacks of the player build, `ContentBuild` |
 | `Definitions/` | `ContentBundle` (the asset of a bundle, declared by the game), `ContentBundleAssets` (every `ContentBundle` of the project) | `ContentBuild`, `Shared/`, `Layout/`, `PlayMode/` |
 | `Drawers/` | `ContentReferenceDrawer`, `ContentSceneDrawer`, `ContentReferenceFields` (writes and reads a reference: the drawers, the tools, the generators) | the inspector, the generators of the game and the catalogues, `Layout/Graph/` |

@@ -42,7 +42,7 @@ namespace Internal.EditorTests
                 Directory.Delete(ContentTestPaths.Folder, true);
 
             var platform = ContentTestBundles.Target;
-            var built = ContentBundleBuilder.Build(ContentBundleLayout.Lay(bundles).Plans, platform, ContentTestPaths.Built, isTypeTree: true);
+            var built = ContentBundleBuilder.Build(ContentBundleLayout.Lay(bundles).Plans, platform, ContentTestPaths.Built, isTypeTree: true).Bundles;
             ContentShipment.Write(built, platform, ContentTestPaths.Folder);
             File.WriteAllText(ContentTestPaths.Catalog, ContentCatalogWriter.Create(built, platform).ToJson());
         }

@@ -11,7 +11,7 @@ namespace Internal
     // the bundles left out (IContentBuildStep), the shared bundles (ContentSharedSync), the steps around the layout and the
     // bundle build (IContentLayoutStep), the layout and its checks (ContentBundleLayout), the bundles in
     // Temp/ContentBundles/<target> (ContentBundleBuilder), their files under the names of the build (ContentShipment), the
-    // catalog (ContentCatalogWriter), the types of their objects for the linker (ContentLinkXml) and the log.
+    // catalog (ContentCatalogWriter), the types of their objects and data for the linker (ContentLinkXml) and the log.
     // The player gets the files as StreamingAssets/Content (ContentBuildPlayerProcessor), the catalog as a json TextAsset in
     // Resources; a preloaded bundle of a WebGL build goes into the .data file. The temporary files are removed after the
     // build, also a failed one.
@@ -46,8 +46,9 @@ namespace Internal
             ContentPlayerStamp.Delete();
 
             var folder = $"{Output}/{target}";
-            var bundles = Build(target, folder, isTypeTree: false);
-            var output = new ContentBuildOutput(ContentShipment.Write(bundles, target), ContentLinkXml.Write(bundles), ContentCatalogWriter.Create(bundles, target), bundles);
+            var content = Build(target, folder, isTypeTree: false);
+            var bundles = content.Bundles;
+            var output = new ContentBuildOutput(ContentShipment.Write(bundles, target), ContentLinkXml.Write(content), ContentCatalogWriter.Create(bundles, target), bundles);
 
             ContentPlayerStamp.WriteCatalog(output.Catalog);
             ContentPlayerStamp.WritePreloadManifest(output.Catalog);
@@ -69,7 +70,7 @@ namespace Internal
         }
 
         // The steps, the shared bundles, the layout and the bundles of the project built into a folder (a player build, a test).
-        public static IReadOnlyList<ContentBuiltBundle> Build(BuildTarget target, string folder, bool isTypeTree)
+        public static ContentBuiltContent Build(BuildTarget target, string folder, bool isTypeTree)
         {
             var build = new ContentBuildContext(target);
 

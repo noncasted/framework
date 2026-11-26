@@ -25,7 +25,7 @@ namespace Internal
 
         private static readonly ILog _log = Logs.Of(typeof(ContentBundleBuilder));
 
-        public static IReadOnlyList<ContentBuiltBundle> Build(IReadOnlyList<ContentBundlePlan> plans, BuildTarget target, string output, bool isTypeTree)
+        public static ContentBuiltContent Build(IReadOnlyList<ContentBundlePlan> plans, BuildTarget target, string output, bool isTypeTree)
         {
             ContentUnsavedScenes.ThrowIfDirty();
             Directory.CreateDirectory(output);
@@ -68,7 +68,19 @@ namespace Internal
                 Math.Round((DateTime.Now - started).TotalSeconds, 1));
 
             var owners = plans.SelectMany(plan => new[] { (AssetsName(plan), plan.Name), (ScenesName(plan), plan.Name) }).ToDictionary(entry => entry.Item1, entry => entry.Item2);
-            return plans.Select(plan => Built(plan, results.BundleInfos, output, owners)).ToArray();
+            var bundles = plans.Select(plan => Built(plan, results.BundleInfos, output, owners)).ToArray();
+            return new ContentBuiltContent(bundles, SerializedTypes(results));
+        }
+
+        // The serialized classes of the objects written into the bundles ([Serializable] fields, [SerializeReference] instances):
+        // the linker keeps them only from a link.xml (ContentLinkXml), Unity's SerializedTypes.xml covers the player data only.
+        private static IReadOnlyList<ContentSerializedType> SerializedTypes(IBundleBuildResults results)
+        {
+            return results.WriteResults.Values
+                .SelectMany(result => result.includedSerializeReferenceFQN)
+                .Select(ContentSerializedType.Parse)
+                .Distinct()
+                .ToArray();
         }
 
         private static ContentBuiltBundle Built(ContentBundlePlan plan, IReadOnlyDictionary<string, BundleDetails> infos, string output, IReadOnlyDictionary<string, string> owners)

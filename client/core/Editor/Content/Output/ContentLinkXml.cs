@@ -16,15 +16,18 @@ namespace Internal
     // only (preserve="nothing"): its members are the ones the linker keeps for any type it keeps (the serialized fields and
     // the messages of a MonoBehaviour); "all" kept every method of every type, +115 KB of wasm and +144 KB of .data on the
     // game of the jam.
+    // The serialized classes of their data (ContentSerializedType: [Serializable] fields and [SerializeReference] instances)
+    // go in as Unity writes them into its SerializedTypes.xml (preserve="nothing" serialized="true": the type with what its
+    // serialization needs): without them a stripped build drops a class only a [SerializeReference] of a bundle names.
     public static class ContentLinkXml
     {
         public const string Output = "Library/ContentBundles.link.xml";
 
-        public static string Write(IReadOnlyList<ContentBuiltBundle> bundles, string path = Output)
+        public static string Write(ContentBuiltContent content, string path = Output)
         {
             var types = new HashSet<Type>();
 
-            foreach (var bundle in bundles)
+            foreach (var bundle in content.Bundles)
             {
                 foreach (var asset in bundle.Plan.Assets.Concat(bundle.Plan.Implicit.Keys))
                     AddAsset(asset, types);
@@ -33,18 +36,26 @@ namespace Internal
                     AddScene(scene, types);
             }
 
-            var assemblies = types
+            var entries = types
                 .Where(type => type.Assembly.IsDynamic == false)
-                .GroupBy(type => type.Assembly.GetName().Name)
+                .Select(type => (Assembly: type.Assembly.GetName().Name, Line: TypeLine(type.FullName, "preserve=\"nothing\"")))
+                .Concat(content.SerializedTypes.Select(type => (type.Assembly, Line: TypeLine(type.FullName, "preserve=\"nothing\" serialized=\"true\""))));
+
+            var assemblies = entries
+                .GroupBy(entry => entry.Assembly)
                 .OrderBy(group => group.Key, StringComparer.Ordinal)
                 .Select(group => $"  <assembly fullname=\"{SecurityElement.Escape(group.Key)}\">\n" +
-                                 string.Concat(group.Select(type => type.FullName).OrderBy(name => name, StringComparer.Ordinal)
-                                     .Select(name => $"    <type fullname=\"{SecurityElement.Escape(name)}\" preserve=\"nothing\" />\n")) +
+                                 string.Concat(group.Select(entry => entry.Line).Distinct().OrderBy(line => line, StringComparer.Ordinal)) +
                                  "  </assembly>\n");
 
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path)) ?? throw new IOException(path));
             File.WriteAllText(path, $"<linker>\n{string.Concat(assemblies)}</linker>\n");
             return Path.GetFullPath(path);
+        }
+
+        private static string TypeLine(string fullName, string attributes)
+        {
+            return $"    <type fullname=\"{SecurityElement.Escape(fullName)}\" {attributes} />\n";
         }
 
         private static void AddAsset(string path, HashSet<Type> types)
