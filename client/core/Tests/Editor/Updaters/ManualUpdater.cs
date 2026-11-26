@@ -7,6 +7,7 @@ namespace Internal.Tests
     {
         private readonly List<(IReadOnlyLifetime Lifetime, IUpdatable Target)> _update = new();
         private readonly List<(IReadOnlyLifetime Lifetime, IFixedUpdatable Target)> _fixed = new();
+        private readonly ModifiableList<UpdateTargetHandle<IPostUpdatable>> _post = new();
         private readonly ViewableProperty<float> _speed = new(1f);
 
         public IViewableProperty<float> Speed => _speed;
@@ -37,6 +38,14 @@ namespace Internal.Tests
             }
         }
 
+        // The PostUpdate pass of the Updater (UpdatePass): no copy of the list, so the allocation tests can run it.
+        public void TickPost(float unscaledDelta)
+        {
+            List<System.Exception> exceptions = null;
+            UpdatePass.Run(_post, unscaledDelta * _speed.Value, static (u, d) => u.OnPostUpdate(d), ref exceptions);
+            UpdatePass.Report(exceptions);
+        }
+
         public void Add(IReadOnlyLifetime l, IUpdatable u) => Add(l, u, _update);
         public void Add(IReadOnlyLifetime l, IFixedUpdatable u) => Add(l, u, _fixed);
 
@@ -56,9 +65,7 @@ namespace Internal.Tests
         {
         }
 
-        public void Add(IReadOnlyLifetime l, IPostUpdatable updatable)
-        {
-        }
+        public void Add(IReadOnlyLifetime l, IPostUpdatable u) => UpdatePass.Add(l, u, _post);
 
         public void Add(IReadOnlyLifetime l, ILateUpdatable updatable)
         {

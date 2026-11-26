@@ -58,7 +58,8 @@
 - **Updater.** The global scope calls `AddUpdater(prefab)` (core); delays without coroutines:
   `updater.RunDelay(lifetime, time)`; every updater wait (RunDelay, RunUpdateAction, Progression, Tween) ends with
   `OperationCanceledException` when its lifetime ends first. `Pause` / `Continue` are counted (Continue without Pause
-  throws); an updatable that throws does not stop the others (reported through `ReactiveExceptions`).
+  throws); an updatable that throws does not stop the others (reported through `ReactiveExceptions`). `RunPostUpdate(lifetime,
+  callback)` calls back on every PostUpdate until the lifetime ends (the drawing of a state on its handle lifetime), nothing to await.
 - **Prefab pool.** `PrefabPool<T>` (`Runtime/Services/Pools`): instances of a template under one parent; `Get(lifetime)` takes one
   for that lifetime and gives it back when the lifetime ends (inactive while free), `created` runs once per instance (injection
   with `IViewInjector`, layers), the user resets the state on every take; the lifetime of the pool destroys every instance.

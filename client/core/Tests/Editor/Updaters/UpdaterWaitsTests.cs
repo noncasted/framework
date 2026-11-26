@@ -80,6 +80,38 @@ namespace Internal.Tests
         }
 
         [Test]
+        public void RunPostUpdate_CallsBackEveryPostUpdateUntilTheLifetimeEnds()
+        {
+            var lifetime = new Lifetime();
+            var updater = new ManualUpdater();
+            var deltas = new List<float>();
+
+            updater.RunPostUpdate(lifetime, deltas.Add);
+
+            updater.TickPost(0.1f);
+            updater.TickPost(0.2f);
+            lifetime.Terminate();
+            updater.TickPost(0.3f);
+
+            CollectionAssert.AreEqual(new[] { 0.1f, 0.2f }, deltas);
+        }
+
+        [Test]
+        public void RunPostUpdate_Frame_AllocatesNothing()
+        {
+            var lifetime = new Lifetime();
+            var updater = new ManualUpdater();
+            var calls = 0;
+
+            updater.RunPostUpdate(lifetime, _ => calls++);
+
+            FrameAllocations.AssertNone("a PostUpdate of RunPostUpdate", 1000, () => updater.TickPost(0.02f));
+            Assert.AreEqual(1000 + FrameAllocations.DefaultWarmup, calls);
+
+            lifetime.Terminate();
+        }
+
+        [Test]
         public void Progression_LifetimeEnds_IsCanceled()
         {
             var lifetime = new Lifetime();

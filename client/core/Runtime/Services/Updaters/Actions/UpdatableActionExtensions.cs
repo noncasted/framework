@@ -34,6 +34,13 @@ namespace Internal
             return action.Process();
         }
 
+        // Every PostUpdate with the delta until the lifetime ends, nothing to await: the drawing of a state on the lifetime
+        // of its handle. A callback that throws is reported by the updater and called again on the next frame.
+        public static void RunPostUpdate(this IUpdater updater, IReadOnlyLifetime lifetime, Action<float> callback)
+        {
+            updater.Add(lifetime, new PostUpdatableAction(callback));
+        }
+
         // The actions run until the predicate fails; the end of the lifetime cancels them (OperationCanceledException).
 
         // Waits the time of the updater (the sum of its deltas: a paused updater does not move it).
