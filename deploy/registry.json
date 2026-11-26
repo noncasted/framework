@@ -211,9 +211,9 @@
       "note": "No Coolify project on either panel."
     },
     "post-radio": {
-      "framework": false,
+      "framework": true,
       "server": "firstvds",
-      "mode": "services",
+      "mode": "monolith",
       "namespace": "post-radio",
       "coolify": {
         "project": "tht1shjm1ll3ag1msacbsyuv",
@@ -221,7 +221,11 @@
         "environment": "production"
       },
       "repository": "noncasted/post-radio",
-      "branch": "main",
+      "branch": "deploy",
+      "compose": {
+        "services": "backend/Tools/deploy/docker-compose.yaml",
+        "monolith": "backend/Tools/deploy/docker-compose.monolith.yaml"
+      },
       "resources": [
         {
           "uuid": "mgo7n5r8ych8ssfb19gi4i29",
@@ -238,7 +242,6 @@
       "domains": {
         "meta": "https://meta.post-radio.ru",
         "console": "https://console.post-radio.ru",
-        "aspire": "https://aspire.post-radio.ru",
         "client": [
           "https://post-radio.ru",
           "https://post-radio.com",
@@ -246,7 +249,7 @@
           "https://www.post-radio.com"
         ]
       },
-      "note": "Not on the framework; extra compose services frontend and resource-service."
+      "note": "The Blazor frontend (the site) is a host of the monolith: post-radio.ru and the www / .com domains route to it."
     },
     "storytale": {
       "framework": false,

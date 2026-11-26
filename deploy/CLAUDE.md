@@ -11,7 +11,7 @@ domains, the deploy branch. Sessions and scripts (logs, deploy, `claude-coolify`
   `sudo -n docker`), panel (Coolify URL), `observability` (`logs` / `traces` read URLs on 127.0.0.1 of the host, `access:
   ssh-tunnel`: read through `ssh -L`, no tokens; `coolify`: project uuid, name, environment, `application` uuid of the stack,
   branch, GitHub App).
-- `projects.<repository name>`: `framework` (false for post-radio, storytale, nikita-botik), `server`, `mode` (`services` |
+- `projects.<repository name>`: `framework` (false for storytale, nikita-botik), `server`, `mode` (`services` |
   `monolith`), `namespace` (`service.namespace` of logs, = the key), `coolify` (project uuid, name, environment),
   `repository`, `branch`, optional `compose` (the compose file of each layout, `services` / `monolith`, in the deploy
   branch: `backend/measurements/tools/local.sh` runs them), `resources` (uuid, type application / service / database, role), `domains` by role, optional `note`.
