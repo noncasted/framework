@@ -5,11 +5,13 @@ using UnityEngine;
 namespace Global.FrameRate.Tests
 {
     // Which limit wins: ?fps= of the page, the fixed choice of the settings, the automatic rate on a phone, the rate of the
-    // screen on a desktop; and the decision of the automatic rate kept on the device for the next start.
+    // screen on a desktop; vSyncCount follows the choice (0 under a limit, 1 for the rate of the screen); and the decision of
+    // the automatic rate kept on the device for the next start.
     public class FrameRateLimitTests
     {
         private Lifetime _lifetime;
         private int _targetBefore;
+        private int _vSyncBefore;
         private FakeSetting _settings;
         private FakeAuto _auto;
 
@@ -18,6 +20,7 @@ namespace Global.FrameRate.Tests
         {
             _lifetime = new Lifetime();
             _targetBefore = Application.targetFrameRate;
+            _vSyncBefore = QualitySettings.vSyncCount;
             _settings = new FakeSetting();
             _auto = new FakeAuto();
         }
@@ -27,6 +30,7 @@ namespace Global.FrameRate.Tests
         {
             _lifetime.Terminate();
             Application.targetFrameRate = _targetBefore;
+            QualitySettings.vSyncCount = _vSyncBefore;
             PlatformOptions.SetMobileCheck(null);
             new AutoFrameRateMemory().Forget();
         }
@@ -38,17 +42,39 @@ namespace Global.FrameRate.Tests
 
             Assert.That(_auto.Runs, Is.EqualTo(1));
             Assert.That(Application.targetFrameRate, Is.EqualTo(60));
+            Assert.That(QualitySettings.vSyncCount, Is.EqualTo(FrameRateLimit.NoSync));
 
             _auto.Switch(30);
             Assert.That(Application.targetFrameRate, Is.EqualTo(30));
+            Assert.That(QualitySettings.vSyncCount, Is.EqualTo(FrameRateLimit.NoSync));
         }
 
         [Test]
         public void AutoOnADesktopIsTheRateOfTheScreen()
         {
+            QualitySettings.vSyncCount = FrameRateLimit.NoSync;
             Start(isMobile: false, request: null);
 
             Assert.That(_auto.Runs, Is.Zero);
+            Assert.That(Application.targetFrameRate, Is.EqualTo(FrameRateLimit.Native));
+            Assert.That(QualitySettings.vSyncCount, Is.EqualTo(FrameRateLimit.ScreenSync));
+        }
+
+        // A quality level with vSync (the usual default of a desktop level) must not hide a limit.
+        [TestCase(FrameRateMode.Low, 30)]
+        [TestCase(FrameRateMode.High, 60)]
+        public void AFixedChoiceTurnsVSyncOff(FrameRateMode mode, int expected)
+        {
+            QualitySettings.vSyncCount = FrameRateLimit.ScreenSync;
+            Start(isMobile: false, request: null);
+
+            _settings.Set(mode);
+
+            Assert.That(QualitySettings.vSyncCount, Is.EqualTo(FrameRateLimit.NoSync));
+            Assert.That(Application.targetFrameRate, Is.EqualTo(expected));
+
+            _settings.Set(FrameRateMode.Auto);
+            Assert.That(QualitySettings.vSyncCount, Is.EqualTo(FrameRateLimit.ScreenSync));
             Assert.That(Application.targetFrameRate, Is.EqualTo(FrameRateLimit.Native));
         }
 
@@ -81,6 +107,8 @@ namespace Global.FrameRate.Tests
 
             Assert.That(_auto.Runs, Is.Zero);
             Assert.That(Application.targetFrameRate, Is.EqualTo(request));
+            Assert.That(QualitySettings.vSyncCount,
+                Is.EqualTo(request == FrameRateLimit.Native ? FrameRateLimit.ScreenSync : FrameRateLimit.NoSync));
         }
 
         [Test]
