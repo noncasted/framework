@@ -33,6 +33,7 @@ A game stands on a release, not on a random commit, and gets the list of what to
 | [0.18.0](0.18.0.md) | 2026-11-25 | The analyzer dll in the backend images and deploy mirrors, `/ready` from the framework without health spans, the monolith runner throws the real reason of a stopped host; optional deploy on the observability stack and monolith recipe; one top-level type per file in the framework (FWR003) | Yes: `!tools/framework/client/core/Analyzers/Framework.Analyzers.dll` in `.dockerignore` and the deploy mirror, `TelemetryInstrumentation.ReadyEndpointPath` / `IsHealthCheck` |
 | [0.18.1](0.18.1.md) | 2026-11-25 | The skills without oh-my-pi: `audit-swarm` on Claude Code agents in the OpenCode Go profile (`clo`), `context_meter.py` finds the transcripts of that profile | No |
 | [0.18.2](0.18.2.md) | 2026-11-26 | The folder tree of a task: the fixed cells of a gameplay assembly in `GAMEPLAY_ARCHITECTURE.md`, `plan-architecture` asks to approve the tree, `orchestrate --architecture` starts no code before it | No |
+| [0.18.3](0.18.3.md) | 2026-11-26 | `framerate` owns `QualitySettings.vSyncCount` (a limit: vSync off, the rate of the screen: vSync 1); `IUpdater.RunPostUpdate`; mines-leader deploys on the monolith | No |
 
 ## Versions
 
