@@ -53,7 +53,7 @@
     "mines-leader": {
       "framework": true,
       "server": "ovh",
-      "mode": "services",
+      "mode": "monolith",
       "namespace": "mines-leader",
       "coolify": {
         "project": "xyrabeo4mc5g8y97v9oyo30p",
@@ -62,6 +62,10 @@
       },
       "repository": "noncasted/mines-leader",
       "branch": "deploy",
+      "compose": {
+        "services": "backend/Tools/deploy/docker-compose.yaml",
+        "monolith": "backend/Tools/deploy/docker-compose.monolith.yaml"
+      },
       "resources": [
         {
           "uuid": "f8yz0we2icjsm7edti3g9zp7",
@@ -84,7 +88,6 @@
         "meta": "https://meta.minesleader.xyz",
         "game": "https://game.minesleader.xyz",
         "console": "https://console.minesleader.xyz",
-        "aspire": "https://aspire.minesleader.xyz",
         "client": "https://minesleader.xyz"
       }
     },
