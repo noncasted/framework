@@ -34,6 +34,7 @@ A game stands on a release, not on a random commit, and gets the list of what to
 | [0.18.1](0.18.1.md) | 2026-11-25 | The skills without oh-my-pi: `audit-swarm` on Claude Code agents in the OpenCode Go profile (`clo`), `context_meter.py` finds the transcripts of that profile | No |
 | [0.18.2](0.18.2.md) | 2026-11-26 | The folder tree of a task: the fixed cells of a gameplay assembly in `GAMEPLAY_ARCHITECTURE.md`, `plan-architecture` asks to approve the tree, `orchestrate --architecture` starts no code before it | No |
 | [0.18.3](0.18.3.md) | 2026-11-26 | `framerate` owns `QualitySettings.vSyncCount` (a limit: vSync off, the rate of the screen: vSync 1); `IUpdater.RunPostUpdate`; mines-leader deploys on the monolith | No |
+| [0.18.4](0.18.4.md) | 2026-11-27 | Content: the link.xml of the bundles keeps the serialized classes of their data (`[SerializeReference]` types were stripped by IL2CPP) | No (rebuild the client) |
 
 ## Versions
 
