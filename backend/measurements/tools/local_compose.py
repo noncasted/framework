@@ -54,7 +54,7 @@ def required_variables(text):
 
 def env_values(names):
     """The database of the run and a throwaway value for every other required variable (64 hex digits: a secret
-    read as base64 still has the 32 bytes the game requires)."""
+    read as base64 still has the 32 bytes the game requires; a `*_UNTIL` is a date, a game parses it)."""
     values = dict(DATABASE, DB_PASSWORD=secrets.token_hex(16))
 
     for name in names:
@@ -64,6 +64,8 @@ def env_values(names):
             values[name] = "http://localhost:8080"
         elif name.endswith("ORIGINS"):
             values[name] = "http://localhost"
+        elif name.endswith("_UNTIL"):
+            values[name] = "2026-01-01T00:00:00Z"
         else:
             values[name] = secrets.token_hex(32)
 

@@ -64,12 +64,13 @@ class Variables(unittest.TestCase):
         self.assertEqual(["DB_USER", "OTEL_API_KEY"], local_compose.required_variables(text))
 
     def test_the_database_of_the_run_and_throwaway_values(self):
-        values = local_compose.env_values(["DB_HOST", "GAME_SERVER_URL", "CORS_ALLOWED_ORIGINS", "A", "B"])
+        values = local_compose.env_values(["DB_HOST", "GAME_SERVER_URL", "CORS_ALLOWED_ORIGINS", "GUEST_LOGIN_UNTIL", "A", "B"])
 
         self.assertEqual("postgres", values["DB_HOST"])
         self.assertEqual("measurements", values["DB_USER"])
         self.assertEqual("http://localhost:8080", values["GAME_SERVER_URL"])
         self.assertEqual("http://localhost", values["CORS_ALLOWED_ORIGINS"])
+        self.assertEqual("2026-01-01T00:00:00Z", values["GUEST_LOGIN_UNTIL"])
         self.assertEqual(64, len(values["A"]))
         self.assertNotEqual(values["A"], values["B"])
         self.assertNotEqual(values["A"], values["DB_PASSWORD"])

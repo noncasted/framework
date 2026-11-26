@@ -170,7 +170,7 @@
     "peace-data-reborn": {
       "framework": true,
       "server": "firstvds",
-      "mode": "services",
+      "mode": "monolith",
       "namespace": "peace-data-reborn",
       "coolify": {
         "project": "p99w9qffp037c2jk1bpaa4ps",
@@ -179,6 +179,10 @@
       },
       "repository": "noncasted/peace-data-reborn",
       "branch": "deploy",
+      "compose": {
+        "services": "backend/Tools/deploy/docker-compose.yaml",
+        "monolith": "backend/Tools/deploy/docker-compose.monolith.yaml"
+      },
       "resources": [
         {
           "uuid": "cbudjie2nufc2a2o0r3lvjs7",
